@@ -6,17 +6,17 @@ import { RobotSensorCard } from "@/components/robot/sensor-card";
 import { MapVisualization } from "@/components/ui/map";
 import { RobotControls } from "@/components/ui/robot-controls";
 import { useRobot } from "@/providers/robot-provider";
-import { useAuth } from "@/providers/auth-provider";
+import { useAuth } from "@/hooks/use-auth";
 import { refreshAllData } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const { setRobotData } = useRobot();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (user) {
       const fetchData = async () => {
         try {
           const [status, position, sensorData, mapData] = await refreshAllData();
@@ -37,7 +37,7 @@ export default function Dashboard() {
 
       return () => clearInterval(intervalId);
     }
-  }, [isAuthenticated, setRobotData, toast]);
+  }, [user, setRobotData, toast]);
 
   return (
     <>

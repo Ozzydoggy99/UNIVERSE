@@ -1,20 +1,20 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Wifi, WifiOff } from "lucide-react";
-import { useAuth } from "@/providers/auth-provider";
+import { useAuth } from "@/hooks/use-auth";
 import { useRobot } from "@/providers/robot-provider";
 import { formatDistance } from "date-fns";
 
 export function ConnectionStatus() {
-  const { isAuthenticated, apiEndpoint } = useAuth();
+  const { user } = useAuth();
   const { lastUpdated } = useRobot();
   
   const lastUpdateText = lastUpdated 
     ? formatDistance(lastUpdated, new Date(), { addSuffix: true })
     : "Never";
 
-  const connectionStatus = isAuthenticated ? "Connected" : "Disconnected";
-  const statusColor = isAuthenticated ? "text-success" : "text-destructive";
-  const StatusIcon = isAuthenticated ? Wifi : WifiOff;
+  const connectionStatus = user ? "Connected" : "Disconnected";
+  const statusColor = user ? "text-success" : "text-destructive";
+  const StatusIcon = user ? Wifi : WifiOff;
   
   return (
     <Card className="mb-4">
