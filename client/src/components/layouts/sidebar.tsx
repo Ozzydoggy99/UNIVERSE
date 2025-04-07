@@ -18,17 +18,22 @@ export default function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  const navItems = [
+  // Base navigation items for all users
+  const baseNavItems = [
     { href: "/", label: "Dashboard", icon: <PanelsTopLeft className="mr-3 h-5 w-5" /> },
     { href: "/control-panel", label: "Control Panel", icon: <Laptop className="mr-3 h-5 w-5" /> },
     { href: "/sensor-data", label: "Sensor Data", icon: <Gauge className="mr-3 h-5 w-5" /> },
     { href: "/navigation", label: "Navigation", icon: <Map className="mr-3 h-5 w-5" /> },
     { href: "/history", label: "History", icon: <History className="mr-3 h-5 w-5" /> },
-    { href: "/my-template", label: "My Template", icon: <Palette className="mr-3 h-5 w-5" /> },
     { href: "/settings", label: "Settings", icon: <Settings className="mr-3 h-5 w-5" /> },
   ];
+  
+  // Add My Template for non-admin users
+  const navItems = user?.role === 'admin' 
+    ? baseNavItems 
+    : [...baseNavItems, { href: "/my-template", label: "My Template", icon: <Palette className="mr-3 h-5 w-5" /> }];
 
-  // Add Template Manager link for admins only
+  // Admin-specific navigation items
   const adminNavItems = user?.role === 'admin' ? [
     { href: "/templates", label: "Template Manager", icon: <LayoutTemplate className="mr-3 h-5 w-5" /> }
   ] : [];
