@@ -2,7 +2,9 @@ import React from 'react';
 import { useLocation, useParams } from 'wouter';
 import { User } from '@shared/schema';
 import { useAuth } from '@/hooks/use-auth';
-import { LogOut } from 'lucide-react';
+import { LogOut, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 interface UnitBoxesProps {
   user: User | null;
@@ -19,7 +21,7 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
   const serviceType = pathSegments[1] as 'laundry' | 'trash';
   const actionType = pathSegments[2] as 'pickup' | 'dropoff';
   
-  const [activeBox, setActiveBox] = React.useState<number | null>(null);
+  const [selectedBox, setSelectedBox] = React.useState<number | null>(null);
   const [lastActivated, setLastActivated] = React.useState<number | null>(null);
   
   // Fetch template settings to get custom unit configuration
@@ -70,18 +72,37 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
   
   // Handle unit box click
   const handleBoxClick = (unitNumber: number) => {
-    setActiveBox(unitNumber);
+    setSelectedBox(unitNumber === selectedBox ? null : unitNumber);
     setLastActivated(unitNumber);
-    
-    // Reset active state after 1 second
-    setTimeout(() => {
-      setActiveBox(null);
-    }, 1000);
   };
   
   // Return to the floor selection page
   const handleBackClick = () => {
     navigate(`/${serviceType}/${actionType}/numbers`);
+  };
+  
+  // Handle confirmation button click
+  const handleConfirm = () => {
+    if (selectedBox) {
+      // Show success message
+      toast({
+        title: "Success!",
+        description: `${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} ${actionType} confirmed for Unit ${selectedBox}`,
+        variant: "default",
+      });
+      
+      // Navigate back to main template after a short delay
+      setTimeout(() => {
+        navigate('/my-template');
+      }, 1500);
+    } else {
+      // Show error message if no box is selected
+      toast({
+        title: "Please select a unit",
+        description: "You need to select a unit before confirming",
+        variant: "destructive",
+      });
+    }
   };
   
   // Format the title based on service type and action
@@ -118,34 +139,55 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
       <div className="pt-16 pb-8">
         <h1 className="text-2xl font-bold text-center mb-4">{getTitle()}</h1>
         
-        {lastActivated && (
-          <div className="text-center mb-6 bg-white p-3 rounded-lg shadow-sm max-w-sm mx-auto">
+        {selectedBox && (
+          <div className="text-center mb-6 bg-white p-3 rounded-lg shadow-sm max-w-sm mx-auto border-2 border-green-500">
             <p className="text-lg">
-              Unit <span className="font-bold">{lastActivated}</span> activated
+              Unit <span className="font-bold text-green-600">{selectedBox}</span> selected
             </p>
           </div>
         )}
         
-        <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto">
+        <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto mb-8">
           {Array.from({ length: unitsPerFloor }).map((_, index) => {
             const unitNumber = baseUnitNumber + index;
+            const isSelected = selectedBox === unitNumber;
             return (
               <button
                 key={unitNumber}
                 className={`aspect-square rounded-lg relative flex items-center justify-center 
                          shadow-md hover:shadow-lg transform transition-all
-                         bg-black text-white border border-gray-700 overflow-hidden
-                         ${activeBox === unitNumber ? 'scale-95 brightness-90' : 'hover:translate-y-[-2px]'}`}
+                         overflow-hidden
+                         ${isSelected 
+                            ? 'bg-green-500 text-white border-2 border-green-700 scale-100' 
+                            : 'bg-black text-white border border-gray-700 hover:translate-y-[-2px]'}`}
                 onClick={() => handleBoxClick(unitNumber)}
               >
                 <div className="absolute inset-0 border border-white/10 rounded-lg pointer-events-none"></div>
-                <div className="font-bold text-2xl tracking-wide px-4 py-2 bg-white/10 rounded-md shadow-inner border border-white/10">
+                <div className={`font-bold text-2xl tracking-wide px-4 py-2 rounded-md shadow-inner border border-white/10
+                               ${isSelected ? 'bg-green-600' : 'bg-white/10'}`}>
                   {unitNumber}
                 </div>
+                {isSelected && (
+                  <div className="absolute top-2 right-2">
+                    <CheckCircle className="h-6 w-6 text-white drop-shadow-md" />
+                  </div>
+                )}
                 <div className="absolute bottom-0 left-0 right-0 h-1/5 bg-gradient-to-t from-white/10 to-transparent"></div>
               </button>
             );
           })}
+        </div>
+        
+        {/* Confirm Button */}
+        <div className="max-w-xl mx-auto mt-6">
+          <Button 
+            className={`w-full py-6 text-lg font-semibold ${selectedBox ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400'}`}
+            onClick={handleConfirm}
+            disabled={!selectedBox}
+          >
+            <CheckCircle className="h-5 w-5 mr-2" />
+            Confirm Selection
+          </Button>
         </div>
       </div>
     </div>
