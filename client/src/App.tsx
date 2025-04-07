@@ -14,6 +14,7 @@ import AdminTemplates from "@/pages/admin-templates";
 import NumberedBoxes from "@/pages/numbered-boxes";
 import LaundryBoxes from "@/pages/laundry-boxes";
 import TrashBoxes from "@/pages/trash-boxes";
+import PickupDropoffPage from "@/pages/pickup-dropoff-page";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -170,6 +171,7 @@ function Router() {
         )} 
       />
       
+      {/* First Level UI Pages */}
       <ProtectedRoute 
         path="/laundry-boxes" 
         component={({ user }) => (
@@ -184,6 +186,62 @@ function Router() {
         component={({ user }) => (
           <div className="h-full min-h-screen">
             <TrashBoxes user={user} />
+          </div>
+        )} 
+      />
+
+      {/* Pickup/Dropoff Pages */}
+      <ProtectedRoute 
+        path="/laundry/pickup-dropoff" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <PickupDropoffPage user={user} type="laundry" />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/trash/pickup-dropoff" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <PickupDropoffPage user={user} type="trash" />
+          </div>
+        )} 
+      />
+
+      {/* Service-specific Numbered Box Pages */}
+      <ProtectedRoute 
+        path="/laundry/pickup/numbers" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <NumberedBoxes user={user} serviceType="laundry" actionType="pickup" />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/laundry/dropoff/numbers" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <NumberedBoxes user={user} serviceType="laundry" actionType="dropoff" />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/trash/pickup/numbers" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <NumberedBoxes user={user} serviceType="trash" actionType="pickup" />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/trash/dropoff/numbers" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <NumberedBoxes user={user} serviceType="trash" actionType="dropoff" />
           </div>
         )} 
       />

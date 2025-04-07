@@ -122,9 +122,9 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
             }}
             onClick={() => {
               if (component.icon === 'laundry') {
-                navigate('/laundry-boxes');
+                navigate('/laundry/pickup-dropoff');
               } else if (component.icon === 'trash') {
-                navigate('/trash-boxes');
+                navigate('/trash/pickup-dropoff');
               } else {
                 navigate('/numbered-boxes');
               }

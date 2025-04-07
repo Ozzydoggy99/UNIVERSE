@@ -21,16 +21,28 @@ const BOX_COLORS = {
 
 interface NumberedBoxesProps {
   user: User | null;
+  serviceType?: 'laundry' | 'trash';
+  actionType?: 'pickup' | 'dropoff';
 }
 
-export default function NumberedBoxes({ user }: NumberedBoxesProps) {
+export default function NumberedBoxes({ user, serviceType, actionType }: NumberedBoxesProps) {
   const { logoutMutation } = useAuth();
   const [, navigate] = useLocation();
   const [activeBox, setActiveBox] = React.useState<number | null>(null);
   const [lastActivated, setLastActivated] = React.useState<number | null>(null);
   
-  // Determine how many boxes to show based on user's template
-  const totalBoxes = user?.templateId === 1 ? 6 : 10;
+  // Determine how many boxes to show based on user's template and service type
+  let totalBoxes = user?.templateId === 1 ? 6 : 10;
+  
+  // For Template 1, show 6 floors for laundry and 10 for trash
+  if (user?.templateId === 1 && serviceType) {
+    totalBoxes = serviceType === 'laundry' ? 6 : 10;
+  }
+  
+  // For Template 2, show 10 floors for both
+  if (user?.templateId === 2) {
+    totalBoxes = 10;
+  }
   
   // Handle box click to show active state
   const handleBoxClick = (boxNumber: number) => {
@@ -43,9 +55,25 @@ export default function NumberedBoxes({ user }: NumberedBoxesProps) {
     }, 1000);
   };
   
-  // Return to the main template page
+  // Return to the appropriate page based on serviceType and actionType
   const handleBackClick = () => {
-    navigate('/my-template');
+    if (serviceType && actionType) {
+      navigate(`/${serviceType}/pickup-dropoff`);
+    } else if (serviceType) {
+      navigate('/my-template');
+    } else {
+      navigate('/my-template');
+    }
+  };
+  
+  // Determine the page title based on serviceType and actionType
+  const getPageTitle = () => {
+    if (!serviceType || !actionType) return "Control Buttons";
+    
+    const service = serviceType.charAt(0).toUpperCase() + serviceType.slice(1);
+    const action = actionType.charAt(0).toUpperCase() + actionType.slice(1);
+    
+    return `${service} ${action} - Select Floor`;
   };
   
   return (
@@ -69,11 +97,11 @@ export default function NumberedBoxes({ user }: NumberedBoxesProps) {
         className="absolute top-4 left-16 ml-6 text-sm text-gray-700 hover:underline"
         onClick={handleBackClick}
       >
-        ← Back to Main
+        ← Back
       </button>
       
       <div className="pt-16 pb-8">
-        <h1 className="text-2xl font-bold text-center mb-4">Control Buttons</h1>
+        <h1 className="text-2xl font-bold text-center mb-4">{getPageTitle()}</h1>
         
         {lastActivated && (
           <div className="text-center mb-6 bg-white p-3 rounded-lg shadow-sm max-w-sm mx-auto">

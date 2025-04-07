@@ -46,6 +46,11 @@ export default function LaundryBoxes({ user }: LaundryBoxesProps) {
   const [activeBox, setActiveBox] = React.useState<number | null>(null);
   const [lastActivated, setLastActivated] = React.useState<number | null>(null);
   
+  // Redirect to pickup/dropoff page on initial mount
+  React.useEffect(() => {
+    navigate('/laundry/pickup-dropoff');
+  }, []);
+  
   // Determine how many boxes to show based on user's template and the floors setting
   const [numFloors, setNumFloors] = React.useState<number>(1);
   
