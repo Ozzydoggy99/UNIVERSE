@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Redirect, useLocation, Link } from 'wouter';
 import { Loader2, LayoutTemplate, ArrowLeft, Users, Trash, ShowerHead, UserPlus, Save } from 'lucide-react';
+import { UnitBoxConfig } from '@/components/templates/unit-box-config';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,12 +29,20 @@ export default function TemplateDetail() {
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [unsavedFloors, setUnsavedFloors] = useState<Record<number, string | number>>({});
   const [globalFloors, setGlobalFloors] = useState<number>(1);
+  
+  // Unit box configuration state
+  const [unsavedUnitConfig, setUnsavedUnitConfig] = useState<Record<number, {
+    unitsPerFloor?: string | number;
+    unitStartNumber?: string | number;
+  }>>({});
   interface TemplateComponent {
     type: string;
     icon: string;
     label: string;
     color: string;
     floors: number;
+    unitsPerFloor?: number;
+    unitStartNumber?: number;
   }
   
   interface TemplateConfig {
@@ -283,6 +292,86 @@ export default function TemplateDetail() {
         layout: JSON.stringify(updatedConfig)
       }
     });
+  };
+  
+  // Function to store and validate unit box configuration changes
+  const storeUnitConfig = (index: number, field: 'unitsPerFloor' | 'unitStartNumber', value: string) => {
+    if (!template) return;
+    
+    const currentConfig = unsavedUnitConfig[index] ? { ...unsavedUnitConfig[index] } : {};
+    
+    if (value === '') {
+      // Allow empty value for typing purposes
+      currentConfig[field] = '';
+    } else {
+      // Convert to number and validate
+      const numValue = parseInt(value);
+      if (!isNaN(numValue)) {
+        // Different validation rules based on field type
+        if (field === 'unitsPerFloor') {
+          // Units per floor: 1-20
+          currentConfig[field] = Math.max(1, Math.min(20, numValue));
+        } else if (field === 'unitStartNumber') {
+          // Unit start number: 1-99
+          currentConfig[field] = Math.max(1, Math.min(99, numValue));
+        }
+      }
+    }
+    
+    setUnsavedUnitConfig({
+      ...unsavedUnitConfig,
+      [index]: currentConfig
+    });
+  };
+  
+  // Function to save all unit box configuration changes
+  const saveUnitConfigChanges = () => {
+    if (!template || Object.keys(unsavedUnitConfig).length === 0) return;
+    
+    const updatedConfig = { ...templateConfig };
+    
+    // Apply all unsaved unit configuration changes
+    Object.entries(unsavedUnitConfig).forEach(([indexStr, config]) => {
+      const index = parseInt(indexStr);
+      if (updatedConfig.components[index]) {
+        const currentComponent = { ...updatedConfig.components[index] };
+        
+        // Process unitsPerFloor field
+        if (config.unitsPerFloor !== undefined) {
+          let unitsValue = 10; // Default value
+          if (typeof config.unitsPerFloor === 'string') {
+            unitsValue = config.unitsPerFloor === '' ? 10 : parseInt(config.unitsPerFloor) || 10;
+          } else {
+            unitsValue = config.unitsPerFloor as number;
+          }
+          currentComponent.unitsPerFloor = Math.max(1, Math.min(20, unitsValue));
+        }
+        
+        // Process unitStartNumber field
+        if (config.unitStartNumber !== undefined) {
+          let startValue = 1; // Default value
+          if (typeof config.unitStartNumber === 'string') {
+            startValue = config.unitStartNumber === '' ? 1 : parseInt(config.unitStartNumber) || 1;
+          } else {
+            startValue = config.unitStartNumber as number;
+          }
+          currentComponent.unitStartNumber = Math.max(1, Math.min(99, startValue));
+        }
+        
+        updatedConfig.components[index] = currentComponent;
+      }
+    });
+    
+    // Update the template with the new layout
+    updateTemplateMutation.mutate({
+      id: template.id,
+      updates: {
+        layout: JSON.stringify(updatedConfig)
+      }
+    });
+    
+    // Clear unsaved unit configs after successful update
+    setUnsavedUnitConfig({});
   };
   
   // Function to create a new user
@@ -566,6 +655,20 @@ export default function TemplateDetail() {
                   )}
                 </div>
               </Card>
+              
+              {/* Add the Unit Box Configuration component */}
+              <UnitBoxConfig 
+                templateConfig={templateConfig} 
+                onSaveUnitConfig={(updatedConfig) => {
+                  if (!template) return;
+                  updateTemplateMutation.mutate({
+                    id: template.id,
+                    updates: {
+                      layout: JSON.stringify(updatedConfig)
+                    }
+                  });
+                }} 
+              />
             </div>
           </div>
         )}

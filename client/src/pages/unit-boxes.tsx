@@ -22,11 +22,51 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
   const [activeBox, setActiveBox] = React.useState<number | null>(null);
   const [lastActivated, setLastActivated] = React.useState<number | null>(null);
   
-  // Determine number of units per floor (typically 10)
-  const unitsPerFloor = 10;
+  // Fetch template settings to get custom unit configuration
+  const [unitsPerFloor, setUnitsPerFloor] = React.useState(10);
+  const [unitStartNumber, setUnitStartNumber] = React.useState(1);
   
-  // Calculate the base unit number for this floor (e.g., floor 1 starts with 101, floor 2 with 201)
-  const baseUnitNumber = floorNumber * 100 + 1;
+  // Fetch template data to get custom unit settings
+  React.useEffect(() => {
+    if (user?.templateId) {
+      const fetchTemplateSettings = async () => {
+        try {
+          const response = await fetch(`/api/templates/${user.templateId}`);
+          if (response.ok) {
+            const templateData = await response.json();
+            if (templateData && templateData.layout) {
+              const layout = JSON.parse(templateData.layout);
+              
+              // Find the service component (laundry/trash)
+              const serviceComponent = layout.components.find((comp: any) => 
+                comp.type === 'rectangle' && comp.icon === serviceType
+              );
+              
+              if (serviceComponent) {
+                // Check for custom unit settings
+                if (serviceComponent.unitsPerFloor) {
+                  setUnitsPerFloor(Math.min(Math.max(1, serviceComponent.unitsPerFloor), 20));
+                }
+                
+                if (serviceComponent.unitStartNumber) {
+                  setUnitStartNumber(serviceComponent.unitStartNumber);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch template settings:", error);
+        }
+      };
+      
+      fetchTemplateSettings();
+    }
+  }, [user?.templateId, serviceType]);
+  
+  // Calculate the base unit number for this floor
+  // If unitStartNumber is 1 (default), we get 101, 201, etc.
+  // If unitStartNumber is custom (e.g., 50), we get 150, 250, etc.
+  const baseUnitNumber = floorNumber * 100 + unitStartNumber;
   
   // Handle unit box click
   const handleBoxClick = (unitNumber: number) => {
