@@ -16,6 +16,7 @@ import LaundryBoxes from "@/pages/laundry-boxes";
 import TrashBoxes from "@/pages/trash-boxes";
 import PickupDropoffPage from "@/pages/pickup-dropoff-page";
 import UnitBoxes from "@/pages/unit-boxes";
+import Game from "@/pages/game";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -282,6 +283,12 @@ function Router() {
             <UnitBoxes user={user} />
           </div>
         )} 
+      />
+      
+      {/* Game */}
+      <ProtectedRoute 
+        path="/game" 
+        component={Game} 
       />
       
       <Route component={NotFound} />

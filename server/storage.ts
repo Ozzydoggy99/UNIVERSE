@@ -5,6 +5,9 @@ import {
   sensorReadings, 
   positionHistory,
   uiTemplates,
+  gamePlayers,
+  gameItems,
+  gameZombies,
   type User, 
   type InsertUser, 
   type ApiConfig, 
@@ -12,7 +15,13 @@ import {
   type SensorReading, 
   type PositionHistory,
   type UITemplate,
-  type InsertUITemplate
+  type InsertUITemplate,
+  type GamePlayer,
+  type InsertGamePlayer,
+  type GameItem,
+  type InsertGameItem,
+  type GameZombie,
+  type InsertGameZombie
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -47,6 +56,25 @@ export interface IStorage {
   // Position methods
   saveRobotPosition(position: any): Promise<void>;
   getPositionHistory(robotId?: string, limit?: number): Promise<PositionHistory[]>;
+  
+  // Game Player methods
+  createGamePlayer(player: InsertGamePlayer): Promise<GamePlayer>;
+  getGamePlayer(id: number): Promise<GamePlayer | undefined>;
+  getGamePlayerByUserId(userId: number): Promise<GamePlayer | undefined>;
+  updateGamePlayer(id: number, updates: Partial<GamePlayer>): Promise<GamePlayer | undefined>;
+  getAllGamePlayers(): Promise<GamePlayer[]>;
+  
+  // Game Item methods
+  createGameItem(item: InsertGameItem): Promise<GameItem>;
+  getGameItem(id: number): Promise<GameItem | undefined>;
+  getAllGameItems(): Promise<GameItem[]>;
+  
+  // Game Zombie methods
+  createGameZombie(zombie: InsertGameZombie): Promise<GameZombie>;
+  getGameZombie(id: number): Promise<GameZombie | undefined>;
+  updateGameZombie(id: number, updates: Partial<GameZombie>): Promise<GameZombie | undefined>;
+  getAllGameZombies(): Promise<GameZombie[]>;
+  removeGameZombie(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -56,6 +84,9 @@ export class MemStorage implements IStorage {
   private robotStatusHistory: RobotStatusHistory[];
   private sensorReadings: SensorReading[];
   private positionHistory: PositionHistory[];
+  private gamePlayers: Map<number, GamePlayer>;
+  private gameItems: Map<number, GameItem>;
+  private gameZombies: Map<number, GameZombie>;
   
   currentId: number;
   currentApiConfigId: number;
@@ -63,6 +94,9 @@ export class MemStorage implements IStorage {
   currentStatusHistoryId: number;
   currentSensorReadingId: number;
   currentPositionHistoryId: number;
+  currentGamePlayerId: number;
+  currentGameItemId: number;
+  currentGameZombieId: number;
 
   constructor() {
     this.users = new Map();
@@ -71,6 +105,9 @@ export class MemStorage implements IStorage {
     this.robotStatusHistory = [];
     this.sensorReadings = [];
     this.positionHistory = [];
+    this.gamePlayers = new Map();
+    this.gameItems = new Map();
+    this.gameZombies = new Map();
     
     this.currentId = 1;
     this.currentApiConfigId = 1;
@@ -78,6 +115,9 @@ export class MemStorage implements IStorage {
     this.currentStatusHistoryId = 1;
     this.currentSensorReadingId = 1;
     this.currentPositionHistoryId = 1;
+    this.currentGamePlayerId = 1;
+    this.currentGameItemId = 1;
+    this.currentGameZombieId = 1;
   }
 
   // User methods
@@ -269,6 +309,87 @@ export class MemStorage implements IStorage {
     result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     
     return result.slice(0, limit);
+  }
+  
+  // Game Player methods
+  async createGamePlayer(player: InsertGamePlayer): Promise<GamePlayer> {
+    const id = this.currentGamePlayerId++;
+    const newPlayer: GamePlayer = { 
+      ...player, 
+      id, 
+      createdAt: new Date(), 
+      lastActive: new Date() 
+    };
+    this.gamePlayers.set(id, newPlayer);
+    return newPlayer;
+  }
+  
+  async getGamePlayer(id: number): Promise<GamePlayer | undefined> {
+    return this.gamePlayers.get(id);
+  }
+  
+  async getGamePlayerByUserId(userId: number): Promise<GamePlayer | undefined> {
+    return Array.from(this.gamePlayers.values()).find(
+      (player) => player.userId === userId
+    );
+  }
+  
+  async updateGamePlayer(id: number, updates: Partial<GamePlayer>): Promise<GamePlayer | undefined> {
+    const player = this.gamePlayers.get(id);
+    if (!player) return undefined;
+    
+    const updatedPlayer = { ...player, ...updates, lastActive: new Date() };
+    this.gamePlayers.set(id, updatedPlayer);
+    return updatedPlayer;
+  }
+  
+  async getAllGamePlayers(): Promise<GamePlayer[]> {
+    return Array.from(this.gamePlayers.values());
+  }
+  
+  // Game Item methods
+  async createGameItem(item: InsertGameItem): Promise<GameItem> {
+    const id = this.currentGameItemId++;
+    const newItem: GameItem = { ...item, id };
+    this.gameItems.set(id, newItem);
+    return newItem;
+  }
+  
+  async getGameItem(id: number): Promise<GameItem | undefined> {
+    return this.gameItems.get(id);
+  }
+  
+  async getAllGameItems(): Promise<GameItem[]> {
+    return Array.from(this.gameItems.values());
+  }
+  
+  // Game Zombie methods
+  async createGameZombie(zombie: InsertGameZombie): Promise<GameZombie> {
+    const id = this.currentGameZombieId++;
+    const newZombie: GameZombie = { ...zombie, id, spawnTime: new Date() };
+    this.gameZombies.set(id, newZombie);
+    return newZombie;
+  }
+  
+  async getGameZombie(id: number): Promise<GameZombie | undefined> {
+    return this.gameZombies.get(id);
+  }
+  
+  async updateGameZombie(id: number, updates: Partial<GameZombie>): Promise<GameZombie | undefined> {
+    const zombie = this.gameZombies.get(id);
+    if (!zombie) return undefined;
+    
+    const updatedZombie = { ...zombie, ...updates };
+    this.gameZombies.set(id, updatedZombie);
+    return updatedZombie;
+  }
+  
+  async getAllGameZombies(): Promise<GameZombie[]> {
+    return Array.from(this.gameZombies.values());
+  }
+  
+  async removeGameZombie(id: number): Promise<boolean> {
+    return this.gameZombies.delete(id);
   }
 }
 

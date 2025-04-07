@@ -24,3 +24,8 @@ const Slider = React.forwardRef<
 Slider.displayName = SliderPrimitive.Root.displayName
 
 export { Slider }
+
+// Create a demo component for the Slider
+export function SliderDemo(props: React.ComponentPropsWithoutRef<typeof Slider>) {
+  return <Slider {...props} />;
+}

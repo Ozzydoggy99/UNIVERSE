@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import axios from "axios";
 import dotenv from "dotenv";
 import { setupAuth } from "./auth";
-import { User } from "@shared/schema";
+import { User, InsertGamePlayer, InsertGameItem, InsertGameZombie } from "@shared/schema";
+import { WebSocketServer } from "ws";
 
 dotenv.config();
 
@@ -633,7 +634,356 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Game API Endpoints
+
+  // Game Players
+  app.get("/api/game/players", async (req, res) => {
+    try {
+      const players = await storage.getAllGamePlayers();
+      return res.json(players);
+    } catch (error) {
+      console.error("Error fetching game players:", error);
+      return res.status(500).json({ message: "Error fetching game players" });
+    }
+  });
+
+  app.get("/api/game/players/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const player = await storage.getGamePlayer(id);
+      
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      return res.json(player);
+    } catch (error) {
+      console.error("Error fetching game player:", error);
+      return res.status(500).json({ message: "Error fetching game player" });
+    }
+  });
+
+  app.post("/api/game/players", async (req, res) => {
+    try {
+      const playerData: InsertGamePlayer = req.body;
+      
+      if (!playerData.userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+      
+      const newPlayer = await storage.createGamePlayer(playerData);
+      return res.status(201).json(newPlayer);
+    } catch (error) {
+      console.error("Error creating game player:", error);
+      return res.status(500).json({ message: "Error creating game player" });
+    }
+  });
+
+  app.put("/api/game/players/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const player = await storage.updateGamePlayer(id, updates);
+      
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      return res.json(player);
+    } catch (error) {
+      console.error("Error updating game player:", error);
+      return res.status(500).json({ message: "Error updating game player" });
+    }
+  });
+
+  // Game Items
+  app.get("/api/game/items", async (req, res) => {
+    try {
+      const items = await storage.getAllGameItems();
+      return res.json(items);
+    } catch (error) {
+      console.error("Error fetching game items:", error);
+      return res.status(500).json({ message: "Error fetching game items" });
+    }
+  });
+
+  app.get("/api/game/items/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const item = await storage.getGameItem(id);
+      
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      return res.json(item);
+    } catch (error) {
+      console.error("Error fetching game item:", error);
+      return res.status(500).json({ message: "Error fetching game item" });
+    }
+  });
+
+  app.post("/api/game/items", async (req, res) => {
+    try {
+      const itemData: InsertGameItem = req.body;
+      
+      if (!itemData.name || !itemData.type) {
+        return res.status(400).json({ message: "Name and type are required for items" });
+      }
+      
+      const newItem = await storage.createGameItem(itemData);
+      return res.status(201).json(newItem);
+    } catch (error) {
+      console.error("Error creating game item:", error);
+      return res.status(500).json({ message: "Error creating game item" });
+    }
+  });
+
+  // Game Zombies
+  app.get("/api/game/zombies", async (req, res) => {
+    try {
+      const zombies = await storage.getAllGameZombies();
+      return res.json(zombies);
+    } catch (error) {
+      console.error("Error fetching game zombies:", error);
+      return res.status(500).json({ message: "Error fetching game zombies" });
+    }
+  });
+
+  app.get("/api/game/zombies/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const zombie = await storage.getGameZombie(id);
+      
+      if (!zombie) {
+        return res.status(404).json({ message: "Zombie not found" });
+      }
+      
+      return res.json(zombie);
+    } catch (error) {
+      console.error("Error fetching game zombie:", error);
+      return res.status(500).json({ message: "Error fetching game zombie" });
+    }
+  });
+
+  app.post("/api/game/zombies", async (req, res) => {
+    try {
+      const zombieData: InsertGameZombie = req.body;
+      
+      if (zombieData.x === undefined || zombieData.y === undefined) {
+        return res.status(400).json({ message: "Zombie position (x, y) is required" });
+      }
+      
+      const newZombie = await storage.createGameZombie(zombieData);
+      return res.status(201).json(newZombie);
+    } catch (error) {
+      console.error("Error creating game zombie:", error);
+      return res.status(500).json({ message: "Error creating game zombie" });
+    }
+  });
+
+  app.put("/api/game/zombies/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const zombie = await storage.updateGameZombie(id, updates);
+      
+      if (!zombie) {
+        return res.status(404).json({ message: "Zombie not found" });
+      }
+      
+      return res.json(zombie);
+    } catch (error) {
+      console.error("Error updating game zombie:", error);
+      return res.status(500).json({ message: "Error updating game zombie" });
+    }
+  });
+
+  app.delete("/api/game/zombies/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const success = await storage.removeGameZombie(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Zombie not found" });
+      }
+      
+      return res.json({ message: "Zombie removed successfully" });
+    } catch (error) {
+      console.error("Error removing game zombie:", error);
+      return res.status(500).json({ message: "Error removing game zombie" });
+    }
+  });
+
+  // Create an HTTP server and WebSocket server
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server for real-time game updates with a specific path
+  // Using a specific path to avoid conflicts with Vite's WebSocket server
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/ws/game'
+  });
+  
+  wss.on('connection', (ws) => {
+    console.log('New WebSocket game client connected');
+    
+    // Send initial game state
+    const sendGameState = async () => {
+      try {
+        const players = await storage.getAllGamePlayers();
+        const zombies = await storage.getAllGameZombies();
+        const items = await storage.getAllGameItems();
+        
+        const gameState = {
+          type: 'game_state',
+          data: {
+            players,
+            zombies,
+            items
+          }
+        };
+        
+        ws.send(JSON.stringify(gameState));
+      } catch (error) {
+        console.error('Error sending game state:', error);
+      }
+    };
+    
+    // Send initial state
+    sendGameState();
+    
+    // Handle incoming messages
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        if (data.type === 'player_update') {
+          // Update player position
+          if (data.playerId && (data.x !== undefined || data.y !== undefined)) {
+            const player = await storage.getGamePlayer(data.playerId);
+            
+            if (player) {
+              const updates: any = {};
+              
+              if (data.x !== undefined) updates.x = data.x;
+              if (data.y !== undefined) updates.y = data.y;
+              if (data.direction !== undefined) updates.direction = data.direction;
+              if (data.health !== undefined) updates.health = data.health;
+              
+              const updatedPlayer = await storage.updateGamePlayer(data.playerId, updates);
+              
+              // Broadcast the update to all clients
+              wss.clients.forEach((client) => {
+                if (client.readyState === 1) { // WebSocket.OPEN
+                  client.send(JSON.stringify({
+                    type: 'player_updated',
+                    data: updatedPlayer
+                  }));
+                }
+              });
+            }
+          }
+        } else if (data.type === 'zombie_update') {
+          // Update zombie position
+          if (data.zombieId && (data.x !== undefined || data.y !== undefined)) {
+            const zombie = await storage.getGameZombie(data.zombieId);
+            
+            if (zombie) {
+              const updates: any = {};
+              
+              if (data.x !== undefined) updates.x = data.x;
+              if (data.y !== undefined) updates.y = data.y;
+              if (data.health !== undefined) updates.health = data.health;
+              
+              const updatedZombie = await storage.updateGameZombie(data.zombieId, updates);
+              
+              // Broadcast the update to all clients
+              wss.clients.forEach((client) => {
+                if (client.readyState === 1) { // WebSocket.OPEN
+                  client.send(JSON.stringify({
+                    type: 'zombie_updated',
+                    data: updatedZombie
+                  }));
+                }
+              });
+            }
+          }
+        } else if (data.type === 'player_attack') {
+          // Handle player attacking zombies
+          if (data.playerId && data.zombieId) {
+            const zombie = await storage.getGameZombie(data.zombieId);
+            
+            if (zombie) {
+              // Reduce zombie health
+              const newHealth = (zombie.health || 100) - (data.damage || 10);
+              
+              if (newHealth <= 0) {
+                // Zombie is defeated
+                await storage.removeGameZombie(data.zombieId);
+                
+                // Broadcast zombie defeat
+                wss.clients.forEach((client) => {
+                  if (client.readyState === 1) {
+                    client.send(JSON.stringify({
+                      type: 'zombie_defeated',
+                      data: { zombieId: data.zombieId, killedBy: data.playerId }
+                    }));
+                  }
+                });
+              } else {
+                // Update zombie health
+                const updatedZombie = await storage.updateGameZombie(data.zombieId, { health: newHealth });
+                
+                // Broadcast the update
+                wss.clients.forEach((client) => {
+                  if (client.readyState === 1) {
+                    client.send(JSON.stringify({
+                      type: 'zombie_damaged',
+                      data: updatedZombie
+                    }));
+                  }
+                });
+              }
+            }
+          }
+        } else if (data.type === 'spawn_zombie') {
+          // Handle spawning a new zombie
+          if (data.x !== undefined && data.y !== undefined) {
+            const newZombie = await storage.createGameZombie({
+              x: data.x,
+              y: data.y,
+              health: data.health || 100,
+              speed: data.speed || 1,
+              damage: data.damage || 10,
+              type: data.type || 'standard'
+            });
+            
+            // Broadcast new zombie
+            wss.clients.forEach((client) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: 'zombie_spawned',
+                  data: newZombie
+                }));
+              }
+            });
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+    
+    // Handle disconnections
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+    });
+  });
 
   return httpServer;
 }
