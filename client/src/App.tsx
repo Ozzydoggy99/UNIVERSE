@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import NotFound from "@/pages/not-found";
@@ -11,7 +11,7 @@ import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
-import { AuthProvider } from "@/hooks/use-auth";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { RobotProvider } from "@/providers/robot-provider";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { TemplateManager } from "@/components/templates/template-manager";
@@ -32,17 +32,28 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 function Router() {
+  const { user } = useAuth();
+
+  // If user is not admin, redirect from home to my-template
+  const HomeComponent = () => {
+    if (user && user.role !== 'admin') {
+      return <Redirect to="/my-template" />;
+    }
+    
+    return (
+      <AppLayout>
+        <Dashboard />
+      </AppLayout>
+    );
+  };
+
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
       
       <ProtectedRoute 
         path="/" 
-        component={() => (
-          <AppLayout>
-            <Dashboard />
-          </AppLayout>
-        )} 
+        component={HomeComponent} 
       />
       
       <ProtectedRoute 
