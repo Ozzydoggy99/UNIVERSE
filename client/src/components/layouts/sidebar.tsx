@@ -1,5 +1,6 @@
 import { useLocation, Link } from "wouter";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 import { 
   ToyBrick, 
   PanelsTopLeft, 
@@ -10,13 +11,16 @@ import {
   Settings, 
   PersonStanding,
   LayoutTemplate,
-  Palette
+  Palette,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
 
   // Base navigation items for all users
   const baseNavItems = [
@@ -35,8 +39,14 @@ export default function Sidebar() {
 
   // Admin-specific navigation items
   const adminNavItems = user?.role === 'admin' ? [
-    { href: "/templates", label: "Template Manager", icon: <LayoutTemplate className="mr-3 h-5 w-5" /> },
-    { href: "/admin-templates", label: "Admin Templates", icon: <Palette className="mr-3 h-5 w-5" /> }
+    {
+      label: "Templates",
+      icon: <LayoutTemplate className="mr-3 h-5 w-5" />,
+      items: [
+        { href: "/templates", label: "Template Manager" },
+        { href: "/admin-templates", label: "Admin Templates" }
+      ]
+    }
   ] : [];
 
   return (
@@ -74,19 +84,48 @@ export default function Sidebar() {
                   Admin
                 </div>
               </li>
-              {adminNavItems.map((item) => (
-                <li key={item.href}>
-                  <Link href={item.href}
+              {adminNavItems.map((item, index) => (
+                <li key={`admin-${index}`}>
+                  <button
+                    onClick={() => setOpenDropdowns(prev => ({
+                      ...prev, 
+                      [`admin-${index}`]: !prev[`admin-${index}`]
+                    }))}
                     className={cn(
-                      "flex items-center px-4 py-3 hover:bg-accent hover:text-accent-foreground",
-                      location === item.href
+                      "flex items-center justify-between w-full px-4 py-3 hover:bg-accent hover:text-accent-foreground",
+                      item.items.some(subItem => location === subItem.href)
                         ? "bg-primary/20 text-primary"
                         : "text-foreground"
                     )}
                   >
-                    {item.icon}
-                    {item.label}
-                  </Link>
+                    <div className="flex items-center">
+                      {item.icon}
+                      {item.label}
+                    </div>
+                    {openDropdowns[`admin-${index}`] ? 
+                      <ChevronDown className="h-4 w-4" /> : 
+                      <ChevronRight className="h-4 w-4" />
+                    }
+                  </button>
+                  
+                  {openDropdowns[`admin-${index}`] && (
+                    <ul className="ml-4 pl-3 border-l border-border">
+                      {item.items.map((subItem) => (
+                        <li key={subItem.href}>
+                          <Link href={subItem.href}
+                            className={cn(
+                              "flex items-center px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
+                              location === subItem.href
+                                ? "text-primary font-medium"
+                                : "text-foreground"
+                            )}
+                          >
+                            {subItem.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </>
