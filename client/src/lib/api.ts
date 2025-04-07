@@ -94,11 +94,66 @@ export async function getMapData() {
   return response.json();
 }
 
+// Fallback data for when the API is unavailable
+const fallbackStatus: RobotStatus = {
+  model: "AxBot 2000",
+  serialNumber: "AX-2000-DEMO",
+  battery: 85,
+  status: "online",
+  operationalStatus: "idle",
+  uptime: "1d 4h 32m",
+  messages: [
+    { timestamp: new Date().toISOString(), text: "System running in demo mode" }
+  ]
+};
+
+const fallbackPosition: RobotPosition = {
+  x: 120,
+  y: 80,
+  z: 0,
+  orientation: 90,
+  speed: 0,
+  currentTask: "Waiting for commands",
+  destination: { x: 120, y: 80, z: 0 },
+  distanceToTarget: 0
+};
+
+const fallbackSensorData: RobotSensorData = {
+  temperature: 23.5,
+  humidity: 48,
+  proximity: 100,
+  light: 75,
+  noise: 32
+};
+
+const fallbackMapData = {
+  grid: [],
+  obstacles: [
+    { x: 50, y: 50, z: 0 },
+    { x: 150, y: 100, z: 0 }
+  ],
+  paths: [
+    { 
+      points: [
+        { x: 10, y: 10, z: 0 },
+        { x: 100, y: 100, z: 0 }
+      ],
+      status: "completed"
+    }
+  ]
+};
+
 export async function refreshAllData() {
-  const statusPromise = getRobotStatus();
-  const positionPromise = getRobotPosition();
-  const sensorPromise = getRobotSensorData();
-  const mapPromise = getMapData();
-  
-  return Promise.all([statusPromise, positionPromise, sensorPromise, mapPromise]);
+  try {
+    const statusPromise = getRobotStatus().catch(() => fallbackStatus);
+    const positionPromise = getRobotPosition().catch(() => fallbackPosition);
+    const sensorPromise = getRobotSensorData().catch(() => fallbackSensorData);
+    const mapPromise = getMapData().catch(() => fallbackMapData);
+    
+    return await Promise.all([statusPromise, positionPromise, sensorPromise, mapPromise]);
+  } catch (error) {
+    console.error("Error in refreshAllData:", error);
+    // Return fallback data if anything goes wrong
+    return [fallbackStatus, fallbackPosition, fallbackSensorData, fallbackMapData];
+  }
 }

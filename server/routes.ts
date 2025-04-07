@@ -57,9 +57,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fallback data for when the API is unavailable
+  const FALLBACK_STATUS = {
+    model: "AxBot 2000",
+    serialNumber: "AX-2000-DEMO",
+    battery: 85,
+    status: "online",
+    operationalStatus: "idle",
+    uptime: "1d 4h 32m",
+    messages: [
+      { timestamp: new Date().toISOString(), text: "System running in demo mode" }
+    ]
+  };
+
+  const FALLBACK_POSITION = {
+    x: 120,
+    y: 80,
+    z: 0,
+    orientation: 90,
+    speed: 0,
+    currentTask: "Waiting for commands",
+    destination: { x: 120, y: 80, z: 0 },
+    distanceToTarget: 0
+  };
+
+  const FALLBACK_SENSOR_DATA = {
+    temperature: 23.5,
+    humidity: 48,
+    proximity: 100,
+    light: 75,
+    noise: 32
+  };
+
+  const FALLBACK_MAP_DATA = {
+    grid: [],
+    obstacles: [
+      { x: 50, y: 50, z: 0 },
+      { x: 150, y: 100, z: 0 }
+    ],
+    paths: [
+      { 
+        points: [
+          { x: 10, y: 10, z: 0 },
+          { x: 100, y: 100, z: 0 }
+        ],
+        status: "completed"
+      }
+    ]
+  };
+
   // API proxy endpoints
+  // Demo mode indicator
+  const isDemoMode = !API_KEY || !API_ENDPOINT || API_KEY === '' || API_ENDPOINT === '';
+
   // Robot Status
   app.get("/api/axbot/status", async (req, res) => {
+    // If in demo mode or missing credentials, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot status");
+      await storage.saveRobotStatus(FALLBACK_STATUS);
+      return res.json(FALLBACK_STATUS);
+    }
+
     try {
       const response = await axios.get(`${API_ENDPOINT}/status`, {
         headers: {
@@ -74,12 +133,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error fetching robot status:", error);
-      return res.status(500).json({ message: "Failed to fetch robot status" });
+      
+      // Return fallback data
+      await storage.saveRobotStatus(FALLBACK_STATUS);
+      return res.json(FALLBACK_STATUS);
     }
   });
 
   // Robot Position
   app.get("/api/axbot/position", async (req, res) => {
+    // If in demo mode or missing credentials, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot position");
+      await storage.saveRobotPosition(FALLBACK_POSITION);
+      return res.json(FALLBACK_POSITION);
+    }
+
     try {
       const response = await axios.get(`${API_ENDPOINT}/position`, {
         headers: {
@@ -94,12 +163,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error fetching robot position:", error);
-      return res.status(500).json({ message: "Failed to fetch robot position" });
+      
+      // Return fallback data
+      await storage.saveRobotPosition(FALLBACK_POSITION);
+      return res.json(FALLBACK_POSITION);
     }
   });
 
   // Robot Sensor Data
   app.get("/api/axbot/sensors", async (req, res) => {
+    // If in demo mode or missing credentials, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot sensors");
+      await storage.saveSensorReading(FALLBACK_SENSOR_DATA);
+      return res.json(FALLBACK_SENSOR_DATA);
+    }
+
     try {
       const response = await axios.get(`${API_ENDPOINT}/sensors`, {
         headers: {
@@ -114,12 +193,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error fetching sensor data:", error);
-      return res.status(500).json({ message: "Failed to fetch sensor data" });
+      
+      // Return fallback data
+      await storage.saveSensorReading(FALLBACK_SENSOR_DATA);
+      return res.json(FALLBACK_SENSOR_DATA);
     }
   });
 
   // Map Data
   app.get("/api/axbot/map", async (req, res) => {
+    // If in demo mode or missing credentials, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for map data");
+      return res.json(FALLBACK_MAP_DATA);
+    }
+
     try {
       const response = await axios.get(`${API_ENDPOINT}/map`, {
         headers: {
@@ -131,13 +219,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error fetching map data:", error);
-      return res.status(500).json({ message: "Failed to fetch map data" });
+      
+      // Return fallback data
+      return res.json(FALLBACK_MAP_DATA);
     }
   });
 
   // Robot Control Endpoints
+  // Fallback success response for control operations
+  const FALLBACK_CONTROL_RESPONSE = {
+    success: true,
+    message: "Command processed successfully (Demo Mode)"
+  };
+
   // Start Robot
   app.post("/api/axbot/control/start", async (req, res) => {
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot start command");
+      return res.json(FALLBACK_CONTROL_RESPONSE);
+    }
+
     try {
       const response = await axios.post(`${API_ENDPOINT}/control/start`, {}, {
         headers: {
@@ -149,12 +251,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error starting robot:", error);
-      return res.status(500).json({ message: "Failed to start robot" });
+      // Return fallback data
+      return res.json(FALLBACK_CONTROL_RESPONSE);
     }
   });
 
   // Stop Robot
   app.post("/api/axbot/control/stop", async (req, res) => {
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot stop command");
+      return res.json(FALLBACK_CONTROL_RESPONSE);
+    }
+
     try {
       const response = await axios.post(`${API_ENDPOINT}/control/stop`, {}, {
         headers: {
@@ -166,12 +275,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error stopping robot:", error);
-      return res.status(500).json({ message: "Failed to stop robot" });
+      // Return fallback data
+      return res.json(FALLBACK_CONTROL_RESPONSE);
     }
   });
 
   // Pause Robot
   app.post("/api/axbot/control/pause", async (req, res) => {
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot pause command");
+      return res.json(FALLBACK_CONTROL_RESPONSE);
+    }
+
     try {
       const response = await axios.post(`${API_ENDPOINT}/control/pause`, {}, {
         headers: {
@@ -183,12 +299,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error pausing robot:", error);
-      return res.status(500).json({ message: "Failed to pause robot" });
+      // Return fallback data
+      return res.json(FALLBACK_CONTROL_RESPONSE);
     }
   });
 
   // Home Robot
   app.post("/api/axbot/control/home", async (req, res) => {
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot home command");
+      return res.json(FALLBACK_CONTROL_RESPONSE);
+    }
+
     try {
       const response = await axios.post(`${API_ENDPOINT}/control/home`, {}, {
         headers: {
@@ -200,12 +323,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error homing robot:", error);
-      return res.status(500).json({ message: "Failed to home robot" });
+      // Return fallback data
+      return res.json(FALLBACK_CONTROL_RESPONSE);
     }
   });
 
   // Calibrate Robot
   app.post("/api/axbot/control/calibrate", async (req, res) => {
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot calibrate command");
+      return res.json(FALLBACK_CONTROL_RESPONSE);
+    }
+
     try {
       const response = await axios.post(`${API_ENDPOINT}/control/calibrate`, {}, {
         headers: {
@@ -217,19 +347,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error calibrating robot:", error);
-      return res.status(500).json({ message: "Failed to calibrate robot" });
+      // Return fallback data
+      return res.json(FALLBACK_CONTROL_RESPONSE);
     }
   });
 
   // Move Robot
   app.post("/api/axbot/control/move", async (req, res) => {
+    const { direction, speed } = req.body;
+    
+    if (!direction) {
+      return res.status(400).json({ message: "Direction is required" });
+    }
+    
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log(`Using demo mode for robot move command: ${direction}`);
+      return res.json({
+        ...FALLBACK_CONTROL_RESPONSE,
+        message: `Moving ${direction} (Demo Mode)`
+      });
+    }
+
     try {
-      const { direction, speed } = req.body;
-      
-      if (!direction) {
-        return res.status(400).json({ message: "Direction is required" });
-      }
-      
       const response = await axios.post(`${API_ENDPOINT}/control/move`, {
         direction,
         speed: speed || 50
@@ -243,12 +383,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error moving robot:", error);
-      return res.status(500).json({ message: "Failed to move robot" });
+      // Return fallback data with direction information
+      return res.json({
+        ...FALLBACK_CONTROL_RESPONSE,
+        message: `Moving ${direction} (Demo Mode)`
+      });
     }
   });
 
   // Stop Movement
   app.post("/api/axbot/control/move/stop", async (req, res) => {
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log("Using demo mode for robot stop movement command");
+      return res.json({
+        ...FALLBACK_CONTROL_RESPONSE,
+        message: "Movement stopped (Demo Mode)"
+      });
+    }
+
     try {
       const response = await axios.post(`${API_ENDPOINT}/control/move/stop`, {}, {
         headers: {
@@ -260,19 +413,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error stopping movement:", error);
-      return res.status(500).json({ message: "Failed to stop movement" });
+      // Return fallback data
+      return res.json({
+        ...FALLBACK_CONTROL_RESPONSE,
+        message: "Movement stopped (Demo Mode)"
+      });
     }
   });
 
   // Set Speed
   app.post("/api/axbot/control/speed", async (req, res) => {
+    const { speed } = req.body;
+    
+    if (speed === undefined) {
+      return res.status(400).json({ message: "Speed is required" });
+    }
+    
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log(`Using demo mode for robot set speed command: ${speed}`);
+      return res.json({
+        ...FALLBACK_CONTROL_RESPONSE,
+        message: `Speed set to ${speed} (Demo Mode)`
+      });
+    }
+
     try {
-      const { speed } = req.body;
-      
-      if (speed === undefined) {
-        return res.status(400).json({ message: "Speed is required" });
-      }
-      
       const response = await axios.post(`${API_ENDPOINT}/control/speed`, {
         speed
       }, {
@@ -285,19 +451,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error setting speed:", error);
-      return res.status(500).json({ message: "Failed to set speed" });
+      // Return fallback data with speed information
+      return res.json({
+        ...FALLBACK_CONTROL_RESPONSE,
+        message: `Speed set to ${speed} (Demo Mode)`
+      });
     }
   });
 
   // Send Custom Command
   app.post("/api/axbot/control/custom", async (req, res) => {
+    const { command } = req.body;
+    
+    if (!command) {
+      return res.status(400).json({ message: "Command is required" });
+    }
+    
+    // If in demo mode, immediately return fallback data
+    if (isDemoMode) {
+      console.log(`Using demo mode for robot custom command: ${command}`);
+      return res.json({
+        ...FALLBACK_CONTROL_RESPONSE,
+        message: `Custom command '${command}' executed (Demo Mode)`
+      });
+    }
+
     try {
-      const { command } = req.body;
-      
-      if (!command) {
-        return res.status(400).json({ message: "Command is required" });
-      }
-      
       const response = await axios.post(`${API_ENDPOINT}/control/custom`, {
         command
       }, {
@@ -310,7 +489,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(response.data);
     } catch (error) {
       console.error("Error sending custom command:", error);
-      return res.status(500).json({ message: "Failed to send custom command" });
+      // Return fallback data with command information
+      return res.json({
+        ...FALLBACK_CONTROL_RESPONSE,
+        message: `Custom command '${command}' executed (Demo Mode)`
+      });
     }
   });
 

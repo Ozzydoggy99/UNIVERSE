@@ -5,6 +5,7 @@ import { refreshAllData } from "@/lib/api";
 import { useRobot } from "@/providers/robot-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { Menu, Bell, RefreshCw, LogOut } from "lucide-react";
+import { RobotStatus, RobotPosition, RobotSensorData, MapData } from "@/types/robot";
 
 const getPageTitle = (location: string): string => {
   const routes: Record<string, string> = {
@@ -28,7 +29,14 @@ export default function TopBar() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const [status, position, sensorData, mapData] = await refreshAllData();
+      const data = await refreshAllData();
+      // Correctly type the data array
+      const [status, position, sensorData, mapData] = data as [
+        RobotStatus,
+        RobotPosition,
+        RobotSensorData,
+        MapData
+      ];
       setRobotData(status, position, sensorData, mapData);
     } catch (error) {
       console.error("Failed to refresh data:", error);
