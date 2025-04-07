@@ -13,8 +13,7 @@ import {
   LayoutTemplate,
   Palette,
   ChevronDown,
-  ChevronRight,
-  MapPin
+  ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -46,13 +45,6 @@ export default function Sidebar() {
       items: [
         { href: "/templates", label: "Template Manager" },
         { href: "/admin-templates", label: "Admin Templates" }
-      ]
-    },
-    {
-      label: "Box Mapping",
-      icon: <MapPin className="mr-3 h-5 w-5" />,
-      items: [
-        { href: "/box-mappings", label: "Map Configuration" }
       ]
     }
   ] : [];

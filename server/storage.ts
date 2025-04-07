@@ -5,7 +5,6 @@ import {
   sensorReadings, 
   positionHistory,
   uiTemplates,
-  boxMapPoints,
   type User, 
   type InsertUser, 
   type ApiConfig, 
@@ -13,9 +12,7 @@ import {
   type SensorReading, 
   type PositionHistory,
   type UITemplate,
-  type InsertUITemplate,
-  type BoxMapPoint,
-  type InsertBoxMapPoint
+  type InsertUITemplate
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -34,14 +31,6 @@ export interface IStorage {
   getAllTemplates(): Promise<UITemplate[]>;
   updateTemplate(id: number, updates: Partial<UITemplate>): Promise<UITemplate | undefined>;
   deleteTemplate(id: number): Promise<boolean>;
-  
-  // Box Map Point methods
-  createBoxMapPoint(point: InsertBoxMapPoint): Promise<BoxMapPoint>;
-  getBoxMapPoint(id: number): Promise<BoxMapPoint | undefined>;
-  getAllBoxMapPoints(): Promise<BoxMapPoint[]>;
-  getBoxMapPointsByServiceAndFloor(serviceType: string, floor: number): Promise<BoxMapPoint[]>;
-  updateBoxMapPoint(id: number, updates: Partial<BoxMapPoint>): Promise<BoxMapPoint | undefined>;
-  deleteBoxMapPoint(id: number): Promise<boolean>;
   
   // API Config methods
   getApiConfig(id: number): Promise<ApiConfig | undefined>;
@@ -64,7 +53,6 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private apiConfigs: Map<number, ApiConfig>;
   private uiTemplates: Map<number, UITemplate>;
-  private boxMapPoints: Map<number, BoxMapPoint>;
   private robotStatusHistory: RobotStatusHistory[];
   private sensorReadings: SensorReading[];
   private positionHistory: PositionHistory[];
@@ -72,7 +60,6 @@ export class MemStorage implements IStorage {
   currentId: number;
   currentApiConfigId: number;
   currentTemplateId: number;
-  currentBoxMapPointId: number;
   currentStatusHistoryId: number;
   currentSensorReadingId: number;
   currentPositionHistoryId: number;
@@ -81,7 +68,6 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.apiConfigs = new Map();
     this.uiTemplates = new Map();
-    this.boxMapPoints = new Map();
     this.robotStatusHistory = [];
     this.sensorReadings = [];
     this.positionHistory = [];
@@ -89,7 +75,6 @@ export class MemStorage implements IStorage {
     this.currentId = 1;
     this.currentApiConfigId = 1;
     this.currentTemplateId = 1;
-    this.currentBoxMapPointId = 1;
     this.currentStatusHistoryId = 1;
     this.currentSensorReadingId = 1;
     this.currentPositionHistoryId = 1;
@@ -153,50 +138,6 @@ export class MemStorage implements IStorage {
   
   async deleteTemplate(id: number): Promise<boolean> {
     return this.uiTemplates.delete(id);
-  }
-  
-  // Box Map Point methods
-  async createBoxMapPoint(point: InsertBoxMapPoint): Promise<BoxMapPoint> {
-    const id = this.currentBoxMapPointId++;
-    const newPoint: BoxMapPoint = { 
-      ...point, 
-      id, 
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.boxMapPoints.set(id, newPoint);
-    return newPoint;
-  }
-  
-  async getBoxMapPoint(id: number): Promise<BoxMapPoint | undefined> {
-    return this.boxMapPoints.get(id);
-  }
-  
-  async getAllBoxMapPoints(): Promise<BoxMapPoint[]> {
-    return Array.from(this.boxMapPoints.values());
-  }
-  
-  async getBoxMapPointsByServiceAndFloor(serviceType: string, floor: number): Promise<BoxMapPoint[]> {
-    return Array.from(this.boxMapPoints.values()).filter(
-      point => point.serviceType === serviceType && point.floor === floor
-    );
-  }
-  
-  async updateBoxMapPoint(id: number, updates: Partial<BoxMapPoint>): Promise<BoxMapPoint | undefined> {
-    const point = this.boxMapPoints.get(id);
-    if (!point) return undefined;
-    
-    const updatedPoint = { 
-      ...point, 
-      ...updates, 
-      updatedAt: new Date() 
-    };
-    this.boxMapPoints.set(id, updatedPoint);
-    return updatedPoint;
-  }
-  
-  async deleteBoxMapPoint(id: number): Promise<boolean> {
-    return this.boxMapPoints.delete(id);
   }
   
   // API Config methods
