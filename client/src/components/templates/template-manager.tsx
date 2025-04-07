@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Edit, Trash2, Users, ShowerHead, PlusCircle, Trash, Clipboard } from 'lucide-react';
+import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -279,33 +280,52 @@ export function TemplateManager() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {templates?.map((template) => (
-          <Card key={template.id} className="p-4 shadow-sm">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h3 className="text-lg font-semibold">{template.name}</h3>
-                <p className="text-sm text-gray-500">{template.description}</p>
+          <Link key={template.id} href={`/templates/${template.id}`} className="block group">
+            <Card className="p-4 shadow-sm transition-all hover:shadow-md hover:scale-[1.01] cursor-pointer">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold group-hover:text-primary">{template.name}</h3>
+                  <p className="text-sm text-gray-500">{template.description}</p>
+                </div>
+                <div className="ml-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="ml-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openEditDialog(template);
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="space-x-1">
-                <Button variant="outline" size="sm" onClick={() => openAssignDialog(template)}>
-                  <Users className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => openEditDialog(template)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleDeleteTemplate(template)}>
+              
+              <div className="flex justify-between items-center mt-3">
+                <div className="text-xs text-gray-500">
+                  <div className="flex items-center">
+                    <span className={`h-2 w-2 rounded-full ${template.isActive ? 'bg-green-500' : 'bg-gray-400'} mr-1`}></span>
+                    {template.isActive ? 'Active' : 'Inactive'}
+                  </div>
+                  <div className="mt-1">Created: {new Date(template.createdAt).toLocaleDateString()}</div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDeleteTemplate(template);
+                  }}
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-            
-            <div className="mt-1 text-xs text-gray-500">
-              <div className="flex items-center">
-                <span className={`h-2 w-2 rounded-full ${template.isActive ? 'bg-green-500' : 'bg-gray-400'} mr-1`}></span>
-                {template.isActive ? 'Active' : 'Inactive'}
-              </div>
-              <div className="mt-1">Created: {new Date(template.createdAt).toLocaleDateString()}</div>
-            </div>
-          </Card>
+            </Card>
+          </Link>
         ))}
         
         {templates?.length === 0 && (

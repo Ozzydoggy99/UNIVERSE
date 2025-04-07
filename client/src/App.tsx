@@ -139,6 +139,18 @@ function Router() {
       />
       
       <ProtectedRoute 
+        path="/templates/:id" 
+        component={() => {
+          const TemplateDetail = React.lazy(() => import('@/pages/template-detail'));
+          return (
+            <React.Suspense fallback={<div>Loading...</div>}>
+              <TemplateDetail />
+            </React.Suspense>
+          );
+        }} 
+      />
+      
+      <ProtectedRoute 
         path="/my-template" 
         component={({ user }) => (
           <AppLayout>
