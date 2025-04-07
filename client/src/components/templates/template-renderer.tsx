@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '@shared/schema';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2, ShowerHead } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
 
@@ -14,6 +14,8 @@ interface TemplateComponent {
   height?: number;
   position?: string;
   content?: string;
+  icon?: string;
+  label?: string;
 }
 
 interface TemplateLayout {
@@ -86,12 +88,24 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
             return (
               <div
                 key={index}
-                className="mx-auto w-full max-w-md my-2"
+                className="mx-auto w-full max-w-md my-2 relative flex flex-col items-center justify-center"
                 style={{
                   height: `${component.height || 100}px`,
                   backgroundColor: component.color || layout.primaryColor,
                 }}
-              />
+              >
+                {component.icon === 'trash' && (
+                  <Trash2 className="h-12 w-12 text-white mb-2" />
+                )}
+                {component.icon === 'laundry' && (
+                  <ShowerHead className="h-12 w-12 text-white mb-2" />
+                )}
+                {component.label && (
+                  <div className="text-white font-semibold text-lg">
+                    {component.label}
+                  </div>
+                )}
+              </div>
             );
           default:
             return null;

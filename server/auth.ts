@@ -46,8 +46,22 @@ async function createPredefinedUsers() {
           secondaryColor: "#000000", // Black
           components: [
             { type: "header", content: "Skytech Automated", position: "top" },
-            { type: "rectangle", color: "#228B22", height: 150, position: "top" },
-            { type: "rectangle", color: "#000000", height: 150, position: "middle" }
+            { 
+              type: "rectangle", 
+              color: "#228B22", 
+              height: 150, 
+              position: "top",
+              icon: "laundry",
+              label: "LAUNDRY"
+            },
+            { 
+              type: "rectangle", 
+              color: "#0047AB", 
+              height: 150, 
+              position: "middle",
+              icon: "trash",
+              label: "TRASH"
+            }
           ]
         }),
         isActive: true
@@ -66,8 +80,22 @@ async function createPredefinedUsers() {
           secondaryColor: "#000000", // Black
           components: [
             { type: "header", content: "Skytech Automated", position: "top" },
-            { type: "rectangle", color: "#0047AB", height: 150, position: "top" },
-            { type: "rectangle", color: "#000000", height: 150, position: "middle" }
+            { 
+              type: "rectangle", 
+              color: "#228B22", 
+              height: 150, 
+              position: "top",
+              icon: "laundry",
+              label: "LAUNDRY"
+            },
+            { 
+              type: "rectangle", 
+              color: "#0047AB", 
+              height: 150, 
+              position: "middle",
+              icon: "trash",
+              label: "TRASH"
+            }
           ]
         }),
         isActive: true
