@@ -15,6 +15,7 @@ import NumberedBoxes from "@/pages/numbered-boxes";
 import LaundryBoxes from "@/pages/laundry-boxes";
 import TrashBoxes from "@/pages/trash-boxes";
 import PickupDropoffPage from "@/pages/pickup-dropoff-page";
+import UnitBoxes from "@/pages/unit-boxes";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -242,6 +243,43 @@ function Router() {
         component={({ user }) => (
           <div className="h-full min-h-screen">
             <NumberedBoxes user={user} serviceType="trash" actionType="dropoff" />
+          </div>
+        )} 
+      />
+      
+      {/* Unit Boxes Pages - for floor-specific units in the hundreds */}
+      <ProtectedRoute 
+        path="/laundry/pickup/floor/:floorNumber/units" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <UnitBoxes user={user} />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/laundry/dropoff/floor/:floorNumber/units" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <UnitBoxes user={user} />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/trash/pickup/floor/:floorNumber/units" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <UnitBoxes user={user} />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/trash/dropoff/floor/:floorNumber/units" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <UnitBoxes user={user} />
           </div>
         )} 
       />

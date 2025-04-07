@@ -44,15 +44,22 @@ export default function NumberedBoxes({ user, serviceType, actionType }: Numbere
     totalBoxes = 10;
   }
   
-  // Handle box click to show active state
+  // Handle box click to navigate to the units page for that floor
   const handleBoxClick = (boxNumber: number) => {
     setActiveBox(boxNumber);
     setLastActivated(boxNumber);
     
-    // Reset active state after 1 second
-    setTimeout(() => {
-      setActiveBox(null);
-    }, 1000);
+    // Navigate to the units page for the selected floor with units in the hundreds
+    if (serviceType && actionType) {
+      setTimeout(() => {
+        navigate(`/${serviceType}/${actionType}/floor/${boxNumber}/units`);
+      }, 500);
+    } else {
+      // Reset active state after 1 second if no navigation
+      setTimeout(() => {
+        setActiveBox(null);
+      }, 1000);
+    }
   };
   
   // Return to the appropriate page based on serviceType and actionType
