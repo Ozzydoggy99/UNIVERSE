@@ -9,6 +9,7 @@ import Navigation from "@/pages/navigation";
 import History from "@/pages/history";
 import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
+import NumberedBoxes from "@/pages/numbered-boxes";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -118,6 +119,15 @@ function Router() {
               <TemplateRenderer user={user} />
             </div>
           </AppLayout>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/numbered-boxes" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <NumberedBoxes user={user} />
+          </div>
         )} 
       />
       

@@ -4,6 +4,7 @@ import { Loader2, Trash2, ShowerHead, LogOut } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocation } from 'wouter';
 
 interface TemplateRendererProps {
   user: User | null;
@@ -28,6 +29,7 @@ interface TemplateLayout {
 export function TemplateRenderer({ user }: TemplateRendererProps) {
   console.log("User in template renderer:", user);
   const { logoutMutation } = useAuth();
+  const [, navigate] = useLocation();
   
   const { data: template, isLoading, error } = useQuery({
     queryKey: ['/api/templates', user?.templateId],
@@ -118,6 +120,7 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
             style={{
               backgroundColor: component.color || layout.primaryColor,
             }}
+            onClick={() => navigate('/numbered-boxes')}
           >
             <div className="absolute inset-0 border-4 border-white/10 rounded-lg pointer-events-none"></div>
             {component.icon === 'trash' && (
