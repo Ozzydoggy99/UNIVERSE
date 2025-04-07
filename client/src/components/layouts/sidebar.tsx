@@ -35,7 +35,8 @@ export default function Sidebar() {
 
   // Admin-specific navigation items
   const adminNavItems = user?.role === 'admin' ? [
-    { href: "/templates", label: "Template Manager", icon: <LayoutTemplate className="mr-3 h-5 w-5" /> }
+    { href: "/templates", label: "Template Manager", icon: <LayoutTemplate className="mr-3 h-5 w-5" /> },
+    { href: "/admin-templates", label: "Admin Templates", icon: <Palette className="mr-3 h-5 w-5" /> }
   ] : [];
 
   return (

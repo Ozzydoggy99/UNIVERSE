@@ -10,6 +10,7 @@ import Navigation from "@/pages/navigation";
 import History from "@/pages/history";
 import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
+import AdminTemplates from "@/pages/admin-templates";
 import NumberedBoxes from "@/pages/numbered-boxes";
 import LaundryBoxes from "@/pages/laundry-boxes";
 import TrashBoxes from "@/pages/trash-boxes";
@@ -130,6 +131,11 @@ function Router() {
             <TemplateManager />
           </AppLayout>
         )} 
+      />
+      
+      <ProtectedRoute 
+        path="/admin-templates" 
+        component={AdminTemplates} 
       />
       
       <ProtectedRoute 
