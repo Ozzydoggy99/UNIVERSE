@@ -11,6 +11,7 @@ import History from "@/pages/history";
 import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
 import AdminTemplates from "@/pages/admin-templates";
+import BoxMappingPage from "@/pages/box-mapping-page";
 import NumberedBoxes from "@/pages/numbered-boxes";
 import LaundryBoxes from "@/pages/laundry-boxes";
 import TrashBoxes from "@/pages/trash-boxes";
@@ -138,6 +139,15 @@ function Router() {
       <ProtectedRoute 
         path="/admin-templates" 
         component={AdminTemplates} 
+      />
+      
+      <ProtectedRoute 
+        path="/box-mappings" 
+        component={() => (
+          <AppLayout>
+            <BoxMappingPage />
+          </AppLayout>
+        )} 
       />
       
       <ProtectedRoute 

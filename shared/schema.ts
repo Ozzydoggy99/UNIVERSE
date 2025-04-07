@@ -70,6 +70,20 @@ export const positionHistory = pgTable("position_history", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+// Box Map Points - Maps box numbers to coordinates on the floor map
+export const boxMapPoints = pgTable("box_map_points", {
+  id: serial("id").primaryKey(),
+  serviceType: text("service_type").notNull(), // 'laundry' or 'trash'
+  floor: integer("floor").notNull(),
+  unitNumber: integer("unit_number").notNull(),
+  xCoordinate: integer("x_coordinate").notNull(),
+  yCoordinate: integer("y_coordinate").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+});
+
 // User Schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -95,6 +109,17 @@ export const insertApiConfigSchema = createInsertSchema(apiConfigs).pick({
   isActive: true,
 });
 
+// Box Map Point Schemas
+export const insertBoxMapPointSchema = createInsertSchema(boxMapPoints).pick({
+  serviceType: true,
+  floor: true,
+  unitNumber: true,
+  xCoordinate: true,
+  yCoordinate: true,
+  description: true,
+  createdBy: true,
+});
+
 // Robot Status History Schemas
 export const insertRobotStatusHistorySchema = createInsertSchema(robotStatusHistory);
 
@@ -113,6 +138,9 @@ export type UITemplate = typeof uiTemplates.$inferSelect;
 
 export type InsertApiConfig = z.infer<typeof insertApiConfigSchema>;
 export type ApiConfig = typeof apiConfigs.$inferSelect;
+
+export type InsertBoxMapPoint = z.infer<typeof insertBoxMapPointSchema>;
+export type BoxMapPoint = typeof boxMapPoints.$inferSelect;
 
 export type InsertRobotStatusHistory = z.infer<typeof insertRobotStatusHistorySchema>;
 export type RobotStatusHistory = typeof robotStatusHistory.$inferSelect;
