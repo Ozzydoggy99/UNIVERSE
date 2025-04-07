@@ -1,6 +1,7 @@
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import React, { useState } from "react";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import ControlPanel from "@/pages/control-panel";
@@ -21,11 +22,29 @@ import { TemplateManager } from "@/components/templates/template-manager";
 import { TemplateRenderer } from "@/components/templates/template-renderer";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+  
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+    <div className="flex h-screen overflow-hidden relative">
+      {/* Mobile sidebar overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+      )}
+      
+      {/* Sidebar - hidden on mobile unless open */}
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-200 ease-in-out fixed md:static inset-y-0 left-0 z-30 md:z-auto w-64`}>
+        <Sidebar />
+      </div>
+      
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
+        <TopBar onToggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
         <main className="flex-1 overflow-y-auto bg-neutral-light p-4">
           {children}
         </main>

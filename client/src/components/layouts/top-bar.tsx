@@ -6,6 +6,7 @@ import { useRobot } from "@/providers/robot-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { Menu, Bell, RefreshCw, LogOut } from "lucide-react";
 import { RobotStatus, RobotPosition, RobotSensorData, MapData } from "@/types/robot";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const getPageTitle = (location: string): string => {
   const routes: Record<string, string> = {
@@ -20,11 +21,17 @@ const getPageTitle = (location: string): string => {
   return routes[location] || "Not Found";
 };
 
-export default function TopBar() {
+interface TopBarProps {
+  onToggleSidebar?: () => void;
+  isSidebarOpen?: boolean;
+}
+
+export default function TopBar({ onToggleSidebar, isSidebarOpen }: TopBarProps) {
   const [location] = useLocation();
   const { user, logoutMutation } = useAuth();
   const { setRobotData } = useRobot();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const isMobile = useIsMobile();
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -53,7 +60,11 @@ export default function TopBar() {
     <header className="bg-white dark:bg-gray-900 shadow-sm z-10">
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center">
-          <button className="md:hidden text-foreground mr-4">
+          <button 
+            className="md:hidden text-foreground mr-4" 
+            onClick={onToggleSidebar}
+            aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
+          >
             <Menu className="h-6 w-6" />
           </button>
           <h1 className="text-xl font-medium md:hidden">Skytech Automated</h1>
