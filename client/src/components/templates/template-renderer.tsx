@@ -120,7 +120,15 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
             style={{
               backgroundColor: component.color || layout.primaryColor,
             }}
-            onClick={() => navigate('/numbered-boxes')}
+            onClick={() => {
+              if (component.icon === 'laundry') {
+                navigate('/laundry-boxes');
+              } else if (component.icon === 'trash') {
+                navigate('/trash-boxes');
+              } else {
+                navigate('/numbered-boxes');
+              }
+            }}
           >
             <div className="absolute inset-0 border-4 border-white/10 rounded-lg pointer-events-none"></div>
             {component.icon === 'trash' && (

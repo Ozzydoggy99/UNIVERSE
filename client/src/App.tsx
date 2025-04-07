@@ -10,6 +10,8 @@ import History from "@/pages/history";
 import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
 import NumberedBoxes from "@/pages/numbered-boxes";
+import LaundryBoxes from "@/pages/laundry-boxes";
+import TrashBoxes from "@/pages/trash-boxes";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -127,6 +129,24 @@ function Router() {
         component={({ user }) => (
           <div className="h-full min-h-screen">
             <NumberedBoxes user={user} />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/laundry-boxes" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <LaundryBoxes user={user} />
+          </div>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/trash-boxes" 
+        component={({ user }) => (
+          <div className="h-full min-h-screen">
+            <TrashBoxes user={user} />
           </div>
         )} 
       />
