@@ -47,18 +47,16 @@ export default function Sidebar() {
         <ul>
           {navItems.map((item) => (
             <li key={item.href}>
-              <Link href={item.href}>
-                <a
-                  className={cn(
-                    "flex items-center px-4 py-3 hover:bg-accent hover:text-accent-foreground",
-                    location === item.href
-                      ? "bg-primary/20 text-primary"
-                      : "text-foreground"
-                  )}
-                >
-                  {item.icon}
-                  {item.label}
-                </a>
+              <Link href={item.href}
+                className={cn(
+                  "flex items-center px-4 py-3 hover:bg-accent hover:text-accent-foreground",
+                  location === item.href
+                    ? "bg-primary/20 text-primary"
+                    : "text-foreground"
+                )}
+              >
+                {item.icon}
+                {item.label}
               </Link>
             </li>
           ))}
@@ -72,18 +70,16 @@ export default function Sidebar() {
               </li>
               {adminNavItems.map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href}>
-                    <a
-                      className={cn(
-                        "flex items-center px-4 py-3 hover:bg-accent hover:text-accent-foreground",
-                        location === item.href
-                          ? "bg-primary/20 text-primary"
-                          : "text-foreground"
-                      )}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </a>
+                  <Link href={item.href}
+                    className={cn(
+                      "flex items-center px-4 py-3 hover:bg-accent hover:text-accent-foreground",
+                      location === item.href
+                        ? "bg-primary/20 text-primary"
+                        : "text-foreground"
+                    )}
+                  >
+                    {item.icon}
+                    {item.label}
                   </Link>
                 </li>
               ))}

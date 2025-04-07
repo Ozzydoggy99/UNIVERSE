@@ -25,10 +25,27 @@ interface TemplateLayout {
 }
 
 export function TemplateRenderer({ user }: TemplateRendererProps) {
+  console.log("User in template renderer:", user);
+  
   const { data: template, isLoading, error } = useQuery({
     queryKey: ['/api/templates', user?.templateId],
+    queryFn: async () => {
+      if (!user?.templateId) {
+        throw new Error("No template ID provided");
+      }
+      console.log("Fetching template with ID:", user.templateId);
+      
+      // Get the specific template by ID
+      const response = await fetch(`/api/templates/${user.templateId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch template");
+      }
+      return response.json();
+    },
     enabled: !!user?.templateId,
   });
+  
+  console.log("Template data:", template);
 
   if (isLoading) {
     return (
@@ -54,13 +71,18 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
   // Parse the layout JSON
   let layout: TemplateLayout;
   try {
+    // Safely check if template.layout exists before parsing
+    if (!template.layout) {
+      throw new Error("Template layout is empty");
+    }
     layout = JSON.parse(template.layout);
   } catch (e) {
+    console.error("Template parsing error:", e);
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="p-6 max-w-md">
           <h2 className="text-xl font-semibold mb-2">Template Error</h2>
-          <p className="text-gray-500">Could not parse template layout</p>
+          <p className="text-gray-500">Could not parse template layout: {String(e)}</p>
         </Card>
       </div>
     );
