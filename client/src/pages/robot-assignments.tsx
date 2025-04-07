@@ -211,7 +211,8 @@ export default function RobotAssignments() {
 
   // Find template name by ID
   const getTemplateName = (templateId: number) => {
-    const template = templates?.find((t: Template) => t.id === templateId);
+    if (!templates || !Array.isArray(templates)) return "Unknown Template";
+    const template = templates.find((t: Template) => t.id === templateId);
     return template ? template.name : "Unknown Template";
   };
 
@@ -288,7 +289,7 @@ export default function RobotAssignments() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {templates?.map((template: Template) => (
+                            {Array.isArray(templates) && templates.map((template: Template) => (
                               <SelectItem key={template.id} value={template.id.toString()}>
                                 {template.name}
                               </SelectItem>
@@ -377,7 +378,7 @@ export default function RobotAssignments() {
             </Card>
           ))}
         </div>
-      ) : !robotAssignments || robotAssignments.length === 0 ? (
+      ) : !robotAssignments || !Array.isArray(robotAssignments) || robotAssignments.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-[400px] text-center">
           <BotIcon className="h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-bold mb-2">No Robot Assignments Yet</h2>
@@ -491,7 +492,7 @@ export default function RobotAssignments() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {templates?.map((template: Template) => (
+                        {Array.isArray(templates) && templates.map((template: Template) => (
                           <SelectItem key={template.id} value={template.id.toString()}>
                             {template.name}
                           </SelectItem>
