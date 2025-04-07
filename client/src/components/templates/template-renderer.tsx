@@ -1,8 +1,9 @@
 import React from 'react';
 import { User } from '@shared/schema';
-import { Loader2, Trash2, ShowerHead } from 'lucide-react';
+import { Loader2, Trash2, ShowerHead, LogOut } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/use-auth';
 
 interface TemplateRendererProps {
   user: User | null;
@@ -26,6 +27,7 @@ interface TemplateLayout {
 
 export function TemplateRenderer({ user }: TemplateRendererProps) {
   console.log("User in template renderer:", user);
+  const { logoutMutation } = useAuth();
   
   const { data: template, isLoading, error } = useQuery({
     queryKey: ['/api/templates', user?.templateId],
@@ -90,49 +92,46 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
 
   // Render the template components
   return (
-    <div className="template-container h-full">
-      {layout.components.map((component, index) => {
-        switch (component.type) {
-          case 'header':
-            return (
-              <div 
-                key={index} 
-                className="text-center p-4 text-2xl font-bold"
-                style={{ 
-                  color: layout.primaryColor,
-                  background: layout.secondaryColor
-                }}
-              >
-                {component.content}
+    <div className="template-container h-full relative">
+      {/* Small Skytech Logo in top-left */}
+      <div className="absolute top-4 left-4 text-xs font-bold">
+        Skytech
+      </div>
+      
+      {/* Logout Button */}
+      <button 
+        className="absolute top-4 right-4 cursor-pointer hover:opacity-80"
+        onClick={() => logoutMutation.mutate()}
+        aria-label="Logout"
+      >
+        <LogOut className="h-6 w-6 text-red-600" />
+      </button>
+      
+      {/* Center content */}
+      <div className="pt-16 pb-8 px-4 flex flex-col items-center gap-6">
+        {layout.components.filter(comp => comp.type === 'rectangle').map((component, index) => (
+          <button
+            key={index}
+            className="w-full max-w-[200px] aspect-square rounded-lg relative flex flex-col items-center justify-center 
+                     shadow-md hover:shadow-lg transform hover:translate-y-[-2px] transition-all"
+            style={{
+              backgroundColor: component.color || layout.primaryColor,
+            }}
+          >
+            {component.icon === 'trash' && (
+              <Trash2 className="h-16 w-16 text-white mb-2" />
+            )}
+            {component.icon === 'laundry' && (
+              <ShowerHead className="h-16 w-16 text-white mb-2" />
+            )}
+            {component.label && (
+              <div className="text-white font-semibold text-xl">
+                {component.label}
               </div>
-            );
-          case 'rectangle':
-            return (
-              <div
-                key={index}
-                className="mx-auto w-full max-w-md my-2 relative flex flex-col items-center justify-center"
-                style={{
-                  height: `${component.height || 100}px`,
-                  backgroundColor: component.color || layout.primaryColor,
-                }}
-              >
-                {component.icon === 'trash' && (
-                  <Trash2 className="h-12 w-12 text-white mb-2" />
-                )}
-                {component.icon === 'laundry' && (
-                  <ShowerHead className="h-12 w-12 text-white mb-2" />
-                )}
-                {component.label && (
-                  <div className="text-white font-semibold text-lg">
-                    {component.label}
-                  </div>
-                )}
-              </div>
-            );
-          default:
-            return null;
-        }
-      })}
+            )}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
