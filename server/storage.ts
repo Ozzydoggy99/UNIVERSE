@@ -4,12 +4,15 @@ import {
   robotStatusHistory, 
   sensorReadings, 
   positionHistory,
+  uiTemplates,
   type User, 
   type InsertUser, 
   type ApiConfig, 
   type RobotStatusHistory, 
   type SensorReading, 
-  type PositionHistory
+  type PositionHistory,
+  type UITemplate,
+  type InsertUITemplate
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -18,7 +21,16 @@ export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getAllUsers(): Promise<Map<number, User>>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
+  
+  // UI Template methods
+  createTemplate(template: InsertUITemplate): Promise<UITemplate>;
+  getTemplate(id: number): Promise<UITemplate | undefined>;
+  getAllTemplates(): Promise<UITemplate[]>;
+  updateTemplate(id: number, updates: Partial<UITemplate>): Promise<UITemplate | undefined>;
+  deleteTemplate(id: number): Promise<boolean>;
   
   // API Config methods
   getApiConfig(id: number): Promise<ApiConfig | undefined>;
@@ -40,12 +52,14 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private apiConfigs: Map<number, ApiConfig>;
+  private uiTemplates: Map<number, UITemplate>;
   private robotStatusHistory: RobotStatusHistory[];
   private sensorReadings: SensorReading[];
   private positionHistory: PositionHistory[];
   
   currentId: number;
   currentApiConfigId: number;
+  currentTemplateId: number;
   currentStatusHistoryId: number;
   currentSensorReadingId: number;
   currentPositionHistoryId: number;
@@ -53,12 +67,14 @@ export class MemStorage implements IStorage {
   constructor() {
     this.users = new Map();
     this.apiConfigs = new Map();
+    this.uiTemplates = new Map();
     this.robotStatusHistory = [];
     this.sensorReadings = [];
     this.positionHistory = [];
     
     this.currentId = 1;
     this.currentApiConfigId = 1;
+    this.currentTemplateId = 1;
     this.currentStatusHistoryId = 1;
     this.currentSensorReadingId = 1;
     this.currentPositionHistoryId = 1;
@@ -74,12 +90,54 @@ export class MemStorage implements IStorage {
       (user) => user.username === username,
     );
   }
+  
+  async getAllUsers(): Promise<Map<number, User>> {
+    return this.users;
+  }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentId++;
     const user: User = { ...insertUser, id };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updatedUser = { ...user, ...updates };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  // UI Template methods
+  async createTemplate(template: InsertUITemplate): Promise<UITemplate> {
+    const id = this.currentTemplateId++;
+    const newTemplate: UITemplate = { ...template, id, createdAt: new Date() };
+    this.uiTemplates.set(id, newTemplate);
+    return newTemplate;
+  }
+  
+  async getTemplate(id: number): Promise<UITemplate | undefined> {
+    return this.uiTemplates.get(id);
+  }
+  
+  async getAllTemplates(): Promise<UITemplate[]> {
+    return Array.from(this.uiTemplates.values());
+  }
+  
+  async updateTemplate(id: number, updates: Partial<UITemplate>): Promise<UITemplate | undefined> {
+    const template = this.uiTemplates.get(id);
+    if (!template) return undefined;
+    
+    const updatedTemplate = { ...template, ...updates };
+    this.uiTemplates.set(id, updatedTemplate);
+    return updatedTemplate;
+  }
+  
+  async deleteTemplate(id: number): Promise<boolean> {
+    return this.uiTemplates.delete(id);
   }
   
   // API Config methods

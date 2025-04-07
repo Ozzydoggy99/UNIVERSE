@@ -106,6 +106,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ]
   };
 
+  // User endpoints
+  // Get all users (admin only)
+  app.get("/api/users", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view all users" });
+      }
+      
+      // Get all users from database
+      const users = Array.from((await storage.getAllUsers()).values()).map(user => {
+        // Don't return passwords
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+      
+      return res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      return res.status(500).json({ message: "Error fetching users" });
+    }
+  });
+  
+  // UI Template endpoints
+  // Get all templates
+  app.get("/api/templates", async (req, res) => {
+    try {
+      const templates = await storage.getAllTemplates();
+      return res.json(templates);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      return res.status(500).json({ message: "Error fetching templates" });
+    }
+  });
+  
+  // Get template by ID
+  app.get("/api/templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const template = await storage.getTemplate(id);
+      
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      return res.json(template);
+    } catch (error) {
+      console.error("Error fetching template:", error);
+      return res.status(500).json({ message: "Error fetching template" });
+    }
+  });
+  
+  // Create template
+  app.post("/api/templates", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can create templates" });
+      }
+      
+      const newTemplate = await storage.createTemplate(req.body);
+      return res.status(201).json(newTemplate);
+    } catch (error) {
+      console.error("Error creating template:", error);
+      return res.status(500).json({ message: "Error creating template" });
+    }
+  });
+  
+  // Update template
+  app.put("/api/templates/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update templates" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const template = await storage.updateTemplate(id, req.body);
+      
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      return res.json(template);
+    } catch (error) {
+      console.error("Error updating template:", error);
+      return res.status(500).json({ message: "Error updating template" });
+    }
+  });
+  
+  // Delete template
+  app.delete("/api/templates/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete templates" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteTemplate(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      return res.json({ message: "Template deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      return res.status(500).json({ message: "Error deleting template" });
+    }
+  });
+  
+  // Update user's template assignment
+  app.put("/api/users/:id/template", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update user templates" });
+      }
+      
+      const userId = parseInt(req.params.id);
+      const { templateId } = req.body;
+      
+      if (templateId === undefined) {
+        return res.status(400).json({ message: "Template ID is required" });
+      }
+      
+      const user = await storage.updateUser(userId, { templateId });
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      return res.json(user);
+    } catch (error) {
+      console.error("Error updating user's template:", error);
+      return res.status(500).json({ message: "Error updating user's template" });
+    }
+  });
+
   // API proxy endpoints
   // Demo mode indicator
   const isDemoMode = !API_KEY || !API_ENDPOINT || API_KEY === '' || API_ENDPOINT === '';

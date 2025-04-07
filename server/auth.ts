@@ -29,14 +29,57 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-// Function to create predefined users (Ozzydog as admin, Phil as regular user)
+// Function to create predefined users, templates, and assign templates to users
 async function createPredefinedUsers() {
   try {
+    // Create UI templates if they don't exist
+    const templates = await storage.getAllTemplates();
+    
+    // Create template 1 with green theme if it doesn't exist
+    let template1 = templates.find(t => t.name === "Template 1");
+    if (!template1) {
+      template1 = await storage.createTemplate({
+        name: "Template 1",
+        description: "Default template with green theme",
+        layout: JSON.stringify({
+          primaryColor: "#228B22", // Forest Green
+          secondaryColor: "#000000", // Black
+          components: [
+            { type: "header", content: "Skytech Automated", position: "top" },
+            { type: "rectangle", color: "#228B22", height: 150, position: "top" },
+            { type: "rectangle", color: "#000000", height: 150, position: "middle" }
+          ]
+        }),
+        isActive: true
+      });
+      console.log("Created Template 1");
+    }
+    
+    // Create template 2 with blue theme if it doesn't exist
+    let template2 = templates.find(t => t.name === "Template 2");
+    if (!template2) {
+      template2 = await storage.createTemplate({
+        name: "Template 2",
+        description: "Alternative template with blue theme",
+        layout: JSON.stringify({
+          primaryColor: "#0047AB", // Cobalt Blue
+          secondaryColor: "#000000", // Black
+          components: [
+            { type: "header", content: "Skytech Automated", position: "top" },
+            { type: "rectangle", color: "#0047AB", height: 150, position: "top" },
+            { type: "rectangle", color: "#000000", height: 150, position: "middle" }
+          ]
+        }),
+        isActive: true
+      });
+      console.log("Created Template 2");
+    }
+
     // Check if Ozzydog exists, if not create admin user
-    const adminUser = await storage.getUserByUsername("Ozzydog");
+    let adminUser = await storage.getUserByUsername("Ozzydog");
     if (!adminUser) {
       const hashedPassword = await hashPassword("Ozzydog");
-      await storage.createUser({
+      adminUser = await storage.createUser({
         username: "Ozzydog",
         password: hashedPassword,
         role: "admin"
@@ -44,19 +87,42 @@ async function createPredefinedUsers() {
       console.log("Created admin user: Ozzydog");
     }
 
-    // Check if Phil exists, if not create regular user
-    const regularUser = await storage.getUserByUsername("Phil");
-    if (!regularUser) {
+    // Check if Phil exists, if not create regular user with template 1
+    let philUser = await storage.getUserByUsername("Phil");
+    if (!philUser) {
       const hashedPassword = await hashPassword("Phil");
-      await storage.createUser({
+      philUser = await storage.createUser({
         username: "Phil",
         password: hashedPassword,
         role: "user"
       });
       console.log("Created regular user: Phil");
     }
+    
+    // Check if Isabella exists, if not create regular user with template 2
+    let isabellaUser = await storage.getUserByUsername("Isabella");
+    if (!isabellaUser) {
+      const hashedPassword = await hashPassword("Isabella");
+      isabellaUser = await storage.createUser({
+        username: "Isabella",
+        password: hashedPassword,
+        role: "user"
+      });
+      console.log("Created regular user: Isabella");
+    }
+    
+    // Assign templates if needed
+    if (template1 && philUser && !philUser.templateId) {
+      await storage.updateUser(philUser.id, { templateId: template1.id });
+      console.log("Assigned Template 1 to Phil");
+    }
+    
+    if (template2 && isabellaUser && !isabellaUser.templateId) {
+      await storage.updateUser(isabellaUser.id, { templateId: template2.id });
+      console.log("Assigned Template 2 to Isabella");
+    }
   } catch (error) {
-    console.error("Error creating predefined users:", error);
+    console.error("Error creating predefined users and templates:", error);
   }
 }
 

@@ -14,6 +14,8 @@ import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider } from "@/hooks/use-auth";
 import { RobotProvider } from "@/providers/robot-provider";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { TemplateManager } from "@/components/templates/template-manager";
+import { TemplateRenderer } from "@/components/templates/template-renderer";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -84,6 +86,26 @@ function Router() {
         component={() => (
           <AppLayout>
             <Settings />
+          </AppLayout>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/templates" 
+        component={() => (
+          <AppLayout>
+            <TemplateManager />
+          </AppLayout>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/my-template" 
+        component={({ user }) => (
+          <AppLayout>
+            <div className="h-full">
+              <TemplateRenderer user={user} />
+            </div>
           </AppLayout>
         )} 
       />

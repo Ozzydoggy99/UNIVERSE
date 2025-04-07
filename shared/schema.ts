@@ -8,6 +8,19 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default("user"), // 'user' or 'admin'
+  templateId: integer("template_id"), // Reference to the user's template
+});
+
+// UI Templates
+export const uiTemplates = pgTable("ui_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  layout: text("layout").notNull(), // Stores the UI layout as a JSON string
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
 });
 
 // API Configuration
@@ -62,6 +75,16 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   role: true,
+  templateId: true,
+});
+
+// Template Schemas
+export const insertUITemplateSchema = createInsertSchema(uiTemplates).pick({
+  name: true,
+  description: true,
+  layout: true,
+  isActive: true,
+  createdBy: true,
 });
 
 // API Config Schemas
@@ -84,6 +107,9 @@ export const insertPositionHistorySchema = createInsertSchema(positionHistory);
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export type InsertUITemplate = z.infer<typeof insertUITemplateSchema>;
+export type UITemplate = typeof uiTemplates.$inferSelect;
 
 export type InsertApiConfig = z.infer<typeof insertApiConfigSchema>;
 export type ApiConfig = typeof apiConfigs.$inferSelect;
