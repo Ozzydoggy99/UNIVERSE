@@ -52,7 +52,8 @@ async function createPredefinedUsers() {
               height: 150, 
               position: "top",
               icon: "laundry",
-              label: "LAUNDRY"
+              label: "LAUNDRY",
+              floors: 6 // Default to 6 laundry floors (2x3 grid)
             },
             { 
               type: "rectangle", 
@@ -60,7 +61,8 @@ async function createPredefinedUsers() {
               height: 150, 
               position: "middle",
               icon: "trash",
-              label: "TRASH"
+              label: "TRASH",
+              floors: 10 // Default to 10 trash floors (2x5 grid)
             }
           ]
         }),
@@ -86,7 +88,8 @@ async function createPredefinedUsers() {
               height: 150, 
               position: "top",
               icon: "laundry",
-              label: "LAUNDRY"
+              label: "LAUNDRY",
+              floors: 10 // Default to 10 laundry floors (2x5 grid)
             },
             { 
               type: "rectangle", 
@@ -94,7 +97,8 @@ async function createPredefinedUsers() {
               height: 150, 
               position: "middle",
               icon: "trash",
-              label: "TRASH"
+              label: "TRASH",
+              floors: 10 // Default to 10 trash floors (2x5 grid)
             }
           ]
         }),
