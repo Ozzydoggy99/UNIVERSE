@@ -7,6 +7,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  role: text("role").notNull().default("user"), // 'user' or 'admin'
 });
 
 // API Configuration
@@ -60,6 +61,7 @@ export const positionHistory = pgTable("position_history", {
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  role: true,
 });
 
 // API Config Schemas

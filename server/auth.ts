@@ -29,7 +29,7 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-export function setupAuth(app: Express) {
+export async function setupAuth(app: Express) {
   const MemoryStore = memorystore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "skytech-automated-secret",
@@ -47,6 +47,9 @@ export function setupAuth(app: Express) {
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
+  
+  // Create predefined users if they don't exist
+  await createPredefinedUsers();
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
