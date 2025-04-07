@@ -332,7 +332,7 @@ export default function TemplateDetail() {
                           </div>
                           <div className="flex-1">
                             <div className="font-medium">
-                              {component.icon.charAt(0).toUpperCase() + component.icon.slice(1)}
+                              {component.icon && (component.icon.charAt(0).toUpperCase() + component.icon.slice(1))}
                             </div>
                             <div className="text-xs text-gray-500">
                               {component.floors} floor{component.floors !== 1 ? 's' : ''}

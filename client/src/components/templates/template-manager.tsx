@@ -287,23 +287,9 @@ export function TemplateManager() {
                   <h3 className="text-lg font-semibold group-hover:text-primary">{template.name}</h3>
                   <p className="text-sm text-gray-500">{template.description}</p>
                 </div>
-                <div className="ml-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="ml-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openEditDialog(template);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
               
-              <div className="flex justify-between items-center mt-3">
+              <div className="flex items-center mt-3">
                 <div className="text-xs text-gray-500">
                   <div className="flex items-center">
                     <span className={`h-2 w-2 rounded-full ${template.isActive ? 'bg-green-500' : 'bg-gray-400'} mr-1`}></span>
@@ -311,18 +297,6 @@ export function TemplateManager() {
                   </div>
                   <div className="mt-1">Created: {new Date(template.createdAt).toLocaleDateString()}</div>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleDeleteTemplate(template);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
             </Card>
           </Link>
@@ -429,7 +403,7 @@ export function TemplateManager() {
                                 </div>
                                 <div className="flex-1">
                                   <div className="font-medium">
-                                    {component.icon.charAt(0).toUpperCase() + component.icon.slice(1)}
+                                    {component.icon && component.icon.charAt(0).toUpperCase() + component.icon.slice(1)}
                                   </div>
                                   <div className="text-xs text-gray-500">
                                     {component.floors} floor{component.floors !== 1 ? 's' : ''}
@@ -625,7 +599,7 @@ export function TemplateManager() {
                                 </div>
                                 <div className="flex-1">
                                   <div className="font-medium">
-                                    {component.icon.charAt(0).toUpperCase() + component.icon.slice(1)}
+                                    {component.icon && component.icon.charAt(0).toUpperCase() + component.icon.slice(1)}
                                   </div>
                                   <div className="text-xs text-gray-500">
                                     {component.floors} floor{component.floors !== 1 ? 's' : ''}
