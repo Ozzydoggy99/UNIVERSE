@@ -29,6 +29,37 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
+// Function to create predefined users (Ozzydog as admin, Phil as regular user)
+async function createPredefinedUsers() {
+  try {
+    // Check if Ozzydog exists, if not create admin user
+    const adminUser = await storage.getUserByUsername("Ozzydog");
+    if (!adminUser) {
+      const hashedPassword = await hashPassword("Ozzydog");
+      await storage.createUser({
+        username: "Ozzydog",
+        password: hashedPassword,
+        role: "admin"
+      });
+      console.log("Created admin user: Ozzydog");
+    }
+
+    // Check if Phil exists, if not create regular user
+    const regularUser = await storage.getUserByUsername("Phil");
+    if (!regularUser) {
+      const hashedPassword = await hashPassword("Phil");
+      await storage.createUser({
+        username: "Phil",
+        password: hashedPassword,
+        role: "user"
+      });
+      console.log("Created regular user: Phil");
+    }
+  } catch (error) {
+    console.error("Error creating predefined users:", error);
+  }
+}
+
 export async function setupAuth(app: Express) {
   const MemoryStore = memorystore(session);
   const sessionSettings: session.SessionOptions = {
@@ -69,7 +100,12 @@ export async function setupAuth(app: Express) {
   });
 
   app.post("/api/register", async (req, res, next) => {
-    const { username, password, apiKey, apiEndpoint } = req.body;
+    // Check if the user is authenticated and is an admin
+    if (!req.isAuthenticated() || (req.user as SelectUser).role !== "admin") {
+      return res.status(403).json({ message: "Only admin users can register new users" });
+    }
+    
+    const { username, password, role = "user" } = req.body;
     
     if (!username || !password) {
       return res.status(400).json({ message: "Username and password are required" });
@@ -85,19 +121,12 @@ export async function setupAuth(app: Express) {
       const user = await storage.createUser({
         username,
         password: hashedPassword,
+        role: role
       });
-
-      // If API credentials are provided, save them
-      if (apiKey && apiEndpoint) {
-        await storage.saveApiConfig(apiKey, apiEndpoint);
-      }
-
-      req.login(user, (err) => {
-        if (err) return next(err);
-        // Don't return password in response
-        const { password, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
-      });
+      
+      // Don't return password in response
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Internal server error during registration" });

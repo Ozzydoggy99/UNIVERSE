@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import axios from "axios";
 import dotenv from "dotenv";
 import { setupAuth } from "./auth";
+import { User } from "@shared/schema";
 
 dotenv.config();
 
@@ -14,7 +15,7 @@ let API_ENDPOINT = DEFAULT_API_URL;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
-  setupAuth(app);
+  await setupAuth(app);
   // Authentication endpoint
   app.post("/api/authenticate", async (req, res) => {
     try {
