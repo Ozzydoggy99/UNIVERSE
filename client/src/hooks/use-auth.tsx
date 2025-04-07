@@ -4,31 +4,28 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { User as SelectUser } from "@shared/schema";
+import { User } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-// Define what credentials we need for login
+type AuthContextType = {
+  user: User | null;
+  isLoading: boolean;
+  error: Error | null;
+  loginMutation: UseMutationResult<User, Error, LoginData>;
+  logoutMutation: UseMutationResult<void, Error, void>;
+  registerMutation: UseMutationResult<User, Error, RegisterData>;
+};
+
 type LoginData = {
   username: string;
   password: string;
 };
 
-// Define what data we need for registration
 type RegisterData = {
   username: string;
   password: string;
-  apiKey?: string;
-  apiEndpoint?: string;
-};
-
-type AuthContextType = {
-  user: SelectUser | null;
-  isLoading: boolean;
-  error: Error | null;
-  loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
-  logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<SelectUser, Error, RegisterData>;
+  role?: string;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -39,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     error,
     isLoading,
-  } = useQuery<SelectUser | null, Error>({
+  } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
@@ -47,19 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json();
+      const userData = await res.json();
+      return userData;
     },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
+    onSuccess: (userData: User) => {
+      queryClient.setQueryData(["/api/user"], userData);
       toast({
         title: "Login successful",
-        description: `Welcome back, ${user.username}!`,
+        description: `Welcome back, ${userData.username}!`,
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Login failed",
-        description: error.message,
+        description: error.message || "Invalid username or password",
         variant: "destructive",
       });
     },
@@ -68,19 +66,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterData) => {
       const res = await apiRequest("POST", "/api/register", data);
-      return await res.json();
+      const userData = await res.json();
+      return userData;
     },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
+    onSuccess: (userData: User) => {
+      queryClient.setQueryData(["/api/user"], userData);
       toast({
         title: "Registration successful",
-        description: "Your account has been created!",
+        description: `Welcome, ${userData.username}!`,
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Registration failed",
-        description: error.message,
+        description: error.message || "Could not create account",
         variant: "destructive",
       });
     },
@@ -94,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], null);
       toast({
         title: "Logged out",
-        description: "You have been successfully logged out.",
+        description: "You have been successfully logged out",
       });
     },
     onError: (error: Error) => {
@@ -109,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user ?? null,
+        user,
         isLoading,
         error,
         loginMutation,

@@ -55,7 +55,7 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="w-full max-w-md shadow-xl border-0">
         <CardHeader className="space-y-1">
           <Logo />
           <CardTitle className="text-2xl text-center">
@@ -98,7 +98,7 @@ export default function AuthPage() {
               
               <Button 
                 type="submit" 
-                className="w-full bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800"
+                className="w-full bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 border-0"
                 disabled={loginMutation.isPending}
               >
                 {loginMutation.isPending ? (
