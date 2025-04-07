@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Redirect, useLocation, Link } from 'wouter';
-import { Loader2, LayoutTemplate, ArrowLeft, Users, Trash, ShowerHead } from 'lucide-react';
+import { Loader2, LayoutTemplate, ArrowLeft, Users, Trash, ShowerHead, UserPlus, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { apiRequest } from '@/lib/queryClient';
 import { UITemplate, User } from '@shared/schema';
 import { useAuth } from '@/hooks/use-auth';
@@ -22,6 +23,11 @@ export default function TemplateDetail() {
   const queryClient = useQueryClient();
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
+  const [unsavedFloors, setUnsavedFloors] = useState<Record<number, number>>({});
+  const [globalFloors, setGlobalFloors] = useState<number>(1);
   interface TemplateComponent {
     type: string;
     icon: string;
@@ -133,6 +139,40 @@ export default function TemplateDetail() {
     },
   });
 
+  // Create new user
+  const createUserMutation = useMutation({
+    mutationFn: async (data: { username: string; password: string; role: string }) => {
+      const res = await apiRequest('POST', '/api/register', data);
+      return await res.json();
+    },
+    onSuccess: (newUser) => {
+      toast({
+        title: 'User created',
+        description: 'The new user has been created successfully.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      
+      // Auto-assign the template to the new user
+      if (templateId) {
+        assignMutation.mutate({
+          userId: newUser.id,
+          templateId: templateId
+        });
+      }
+      
+      setNewUsername("");
+      setNewPassword("");
+      setIsCreateUserDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error creating user',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Update template component (floors)
   const updateTemplateMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<UITemplate> }) => {
@@ -145,6 +185,8 @@ export default function TemplateDetail() {
         description: 'The floor configuration has been updated successfully.',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/templates', templateId] });
+      // Clear unsaved floors after successful update
+      setUnsavedFloors({});
     },
     onError: (error: Error) => {
       toast({
@@ -171,12 +213,26 @@ export default function TemplateDetail() {
     }
   };
 
-  // Function to update component's floors count
-  const updateComponentFloors = (index: number, floors: number) => {
+  // Function to store temporary floor changes
+  const storeFloorChange = (index: number, floors: number) => {
     if (!template) return;
     
+    // Store the change locally without submitting yet
+    setUnsavedFloors({
+      ...unsavedFloors,
+      [index]: Math.max(1, Math.min(99, floors))
+    });
+  };
+  
+  // Function to apply global floor setting to all components
+  const applyGlobalFloors = () => {
+    if (!template || templateConfig.components.length === 0) return;
+    
     const updatedConfig = { ...templateConfig };
-    updatedConfig.components[index].floors = Math.max(1, Math.min(99, floors));
+    updatedConfig.components = updatedConfig.components.map(comp => ({
+      ...comp,
+      floors: globalFloors
+    }));
     
     // Update the template with the new layout
     updateTemplateMutation.mutate({
@@ -184,6 +240,47 @@ export default function TemplateDetail() {
       updates: {
         layout: JSON.stringify(updatedConfig)
       }
+    });
+  };
+  
+  // Function to save all unsaved floor changes
+  const saveFloorChanges = () => {
+    if (!template || Object.keys(unsavedFloors).length === 0) return;
+    
+    const updatedConfig = { ...templateConfig };
+    
+    // Apply all unsaved changes
+    Object.entries(unsavedFloors).forEach(([indexStr, floors]) => {
+      const index = parseInt(indexStr);
+      if (updatedConfig.components[index]) {
+        updatedConfig.components[index].floors = floors;
+      }
+    });
+    
+    // Update the template with the new layout
+    updateTemplateMutation.mutate({
+      id: template.id,
+      updates: {
+        layout: JSON.stringify(updatedConfig)
+      }
+    });
+  };
+  
+  // Function to create a new user
+  const handleCreateUser = () => {
+    if (!newUsername || !newPassword) {
+      toast({
+        title: 'Missing information',
+        description: 'Please provide both username and password.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    createUserMutation.mutate({
+      username: newUsername,
+      password: newPassword,
+      role: 'user'
     });
   };
 
@@ -197,6 +294,42 @@ export default function TemplateDetail() {
 
   return (
     <div className="min-h-screen bg-neutral-light">
+      {/* Create User Dialog */}
+      <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New User for Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-username">Username</Label>
+              <Input 
+                id="new-username" 
+                value={newUsername} 
+                onChange={(e) => setNewUsername(e.target.value)}
+                placeholder="Enter a username" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Password</Label>
+              <Input 
+                id="new-password" 
+                type="password" 
+                value={newPassword} 
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter a password" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateUserDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateUser} disabled={!newUsername || !newPassword}>
+              Create & Assign User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       <header className="bg-white shadow-sm p-4 mb-4">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center">
@@ -262,6 +395,17 @@ export default function TemplateDetail() {
                       Assign
                     </Button>
                   </div>
+                  
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={() => setIsCreateUserDialogOpen(true)}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Create New User for Template
+                    </Button>
+                  </div>
 
                   <div className="border rounded-md overflow-hidden">
                     <table className="w-full">
@@ -313,6 +457,26 @@ export default function TemplateDetail() {
                   Floor Configuration
                 </h3>
 
+                {templateConfig.components.length > 0 && (
+                  <div className="flex items-end gap-2 mb-4 p-3 bg-slate-50 rounded-md border">
+                    <div className="flex-1">
+                      <Label htmlFor="global-floors" className="mb-2 block text-sm font-medium">Set Floor Count for All Components</Label>
+                      <Input
+                        id="global-floors"
+                        type="number"
+                        className="w-full"
+                        min="1"
+                        max="99"
+                        value={globalFloors}
+                        onChange={(e) => setGlobalFloors(parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <Button onClick={applyGlobalFloors}>
+                      Apply to All
+                    </Button>
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   {templateConfig.components.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 border rounded-md">
@@ -322,7 +486,7 @@ export default function TemplateDetail() {
                   ) : (
                     <div className="space-y-3">
                       {templateConfig.components.map((component, index) => (
-                        <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border">
+                        <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border relative">
                           <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{backgroundColor: component.color}}>
                             {component.icon === 'laundry' ? (
                               <ShowerHead className="h-5 w-5 text-white" />
@@ -335,7 +499,8 @@ export default function TemplateDetail() {
                               {component.icon && (component.icon.charAt(0).toUpperCase() + component.icon.slice(1))}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {component.floors} floor{component.floors !== 1 ? 's' : ''}
+                              {unsavedFloors[index] !== undefined ? unsavedFloors[index] : component.floors} floor{(unsavedFloors[index] !== undefined ? unsavedFloors[index] : component.floors) !== 1 ? 's' : ''}
+                              {unsavedFloors[index] !== undefined && <span className="text-amber-500"> (unsaved)</span>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -346,12 +511,38 @@ export default function TemplateDetail() {
                               className="w-20"
                               min="1"
                               max="99"
-                              value={component.floors}
-                              onChange={(e) => updateComponentFloors(index, parseInt(e.target.value) || 1)}
+                              value={unsavedFloors[index] !== undefined ? unsavedFloors[index] : component.floors}
+                              onChange={(e) => storeFloorChange(index, parseInt(e.target.value) || 1)}
                             />
                           </div>
+                          {unsavedFloors[index] !== undefined && (
+                            <Button 
+                              size="sm" 
+                              className="absolute bottom-1 right-1" 
+                              variant="ghost"
+                              onClick={() => {
+                                const newUnsavedFloors = { ...unsavedFloors };
+                                delete newUnsavedFloors[index];
+                                setUnsavedFloors(newUnsavedFloors);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          )}
                         </div>
                       ))}
+                      
+                      {Object.keys(unsavedFloors).length > 0 && (
+                        <div className="flex justify-end mt-4">
+                          <Button 
+                            onClick={saveFloorChanges}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <Save className="h-4 w-4 mr-2" />
+                            Save All Floor Changes
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
