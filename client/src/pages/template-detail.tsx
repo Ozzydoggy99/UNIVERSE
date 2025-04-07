@@ -26,7 +26,7 @@ export default function TemplateDetail() {
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
-  const [unsavedFloors, setUnsavedFloors] = useState<Record<number, number>>({});
+  const [unsavedFloors, setUnsavedFloors] = useState<Record<number, string | number>>({});
   const [globalFloors, setGlobalFloors] = useState<number>(1);
   interface TemplateComponent {
     type: string;
@@ -214,14 +214,25 @@ export default function TemplateDetail() {
   };
 
   // Function to store temporary floor changes
-  const storeFloorChange = (index: number, floors: number) => {
+  const storeFloorChange = (index: number, value: string) => {
     if (!template) return;
     
-    // Store the change locally without submitting yet
-    setUnsavedFloors({
-      ...unsavedFloors,
-      [index]: Math.max(1, Math.min(99, floors))
-    });
+    if (value === '') {
+      // Allow empty value for typing purposes
+      setUnsavedFloors({
+        ...unsavedFloors,
+        [index]: ''
+      });
+    } else {
+      // Convert to number and validate when it's a number
+      const floors = parseInt(value);
+      if (!isNaN(floors)) {
+        setUnsavedFloors({
+          ...unsavedFloors,
+          [index]: Math.max(1, Math.min(99, floors))
+        });
+      }
+    }
   };
   
   // Function to apply global floor setting to all components
@@ -250,10 +261,18 @@ export default function TemplateDetail() {
     const updatedConfig = { ...templateConfig };
     
     // Apply all unsaved changes
-    Object.entries(unsavedFloors).forEach(([indexStr, floors]) => {
+    Object.entries(unsavedFloors).forEach(([indexStr, floorValue]) => {
       const index = parseInt(indexStr);
       if (updatedConfig.components[index]) {
-        updatedConfig.components[index].floors = floors;
+        // Convert any string value to number for storage
+        let numericValue = 1;
+        if (typeof floorValue === 'string') {
+          numericValue = floorValue === '' ? 1 : parseInt(floorValue) || 1;
+        } else {
+          numericValue = floorValue as number;
+        }
+        
+        updatedConfig.components[index].floors = Math.max(1, Math.min(99, numericValue));
       }
     });
     
@@ -512,7 +531,7 @@ export default function TemplateDetail() {
                               min="1"
                               max="99"
                               value={unsavedFloors[index] !== undefined ? unsavedFloors[index] : component.floors}
-                              onChange={(e) => storeFloorChange(index, parseInt(e.target.value) || 1)}
+                              onChange={(e) => storeFloorChange(index, e.target.value)}
                             />
                           </div>
                           {unsavedFloors[index] !== undefined && (
