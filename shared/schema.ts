@@ -11,6 +11,18 @@ export const users = pgTable("users", {
   templateId: integer("template_id"), // Reference to the user's template
 });
 
+// Robot Template Assignments
+export const robotTemplateAssignments = pgTable("robot_template_assignments", {
+  id: serial("id").primaryKey(),
+  serialNumber: text("serial_number").notNull().unique(),
+  templateId: integer("template_id").notNull(),
+  robotName: text("robot_name"),
+  robotModel: text("robot_model"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Game players
 export const gamePlayers = pgTable("game_players", {
   id: serial("id").primaryKey(),
@@ -141,6 +153,15 @@ export const insertSensorReadingSchema = createInsertSchema(sensorReadings);
 // Position History Schemas
 export const insertPositionHistorySchema = createInsertSchema(positionHistory);
 
+// Robot Template Assignment Schema
+export const insertRobotTemplateAssignmentSchema = createInsertSchema(robotTemplateAssignments).pick({
+  serialNumber: true,
+  templateId: true,
+  robotName: true,
+  robotModel: true,
+  isActive: true,
+});
+
 // Game Player Schemas
 export const insertGamePlayerSchema = createInsertSchema(gamePlayers).pick({
   userId: true,
@@ -190,6 +211,9 @@ export type SensorReading = typeof sensorReadings.$inferSelect;
 
 export type InsertPositionHistory = z.infer<typeof insertPositionHistorySchema>;
 export type PositionHistory = typeof positionHistory.$inferSelect;
+
+export type InsertRobotTemplateAssignment = z.infer<typeof insertRobotTemplateAssignmentSchema>;
+export type RobotTemplateAssignment = typeof robotTemplateAssignments.$inferSelect;
 
 export type InsertGamePlayer = z.infer<typeof insertGamePlayerSchema>;
 export type GamePlayer = typeof gamePlayers.$inferSelect;

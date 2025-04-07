@@ -8,6 +8,7 @@ import {
   gamePlayers,
   gameItems,
   gameZombies,
+  robotTemplateAssignments,
   type User, 
   type InsertUser, 
   type ApiConfig, 
@@ -16,6 +17,8 @@ import {
   type PositionHistory,
   type UITemplate,
   type InsertUITemplate,
+  type RobotTemplateAssignment,
+  type InsertRobotTemplateAssignment,
   type GamePlayer,
   type InsertGamePlayer,
   type GameItem,
@@ -40,6 +43,14 @@ export interface IStorage {
   getAllTemplates(): Promise<UITemplate[]>;
   updateTemplate(id: number, updates: Partial<UITemplate>): Promise<UITemplate | undefined>;
   deleteTemplate(id: number): Promise<boolean>;
+  
+  // Robot Template Assignment methods
+  createRobotTemplateAssignment(assignment: InsertRobotTemplateAssignment): Promise<RobotTemplateAssignment>;
+  getRobotTemplateAssignment(id: number): Promise<RobotTemplateAssignment | undefined>;
+  getRobotTemplateAssignmentBySerial(serialNumber: string): Promise<RobotTemplateAssignment | undefined>;
+  updateRobotTemplateAssignment(id: number, updates: Partial<RobotTemplateAssignment>): Promise<RobotTemplateAssignment | undefined>;
+  getAllRobotTemplateAssignments(): Promise<RobotTemplateAssignment[]>;
+  deleteRobotTemplateAssignment(id: number): Promise<boolean>;
   
   // API Config methods
   getApiConfig(id: number): Promise<ApiConfig | undefined>;
@@ -81,6 +92,7 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private apiConfigs: Map<number, ApiConfig>;
   private uiTemplates: Map<number, UITemplate>;
+  private robotTemplateAssignments: Map<number, RobotTemplateAssignment>;
   private robotStatusHistory: RobotStatusHistory[];
   private sensorReadings: SensorReading[];
   private positionHistory: PositionHistory[];
@@ -91,6 +103,7 @@ export class MemStorage implements IStorage {
   currentId: number;
   currentApiConfigId: number;
   currentTemplateId: number;
+  currentRobotTemplateAssignmentId: number;
   currentStatusHistoryId: number;
   currentSensorReadingId: number;
   currentPositionHistoryId: number;
@@ -102,6 +115,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.apiConfigs = new Map();
     this.uiTemplates = new Map();
+    this.robotTemplateAssignments = new Map();
     this.robotStatusHistory = [];
     this.sensorReadings = [];
     this.positionHistory = [];
@@ -112,6 +126,7 @@ export class MemStorage implements IStorage {
     this.currentId = 1;
     this.currentApiConfigId = 1;
     this.currentTemplateId = 1;
+    this.currentRobotTemplateAssignmentId = 1;
     this.currentStatusHistoryId = 1;
     this.currentSensorReadingId = 1;
     this.currentPositionHistoryId = 1;
@@ -178,6 +193,50 @@ export class MemStorage implements IStorage {
   
   async deleteTemplate(id: number): Promise<boolean> {
     return this.uiTemplates.delete(id);
+  }
+  
+  // Robot Template Assignment methods
+  async createRobotTemplateAssignment(assignment: InsertRobotTemplateAssignment): Promise<RobotTemplateAssignment> {
+    const id = this.currentRobotTemplateAssignmentId++;
+    const newAssignment: RobotTemplateAssignment = { 
+      ...assignment, 
+      id, 
+      createdAt: new Date(),
+      updatedAt: new Date() 
+    };
+    this.robotTemplateAssignments.set(id, newAssignment);
+    return newAssignment;
+  }
+  
+  async getRobotTemplateAssignment(id: number): Promise<RobotTemplateAssignment | undefined> {
+    return this.robotTemplateAssignments.get(id);
+  }
+  
+  async getRobotTemplateAssignmentBySerial(serialNumber: string): Promise<RobotTemplateAssignment | undefined> {
+    return Array.from(this.robotTemplateAssignments.values()).find(
+      (assignment) => assignment.serialNumber === serialNumber
+    );
+  }
+  
+  async updateRobotTemplateAssignment(id: number, updates: Partial<RobotTemplateAssignment>): Promise<RobotTemplateAssignment | undefined> {
+    const assignment = this.robotTemplateAssignments.get(id);
+    if (!assignment) return undefined;
+    
+    const updatedAssignment = { 
+      ...assignment, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.robotTemplateAssignments.set(id, updatedAssignment);
+    return updatedAssignment;
+  }
+  
+  async getAllRobotTemplateAssignments(): Promise<RobotTemplateAssignment[]> {
+    return Array.from(this.robotTemplateAssignments.values());
+  }
+  
+  async deleteRobotTemplateAssignment(id: number): Promise<boolean> {
+    return this.robotTemplateAssignments.delete(id);
   }
   
   // API Config methods

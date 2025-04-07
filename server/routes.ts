@@ -4,10 +4,22 @@ import { storage } from "./storage";
 import axios from "axios";
 import dotenv from "dotenv";
 import { setupAuth } from "./auth";
-import { User, InsertGamePlayer, InsertGameItem, InsertGameZombie } from "@shared/schema";
+import { z } from "zod";
+import { 
+  User, 
+  InsertGamePlayer, 
+  InsertGameItem, 
+  InsertGameZombie,
+  insertRobotTemplateAssignmentSchema
+} from "@shared/schema";
 import { WebSocketServer } from "ws";
 
 dotenv.config();
+
+// Helper function to format Zod validation errors
+function formatZodError(error: z.ZodError): string {
+  return error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+}
 
 // Default API configuration (can be overridden by authentication)
 const DEFAULT_API_URL = process.env.VITE_AXBOT_API_URL || "https://api.axbot.com/v1";
@@ -240,6 +252,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user's template:", error);
       return res.status(500).json({ message: "Error updating user's template" });
+    }
+  });
+  
+  // Robot Template Assignment endpoints
+  // Get all robot template assignments
+  app.get("/api/robot-assignments", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view robot template assignments" });
+      }
+      
+      const assignments = await storage.getAllRobotTemplateAssignments();
+      return res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching robot assignments:", error);
+      return res.status(500).json({ message: "Error fetching robot assignments" });
+    }
+  });
+  
+  // Get robot assignment by ID
+  app.get("/api/robot-assignments/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view robot template assignments" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const assignment = await storage.getRobotTemplateAssignment(id);
+      
+      if (!assignment) {
+        return res.status(404).json({ message: "Robot template assignment not found" });
+      }
+      
+      return res.json(assignment);
+    } catch (error) {
+      console.error("Error fetching robot assignment:", error);
+      return res.status(500).json({ message: "Error fetching robot assignment" });
+    }
+  });
+  
+  // Get robot assignment by serial number
+  app.get("/api/robot-assignments/serial/:serialNumber", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view robot template assignments" });
+      }
+      
+      const serialNumber = req.params.serialNumber;
+      if (!serialNumber) {
+        return res.status(400).json({ message: "Serial number is required" });
+      }
+      
+      const assignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      if (!assignment) {
+        return res.status(404).json({ message: "Robot template assignment not found" });
+      }
+      
+      return res.json(assignment);
+    } catch (error) {
+      console.error("Error fetching robot assignment by serial:", error);
+      return res.status(500).json({ message: "Error fetching robot assignment" });
+    }
+  });
+  
+  // Create robot template assignment
+  app.post("/api/robot-assignments", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can create robot template assignments" });
+      }
+      
+      try {
+        const assignmentData = insertRobotTemplateAssignmentSchema.parse(req.body);
+        
+        // Check if robot with this serial number already has an assignment
+        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(assignmentData.serialNumber);
+        if (existingAssignment) {
+          return res.status(409).json({ message: "A robot with this serial number already has a template assigned" });
+        }
+        
+        // Check if the template exists
+        const template = await storage.getTemplate(assignmentData.templateId);
+        if (!template) {
+          return res.status(404).json({ message: "Template not found" });
+        }
+        
+        const newAssignment = await storage.createRobotTemplateAssignment(assignmentData);
+        return res.status(201).json(newAssignment);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ message: formatZodError(error) });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error creating robot assignment:", error);
+      return res.status(500).json({ message: "Error creating robot template assignment" });
+    }
+  });
+  
+  // Update robot template assignment
+  app.put("/api/robot-assignments/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update robot template assignments" });
+      }
+      
+      const id = parseInt(req.params.id);
+      
+      // Make sure the assignment exists
+      const existingAssignment = await storage.getRobotTemplateAssignment(id);
+      if (!existingAssignment) {
+        return res.status(404).json({ message: "Robot template assignment not found" });
+      }
+      
+      try {
+        // Validate and update
+        const updateData = insertRobotTemplateAssignmentSchema.partial().parse(req.body);
+        
+        // If updating serialNumber, make sure it's not already used by another assignment
+        if (updateData.serialNumber && updateData.serialNumber !== existingAssignment.serialNumber) {
+          const serialExists = await storage.getRobotTemplateAssignmentBySerial(updateData.serialNumber);
+          if (serialExists && serialExists.id !== id) {
+            return res.status(409).json({ message: "A robot with this serial number already has a template assigned" });
+          }
+        }
+        
+        // If updating templateId, make sure the template exists
+        if (updateData.templateId) {
+          const template = await storage.getTemplate(updateData.templateId);
+          if (!template) {
+            return res.status(404).json({ message: "Template not found" });
+          }
+        }
+        
+        const updatedAssignment = await storage.updateRobotTemplateAssignment(id, updateData);
+        return res.json(updatedAssignment);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ message: formatZodError(error) });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error updating robot assignment:", error);
+      return res.status(500).json({ message: "Error updating robot template assignment" });
+    }
+  });
+  
+  // Delete robot template assignment
+  app.delete("/api/robot-assignments/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete robot template assignments" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const result = await storage.deleteRobotTemplateAssignment(id);
+      
+      if (!result) {
+        return res.status(404).json({ message: "Robot template assignment not found" });
+      }
+      
+      return res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting robot assignment:", error);
+      return res.status(500).json({ message: "Error deleting robot template assignment" });
     }
   });
 

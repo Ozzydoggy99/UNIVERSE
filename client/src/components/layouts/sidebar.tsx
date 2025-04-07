@@ -14,7 +14,8 @@ import {
   Palette,
   ChevronDown,
   ChevronRight,
-  Gamepad2
+  Gamepad2,
+  Bot
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -47,6 +48,13 @@ export default function Sidebar() {
       items: [
         { href: "/templates", label: "Template Manager" },
         { href: "/admin-templates", label: "Admin Templates" }
+      ]
+    },
+    {
+      label: "Robots",
+      icon: <Bot className="mr-3 h-5 w-5" />,
+      items: [
+        { href: "/robot-assignments", label: "Robot Assignments" }
       ]
     }
   ] : [];
