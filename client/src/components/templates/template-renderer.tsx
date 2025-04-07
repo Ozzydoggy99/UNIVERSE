@@ -93,18 +93,18 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
   // Render the template components
   return (
     <div className="template-container h-full relative">
-      {/* Small Skytech Logo in top-left */}
-      <div className="absolute top-4 left-4 text-xs font-bold">
-        Skytech
+      {/* Skytech Logo in top-left */}
+      <div className="absolute top-4 left-4 text-sm font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent px-2 py-1 border-l-2 border-green-500">
+        SKYTECH
       </div>
       
       {/* Logout Button */}
       <button 
-        className="absolute top-4 right-4 cursor-pointer hover:opacity-80"
+        className="absolute top-4 right-4 cursor-pointer hover:scale-110 transition-transform"
         onClick={() => logoutMutation.mutate()}
         aria-label="Logout"
       >
-        <LogOut className="h-6 w-6 text-red-600" />
+        <LogOut className="h-6 w-6 text-red-600 drop-shadow-glow-red" />
       </button>
       
       {/* Center content */}
@@ -113,22 +113,25 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
           <button
             key={index}
             className="w-full max-w-[200px] aspect-square rounded-lg relative flex flex-col items-center justify-center 
-                     shadow-md hover:shadow-lg transform hover:translate-y-[-2px] transition-all"
+                     shadow-md hover:shadow-lg transform hover:translate-y-[-2px] transition-all
+                     border-2 border-white/30 overflow-hidden"
             style={{
               backgroundColor: component.color || layout.primaryColor,
             }}
           >
+            <div className="absolute inset-0 border-4 border-white/10 rounded-lg pointer-events-none"></div>
             {component.icon === 'trash' && (
-              <Trash2 className="h-16 w-16 text-white mb-2" />
+              <Trash2 className="h-16 w-16 text-white mb-2 drop-shadow-md" />
             )}
             {component.icon === 'laundry' && (
-              <ShowerHead className="h-16 w-16 text-white mb-2" />
+              <ShowerHead className="h-16 w-16 text-white mb-2 drop-shadow-md" />
             )}
             {component.label && (
-              <div className="text-white font-semibold text-xl">
+              <div className="text-white font-bold text-xl tracking-wide px-4 py-1.5 bg-black/20 rounded-md shadow-inner border border-white/20 text-shadow-sm">
                 {component.label}
               </div>
             )}
+            <div className="absolute bottom-0 left-0 right-0 h-1/5 bg-gradient-to-t from-black/30 to-transparent"></div>
           </button>
         ))}
       </div>
