@@ -50,7 +50,7 @@ export default function Sidebar() {
   ] : [];
 
   return (
-    <div className="w-64 bg-white shadow-md hidden md:block overflow-y-auto">
+    <div className="w-64 bg-white shadow-md overflow-y-auto h-full flex flex-col">
       <div className="p-4 border-b border-border">
         <div className="flex items-center">
           <div className="rounded-full bg-primary w-10 h-10 flex items-center justify-center text-white">
@@ -132,7 +132,7 @@ export default function Sidebar() {
           )}
         </ul>
       </nav>
-      <div className="absolute bottom-0 w-64 p-4 border-t border-border">
+      <div className="mt-auto p-4 border-t border-border">
         <div className="flex items-center">
           <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
             <PersonStanding className="h-4 w-4 text-muted-foreground" />

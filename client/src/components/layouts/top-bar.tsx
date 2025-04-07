@@ -60,13 +60,15 @@ export default function TopBar({ onToggleSidebar, isSidebarOpen }: TopBarProps) 
     <header className="bg-white dark:bg-gray-900 shadow-sm z-10">
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center">
-          <button 
-            className="md:hidden text-foreground mr-4" 
+          <Button 
+            variant="ghost" 
+            className="md:hidden mr-4" 
             onClick={onToggleSidebar}
             aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
+            size="sm"
           >
             <Menu className="h-6 w-6" />
-          </button>
+          </Button>
           <h1 className="text-xl font-medium md:hidden">Skytech Automated</h1>
           <h1 className="text-xl font-medium hidden md:block">{getPageTitle(location)}</h1>
         </div>

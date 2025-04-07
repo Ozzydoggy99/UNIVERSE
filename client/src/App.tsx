@@ -40,7 +40,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       )}
       
       {/* Sidebar - hidden on mobile unless open */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-200 ease-in-out fixed md:static inset-y-0 left-0 z-30 md:z-auto w-64`}>
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-200 ease-in-out fixed md:static inset-y-0 left-0 z-30 md:z-auto w-64 bg-white h-full overflow-y-auto`}>
         <Sidebar />
       </div>
       
