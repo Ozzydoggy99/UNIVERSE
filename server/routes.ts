@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import axios from "axios";
 import dotenv from "dotenv";
+import { setupAuth } from "./auth";
 
 dotenv.config();
 
@@ -12,6 +13,8 @@ let API_KEY = process.env.VITE_AXBOT_API_KEY || "";
 let API_ENDPOINT = DEFAULT_API_URL;
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication
+  setupAuth(app);
   // Authentication endpoint
   app.post("/api/authenticate", async (req, res) => {
     try {

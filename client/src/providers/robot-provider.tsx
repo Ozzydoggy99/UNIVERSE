@@ -1,5 +1,12 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { RobotStatus, RobotPosition, RobotSensorData, MapData } from "@/types/robot";
+import { 
+  getRobotStatus, 
+  getRobotPosition, 
+  getRobotSensorData, 
+  getMapData 
+} from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 
 interface RobotContextType {
   robotStatus: RobotStatus | null;
@@ -27,6 +34,38 @@ export function RobotProvider({ children }: RobotProviderProps) {
   const [robotSensorData, setRobotSensorData] = useState<RobotSensorData | null>(null);
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  
+  const { user } = useAuth();
+  
+  // Poll for robot data when authenticated
+  useEffect(() => {
+    if (!user) return;
+    
+    async function fetchRobotData() {
+      try {
+        const status = await getRobotStatus();
+        const position = await getRobotPosition();
+        const sensorData = await getRobotSensorData();
+        const map = await getMapData();
+        
+        setRobotStatus(status);
+        setRobotPosition(position);
+        setRobotSensorData(sensorData);
+        setMapData(map);
+        setLastUpdated(new Date());
+      } catch (error) {
+        console.error("Error fetching robot data:", error);
+      }
+    }
+    
+    // Initial fetch
+    fetchRobotData();
+    
+    // Set up interval for polling
+    const interval = setInterval(fetchRobotData, 10000); // Poll every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleSetRobotData = (
     status: RobotStatus | null, 
