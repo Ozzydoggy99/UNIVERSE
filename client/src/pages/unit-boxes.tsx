@@ -27,6 +27,7 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
   // Fetch template settings to get custom unit configuration
   const [unitsPerFloor, setUnitsPerFloor] = React.useState(10);
   const [unitStartNumber, setUnitStartNumber] = React.useState(1);
+  const [customUnitNumbers, setCustomUnitNumbers] = React.useState<Record<number, number>>({});
   
   // Fetch template data to get custom unit settings
   React.useEffect(() => {
@@ -53,6 +54,11 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
                 if (serviceComponent.unitStartNumber) {
                   setUnitStartNumber(serviceComponent.unitStartNumber);
                 }
+                
+                // Load custom unit numbers if available
+                if (serviceComponent.customUnitNumbers) {
+                  setCustomUnitNumbers(serviceComponent.customUnitNumbers);
+                }
               }
             }
           }
@@ -78,19 +84,36 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
   
   // Handle custom unit input
   const handleCustomUnitInput = () => {
-    const min = baseUnitNumber;
-    const max = baseUnitNumber + unitsPerFloor - 1;
-    const value = prompt(`Enter exact unit number (${min}-${max}):`, selectedBox?.toString() || "");
+    // Get array of all unit numbers (including custom ones)
+    const allUnitNumbers: number[] = Array.from({ length: unitsPerFloor }).map((_, index) => 
+      customUnitNumbers[index] || (baseUnitNumber + index)
+    );
+    
+    // Find min and max of all unit numbers
+    const min = Math.min(...allUnitNumbers);
+    const max = Math.max(...allUnitNumbers);
+    
+    const value = prompt(`Enter exact unit number:`, selectedBox?.toString() || "");
     
     if (value) {
       const numValue = parseInt(value);
-      if (!isNaN(numValue) && numValue >= min && numValue <= max) {
-        setSelectedBox(numValue);
-        setLastActivated(numValue);
+      if (!isNaN(numValue)) {
+        // Find if the entered number exists in our unit numbers
+        const unitIndex = allUnitNumbers.indexOf(numValue);
+        if (unitIndex !== -1) {
+          setSelectedBox(numValue);
+          setLastActivated(numValue);
+        } else {
+          toast({
+            title: "Unit number not found",
+            description: "Please enter a valid unit number from the grid",
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Invalid unit number",
-          description: `Please enter a number between ${min} and ${max}`,
+          description: "Please enter a valid number",
           variant: "destructive",
         });
       }
@@ -181,23 +204,25 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
         
         <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto mb-8">
           {Array.from({ length: unitsPerFloor }).map((_, index) => {
-            const unitNumber = baseUnitNumber + index;
-            const isSelected = selectedBox === unitNumber;
+            // Use custom unit number if available, otherwise calculate standard unit number
+            const displayNumber = customUnitNumbers[index] || (baseUnitNumber + index);
+            const isSelected = selectedBox === displayNumber;
+            
             return (
               <button
-                key={unitNumber}
+                key={index}
                 className={`aspect-square rounded-lg relative flex items-center justify-center 
                          shadow-md hover:shadow-lg transform transition-all
                          overflow-hidden
                          ${isSelected 
                             ? 'bg-green-500 text-white border-2 border-green-700 scale-100' 
                             : 'bg-black text-white border border-gray-700 hover:translate-y-[-2px]'}`}
-                onClick={() => handleBoxClick(unitNumber)}
+                onClick={() => handleBoxClick(displayNumber)}
               >
                 <div className="absolute inset-0 border border-white/10 rounded-lg pointer-events-none"></div>
                 <div className={`font-bold text-2xl tracking-wide px-4 py-2 rounded-md shadow-inner border border-white/10
                                ${isSelected ? 'bg-green-600' : 'bg-white/10'}`}>
-                  {unitNumber}
+                  {displayNumber}
                 </div>
                 {isSelected && (
                   <div className="absolute top-2 right-2">
