@@ -76,6 +76,27 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
     setLastActivated(unitNumber);
   };
   
+  // Handle custom unit input
+  const handleCustomUnitInput = () => {
+    const min = baseUnitNumber;
+    const max = baseUnitNumber + unitsPerFloor - 1;
+    const value = prompt(`Enter exact unit number (${min}-${max}):`, selectedBox?.toString() || "");
+    
+    if (value) {
+      const numValue = parseInt(value);
+      if (!isNaN(numValue) && numValue >= min && numValue <= max) {
+        setSelectedBox(numValue);
+        setLastActivated(numValue);
+      } else {
+        toast({
+          title: "Invalid unit number",
+          description: `Please enter a number between ${min} and ${max}`,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+  
   // Return to the floor selection page
   const handleBackClick = () => {
     navigate(`/${serviceType}/${actionType}/numbers`);
@@ -146,6 +167,17 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
             </p>
           </div>
         )}
+        
+        {/* Button to Enter Exact Unit Number */}
+        <div className="flex justify-center mb-4">
+          <Button 
+            variant="outline" 
+            className="bg-white"
+            onClick={handleCustomUnitInput}
+          >
+            Enter Exact Unit Number
+          </Button>
+        </div>
         
         <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto mb-8">
           {Array.from({ length: unitsPerFloor }).map((_, index) => {

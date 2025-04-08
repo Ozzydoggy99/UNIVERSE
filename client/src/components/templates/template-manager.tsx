@@ -236,6 +236,14 @@ export function TemplateManager() {
     });
   };
   
+  // Function to set exact floor number with custom input
+  const setExactFloorCount = (index: number, value: string) => {
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue > 0 && numValue <= 99) {
+      updateComponentFloors(index, numValue);
+    }
+  };
+  
   // Function to remove a component
   const removeComponent = (index: number) => {
     const updatedComponents = templateConfig.components.filter((_, i) => i !== index);
@@ -410,17 +418,32 @@ export function TemplateManager() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <div className="flex items-center w-28">
-                                    <Label htmlFor={`floors-${index}`} className="w-14 text-xs">Floors:</Label>
-                                    <Input
-                                      id={`floors-${index}`}
-                                      type="number"
-                                      min="1"
-                                      max="99"
-                                      className="h-8"
-                                      value={component.floors}
-                                      onChange={(e) => updateComponentFloors(index, parseInt(e.target.value) || 1)}
-                                    />
+                                  <div className="flex flex-col space-y-1 w-32">
+                                    <Label htmlFor={`floors-${index}`} className="text-xs">Floors:</Label>
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        id={`floors-${index}`}
+                                        type="number"
+                                        min="1"
+                                        max="99"
+                                        className="h-8"
+                                        value={component.floors}
+                                        onChange={(e) => updateComponentFloors(index, parseInt(e.target.value) || 1)}
+                                      />
+                                      <Button 
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 px-2 text-xs"
+                                        onClick={() => {
+                                          const value = prompt("Enter exact number of floors (1-99):", component.floors.toString());
+                                          if (value) {
+                                            setExactFloorCount(index, value);
+                                          }
+                                        }}
+                                      >
+                                        Set
+                                      </Button>
+                                    </div>
                                   </div>
                                   <Button 
                                     size="sm" 
@@ -606,17 +629,32 @@ export function TemplateManager() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <div className="flex items-center w-28">
-                                    <Label htmlFor={`edit-floors-${index}`} className="w-14 text-xs">Floors:</Label>
-                                    <Input
-                                      id={`edit-floors-${index}`}
-                                      type="number"
-                                      min="1"
-                                      max="99"
-                                      className="h-8"
-                                      value={component.floors}
-                                      onChange={(e) => updateComponentFloors(index, parseInt(e.target.value) || 1)}
-                                    />
+                                  <div className="flex flex-col space-y-1 w-32">
+                                    <Label htmlFor={`edit-floors-${index}`} className="text-xs">Floors:</Label>
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        id={`edit-floors-${index}`}
+                                        type="number"
+                                        min="1"
+                                        max="99"
+                                        className="h-8"
+                                        value={component.floors}
+                                        onChange={(e) => updateComponentFloors(index, parseInt(e.target.value) || 1)}
+                                      />
+                                      <Button 
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 px-2 text-xs"
+                                        onClick={() => {
+                                          const value = prompt("Enter exact number of floors (1-99):", component.floors.toString());
+                                          if (value) {
+                                            setExactFloorCount(index, value);
+                                          }
+                                        }}
+                                      >
+                                        Set
+                                      </Button>
+                                    </div>
                                   </div>
                                   <Button 
                                     size="sm" 

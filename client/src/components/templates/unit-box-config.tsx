@@ -130,7 +130,7 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                     <Label htmlFor={`units-per-floor-${index}`} className="mb-2 block text-sm">
                       Units Per Floor
                     </Label>
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-2">
                       <Input
                         id={`units-per-floor-${index}`}
                         type="number"
@@ -144,6 +144,22 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                         }
                         onChange={(e) => storeUnitConfig(index, 'unitsPerFloor', e.target.value)}
                       />
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        className="px-2 text-xs whitespace-nowrap"
+                        onClick={() => {
+                          const currentValue = unsavedUnitConfig[index]?.unitsPerFloor !== undefined 
+                            ? unsavedUnitConfig[index].unitsPerFloor 
+                            : component.unitsPerFloor || 10;
+                          const value = prompt("Enter exact number of units per floor (1-20):", currentValue.toString());
+                          if (value) {
+                            storeUnitConfig(index, 'unitsPerFloor', value);
+                          }
+                        }}
+                      >
+                        Set Exact
+                      </Button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Number of unit boxes shown (1-20)</p>
                     {unsavedUnitConfig[index]?.unitsPerFloor !== undefined && 
@@ -155,7 +171,7 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                     <Label htmlFor={`unit-start-number-${index}`} className="mb-2 block text-sm">
                       Unit Start Number
                     </Label>
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-2">
                       <Input
                         id={`unit-start-number-${index}`}
                         type="number"
@@ -169,6 +185,22 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                         }
                         onChange={(e) => storeUnitConfig(index, 'unitStartNumber', e.target.value)}
                       />
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        className="px-2 text-xs whitespace-nowrap"
+                        onClick={() => {
+                          const currentValue = unsavedUnitConfig[index]?.unitStartNumber !== undefined 
+                            ? unsavedUnitConfig[index].unitStartNumber 
+                            : component.unitStartNumber || 1;
+                          const value = prompt("Enter exact start unit number (1-99):", currentValue.toString());
+                          if (value) {
+                            storeUnitConfig(index, 'unitStartNumber', value);
+                          }
+                        }}
+                      >
+                        Set Exact
+                      </Button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Starting unit number (1-99)</p>
                     {unsavedUnitConfig[index]?.unitStartNumber !== undefined && 
