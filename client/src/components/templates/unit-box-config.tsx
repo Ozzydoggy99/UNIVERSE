@@ -17,6 +17,9 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
     unitStartNumber?: string | number;
     customUnitNumbers?: Record<number, number>; // Map of index -> custom unit number
   }>>({});
+  
+  // State for preview floor selection
+  const [previewFloor, setPreviewFloor] = useState(3);
 
   // Function to store and validate unit box configuration changes
   const storeUnitConfig = (index: number, field: 'unitsPerFloor' | 'unitStartNumber', value: string) => {
@@ -231,10 +234,104 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                   </div>
                 </div>
                 
-                <div className="mt-2 p-2 bg-gray-100 rounded-md text-sm">
-                  <p>Example: Floor 3 with start number {unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1}</p>
-                  <p className="text-xs mt-1">First unit: {300 + (unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1)}</p>
-                  <p className="text-xs mt-1">Last unit: {300 + (unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1) + (unsavedUnitConfig[index]?.unitsPerFloor || component.unitsPerFloor || 10) - 1}</p>
+                <div className="mt-2 border-t pt-3">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center">
+                      <h4 className="font-medium text-sm mr-3">Preview</h4>
+                      <select 
+                        className="border rounded px-2 py-1 text-sm bg-white"
+                        value={previewFloor}
+                        onChange={(e) => setPreviewFloor(parseInt(e.target.value))}
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((floor) => (
+                          <option key={floor} value={floor}>Floor {floor}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="text-xs h-7"
+                      onClick={() => {
+                        // Get current box with focus or default to last
+                        const unitIndex = prompt("Enter unit position to edit (0-based index):", "0");
+                        if (unitIndex !== null) {
+                          const idx = parseInt(unitIndex);
+                          if (!isNaN(idx) && idx >= 0 && idx < (unsavedUnitConfig[index]?.unitsPerFloor || component.unitsPerFloor || 10)) {
+                            const unitStartNumber = unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1;
+                            const baseUnitNumber = previewFloor * 100 + unitStartNumber;
+                            
+                            // Get current value to show in prompt
+                            const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers;
+                            const currentValue = customNumbers && customNumbers[idx] ? customNumbers[idx] : (baseUnitNumber + idx);
+                            
+                            const customNumber = prompt(`Set custom number for unit position ${idx}:`, currentValue.toString());
+                            if (customNumber !== null) {
+                              const num = parseInt(customNumber);
+                              if (!isNaN(num)) {
+                                setCustomUnitNumber(index, idx, num);
+                              }
+                            }
+                          }
+                        }
+                      }}
+                    >
+                      Edit By Position
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 max-h-[300px] overflow-y-auto p-2 border rounded-md bg-gray-50">
+                    {Array.from({ length: (unsavedUnitConfig[index]?.unitsPerFloor || component.unitsPerFloor || 10) }).map((_, unitIdx) => {
+                      // Calculate unit number based on customization or default formula
+                      const unitStartNumber = unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1;
+                      const baseUnitNumber = previewFloor * 100 + unitStartNumber;
+                      
+                      // Use custom unit number if available, otherwise calculate standard unit number
+                      const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers;
+                      const displayNumber = customNumbers && customNumbers[unitIdx] ? customNumbers[unitIdx] : (baseUnitNumber + unitIdx);
+                      const isCustom = customNumbers && customNumbers[unitIdx] ? true : false;
+                      
+                      return (
+                        <div 
+                          key={unitIdx} 
+                          className={`aspect-square rounded-lg relative flex items-center justify-center overflow-hidden shadow-md cursor-pointer transform transition-all hover:translate-y-[-2px] hover:shadow-lg
+                                    ${isCustom ? 'bg-indigo-600 text-white border-2 border-indigo-700' : 'bg-black text-white border border-gray-700'}`}
+                          onClick={() => {
+                            // Allow clicking to set custom unit number
+                            const customNumber = prompt(`Set custom number for unit position ${unitIdx}:`, displayNumber.toString());
+                            if (customNumber) {
+                              const numValue = parseInt(customNumber);
+                              if (!isNaN(numValue)) {
+                                setCustomUnitNumber(index, unitIdx, numValue);
+                              }
+                            }
+                          }}
+                        >
+                          <div className="absolute inset-0 border border-white/10 rounded-lg pointer-events-none"></div>
+                          <div className={`font-bold text-lg tracking-wide px-3 py-2 rounded-md shadow-inner border border-white/10
+                                         ${isCustom ? 'bg-indigo-700' : 'bg-white/10'}`}>
+                            {displayNumber}
+                          </div>
+                          {isCustom && (
+                            <div className="absolute top-1 right-1 bg-indigo-500 rounded-full h-3 w-3 shadow"></div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 h-1/5 bg-gradient-to-t from-white/10 to-transparent"></div>
+                          <div className="absolute top-0 left-1 text-xs text-white/70">{unitIdx}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="p-2 bg-gray-100 rounded-md text-sm">
+                    <p>Floor {previewFloor} with start number {unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1}</p>
+                    <p className="text-xs mt-1">First unit: {previewFloor * 100 + (unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1)}</p>
+                    <p className="text-xs mt-1">Last unit: {previewFloor * 100 + (unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1) + (unsavedUnitConfig[index]?.unitsPerFloor || component.unitsPerFloor || 10) - 1}</p>
+                    <div className="flex items-center mt-2 text-xs">
+                      <div className="h-3 w-3 bg-indigo-500 rounded-full mr-2"></div>
+                      <span className="italic text-indigo-800">Units with a blue dot have custom numbering</span>
+                    </div>
+                    <p className="text-xs mt-1 italic">Click on any box above to set a custom unit number.</p>
+                  </div>
                 </div>
                 
                 {/* Custom Unit Numbers Section */}
