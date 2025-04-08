@@ -15,7 +15,7 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
   const [unsavedUnitConfig, setUnsavedUnitConfig] = useState<Record<number, {
     unitsPerFloor?: string | number;
     unitStartNumber?: string | number;
-    customUnitNumbers?: Record<number, number>; // Map of index -> custom unit number
+    customUnitNumbers?: Record<string, Record<number, number>>; // Map of floor -> (index -> custom unit number)
   }>>({});
   
   // State for preview floor selection
@@ -54,8 +54,16 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
     const currentConfig = unsavedUnitConfig[componentIndex] ? { ...unsavedUnitConfig[componentIndex] } : {};
     const customUnitNumbers = currentConfig.customUnitNumbers || {};
     
-    // Add or update the custom unit number
-    customUnitNumbers[unitIndex] = unitNumber;
+    // Get the floor key as a string
+    const floorKey = previewFloor.toString();
+    
+    // Ensure this floor has a unit map
+    if (!customUnitNumbers[floorKey]) {
+      customUnitNumbers[floorKey] = {};
+    }
+    
+    // Add or update the custom unit number for this specific floor
+    customUnitNumbers[floorKey][unitIndex] = unitNumber;
     
     currentConfig.customUnitNumbers = customUnitNumbers;
     
@@ -262,10 +270,12 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                             const baseUnitNumber = previewFloor * 100 + unitStartNumber;
                             
                             // Get current value to show in prompt
-                            const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers;
-                            const currentValue = customNumbers && customNumbers[idx] ? customNumbers[idx] : (baseUnitNumber + idx);
+                            const floorKey = previewFloor.toString();
+                            const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers || {};
+                            const floorCustomNumbers = customNumbers[floorKey] || {};
+                            const currentValue = floorCustomNumbers[idx] !== undefined ? floorCustomNumbers[idx] : (baseUnitNumber + idx);
                             
-                            const customNumber = prompt(`Set custom number for unit position ${idx}:`, currentValue.toString());
+                            const customNumber = prompt(`Set custom number for unit position ${idx} on floor ${previewFloor}:`, currentValue.toString());
                             if (customNumber !== null) {
                               const num = parseInt(customNumber);
                               if (!isNaN(num)) {
@@ -287,9 +297,11 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                       const baseUnitNumber = previewFloor * 100 + unitStartNumber;
                       
                       // Use custom unit number if available, otherwise calculate standard unit number
-                      const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers;
-                      const displayNumber = customNumbers && customNumbers[unitIdx] ? customNumbers[unitIdx] : (baseUnitNumber + unitIdx);
-                      const isCustom = customNumbers && customNumbers[unitIdx] ? true : false;
+                      const floorKey = previewFloor.toString();
+                      const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers || {};
+                      const floorCustomNumbers = customNumbers[floorKey] || {};
+                      const displayNumber = floorCustomNumbers[unitIdx] !== undefined ? floorCustomNumbers[unitIdx] : (baseUnitNumber + unitIdx);
+                      const isCustom = floorCustomNumbers[unitIdx] !== undefined;
                       
                       return (
                         <div 
@@ -298,7 +310,7 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                                     ${isCustom ? 'bg-indigo-600 text-white border-2 border-indigo-700' : 'bg-black text-white border border-gray-700'}`}
                           onClick={() => {
                             // Allow clicking to set custom unit number
-                            const customNumber = prompt(`Set custom number for unit position ${unitIdx}:`, displayNumber.toString());
+                            const customNumber = prompt(`Set custom number for unit position ${unitIdx} on floor ${previewFloor}:`, displayNumber.toString());
                             if (customNumber) {
                               const numValue = parseInt(customNumber);
                               if (!isNaN(numValue)) {
@@ -343,11 +355,14 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                       variant="outline" 
                       className="text-xs"
                       onClick={() => {
-                        const unitIndex = prompt("Enter unit position (0-based index):", "0");
+                        const unitIndex = prompt(`Enter unit position (0-based index) for floor ${previewFloor}:`, "0");
                         if (unitIndex !== null) {
                           const idx = parseInt(unitIndex);
                           if (!isNaN(idx) && idx >= 0) {
-                            const customNumber = prompt("Enter custom unit number:", "");
+                            const unitStartNumber = unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1;
+                            const baseUnitNumber = previewFloor * 100 + unitStartNumber + idx;
+                            
+                            const customNumber = prompt(`Enter custom unit number for position ${idx} on floor ${previewFloor}:`, baseUnitNumber.toString());
                             if (customNumber !== null) {
                               const num = parseInt(customNumber);
                               if (!isNaN(num)) {
@@ -364,32 +379,71 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                   
                   {/* Display existing custom unit numbers */}
                   {unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                      {Object.entries(unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers || {}).map(([unitIdx, unitNum]: [string, any]) => (
-                        <div key={unitIdx} className="flex items-center justify-between bg-white p-2 rounded border text-sm">
-                          <div>
-                            <span className="text-gray-500">Unit {unitIdx}:</span> {String(unitNum)}
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-6 w-6 p-0 text-red-500"
-                            onClick={() => {
-                              // Remove custom unit number
-                              const currentConfig = unsavedUnitConfig[index] ? { ...unsavedUnitConfig[index] } : {};
-                              const customUnitNumbers = { ...(currentConfig.customUnitNumbers || component.customUnitNumbers || {}) };
-                              delete customUnitNumbers[unitIdx];
-                              currentConfig.customUnitNumbers = customUnitNumbers;
-                              setUnsavedUnitConfig({
-                                ...unsavedUnitConfig,
-                                [index]: currentConfig
-                              });
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
+                    <div>
+                      <div className="mb-3">
+                        <select 
+                          className="border rounded px-2 py-1 text-sm bg-white w-full"
+                          value={previewFloor}
+                          onChange={(e) => setPreviewFloor(parseInt(e.target.value))}
+                        >
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((floor) => (
+                            <option key={floor} value={floor}>Floor {floor} Custom Numbers</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                        {/* Show only the custom unit numbers for the current floor */}
+                        {(() => {
+                          const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers || {};
+                          const floorKey = previewFloor.toString();
+                          const floorCustomNumbers = customNumbers[floorKey] || {};
+                          
+                          if (Object.keys(floorCustomNumbers).length === 0) {
+                            return (
+                              <div className="col-span-full text-xs text-gray-500 mt-1 p-2 bg-gray-50 rounded">
+                                No custom unit numbers set for Floor {previewFloor}.
+                              </div>
+                            );
+                          }
+                          
+                          return Object.entries(floorCustomNumbers).map(([unitIdx, unitNum]: [string, any]) => (
+                            <div key={unitIdx} className="flex items-center justify-between bg-white p-2 rounded border text-sm">
+                              <div>
+                                <span className="text-gray-500">Position {unitIdx}:</span> {String(unitNum)}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-6 w-6 p-0 text-red-500"
+                                onClick={() => {
+                                  // Remove custom unit number for specific floor
+                                  const currentConfig = unsavedUnitConfig[index] ? { ...unsavedUnitConfig[index] } : {};
+                                  const customUnitNumbers = { ...(currentConfig.customUnitNumbers || component.customUnitNumbers || {}) };
+                                  const floorNumbers = { ...(customUnitNumbers[floorKey] || {}) };
+                                  
+                                  delete floorNumbers[unitIdx];
+                                  
+                                  // If this floor has no more custom numbers, remove the floor entry
+                                  if (Object.keys(floorNumbers).length === 0) {
+                                    delete customUnitNumbers[floorKey];
+                                  } else {
+                                    customUnitNumbers[floorKey] = floorNumbers;
+                                  }
+                                  
+                                  currentConfig.customUnitNumbers = customUnitNumbers;
+                                  setUnsavedUnitConfig({
+                                    ...unsavedUnitConfig,
+                                    [index]: currentConfig
+                                  });
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ));
+                        })()}
+                      </div>
                     </div>
                   ) : (
                     <div className="text-xs text-gray-500 mt-1">

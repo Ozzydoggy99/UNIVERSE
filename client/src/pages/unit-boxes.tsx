@@ -27,7 +27,8 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
   // Fetch template settings to get custom unit configuration
   const [unitsPerFloor, setUnitsPerFloor] = React.useState(10);
   const [unitStartNumber, setUnitStartNumber] = React.useState(1);
-  const [customUnitNumbers, setCustomUnitNumbers] = React.useState<Record<number, number>>({});
+  const [customUnitNumbers, setCustomUnitNumbers] = React.useState<Record<string, Record<number, number>>>({});
+  const [floorCustomNumbers, setFloorCustomNumbers] = React.useState<Record<number, number>>({}); 
   
   // Fetch template data to get custom unit settings
   React.useEffect(() => {
@@ -57,7 +58,13 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
                 
                 // Load custom unit numbers if available
                 if (serviceComponent.customUnitNumbers) {
+                  // Store all custom unit numbers by floor
                   setCustomUnitNumbers(serviceComponent.customUnitNumbers);
+                  
+                  // Set floor-specific custom numbers for current floor
+                  const floorKey = floorNumber.toString();
+                  const floorNumbers = serviceComponent.customUnitNumbers[floorKey] || {};
+                  setFloorCustomNumbers(floorNumbers);
                 }
               }
             }
@@ -69,7 +76,7 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
       
       fetchTemplateSettings();
     }
-  }, [user?.templateId, serviceType]);
+  }, [user?.templateId, serviceType, floorNumber]);
   
   // Calculate the base unit number for this floor
   // If unitStartNumber is 1 (default), we get 101, 201, etc.
@@ -86,7 +93,7 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
   const handleCustomUnitInput = () => {
     // Get array of all unit numbers (including custom ones)
     const allUnitNumbers: number[] = Array.from({ length: unitsPerFloor }).map((_, index) => 
-      customUnitNumbers[index] || (baseUnitNumber + index)
+      floorCustomNumbers[index] !== undefined ? floorCustomNumbers[index] : (baseUnitNumber + index)
     );
     
     // Find min and max of all unit numbers
@@ -205,7 +212,9 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
         <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto mb-8">
           {Array.from({ length: unitsPerFloor }).map((_, index) => {
             // Use custom unit number if available, otherwise calculate standard unit number
-            const displayNumber = customUnitNumbers[index] || (baseUnitNumber + index);
+            const displayNumber = floorCustomNumbers[index] !== undefined 
+              ? floorCustomNumbers[index] 
+              : (baseUnitNumber + index);
             const isSelected = selectedBox === displayNumber;
             
             return (
