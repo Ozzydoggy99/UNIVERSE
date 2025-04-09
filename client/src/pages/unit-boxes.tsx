@@ -89,43 +89,8 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
     setLastActivated(unitNumber);
   };
   
-  // Handle custom unit input
-  const handleCustomUnitInput = () => {
-    // Get array of all unit numbers (including custom ones)
-    const allUnitNumbers: number[] = Array.from({ length: unitsPerFloor }).map((_, index) => 
-      floorCustomNumbers[index] !== undefined ? floorCustomNumbers[index] : (baseUnitNumber + index)
-    );
-    
-    // Find min and max of all unit numbers
-    const min = Math.min(...allUnitNumbers);
-    const max = Math.max(...allUnitNumbers);
-    
-    const value = prompt(`Enter exact unit number:`, selectedBox?.toString() || "");
-    
-    if (value) {
-      const numValue = parseInt(value);
-      if (!isNaN(numValue)) {
-        // Find if the entered number exists in our unit numbers
-        const unitIndex = allUnitNumbers.indexOf(numValue);
-        if (unitIndex !== -1) {
-          setSelectedBox(numValue);
-          setLastActivated(numValue);
-        } else {
-          toast({
-            title: "Unit number not found",
-            description: "Please enter a valid unit number from the grid",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Invalid unit number",
-          description: "Please enter a valid number",
-          variant: "destructive",
-        });
-      }
-    }
-  };
+  // Removed custom unit input functionality as per user request
+  // Users should only be able to use buttons, not enter exact numbers
   
   // Return to the floor selection page
   const handleBackClick = () => {
@@ -198,16 +163,7 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
           </div>
         )}
         
-        {/* Button to Enter Exact Unit Number */}
-        <div className="flex justify-center mb-4">
-          <Button 
-            variant="outline" 
-            className="bg-white"
-            onClick={handleCustomUnitInput}
-          >
-            Enter Exact Unit Number
-          </Button>
-        </div>
+        {/* Removed "Enter Exact Unit Number" button as per user request */}
         
         <div className="grid grid-cols-2 gap-4 max-w-xl mx-auto mb-8">
           {Array.from({ length: unitsPerFloor }).map((_, index) => {
