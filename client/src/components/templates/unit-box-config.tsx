@@ -73,6 +73,59 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
     });
   };
   
+  // Function to reset a custom unit number back to default
+  const resetCustomUnitNumber = (componentIndex: number, unitIndex: number) => {
+    const currentConfig = unsavedUnitConfig[componentIndex] ? { ...unsavedUnitConfig[componentIndex] } : {};
+    const customUnitNumbers = currentConfig.customUnitNumbers || {};
+    
+    // Get the floor key as a string
+    const floorKey = previewFloor.toString();
+    
+    // Ensure this floor has a unit map
+    if (customUnitNumbers[floorKey] && customUnitNumbers[floorKey][unitIndex] !== undefined) {
+      // Remove the custom unit number for this specific position
+      const updatedFloorNumbers = { ...customUnitNumbers[floorKey] };
+      delete updatedFloorNumbers[unitIndex];
+      
+      // If the floor has no more custom numbers, remove the entire floor entry
+      if (Object.keys(updatedFloorNumbers).length === 0) {
+        const updatedCustomNumbers = { ...customUnitNumbers };
+        delete updatedCustomNumbers[floorKey];
+        currentConfig.customUnitNumbers = updatedCustomNumbers;
+      } else {
+        // Otherwise update the floor with remaining custom numbers
+        customUnitNumbers[floorKey] = updatedFloorNumbers;
+        currentConfig.customUnitNumbers = customUnitNumbers;
+      }
+      
+      setUnsavedUnitConfig({
+        ...unsavedUnitConfig,
+        [componentIndex]: currentConfig
+      });
+    }
+  };
+  
+  // Function to reset all custom unit numbers for a floor
+  const resetFloorCustomUnitNumbers = (componentIndex: number) => {
+    const currentConfig = unsavedUnitConfig[componentIndex] ? { ...unsavedUnitConfig[componentIndex] } : {};
+    const customUnitNumbers = currentConfig.customUnitNumbers || {};
+    
+    // Get the floor key as a string
+    const floorKey = previewFloor.toString();
+    
+    // Remove the entire floor entry if it exists
+    if (customUnitNumbers[floorKey]) {
+      const updatedCustomNumbers = { ...customUnitNumbers };
+      delete updatedCustomNumbers[floorKey];
+      currentConfig.customUnitNumbers = updatedCustomNumbers;
+      
+      setUnsavedUnitConfig({
+        ...unsavedUnitConfig,
+        [componentIndex]: currentConfig
+      });
+    }
+  };
+  
   // Function to save all unit box configuration changes
   const saveUnitConfigChanges = () => {
     if (Object.keys(unsavedUnitConfig).length === 0) return;
@@ -256,38 +309,62 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                         ))}
                       </select>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs h-7"
-                      onClick={() => {
-                        // Get current box with focus or default to last
-                        const unitIndex = prompt("Enter unit position to edit (0-based index):", "0");
-                        if (unitIndex !== null) {
-                          const idx = parseInt(unitIndex);
-                          if (!isNaN(idx) && idx >= 0 && idx < (unsavedUnitConfig[index]?.unitsPerFloor || component.unitsPerFloor || 10)) {
-                            const unitStartNumber = unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1;
-                            const baseUnitNumber = previewFloor * 100 + unitStartNumber;
-                            
-                            // Get current value to show in prompt
-                            const floorKey = previewFloor.toString();
-                            const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers || {};
-                            const floorCustomNumbers = customNumbers[floorKey] || {};
-                            const currentValue = floorCustomNumbers[idx] !== undefined ? floorCustomNumbers[idx] : (baseUnitNumber + idx);
-                            
-                            const customNumber = prompt(`Set custom number for unit position ${idx} on floor ${previewFloor}:`, currentValue.toString());
-                            if (customNumber !== null) {
-                              const num = parseInt(customNumber);
-                              if (!isNaN(num)) {
-                                setCustomUnitNumber(index, idx, num);
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs h-7"
+                        onClick={() => {
+                          // Get current box with focus or default to last
+                          const unitIndex = prompt("Enter unit position to edit (0-based index):", "0");
+                          if (unitIndex !== null) {
+                            const idx = parseInt(unitIndex);
+                            if (!isNaN(idx) && idx >= 0 && idx < (unsavedUnitConfig[index]?.unitsPerFloor || component.unitsPerFloor || 10)) {
+                              const unitStartNumber = unsavedUnitConfig[index]?.unitStartNumber || component.unitStartNumber || 1;
+                              const baseUnitNumber = previewFloor * 100 + unitStartNumber;
+                              
+                              // Get current value to show in prompt
+                              const floorKey = previewFloor.toString();
+                              const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers || {};
+                              const floorCustomNumbers = customNumbers[floorKey] || {};
+                              const currentValue = floorCustomNumbers[idx] !== undefined ? floorCustomNumbers[idx] : (baseUnitNumber + idx);
+                              
+                              const customNumber = prompt(`Set custom number for unit position ${idx} on floor ${previewFloor}:`, currentValue.toString());
+                              if (customNumber !== null) {
+                                const num = parseInt(customNumber);
+                                if (!isNaN(num)) {
+                                  setCustomUnitNumber(index, idx, num);
+                                }
                               }
                             }
                           }
-                        }
-                      }}
-                    >
-                      Edit By Position
-                    </Button>
+                        }}
+                      >
+                        Edit By Position
+                      </Button>
+                      
+                      <Button 
+                        size="sm" 
+                        variant="destructive" 
+                        className="text-xs h-7"
+                        onClick={() => {
+                          const floorKey = previewFloor.toString();
+                          const customNumbers = unsavedUnitConfig[index]?.customUnitNumbers || component.customUnitNumbers || {};
+                          const floorCustomNumbers = customNumbers[floorKey] || {};
+                          
+                          // Only show reset button if there are custom numbers to reset
+                          if (Object.keys(floorCustomNumbers).length > 0) {
+                            if (window.confirm(`Reset all custom unit numbers on floor ${previewFloor}?`)) {
+                              resetFloorCustomUnitNumbers(index);
+                            }
+                          } else {
+                            alert(`No custom unit numbers on floor ${previewFloor} to reset.`);
+                          }
+                        }}
+                      >
+                        Reset Floor
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 max-h-[300px] overflow-y-auto p-2 border rounded-md bg-gray-50">
@@ -318,6 +395,17 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                               }
                             }
                           }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            // Show context menu with reset option
+                            if (isCustom) {
+                              if (window.confirm(`Reset custom number for unit position ${unitIdx} on floor ${previewFloor}?`)) {
+                                resetCustomUnitNumber(index, unitIdx);
+                              }
+                            } else {
+                              alert('This unit already uses the default numbering system.');
+                            }
+                          }}
                         >
                           <div className="absolute inset-0 border border-white/10 rounded-lg pointer-events-none"></div>
                           <div className={`font-bold text-lg tracking-wide px-3 py-2 rounded-md shadow-inner border border-white/10
@@ -342,7 +430,7 @@ export function UnitBoxConfig({ templateConfig, onSaveUnitConfig }: UnitBoxConfi
                       <div className="h-3 w-3 bg-indigo-500 rounded-full mr-2"></div>
                       <span className="italic text-indigo-800">Units with a blue dot have custom numbering</span>
                     </div>
-                    <p className="text-xs mt-1 italic">Click on any box above to set a custom unit number.</p>
+                    <p className="text-xs mt-1 italic">Click on any box above to set a custom unit number. Right-click to reset a custom number.</p>
                   </div>
                 </div>
                 
