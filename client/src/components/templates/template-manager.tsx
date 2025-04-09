@@ -95,14 +95,26 @@ export function TemplateManager() {
       const res = await apiRequest('PUT', `/api/templates/${data.id}`, data.updates);
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast({
         title: 'Template updated',
         description: 'The template has been updated successfully.',
       });
+      
+      // Invalidate the general templates list
       queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
+      
+      // Invalidate this specific template to force refresh for users
+      queryClient.invalidateQueries({ queryKey: ['/api/templates', variables.id] });
+      
       setIsEditDialogOpen(false);
       resetForm();
+      
+      // Broadcast an event that the template was updated
+      // This helps with realtime updates between admin and user views
+      window.dispatchEvent(new CustomEvent('template-updated', { 
+        detail: { templateId: variables.id }
+      }));
     },
     onError: (error: Error) => {
       toast({

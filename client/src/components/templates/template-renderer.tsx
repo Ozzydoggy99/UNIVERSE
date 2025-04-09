@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { User } from '@shared/schema';
-import { Loader2, Trash2, ShowerHead, LogOut } from 'lucide-react';
+import { Loader2, Trash2, ShowerHead, LogOut, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
 
 interface TemplateRendererProps {
   user: User | null;
@@ -30,8 +31,41 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
   console.log("User in template renderer:", user);
   const { logoutMutation } = useAuth();
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   
-  const { data: template, isLoading, error } = useQuery({
+  // Function to refresh template data
+  const refreshTemplate = useCallback(() => {
+    if (user?.templateId) {
+      queryClient.invalidateQueries({ queryKey: ['/api/templates', user.templateId] });
+    }
+  }, [queryClient, user?.templateId]);
+  
+  // Auto-refresh template when component mounts
+  useEffect(() => {
+    refreshTemplate();
+    
+    // Set up refresh interval - check for updates every 30 seconds
+    const intervalId = setInterval(refreshTemplate, 30000);
+    
+    // Listen for template update events (from admin changes)
+    const handleTemplateUpdate = (event: CustomEvent) => {
+      if (event.detail.templateId === user?.templateId) {
+        console.log("Template update event detected, refreshing template");
+        refreshTemplate();
+      }
+    };
+    
+    // Add event listener
+    window.addEventListener('template-updated', handleTemplateUpdate as EventListener);
+    
+    // Clean up interval and event listener on unmount
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('template-updated', handleTemplateUpdate as EventListener);
+    };
+  }, [user?.templateId, refreshTemplate]);
+  
+  const { data: template, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/templates', user?.templateId],
     queryFn: async () => {
       if (!user?.templateId) {
@@ -40,13 +74,21 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
       console.log("Fetching template with ID:", user.templateId);
       
       // Get the specific template by ID
-      const response = await fetch(`/api/templates/${user.templateId}`);
+      const response = await fetch(`/api/templates/${user.templateId}`, {
+        // Add cache-busting query param to avoid browser caching
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       if (!response.ok) {
         throw new Error("Failed to fetch template");
       }
       return response.json();
     },
     enabled: !!user?.templateId,
+    // Important: disable caching in React Query
+    staleTime: 0,
   });
   
   console.log("Template data:", template);
@@ -99,6 +141,17 @@ export function TemplateRenderer({ user }: TemplateRendererProps) {
       <div className="absolute top-4 left-4 text-sm font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent px-2 py-1 border-l-2 border-green-500">
         SKYTECH
       </div>
+
+      {/* Refresh Button */}
+      <button
+        className="absolute top-4 right-12 cursor-pointer hover:scale-110 transition-transform"
+        onClick={() => {
+          refetch();
+        }}
+        aria-label="Refresh Template"
+      >
+        <RefreshCw className="h-5 w-5 text-primary" />
+      </button>
       
       {/* Logout Button */}
       <button 
