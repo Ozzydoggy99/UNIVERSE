@@ -1,463 +1,432 @@
-import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiRequest } from "@/lib/queryClient";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { CheckCircleIcon, CircleXIcon, ServerIcon, Bot as BotIcon, PencilIcon, Trash2Icon, RefreshCwIcon } from "lucide-react";
+import React, { useState } from 'react';
+import { 
+  Card, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription, 
+  CardContent, 
+  CardFooter 
+} from '@/components/ui/card';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useToast } from '@/hooks/use-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { RobotTemplateAssignment, UITemplate } from '@shared/schema';
+import { Trash2, Edit, Plus } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
-// Form schema
-const robotAssignmentSchema = z.object({
-  serialNumber: z.string().min(1, "Serial number is required"),
-  templateId: z.coerce.number().positive("Template ID is required"),
-  robotName: z.string().optional(),
-  robotModel: z.string().optional(),
-  isActive: z.boolean().default(true),
+// Schema for the form
+const assignmentFormSchema = z.object({
+  serialNumber: z
+    .string()
+    .min(1, { message: 'Serial number is required' })
+    .max(100, { message: 'Serial number must be at most 100 characters' }),
+  templateId: z
+    .number({ required_error: 'Template is required' }),
+  name: z
+    .string()
+    .min(1, { message: 'Robot name is required' })
+    .max(100, { message: 'Name must be at most 100 characters' })
+    .default(''),
+  location: z
+    .string()
+    .max(100, { message: 'Location must be at most 100 characters' })
+    .default('Unknown'),
 });
 
-type RobotAssignmentFormValues = z.infer<typeof robotAssignmentSchema>;
-
-// Interface
-interface Template {
-  id: number;
-  name: string;
-  description: string;
-  layout: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: number;
-}
-
-interface RobotAssignment {
-  id: number;
-  serialNumber: string;
-  templateId: number;
-  robotName?: string;
-  robotModel?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+type AssignmentFormData = z.infer<typeof assignmentFormSchema>;
 
 export default function RobotAssignments() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedRobot, setSelectedRobot] = useState<RobotAssignment | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
+  const [currentAssignment, setCurrentAssignment] = useState<RobotTemplateAssignment | null>(null);
+  
   // Fetch robot assignments
-  const { data: robotAssignments, isLoading: isLoadingAssignments } = useQuery({
+  const { data: assignments, isLoading: assignmentsLoading } = useQuery({
     queryKey: ['/api/robot-assignments'],
-    queryFn: () => apiRequest('GET', '/api/robot-assignments'),
-    refetchOnWindowFocus: false,
-    retry: 1,
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: `Failed to load robot assignments: ${error.message}`,
-        variant: "destructive",
-      });
-    },
+    enabled: !authLoading && !!user && user.role === 'admin',
   });
-
-  // Fetch templates for the dropdown
-  const { data: templates, isLoading: isLoadingTemplates } = useQuery({
+  
+  // Fetch templates for dropdown
+  const { data: templates, isLoading: templatesLoading } = useQuery({
     queryKey: ['/api/templates'],
-    queryFn: () => apiRequest('GET', '/api/templates'),
-    refetchOnWindowFocus: false,
-    retry: 1,
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: `Failed to load templates: ${error.message}`,
-        variant: "destructive",
-      });
-    },
+    enabled: !authLoading && !!user && user.role === 'admin',
   });
-
-  // Form for creating a new robot assignment
-  const createForm = useForm<RobotAssignmentFormValues>({
-    resolver: zodResolver(robotAssignmentSchema),
+  
+  // Form setup for creating a new robot assignment
+  const createForm = useForm<AssignmentFormData>({
+    resolver: zodResolver(assignmentFormSchema),
     defaultValues: {
-      serialNumber: "",
-      templateId: undefined,
-      robotName: "",
-      robotModel: "",
-      isActive: true,
+      serialNumber: '',
+      name: '',
+      location: 'Default Location',
     },
   });
-
-  // Form for editing an existing robot assignment
-  const editForm = useForm<RobotAssignmentFormValues>({
-    resolver: zodResolver(robotAssignmentSchema),
+  
+  // Form setup for editing an existing robot assignment
+  const editForm = useForm<AssignmentFormData>({
+    resolver: zodResolver(assignmentFormSchema),
     defaultValues: {
-      serialNumber: "",
+      serialNumber: '',
       templateId: undefined,
-      robotName: "",
-      robotModel: "",
-      isActive: true,
+      name: '',
+      location: '',
     },
   });
-
-  // Set the edit form values when a robot is selected
-  useEffect(() => {
-    if (selectedRobot) {
-      editForm.reset({
-        serialNumber: selectedRobot.serialNumber,
-        templateId: selectedRobot.templateId,
-        robotName: selectedRobot.robotName || "",
-        robotModel: selectedRobot.robotModel || "",
-        isActive: selectedRobot.isActive,
-      });
-    }
-  }, [selectedRobot, editForm]);
-
+  
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (data: RobotAssignmentFormValues) => apiRequest('POST', '/api/robot-assignments', data),
+    mutationFn: (data: AssignmentFormData) => {
+      return apiRequest('/api/robot-assignments', {
+        method: 'POST',
+        data,
+      });
+    },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Robot template assignment created successfully",
+        title: 'Success',
+        description: 'Robot template assignment created successfully',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
       setIsCreateDialogOpen(false);
       createForm.reset();
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: `Failed to create robot assignment: ${error.message}`,
-        variant: "destructive",
+        title: 'Error',
+        description: error.message || 'Failed to create robot template assignment',
+        variant: 'destructive',
       });
     },
   });
-
-  // Update mutation
-  const updateMutation = useMutation({
-    mutationFn: (data: { id: number; updates: RobotAssignmentFormValues }) => 
-      apiRequest('PUT', `/api/robot-assignments/${data.id}`, data.updates),
+  
+  // Edit mutation
+  const editMutation = useMutation({
+    mutationFn: (data: AssignmentFormData & { id: number }) => {
+      const { id, ...updateData } = data;
+      return apiRequest(`/api/robot-assignments/${id}`, {
+        method: 'PUT',
+        data: updateData,
+      });
+    },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Robot template assignment updated successfully",
+        title: 'Success',
+        description: 'Robot template assignment updated successfully',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
       setIsEditDialogOpen(false);
-      setSelectedRobot(null);
+      setCurrentAssignment(null);
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: `Failed to update robot assignment: ${error.message}`,
-        variant: "destructive",
+        title: 'Error',
+        description: error.message || 'Failed to update robot template assignment',
+        variant: 'destructive',
       });
     },
   });
-
+  
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest('DELETE', `/api/robot-assignments/${id}`),
+    mutationFn: (id: number) => {
+      return apiRequest(`/api/robot-assignments/${id}`, {
+        method: 'DELETE',
+      });
+    },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Robot template assignment deleted successfully",
+        title: 'Success',
+        description: 'Robot template assignment deleted successfully',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
-      setIsDeleteDialogOpen(false);
-      setSelectedRobot(null);
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: `Failed to delete robot assignment: ${error.message}`,
-        variant: "destructive",
+        title: 'Error',
+        description: error.message || 'Failed to delete robot template assignment',
+        variant: 'destructive',
       });
     },
   });
-
+  
   // Handle form submissions
-  const onCreateSubmit = (data: RobotAssignmentFormValues) => {
+  const onCreateSubmit = (data: AssignmentFormData) => {
     createMutation.mutate(data);
   };
-
-  const onEditSubmit = (data: RobotAssignmentFormValues) => {
-    if (selectedRobot) {
-      updateMutation.mutate({ id: selectedRobot.id, updates: data });
+  
+  const onEditSubmit = (data: AssignmentFormData) => {
+    if (!currentAssignment) return;
+    
+    editMutation.mutate({
+      id: currentAssignment.id,
+      ...data,
+    });
+  };
+  
+  // Setup edit form when an assignment is selected
+  const handleEdit = (assignment: RobotTemplateAssignment) => {
+    setCurrentAssignment(assignment);
+    editForm.reset({
+      serialNumber: assignment.serialNumber,
+      templateId: assignment.templateId,
+      name: assignment.name,
+      location: assignment.location,
+    });
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleDelete = (id: number) => {
+    if (window.confirm('Are you sure you want to delete this robot template assignment?')) {
+      deleteMutation.mutate(id);
     }
   };
-
-  const onDeleteConfirm = () => {
-    if (selectedRobot) {
-      deleteMutation.mutate(selectedRobot.id);
-    }
-  };
-
-  // Find template name by ID
-  const getTemplateName = (templateId: number) => {
-    if (!templates || !Array.isArray(templates)) return "Unknown Template";
-    const template = templates.find((t: Template) => t.id === templateId);
-    return template ? template.name : "Unknown Template";
-  };
-
-  // Check if the user is an admin
-  if (user?.role !== 'admin') {
+  
+  // Loading state
+  if (authLoading || assignmentsLoading || templatesLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[70vh] text-center">
-        <ServerIcon className="h-16 w-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Admin Access Required</h2>
-        <p className="text-muted-foreground mb-4">You need admin privileges to manage robot template assignments.</p>
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Robot Template Assignments</CardTitle>
+            <CardDescription>Loading...</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
-
-  return (
-    <>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Robot Template Assignments</h1>
-          <p className="text-muted-foreground">Assign templates to robots by serial number</p>
-        </div>
-        <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] })}
-          >
-            <RefreshCwIcon className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="default">
-                <BotIcon className="h-4 w-4 mr-2" />
-                Add Robot Assignment
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Assign Template to Robot</DialogTitle>
-                <DialogDescription>
-                  Enter the robot's serial number and select a template to assign.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...createForm}>
-                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-                  <FormField
-                    control={createForm.control}
-                    name="serialNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Serial Number</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="e.g., AX-2000-123" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={createForm.control}
-                    name="templateId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Template</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value?.toString()}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a template" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {Array.isArray(templates) && templates.map((template: Template) => (
-                              <SelectItem key={template.id} value={template.id.toString()}>
-                                {template.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={createForm.control}
-                    name="robotName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Robot Name (Optional)</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="e.g., Lobby Assistant" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={createForm.control}
-                    name="robotModel"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Robot Model (Optional)</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="e.g., AxBot 2000" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={createForm.control}
-                    name="isActive"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Active</FormLabel>
-                          <FormDescription>
-                            Only active robot assignments will be processed
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={createMutation.isPending}>
-                      {createMutation.isPending ? "Creating..." : "Create Assignment"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
+  
+  // Check if user is admin
+  if (!user || user.role !== 'admin') {
+    return (
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>You do not have permission to view this page.</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
-
-      {isLoadingAssignments || isLoadingTemplates ? (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="bg-muted/30 h-[100px]"></CardHeader>
-              <CardContent className="pt-6">
-                <div className="h-4 bg-muted rounded w-3/4 mb-4"></div>
-                <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
-                <div className="h-4 bg-muted rounded w-1/3"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : !robotAssignments || !Array.isArray(robotAssignments) || robotAssignments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-[400px] text-center">
-          <BotIcon className="h-16 w-16 text-muted-foreground mb-4" />
-          <h2 className="text-2xl font-bold mb-2">No Robot Assignments Yet</h2>
-          <p className="text-muted-foreground mb-4">Create your first robot template assignment to get started.</p>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <BotIcon className="h-4 w-4 mr-2" />
-            Add Robot Assignment
-          </Button>
-        </div>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {robotAssignments.map((assignment: RobotAssignment) => (
-            <Card key={assignment.id} className={!assignment.isActive ? "opacity-70" : ""}>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">
-                    {assignment.robotName || `Robot ${assignment.serialNumber}`}
-                  </CardTitle>
-                  <Badge variant={assignment.isActive ? "default" : "outline"}>
-                    {assignment.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-                <CardDescription>Serial: {assignment.serialNumber}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">Template:</span>
-                    <span>{getTemplateName(assignment.templateId)}</span>
-                  </div>
-                  {assignment.robotModel && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">Model:</span>
-                      <span>{assignment.robotModel}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">Created:</span>
-                    <span>{new Date(assignment.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2 pt-0">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => {
-                    setSelectedRobot(assignment);
-                    setIsEditDialogOpen(true);
-                  }}
-                >
-                  <PencilIcon className="h-4 w-4 mr-1" />
-                  Edit
+    );
+  }
+  
+  return (
+    <div className="container mx-auto p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Robot Template Assignments</CardTitle>
+          <CardDescription>
+            Manage which templates are assigned to robots by serial number
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Plus size={16} />
+                  Add New Assignment
                 </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() => {
-                    setSelectedRobot(assignment);
-                    setIsDeleteDialogOpen(true);
-                  }}
-                >
-                  <Trash2Icon className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
-
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Robot Template Assignment</DialogTitle>
+                  <DialogDescription>
+                    Assign a template to a robot using its serial number.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...createForm}>
+                  <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+                    <FormField
+                      control={createForm.control}
+                      name="serialNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Serial Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter robot serial number" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            The unique identifier for the robot
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={createForm.control}
+                      name="templateId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Template</FormLabel>
+                          <Select
+                            onValueChange={(value) => field.onChange(parseInt(value))}
+                            defaultValue={field.value?.toString()}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a template" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {templates?.map((template: UITemplate) => (
+                                <SelectItem key={template.id} value={template.id.toString()}>
+                                  {template.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Select which template to assign to this robot
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={createForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Robot Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter robot name" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            A friendly name for the robot
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={createForm.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Location</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter robot location" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Where the robot is primarily located
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <DialogFooter>
+                      <Button type="submit" disabled={createMutation.isPending}>
+                        {createMutation.isPending ? 'Creating...' : 'Create Assignment'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+          
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Serial Number</TableHead>
+                <TableHead>Robot Name</TableHead>
+                <TableHead>Template</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {assignments && assignments.length > 0 ? (
+                assignments.map((assignment: RobotTemplateAssignment & { templateName?: string }) => (
+                  <TableRow key={assignment.id}>
+                    <TableCell>{assignment.id}</TableCell>
+                    <TableCell>{assignment.serialNumber}</TableCell>
+                    <TableCell>{assignment.name}</TableCell>
+                    <TableCell>
+                      {assignment.templateName || 
+                       templates?.find(t => t.id === assignment.templateId)?.name || 
+                       `Template ID: ${assignment.templateId}`}
+                    </TableCell>
+                    <TableCell>{assignment.location}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleEdit(assignment)}
+                        >
+                          <Edit size={16} />
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleDelete(assignment.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">
+                    No robot template assignments found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Robot Assignment</DialogTitle>
+            <DialogTitle>Edit Robot Template Assignment</DialogTitle>
             <DialogDescription>
-              Update the robot template assignment details.
+              Update the template assignment for this robot.
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
@@ -469,8 +438,11 @@ export default function RobotAssignments() {
                   <FormItem>
                     <FormLabel>Serial Number</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="Enter robot serial number" {...field} />
                     </FormControl>
+                    <FormDescription>
+                      The unique identifier for the robot
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -483,7 +455,7 @@ export default function RobotAssignments() {
                   <FormItem>
                     <FormLabel>Template</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => field.onChange(parseInt(value))}
                       defaultValue={field.value?.toString()}
                     >
                       <FormControl>
@@ -492,13 +464,16 @@ export default function RobotAssignments() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {Array.isArray(templates) && templates.map((template: Template) => (
+                        {templates?.map((template: UITemplate) => (
                           <SelectItem key={template.id} value={template.id.toString()}>
                             {template.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormDescription>
+                      Select which template to assign to this robot
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -506,13 +481,16 @@ export default function RobotAssignments() {
               
               <FormField
                 control={editForm.control}
-                name="robotName"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Robot Name (Optional)</FormLabel>
+                    <FormLabel>Robot Name</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="Enter robot name" {...field} />
                     </FormControl>
+                    <FormDescription>
+                      A friendly name for the robot
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -520,77 +498,30 @@ export default function RobotAssignments() {
               
               <FormField
                 control={editForm.control}
-                name="robotModel"
+                name="location"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Robot Model (Optional)</FormLabel>
+                    <FormLabel>Location</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="Enter robot location" {...field} />
                     </FormControl>
+                    <FormDescription>
+                      Where the robot is primarily located
+                    </FormDescription>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={editForm.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active</FormLabel>
-                      <FormDescription>
-                        Only active robot assignments will be processed
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
                   </FormItem>
                 )}
               />
               
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Updating..." : "Save Changes"}
+                <Button type="submit" disabled={editMutation.isPending}>
+                  {editMutation.isPending ? 'Updating...' : 'Update Assignment'}
                 </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete the assignment for {selectedRobot?.robotName || `Robot ${selectedRobot?.serialNumber}`}?
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              type="button" 
-              variant="destructive" 
-              onClick={onDeleteConfirm}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    </div>
   );
 }

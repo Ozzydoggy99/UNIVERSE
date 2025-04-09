@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import axios from "axios";
 import dotenv from "dotenv";
 import { setupAuth } from "./auth";
+import { registerAdminRoutes } from "./admin-routes"; 
 import { z } from "zod";
 import { 
   User, 
@@ -29,6 +30,9 @@ let API_ENDPOINT = DEFAULT_API_URL;
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   await setupAuth(app);
+  
+  // Register server-side admin routes
+  registerAdminRoutes(app);
   // Authentication endpoint
   app.post("/api/authenticate", async (req, res) => {
     try {
