@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Bot, Map, Bluetooth, Cpu } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { RobotTemplateAssignment } from '@shared/schema';
+import { RobotStatus } from '@/types/robot';
 
 export default function RobotHub() {
   const { user } = useAuth();
@@ -23,7 +24,7 @@ export default function RobotHub() {
   });
 
   // Fetch robot statuses
-  const { data: robotStatuses, isLoading: statusesLoading } = useQuery({
+  const { data: robotStatuses, isLoading: statusesLoading } = useQuery<Record<string, RobotStatus>>({
     queryKey: ['/api/robots/statuses'],
     refetchInterval: 10000, // Refresh every 10 seconds
     enabled: !!robotAssignments,
@@ -43,8 +44,10 @@ export default function RobotHub() {
   };
 
   // Get status color based on robot status
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
+  const getStatusColor = (status?: string) => {
+    if (!status) return 'bg-gray-500';
+    
+    switch (status.toLowerCase()) {
       case 'active':
       case 'running':
         return 'bg-green-500';
@@ -62,20 +65,32 @@ export default function RobotHub() {
   };
 
   // Generate placeholder data for development if needed
-  const mockRobotStatuses = {
+  const mockRobotStatuses: Record<string, RobotStatus> = {
     'AX-2000-1': {
+      model: 'AxBot 2000',
+      serialNumber: 'AX-2000-1',
       status: 'active',
       task: 'Delivering packages',
+      mode: 'autonomous',
+      battery: 78,
       location: { x: 120, y: 80, floor: 2 },
     },
     'AX-2000-2': {
+      model: 'AxBot 2000',
+      serialNumber: 'AX-2000-2',
       status: 'idle',
       task: 'Awaiting instructions',
+      mode: 'manual',
+      battery: 45,
       location: { x: 85, y: 45, floor: 1 },
     },
     'AX-2000-3': {
+      model: 'AxBot 3000',
+      serialNumber: 'AX-2000-3',
       status: 'charging',
       task: 'Battery at 25%',
+      mode: 'sleep',
+      battery: 92,
       location: { x: 220, y: 160, floor: 3 },
     },
   };
@@ -117,11 +132,11 @@ export default function RobotHub() {
               : undefined;
             
             // Get the robot status (either from API or use mock data)
-            const robotStatus = (robotStatuses && typeof robotStatuses === 'object' && robot.serialNumber in robotStatuses) 
+            const robotStatus: RobotStatus = (robotStatuses && typeof robotStatuses === 'object' && robotStatuses[robot.serialNumber]) 
               ? robotStatuses[robot.serialNumber] 
               : (robot.serialNumber in mockRobotStatuses) 
                 ? mockRobotStatuses[robot.serialNumber as keyof typeof mockRobotStatuses] 
-                : { status: 'unknown', task: 'Status unknown', location: { x: 0, y: 0, floor: 0 } };
+                : { status: 'unknown', task: 'Status unknown', mode: 'unknown', location: { x: 0, y: 0, floor: 0 } };
             
             return (
               <Card 

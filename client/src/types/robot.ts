@@ -1,22 +1,17 @@
-// Robot Status
+// Define types for robot status data
 export interface RobotStatus {
-  model: string;
-  serialNumber: string;
-  battery: number;
-  status: string; // online, offline, warning, error
-  operationalStatus: string; // idle, moving, charging, etc.
-  uptime: string;
-  messages?: {
-    timestamp: string;
-    text: string;
-  }[];
-}
-
-// Robot Position
-export interface Coordinate {
-  x: number;
-  y: number;
-  z: number;
+  model?: string;
+  serialNumber?: string;
+  battery?: number;
+  status?: string;
+  mode?: string;
+  lastUpdate?: string;
+  task?: string;
+  location?: {
+    x: number;
+    y: number;
+    floor: number;
+  };
 }
 
 export interface RobotPosition {
@@ -25,33 +20,30 @@ export interface RobotPosition {
   z: number;
   orientation: number;
   speed: number;
-  currentTask: string;
-  destination?: Coordinate;
-  distanceToTarget?: number;
+  timestamp: string;
 }
 
-// Robot Sensor Data
 export interface RobotSensorData {
   temperature: number;
   humidity: number;
-  proximity: number;
-  light: number;
-  noise: number;
+  proximity: number[];
+  battery: number;
+  timestamp: string;
 }
 
-// Map Data
+export interface MapPoint {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface MapPath {
+  points: MapPoint[];
+  status: string;
+}
+
 export interface MapData {
   grid: any[];
-  obstacles: Coordinate[];
-  paths: {
-    points: Coordinate[];
-    status: string;
-  }[];
-}
-
-// API Authentication
-export interface AuthConfig {
-  apiEndpoint: string;
-  apiKey: string;
-  rememberConnection: boolean;
+  obstacles: MapPoint[];
+  paths: MapPath[];
 }

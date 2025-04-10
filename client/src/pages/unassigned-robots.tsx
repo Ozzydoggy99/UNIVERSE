@@ -7,6 +7,7 @@ import { Loader2, Bot, Map, Bluetooth, Cpu, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { RobotTemplateAssignment } from '@shared/schema';
+import { RobotStatus } from '@/types/robot';
 
 export default function UnassignedRobots() {
   const { user } = useAuth();
@@ -19,7 +20,7 @@ export default function UnassignedRobots() {
   });
 
   // Fetch all robot statuses
-  const { data: robotStatuses, isLoading: statusesLoading } = useQuery({
+  const { data: robotStatuses, isLoading: statusesLoading } = useQuery<Record<string, RobotStatus>>({
     queryKey: ['/api/robots/statuses'],
     refetchInterval: 10000, // Refresh every 10 seconds
   });
