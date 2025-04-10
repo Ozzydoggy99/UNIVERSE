@@ -14,6 +14,7 @@ import AdminTemplates from "@/pages/admin-templates";
 import RobotAssignments from "@/pages/robot-assignments";
 import RobotHub from "@/pages/robot-hub";
 import RobotDetails from "@/pages/robot-details";
+import UnassignedRobots from "@/pages/unassigned-robots";
 import NumberedBoxes from "@/pages/numbered-boxes";
 import LaundryBoxes from "@/pages/laundry-boxes";
 import TrashBoxes from "@/pages/trash-boxes";
@@ -172,6 +173,15 @@ function Router() {
         component={() => (
           <AppLayout>
             <RobotHub />
+          </AppLayout>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/unassigned-robots" 
+        component={() => (
+          <AppLayout>
+            <UnassignedRobots />
           </AppLayout>
         )} 
       />

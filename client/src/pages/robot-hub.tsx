@@ -31,6 +31,11 @@ export default function RobotHub() {
 
   // Determine if we're still loading data
   const isLoading = assignmentsLoading || templatesLoading || statusesLoading;
+  
+  // Navigate to unassigned robots page
+  const handleViewUnassignedClick = () => {
+    navigate('/unassigned-robots');
+  };
 
   // Handle card click
   const handleRobotCardClick = (serialNumber: string) => {
@@ -87,11 +92,20 @@ export default function RobotHub() {
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Robot Monitoring Hub</h1>
-        <Badge variant="outline" className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-green-500"></span>
-          Live Status
-        </Badge>
+        <h1 className="text-2xl font-bold">Assigned Robots</h1>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleViewUnassignedClick}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-md text-sm font-medium flex items-center gap-1.5"
+          >
+            <Bot className="h-4 w-4" />
+            View Unassigned Robots
+          </button>
+          <Badge variant="outline" className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-green-500"></span>
+            Live Status
+          </Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
