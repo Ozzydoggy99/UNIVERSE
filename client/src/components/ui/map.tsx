@@ -1,221 +1,289 @@
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RobotPosition } from "@/types/robot";
-import { useRobot } from "@/providers/robot-provider";
-import { refreshAllData } from "@/lib/api";
-import { ArrowUpIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ZoomInIcon, ZoomOutIcon, FocusIcon, RefreshCwIcon } from "lucide-react";
+import React, { useEffect, useRef } from 'react';
 
-interface MapVisualizationProps {
-  className?: string;
+// Simple map visualization component for pages that don't have full robot data
+export function MapVisualization({ className = "" }: { className?: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw a grid
+    ctx.strokeStyle = '#eee';
+    ctx.lineWidth = 0.5;
+    const gridSize = 20;
+    
+    for (let x = 0; x <= canvas.width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
+    }
+    
+    for (let y = 0; y <= canvas.height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+    
+    // Draw sample obstacles
+    ctx.fillStyle = '#f44336';
+    const obstacles = [
+      { x: 50, y: 50 },
+      { x: 150, y: 120 },
+      { x: 250, y: 80 },
+    ];
+    
+    obstacles.forEach(obstacle => {
+      ctx.beginPath();
+      ctx.arc(obstacle.x, obstacle.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+    // Draw sample path
+    ctx.strokeStyle = '#3f51b5';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(50, 50);
+    ctx.lineTo(100, 70);
+    ctx.lineTo(150, 100);
+    ctx.lineTo(200, 150);
+    ctx.stroke();
+    
+    // Draw sample robot
+    ctx.fillStyle = '#4caf50';
+    ctx.beginPath();
+    ctx.arc(100, 70, 8, 0, Math.PI * 2);
+    ctx.fill();
+    
+  }, []);
+  
+  return (
+    <canvas 
+      ref={canvasRef} 
+      width={800} 
+      height={600} 
+      className={`w-full h-full bg-white rounded-md ${className}`}
+    />
+  );
 }
 
-export function MapVisualization({ className }: MapVisualizationProps) {
-  const { robotPosition, setRobotData } = useRobot();
-  const [zoom, setZoom] = useState(1);
-  const [showPath, setShowPath] = useState(true);
-  const [showObstacles, setShowObstacles] = useState(true);
-  const mapRef = useRef<HTMLDivElement>(null);
+interface MapPoint {
+  x: number;
+  y: number;
+  z: number;
+}
 
-  // Robot position as state for visualization
-  const [robotMarkerStyle, setRobotMarkerStyle] = useState({
-    top: "45%",
-    left: "25%",
-  });
+interface MapPath {
+  points: MapPoint[];
+  status: string;
+}
 
-  // Update robot marker position when robot position changes
+interface MapData {
+  grid: any[];
+  obstacles: MapPoint[];
+  paths: MapPath[];
+}
+
+interface RobotStatus {
+  model: string;
+  serialNumber: string;
+  battery: number;
+  status: string;
+  mode: string;
+  lastUpdate: string;
+}
+
+interface RobotPosition {
+  x: number;
+  y: number;
+  z: number;
+  orientation: number;
+  speed: number;
+  timestamp: string;
+}
+
+interface RobotSensorData {
+  temperature: number;
+  humidity: number;
+  proximity: number[];
+  battery: number;
+  timestamp: string;
+}
+
+interface MapProps {
+  robotStatus: RobotStatus;
+  robotPosition: RobotPosition;
+  sensorData: RobotSensorData;
+  mapData: MapData;
+}
+
+export function Map({ robotStatus, robotPosition, sensorData, mapData }: MapProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Draw the map whenever the data changes
   useEffect(() => {
-    if (robotPosition) {
-      // Convert coordinates to percentage based on map container size
-      // This is simplified; in a real app, you'd have proper coordinate mapping
-      setRobotMarkerStyle({
-        top: `${45 - (robotPosition.y / 100) * 20}%`,
-        left: `${25 + (robotPosition.x / 100) * 35}%`,
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Calculate scaling factor to fit map data into the canvas
+    const points = [
+      robotPosition,
+      ...(mapData.obstacles || []),
+      ...(mapData.paths || []).flatMap(path => path.points || [])
+    ];
+    
+    const xValues = points.map(p => p.x);
+    const yValues = points.map(p => p.y);
+    
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
+    const minY = Math.min(...yValues);
+    const maxY = Math.max(...yValues);
+    
+    const mapWidth = maxX - minX + 50;  // Add margin
+    const mapHeight = maxY - minY + 50;  // Add margin
+    
+    const scaleX = canvas.width / mapWidth;
+    const scaleY = canvas.height / mapHeight;
+    const scale = Math.min(scaleX, scaleY);
+    
+    // Function to transform map coordinates to canvas coordinates
+    const transformX = (x: number) => (x - minX + 25) * scale;
+    const transformY = (y: number) => canvas.height - (y - minY + 25) * scale;
+    
+    // Draw a grid (optional)
+    ctx.strokeStyle = '#eee';
+    ctx.lineWidth = 0.5;
+    const gridSize = 20;
+    
+    for (let x = 0; x <= mapWidth; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(transformX(x + minX - 25), transformY(minY - 25));
+      ctx.lineTo(transformX(x + minX - 25), transformY(maxY + 25));
+      ctx.stroke();
+    }
+    
+    for (let y = 0; y <= mapHeight; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(transformX(minX - 25), transformY(y + minY - 25));
+      ctx.lineTo(transformX(maxX + 25), transformY(y + minY - 25));
+      ctx.stroke();
+    }
+    
+    // Draw obstacles
+    ctx.fillStyle = '#f44336';
+    if (mapData.obstacles && mapData.obstacles.length) {
+      mapData.obstacles.forEach(obstacle => {
+        ctx.beginPath();
+        ctx.arc(transformX(obstacle.x), transformY(obstacle.y), 5, 0, Math.PI * 2);
+        ctx.fill();
       });
     }
-  }, [robotPosition]);
-
-  const handleZoomIn = () => {
-    setZoom((prev) => Math.min(prev + 0.25, 2.5));
-  };
-
-  const handleZoomOut = () => {
-    setZoom((prev) => Math.max(prev - 0.25, 0.5));
-  };
-
-  const handleCenterMap = () => {
-    if (robotPosition && mapRef.current) {
-      // Logic to center the map on the robot
-      // In a real implementation, this would adjust the map's viewbox or scroll position
+    
+    // Draw paths
+    if (mapData.paths && mapData.paths.length) {
+      mapData.paths.forEach(path => {
+        if (path.points && path.points.length > 1) {
+          ctx.strokeStyle = '#3f51b5';
+          ctx.lineWidth = 2;
+          
+          ctx.beginPath();
+          ctx.moveTo(transformX(path.points[0].x), transformY(path.points[0].y));
+          
+          for (let i = 1; i < path.points.length; i++) {
+            ctx.lineTo(transformX(path.points[i].x), transformY(path.points[i].y));
+          }
+          
+          ctx.stroke();
+          
+          // Draw points along the path
+          ctx.fillStyle = '#3f51b5';
+          path.points.forEach(point => {
+            ctx.beginPath();
+            ctx.arc(transformX(point.x), transformY(point.y), 3, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+      });
     }
-  };
-
-  const handleRefreshMap = async () => {
-    try {
-      const [status, position, sensorData, mapData] = await refreshAllData();
-      setRobotData(status, position, sensorData, mapData);
-    } catch (error) {
-      console.error("Failed to refresh map data:", error);
+    
+    // Draw robot position
+    const robotX = transformX(robotPosition.x);
+    const robotY = transformY(robotPosition.y);
+    
+    // Draw robot
+    ctx.fillStyle = '#4caf50';
+    ctx.beginPath();
+    ctx.arc(robotX, robotY, 8, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw robot orientation line
+    const angle = (robotPosition.orientation * Math.PI) / 180;
+    const orientationLength = 15;
+    
+    ctx.strokeStyle = '#4caf50';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(robotX, robotY);
+    ctx.lineTo(
+      robotX + Math.cos(angle) * orientationLength,
+      robotY - Math.sin(angle) * orientationLength
+    );
+    ctx.stroke();
+    
+    // Draw proximity sensors if available (visualization based on proximity data)
+    if (sensorData.proximity && sensorData.proximity.length > 0) {
+      ctx.strokeStyle = 'rgba(255, 152, 0, 0.5)';
+      ctx.fillStyle = 'rgba(255, 152, 0, 0.2)';
+      
+      const sensorAngles = [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]; // Assuming 4 sensors
+      
+      sensorData.proximity.forEach((proximity, index) => {
+        if (index < sensorAngles.length) {
+          const sensorAngle = angle + sensorAngles[index];
+          const sensorRange = proximity * scale * 20; // Scale up for visibility
+          
+          ctx.beginPath();
+          ctx.moveTo(robotX, robotY);
+          ctx.lineTo(
+            robotX + Math.cos(sensorAngle) * sensorRange,
+            robotY - Math.sin(sensorAngle) * sensorRange
+          );
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.arc(
+            robotX + Math.cos(sensorAngle) * sensorRange,
+            robotY - Math.sin(sensorAngle) * sensorRange,
+            2, 0, Math.PI * 2
+          );
+          ctx.fill();
+        }
+      });
     }
-  };
-
-  // Calculate distance to target
-  const distanceToTarget = robotPosition?.destination 
-    ? Math.sqrt(
-        Math.pow(robotPosition.destination.x - robotPosition.x, 2) +
-        Math.pow(robotPosition.destination.y - robotPosition.y, 2) +
-        Math.pow(robotPosition.destination.z - robotPosition.z, 2)
-      ).toFixed(1) + 'm' 
-    : 'N/A';
-
+    
+  }, [robotPosition, sensorData, mapData]);
+  
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>Map & Position</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div 
-          ref={mapRef}
-          className="map-container w-full h-80 bg-neutral-light border border-border rounded-md overflow-hidden"
-          style={{ 
-            backgroundSize: `${20 * zoom}px ${20 * zoom}px`, 
-            backgroundImage: "linear-gradient(to right, hsl(var(--muted)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--muted)) 1px, transparent 1px)",
-            position: "relative"
-          }}
-        >
-          {/* Robot Position Marker */}
-          <div 
-            className="robot-marker absolute" 
-            style={{ 
-              top: robotMarkerStyle.top, 
-              left: robotMarkerStyle.left,
-              transform: `scale(${zoom})`
-            }}
-          >
-            <div className="w-4 h-4 bg-primary rounded-full"></div>
-            <div className="absolute top-0 left-0 w-4 h-4 bg-primary rounded-full animate-ping opacity-25"></div>
-            <div className="absolute -top-6 -left-8 bg-background text-xs p-1 rounded shadow font-mono">
-              {robotPosition ? `X: ${robotPosition.x.toFixed(1)}, Y: ${robotPosition.y.toFixed(1)}` : 'Loading...'}
-            </div>
-          </div>
-          
-          {/* Destination Marker */}
-          {robotPosition?.destination && (
-            <div 
-              className="absolute" 
-              style={{ 
-                top: "25%", 
-                left: "60%",
-                transform: `scale(${zoom})`
-              }}
-            >
-              <div className="w-4 h-4 border-2 border-accent rounded-full"></div>
-              <div className="absolute -top-6 -left-8 bg-background text-xs p-1 rounded shadow font-mono">
-                X: {robotPosition.destination.x.toFixed(1)}, Y: {robotPosition.destination.y.toFixed(1)}
-              </div>
-            </div>
-          )}
-          
-          {/* Path Line */}
-          {showPath && (
-            <svg className="absolute top-0 left-0 w-full h-full" style={{ zIndex: -1 }}>
-              <path 
-                d="M 25% 45% L 40% 35% L 60% 25%" 
-                stroke="hsl(var(--accent))" 
-                strokeWidth="2" 
-                strokeDasharray="5,5" 
-                fill="none" 
-              />
-            </svg>
-          )}
-          
-          {/* Obstacles (Example) */}
-          {showObstacles && (
-            <div 
-              className="absolute" 
-              style={{ 
-                top: "35%", 
-                left: "40%", 
-                width: `${30 * zoom}px`, 
-                height: `${30 * zoom}px`, 
-                backgroundColor: "rgba(244, 67, 54, 0.3)", 
-                border: "1px solid rgba(244, 67, 54, 0.7)", 
-                borderRadius: "3px"
-              }}
-            ></div>
-          )}
-        </div>
-        
-        <div className="mt-4 flex flex-wrap justify-between">
-          {/* Map Controls */}
-          <div className="flex space-x-2 mb-2">
-            <Button variant="secondary" size="sm" onClick={handleZoomIn}>
-              <ZoomInIcon className="h-4 w-4 mr-1" />
-              Zoom In
-            </Button>
-            <Button variant="secondary" size="sm" onClick={handleZoomOut}>
-              <ZoomOutIcon className="h-4 w-4 mr-1" />
-              Zoom Out
-            </Button>
-            <Button variant="secondary" size="sm" onClick={handleCenterMap}>
-              <FocusIcon className="h-4 w-4 mr-1" />
-              Center
-            </Button>
-          </div>
-          
-          {/* Map Options */}
-          <div className="flex items-center space-x-4 mb-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="show-path" 
-                checked={showPath} 
-                onCheckedChange={(checked) => setShowPath(checked as boolean)}
-              />
-              <Label htmlFor="show-path" className="text-sm">Show Path</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="show-obstacles"
-                checked={showObstacles}
-                onCheckedChange={(checked) => setShowObstacles(checked as boolean)}
-              />
-              <Label htmlFor="show-obstacles" className="text-sm">Show Obstacles</Label>
-            </div>
-            <Button variant="ghost" size="sm" onClick={handleRefreshMap} className="text-primary hover:text-primary-dark">
-              <RefreshCwIcon className="h-4 w-4 mr-1" />
-              Refresh
-            </Button>
-          </div>
-        </div>
-        
-        {/* Coordinates Display */}
-        <div className="mt-3 p-2 bg-secondary bg-opacity-10 rounded-md">
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            <div className="flex items-center">
-              <span className="text-muted-foreground">Current:</span>
-              <span className="ml-1 font-mono">
-                {robotPosition 
-                  ? `X: ${robotPosition.x.toFixed(1)}, Y: ${robotPosition.y.toFixed(1)}, Z: ${robotPosition.z.toFixed(1)}` 
-                  : 'Loading...'}
-              </span>
-            </div>
-            <div className="flex items-center">
-              <span className="text-muted-foreground">Target:</span>
-              <span className="ml-1 font-mono">
-                {robotPosition?.destination 
-                  ? `X: ${robotPosition.destination.x.toFixed(1)}, Y: ${robotPosition.destination.y.toFixed(1)}, Z: ${robotPosition.destination.z.toFixed(1)}` 
-                  : 'N/A'}
-              </span>
-            </div>
-            <div className="flex items-center">
-              <span className="text-muted-foreground">Distance:</span>
-              <span className="ml-1 font-mono">{distanceToTarget}</span>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <canvas 
+      ref={canvasRef} 
+      width={800} 
+      height={600} 
+      className="w-full h-full bg-white rounded-md"
+    />
   );
 }

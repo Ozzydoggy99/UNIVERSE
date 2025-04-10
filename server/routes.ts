@@ -5,6 +5,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import { setupAuth } from "./auth";
 import { registerAdminRoutes } from "./admin-routes"; 
+import { registerRobotApiRoutes } from "./robot-api";
 import { z } from "zod";
 import { 
   User, 
@@ -33,6 +34,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register server-side admin routes
   registerAdminRoutes(app);
+  
+  // Register robot API routes
+  registerRobotApiRoutes(app);
   // Authentication endpoint
   app.post("/api/authenticate", async (req, res) => {
     try {

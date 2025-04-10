@@ -12,6 +12,8 @@ import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
 import AdminTemplates from "@/pages/admin-templates";
 import RobotAssignments from "@/pages/robot-assignments";
+import RobotHub from "@/pages/robot-hub";
+import RobotDetails from "@/pages/robot-details";
 import NumberedBoxes from "@/pages/numbered-boxes";
 import LaundryBoxes from "@/pages/laundry-boxes";
 import TrashBoxes from "@/pages/trash-boxes";
@@ -147,6 +149,24 @@ function Router() {
         component={() => (
           <AppLayout>
             <RobotAssignments />
+          </AppLayout>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/robot-hub" 
+        component={() => (
+          <AppLayout>
+            <RobotHub />
+          </AppLayout>
+        )} 
+      />
+      
+      <ProtectedRoute 
+        path="/robot-details/:serialNumber" 
+        component={() => (
+          <AppLayout>
+            <RobotDetails />
           </AppLayout>
         )} 
       />

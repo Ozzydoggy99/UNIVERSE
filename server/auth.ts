@@ -153,6 +153,39 @@ async function createPredefinedUsers() {
       await storage.updateUser(isabellaUser.id, { templateId: template2.id });
       console.log("Assigned Template 2 to Isabella");
     }
+    
+    // Create robot template assignments if they don't exist
+    const robotAssignments = await storage.getAllRobotTemplateAssignments();
+    if (robotAssignments.length === 0 && template1 && template2) {
+      // Create assignment for robot 1
+      await storage.createRobotTemplateAssignment({
+        name: "Floor Robot 1",
+        description: "Main floor service robot",
+        serialNumber: "AX-2000-1",
+        templateId: template1.id,
+        isActive: true
+      });
+      
+      // Create assignment for robot 2
+      await storage.createRobotTemplateAssignment({
+        name: "Floor Robot 2",
+        description: "Secondary floor service robot",
+        serialNumber: "AX-2000-2",
+        templateId: template1.id,
+        isActive: true
+      });
+      
+      // Create assignment for robot 3
+      await storage.createRobotTemplateAssignment({
+        name: "Storage Robot",
+        description: "Inventory management robot",
+        serialNumber: "AX-2000-3",
+        templateId: template2.id,
+        isActive: true
+      });
+      
+      console.log("Created 3 robot template assignments");
+    }
   } catch (error) {
     console.error("Error creating predefined users and templates:", error);
   }

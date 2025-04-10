@@ -54,7 +54,8 @@ export default function Sidebar() {
       label: "Robots",
       icon: <Bot className="mr-3 h-5 w-5" />,
       items: [
-        { href: "/robot-assignments", label: "Robot Assignments" }
+        { href: "/robot-assignments", label: "Robot Assignments" },
+        { href: "/robot-hub", label: "Robot Monitoring Hub" }
       ]
     }
   ] : [];
