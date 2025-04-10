@@ -14,7 +14,6 @@ import {
   Palette,
   ChevronDown,
   ChevronRight,
-  Gamepad2,
   Bot
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -32,7 +31,6 @@ export default function Sidebar() {
     { href: "/navigation", label: "Navigation", icon: <Map className="mr-3 h-5 w-5" /> },
     { href: "/history", label: "History", icon: <History className="mr-3 h-5 w-5" /> },
     { href: "/settings", label: "Settings", icon: <Settings className="mr-3 h-5 w-5" /> },
-    { href: "/game", label: "Game", icon: <Gamepad2 className="mr-3 h-5 w-5" /> },
   ];
   
   // Add My Template for non-admin users
