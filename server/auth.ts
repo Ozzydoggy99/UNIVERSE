@@ -181,6 +181,24 @@ async function createPredefinedUsers() {
       console.log("Assigned Template 1 to Nana");
     }
     
+    // Check if Papa exists, if not create regular user with template 1
+    let papaUser = await storage.getUserByUsername("Papa");
+    if (!papaUser) {
+      const hashedPassword = await hashPassword("Papa");
+      papaUser = await storage.createUser({
+        username: "Papa",
+        password: hashedPassword,
+        role: "user"
+      });
+      console.log("Created regular user: Papa");
+    }
+    
+    // Assign template 1 to Papa if needed
+    if (template1 && papaUser && !papaUser.templateId) {
+      await storage.updateUser(papaUser.id, { templateId: template1.id });
+      console.log("Assigned Template 1 to Papa");
+    }
+    
     // Create robot template assignments if they don't exist
     const robotAssignments = await storage.getAllRobotTemplateAssignments();
     if (robotAssignments.length === 0 && template1 && template2) {
