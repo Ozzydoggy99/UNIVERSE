@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { Request, Response } from 'express';
 import { storage } from './storage';
-import { User } from '@shared/schema';
+import { User } from '../shared/schema';
 import { Session } from 'express-session';
 
 // Add session property to Request

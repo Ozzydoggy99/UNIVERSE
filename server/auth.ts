@@ -5,7 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
+import { User as SelectUser } from "../shared/schema";
 import memorystore from "memorystore";
 
 declare global {
@@ -265,7 +265,7 @@ export async function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) {
         return res.status(401).json({ message: "Invalid username or password" });

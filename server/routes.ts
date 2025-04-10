@@ -13,7 +13,7 @@ import {
   InsertGameItem, 
   InsertGameZombie,
   insertRobotTemplateAssignmentSchema
-} from "@shared/schema";
+} from "../shared/schema";
 import { WebSocketServer } from "ws";
 
 dotenv.config();
