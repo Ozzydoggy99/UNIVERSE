@@ -135,14 +135,18 @@ export default function UnitBoxes({ user }: UnitBoxesProps) {
         SKYTECH
       </div>
       
-      {/* Logout Button */}
-      <button 
-        className="absolute top-4 right-4 cursor-pointer hover:scale-110 transition-transform"
-        onClick={() => logoutMutation.mutate()}
-        aria-label="Logout"
-      >
-        <LogOut className="h-6 w-6 text-red-600 drop-shadow-glow-red" />
-      </button>
+      {/* Logout Button with username */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <span className="text-sm font-medium">{user?.username}</span>
+        <button 
+          className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 cursor-pointer transition-all flex items-center"
+          onClick={() => logoutMutation.mutate()}
+          aria-label="Logout"
+          title="Logout"
+        >
+          <LogOut className="h-5 w-5" />
+        </button>
+      </div>
       
       {/* Back Button */}
       <button 
