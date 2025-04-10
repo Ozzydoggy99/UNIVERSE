@@ -95,15 +95,19 @@ export default function RobotHub() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {robotAssignments && robotAssignments.length > 0 ? (
+        {Array.isArray(robotAssignments) && robotAssignments.length > 0 ? (
           robotAssignments.map((robot: RobotTemplateAssignment) => {
             // Get the template name
-            const template = templates?.find((t: any) => t.id === robot.templateId);
+            const template = Array.isArray(templates) 
+              ? templates.find((t: any) => t.id === robot.templateId) 
+              : undefined;
             
             // Get the robot status (either from API or use mock data)
-            const robotStatus = (robotStatuses && robotStatuses[robot.serialNumber]) || 
-                              mockRobotStatuses[robot.serialNumber] || 
-                              { status: 'unknown', task: 'Status unknown', location: { x: 0, y: 0, floor: 0 } };
+            const robotStatus = (robotStatuses && typeof robotStatuses === 'object' && robot.serialNumber in robotStatuses) 
+              ? robotStatuses[robot.serialNumber] 
+              : (robot.serialNumber in mockRobotStatuses) 
+                ? mockRobotStatuses[robot.serialNumber as keyof typeof mockRobotStatuses] 
+                : { status: 'unknown', task: 'Status unknown', location: { x: 0, y: 0, floor: 0 } };
             
             return (
               <Card 
@@ -135,12 +139,14 @@ export default function RobotHub() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Location:</span>
                       <span className="font-mono">
-                        Floor {robotStatus.location.floor} ({robotStatus.location.x}, {robotStatus.location.y})
+                        {robotStatus.location ? 
+                          `Floor ${robotStatus.location.floor || '?'} (${robotStatus.location.x || '?'}, ${robotStatus.location.y || '?'})` : 
+                          'Location unknown'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Current Task:</span>
-                      <span className="font-medium">{robotStatus.task}</span>
+                      <span className="font-medium">{robotStatus.task || robotStatus.mode || 'Unknown'}</span>
                     </div>
                   </div>
                 </CardContent>
