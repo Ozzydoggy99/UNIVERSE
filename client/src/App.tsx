@@ -30,11 +30,25 @@ import { TemplateRenderer } from "@/components/templates/template-renderer";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
   
+  // For non-admin users, render just the content without sidebar or topbar
+  if (!isAdmin) {
+    return (
+      <div className="h-screen overflow-auto">
+        <main className="h-full">
+          {children}
+        </main>
+      </div>
+    );
+  }
+  
+  // For admin users, render the full layout with sidebar and topbar
   return (
     <div className="flex h-screen overflow-hidden relative">
       {/* Mobile sidebar overlay */}
@@ -45,7 +59,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         ></div>
       )}
       
-      {/* Sidebar - hidden on mobile unless open */}
+      {/* Sidebar */}
       <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-200 ease-in-out fixed md:static inset-y-0 left-0 z-30 md:z-auto w-64 bg-white h-full overflow-y-auto`}>
         <Sidebar />
       </div>

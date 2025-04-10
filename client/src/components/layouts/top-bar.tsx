@@ -56,21 +56,27 @@ export default function TopBar({ onToggleSidebar, isSidebarOpen }: TopBarProps) 
     logoutMutation.mutate();
   };
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <header className="bg-white dark:bg-gray-900 shadow-sm z-10">
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            className="md:hidden mr-4" 
-            onClick={onToggleSidebar}
-            aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
-            size="sm"
-          >
-            <Menu className="h-6 w-6" />
-          </Button>
-          <h1 className="text-xl font-medium md:hidden">Skytech Automated</h1>
-          <h1 className="text-xl font-medium hidden md:block">{getPageTitle(location)}</h1>
+          {/* Only show sidebar toggle for admin users */}
+          {isAdmin && onToggleSidebar && (
+            <Button 
+              variant="ghost" 
+              className="md:hidden mr-4" 
+              onClick={onToggleSidebar}
+              aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
+              size="sm"
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+          )}
+          <h1 className="text-xl font-medium">
+            {isAdmin ? (isMobile ? "Skytech Automated" : getPageTitle(location)) : "Skytech Automated"}
+          </h1>
         </div>
         <div className="flex items-center space-x-4">
           {user && (
@@ -78,19 +84,23 @@ export default function TopBar({ onToggleSidebar, isSidebarOpen }: TopBarProps) 
               <span className="text-sm text-muted-foreground hidden md:inline">
                 Welcome, <span className="font-medium">{user.username}</span>
               </span>
-              <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full"></span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="text-muted-foreground hover:text-primary" 
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
+              {isAdmin && (
+                <>
+                  <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary">
+                    <Bell className="h-5 w-5" />
+                    <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full"></span>
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-muted-foreground hover:text-primary" 
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                  >
+                    <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </Button>
+                </>
+              )}
               <Button 
                 variant="ghost" 
                 onClick={handleLogout}
