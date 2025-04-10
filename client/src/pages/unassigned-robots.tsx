@@ -34,12 +34,14 @@ export default function UnassignedRobots() {
   };
 
   // Handle card click
-  const handleRobotCardClick = (serialNumber: string) => {
-    navigate(`/robot-details/${serialNumber}`);
+  const handleRobotCardClick = (serialNumber?: string) => {
+    if (serialNumber) {
+      navigate(`/robot-details/${serialNumber}`);
+    }
   };
 
   // Filter out robots that are already assigned to templates
-  const unassignedRobots = useMemo(() => {
+  const unassignedRobots = useMemo<RobotStatus[]>(() => {
     if (!robotStatuses || !robotAssignments) return [];
 
     const assignedSerialNumbers = Array.isArray(robotAssignments)
@@ -48,12 +50,17 @@ export default function UnassignedRobots() {
 
     return Object.entries(robotStatuses)
       .filter(([serialNumber]) => !assignedSerialNumbers.includes(serialNumber))
-      .map(([serialNumber, status]) => ({ serialNumber, ...status }));
+      .map(([serialNumber, status]) => ({ 
+        serialNumber, 
+        ...status 
+      }));
   }, [robotStatuses, robotAssignments]);
 
   // Get status color based on robot status
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
+  const getStatusColor = (status?: string) => {
+    if (!status) return 'bg-gray-500';
+    
+    switch (status.toLowerCase()) {
       case 'active':
       case 'running':
         return 'bg-green-500';
@@ -100,11 +107,11 @@ export default function UnassignedRobots() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {unassignedRobots.length > 0 ? (
-          unassignedRobots.map((robot) => (
+          unassignedRobots.map((robot) => robot.serialNumber && (
             <Card 
               key={robot.serialNumber} 
               className="cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-gray-400"
-              onClick={() => handleRobotCardClick(robot.serialNumber)}
+              onClick={() => handleRobotCardClick(robot.serialNumber as string)}
             >
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
