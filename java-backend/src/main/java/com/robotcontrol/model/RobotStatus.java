@@ -5,9 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Data
@@ -19,16 +17,27 @@ import java.time.LocalDateTime;
 public class RobotStatus {
     
     @Id
+    @Column(name = "serial_number")
     private String serialNumber;
     
+    @Column(nullable = false)
     private String model;
-    private int battery;
-    private String status; // active, idle, error, charging, etc.
-    private String mode;   // autonomous, manual, sleep, etc.
+    
+    @Column(nullable = false)
+    private Integer battery;
+    
+    @Column(nullable = false)
+    private String status;
+    
+    @Column(nullable = false)
+    private String mode;
+    
+    @Column(name = "last_update", nullable = false)
     private LocalDateTime lastUpdate;
     
-    // Additional fields for floor/elevator tracking
-    private int currentFloor;
-    private boolean inElevator;
-    private Integer targetFloor; // Null if not currently going to another floor
+    @OneToOne(mappedBy = "robotStatus", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private RobotPosition currentPosition;
+    
+    @OneToOne(mappedBy = "robotStatus", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private RobotSensor currentSensor;
 }

@@ -19,25 +19,25 @@ public class Unit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String unitNumber; // e.g., "101", "A-2", etc.
-    private String unitType;   // e.g., "residential", "office", "laundry", "trash", etc.
-    
     @ManyToOne
-    @JoinColumn(name = "floor_id")
+    @JoinColumn(name = "floor_id", nullable = false)
     private Floor floor;
     
-    // Position of the unit on the floor
-    private double xPosition;
-    private double yPosition;
+    @Column(nullable = false)
+    private String number;
     
-    // Custom configuration for templates
-    @Column(columnDefinition = "TEXT")
-    private String templateConfiguration; // JSON for template configuration
+    @Column
+    private String type;
     
-    // Access control
-    private boolean restrictedAccess;
+    @Column
+    private Double x;
     
-    // For smart access
-    private String accessCode;
-    private String unitOwnerContact; // For notifications
+    @Column
+    private Double y;
+    
+    @Column
+    private String customization;
+    
+    @Column(name = "is_accessible")
+    private Boolean isAccessible;
 }

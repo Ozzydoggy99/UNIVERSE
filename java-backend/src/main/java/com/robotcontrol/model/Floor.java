@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
-import java.util.HashSet;
 import java.util.Set;
 
 @Data
@@ -21,20 +20,28 @@ public class Floor {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private int floorNumber;
-    private String name; // e.g., "Ground Floor", "Basement", etc.
-    
     @ManyToOne
-    @JoinColumn(name = "building_id")
+    @JoinColumn(name = "building_id", nullable = false)
     private Building building;
     
-    // Map data for this floor
-    @Column(columnDefinition = "TEXT")
-    private String mapData; // JSON representation of the floor map
+    @Column(nullable = false)
+    private Integer level;
+    
+    @Column
+    private String name;
+    
+    @Column(columnDefinition = "json")
+    private String mapData;
+    
+    @Column
+    private Double length;
+    
+    @Column
+    private Double width;
     
     @OneToMany(mappedBy = "floor", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<ElevatorAccess> elevatorAccesses = new HashSet<>();
+    private Set<Unit> units;
     
     @OneToMany(mappedBy = "floor", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<Unit> units = new HashSet<>();
+    private Set<ElevatorAccess> elevatorAccesses;
 }

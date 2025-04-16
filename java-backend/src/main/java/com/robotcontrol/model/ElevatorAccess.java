@@ -20,22 +20,22 @@ public class ElevatorAccess {
     private Long id;
     
     @ManyToOne
-    @JoinColumn(name = "elevator_id")
+    @JoinColumn(name = "elevator_id", nullable = false)
     private Elevator elevator;
     
     @ManyToOne
-    @JoinColumn(name = "floor_id")
+    @JoinColumn(name = "floor_id", nullable = false)
     private Floor floor;
     
-    // Position of the elevator access point on the floor
-    private double xPosition;
-    private double yPosition;
+    @Column
+    private Double x;
     
-    // Access control
-    private boolean restrictedAccess;
-    private String accessCode; // Encrypted access code if required
+    @Column
+    private Double y;
     
-    // Navigation information for robots
-    private double approachAngle; // Preferred angle to approach the elevator
-    private double waitingDistance; // How far to wait from the door
+    @Column(name = "access_code")
+    private String accessCode;
+    
+    @Column(name = "is_active")
+    private Boolean isActive;
 }

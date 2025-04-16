@@ -13,8 +13,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "robot_positions")
-public class RobotPosition {
+@Table(name = "robot_sensors")
+public class RobotSensor {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,22 +25,16 @@ public class RobotPosition {
     private RobotStatus robotStatus;
     
     @Column(nullable = false)
-    private Double x;
+    private Double temperature;
     
     @Column(nullable = false)
-    private Double y;
+    private Double humidity;
+    
+    @Column(name = "proximity_data", columnDefinition = "text")
+    private String proximityData;
     
     @Column(nullable = false)
-    private Double z;
-    
-    @Column(nullable = false)
-    private Double orientation;
-    
-    @Column(nullable = false)
-    private Double speed;
-    
-    @Column(nullable = false)
-    private Integer floor;
+    private Integer battery;
     
     @Column(nullable = false)
     private LocalDateTime timestamp;
