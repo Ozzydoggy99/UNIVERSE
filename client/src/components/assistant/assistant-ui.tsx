@@ -91,8 +91,14 @@ export default function AssistantUI() {
     queryKey: ['/api/assistant/conversations', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const response = await apiRequest(`/api/assistant/conversations?userId=${user.id}`, { method: 'GET' });
-      return response;
+      // Wrapping in a try/catch for better error handling
+      try {
+        const response = await apiRequest(`/api/assistant/conversations?userId=${user.id}`, { method: 'GET' }) as Conversation[];
+        return response;
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+        return [];
+      }
     },
     enabled: !!user
   });
@@ -102,14 +108,20 @@ export default function AssistantUI() {
     queryKey: ['/api/assistant/conversations', activeConversation],
     queryFn: async () => {
       if (!activeConversation) return null;
-      const response = await apiRequest(`/api/assistant/conversations/${activeConversation}`, { method: 'GET' });
-      return response;
+      // Wrapping in a try/catch for better error handling
+      try {
+        const response = await apiRequest(`/api/assistant/conversations/${activeConversation}`, { method: 'GET' }) as Conversation;
+        return response;
+      } catch (error) {
+        console.error('Error fetching conversation:', error);
+        return null;
+      }
     },
     enabled: !!activeConversation
   });
   
   // Send message mutation
-  const messageMutation = useMutation({
+  const messageMutation = useMutation<AssistantResponse, Error, string>({
     mutationFn: async (message: string) => {
       if (!user) throw new Error('User not authenticated');
       
@@ -118,13 +130,20 @@ export default function AssistantUI() {
         conversationId: activeConversation
       };
       
-      return apiRequest(`/api/assistant/message?userId=${user.id}`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      try {
+        const response = await apiRequest(`/api/assistant/message?userId=${user.id}`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }) as AssistantResponse;
+        
+        return response;
+      } catch (error) {
+        console.error('Error sending message:', error);
+        throw new Error(error instanceof Error ? error.message : 'Failed to send message');
+      }
     },
     onSuccess: (response: AssistantResponse) => {
       queryClient.invalidateQueries({ queryKey: ['/api/assistant/conversations'] });
@@ -151,7 +170,7 @@ export default function AssistantUI() {
   });
   
   // Submit form mutation
-  const formSubmitMutation = useMutation({
+  const formSubmitMutation = useMutation<AssistantResponse, Error, Record<string, any>>({
     mutationFn: async (formData: Record<string, any>) => {
       if (!user || !activeConversation) throw new Error('User not authenticated or no active conversation');
       
@@ -163,17 +182,24 @@ export default function AssistantUI() {
         type: 'CONVERSATION',
         parameters: formData,
         conversationId: activeConversation,
-        messageSequence: conversation?.messages.length || 0,
+        messageSequence: conversation?.messages?.length || 0,
         sessionState: {}
       };
       
-      return apiRequest('/api/assistant/request', {
-        method: 'POST',
-        body: JSON.stringify(request),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      try {
+        const response = await apiRequest('/api/assistant/request', {
+          method: 'POST',
+          body: JSON.stringify(request),
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }) as AssistantResponse;
+        
+        return response;
+      } catch (error) {
+        console.error('Error submitting form:', error);
+        throw new Error(error instanceof Error ? error.message : 'Failed to submit form');
+      }
     },
     onSuccess: (response: AssistantResponse) => {
       queryClient.invalidateQueries({ queryKey: ['/api/assistant/conversations'] });

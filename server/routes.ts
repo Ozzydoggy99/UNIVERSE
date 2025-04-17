@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { setupAuth } from "./auth";
 import { registerAdminRoutes } from "./admin-routes"; 
 import { registerRobotApiRoutes } from "./robot-api";
+import { registerMockAssistantRoutes } from "./mock-assistant";
 import { z } from "zod";
 import { 
   User, 
@@ -37,6 +38,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register robot API routes
   registerRobotApiRoutes(app);
+  
+  // Register mock assistant routes for development
+  registerMockAssistantRoutes(app);
   // Authentication endpoint
   app.post("/api/authenticate", async (req, res) => {
     try {
