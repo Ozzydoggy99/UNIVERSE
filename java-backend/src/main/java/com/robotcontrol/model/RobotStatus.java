@@ -5,39 +5,55 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Map;
 
+/**
+ * Model class for robot status information
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "robot_status")
 public class RobotStatus {
     
-    @Id
-    @Column(name = "serial_number")
+    // Robot identification
     private String serialNumber;
-    
-    @Column(nullable = false)
     private String model;
     
-    @Column(nullable = false)
-    private Integer battery;
+    // Battery information
+    private double battery; // percentage
+    private String chargingStatus; // "charging", "discharging", "full"
+    private double batteryTimeRemaining; // minutes
     
-    @Column(nullable = false)
-    private String status;
+    // Operational status
+    private String status; // "online", "offline", "error", "maintenance"
+    private String mode; // "auto", "manual", "sleep", "diagnostic"
     
-    @Column(nullable = false)
-    private String mode;
-    
-    @Column(name = "last_update", nullable = false)
+    // Timestamp of status update
     private LocalDateTime lastUpdate;
     
-    @OneToOne(mappedBy = "robotStatus", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private RobotPosition currentPosition;
+    // Current activity
+    private String currentTask;
+    private double taskProgress; // percentage
     
-    @OneToOne(mappedBy = "robotStatus", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private RobotSensor currentSensor;
+    // Error state
+    private boolean error;
+    private String errorCode;
+    private String errorMessage;
+    
+    // Connection information
+    private String connectionType; // "wifi", "cellular", "bluetooth"
+    private int signalStrength; // percentage
+    
+    // Software versions
+    private String firmwareVersion;
+    private LocalDateTime lastFirmwareUpdate;
+    
+    // Maintenance information
+    private LocalDateTime nextScheduledMaintenance;
+    private int daysSinceLastMaintenance;
+    
+    // Additional custom status fields
+    private Map<String, Object> additionalStatus;
 }

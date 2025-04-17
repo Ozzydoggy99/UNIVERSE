@@ -5,43 +5,40 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.*;
 import java.time.LocalDateTime;
 
+/**
+ * Model class for robot position data
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "robot_positions")
 public class RobotPosition {
     
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    // Robot identifier
+    private String serialNumber;
     
-    @OneToOne
-    @JoinColumn(name = "serial_number", referencedColumnName = "serial_number")
-    private RobotStatus robotStatus;
+    // 3D position coordinates
+    private double x;
+    private double y;
+    private double z;
     
-    @Column(nullable = false)
-    private Double x;
+    // Orientation in degrees (0-359)
+    private double orientation;
     
-    @Column(nullable = false)
-    private Double y;
+    // Current movement speed
+    private double speed;
     
-    @Column(nullable = false)
-    private Double z;
-    
-    @Column(nullable = false)
-    private Double orientation;
-    
-    @Column(nullable = false)
-    private Double speed;
-    
-    @Column(nullable = false)
-    private Integer floor;
-    
-    @Column(nullable = false)
+    // When position was recorded
     private LocalDateTime timestamp;
+    
+    // Floor or level identifier
+    private String floor;
+    
+    // Building identifier
+    private String building;
+    
+    // Navigation status (e.g., "moving", "stopped")
+    private String navigationStatus;
 }
