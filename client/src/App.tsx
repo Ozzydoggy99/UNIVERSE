@@ -20,6 +20,7 @@ import LaundryBoxes from "@/pages/laundry-boxes";
 import TrashBoxes from "@/pages/trash-boxes";
 import PickupDropoffPage from "@/pages/pickup-dropoff-page";
 import UnitBoxes from "@/pages/unit-boxes";
+import AIAssistantPage from "@/pages/ai-assistant";
 import Game from "@/pages/game";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
@@ -343,6 +344,16 @@ function Router() {
       <ProtectedRoute 
         path="/game" 
         component={Game} 
+      />
+      
+      {/* AI Assistant */}
+      <ProtectedRoute 
+        path="/ai-assistant" 
+        component={() => (
+          <AppLayout>
+            <AIAssistantPage />
+          </AppLayout>
+        )} 
       />
       
       <Route component={NotFound} />
