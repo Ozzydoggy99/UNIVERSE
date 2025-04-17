@@ -223,21 +223,28 @@ export default function AssistantUI() {
   });
   
   // Create new conversation mutation
-  const newConversationMutation = useMutation({
+  const newConversationMutation = useMutation<AssistantResponse, Error, void>({
     mutationFn: async () => {
       if (!user) throw new Error('User not authenticated');
       
       // Just send an empty message to create a new conversation
-      return apiRequest(`/api/assistant/message?userId=${user.id}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          message: 'Hello, I need some assistance.',
-          conversationId: null
-        }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      try {
+        const response = await apiRequest(`/api/assistant/message?userId=${user.id}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            message: 'Hello, I need some assistance.',
+            conversationId: null
+          }),
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }) as AssistantResponse;
+        
+        return response;
+      } catch (error) {
+        console.error('Error creating conversation:', error);
+        throw new Error(error instanceof Error ? error.message : 'Failed to create conversation');
+      }
     },
     onSuccess: (response: AssistantResponse) => {
       queryClient.invalidateQueries({ queryKey: ['/api/assistant/conversations'] });
