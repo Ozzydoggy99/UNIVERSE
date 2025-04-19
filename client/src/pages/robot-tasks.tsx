@@ -23,6 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowUp, ArrowDown, X, CheckCheck } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type RobotTask = {
   id: number;
@@ -50,8 +51,10 @@ export default function RobotTasksPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>('all');
   const [templateFilter, setTemplateFilter] = useState<string>('all');
+  const [taskTypeFilter, setTaskTypeFilter] = useState<string>('all');
   const [tasks, setTasks] = useState<RobotTask[]>([]);
   const [templates, setTemplates] = useState<{id: number, name: string}[]>([]);
+  const [taskTypes, setTaskTypes] = useState<string[]>([]);
   
   // Fetch available templates
   const { data: templatesData } = useQuery({
@@ -150,9 +153,20 @@ export default function RobotTasksPage() {
   
   useEffect(() => {
     if (data) {
-      setTasks(data as RobotTask[]);
+      const allTasks = data as RobotTask[];
+      
+      // Extract unique task types for the filter
+      const uniqueTaskTypes = [...new Set(allTasks.map(task => task.taskType))];
+      setTaskTypes(uniqueTaskTypes);
+      
+      // Apply task type filter if selected
+      const filteredTasks = taskTypeFilter === 'all' 
+        ? allTasks 
+        : allTasks.filter(task => task.taskType === taskTypeFilter);
+      
+      setTasks(filteredTasks);
     }
-  }, [data]);
+  }, [data, taskTypeFilter]);
   
   const cancelTaskMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/robot-tasks/${id}/cancel`, 'PUT'),
@@ -342,6 +356,25 @@ export default function RobotTasksPage() {
             </SelectContent>
           </Select>
         </div>
+
+        <div>
+          <Select
+            value={taskTypeFilter}
+            onValueChange={(value) => setTaskTypeFilter(value)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by task type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Task Types</SelectItem>
+              {taskTypes.map(type => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid gap-6 mb-6">
@@ -409,7 +442,18 @@ export default function RobotTasksPage() {
                                       </div>
                                     </div>
                                   </TableCell>
-                                  <TableCell>{task.taskType}</TableCell>
+                                  <TableCell>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge className={taskTypeFilter === task.taskType ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>{task.taskType}</Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Task Type: {task.taskType}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </TableCell>
                                   <TableCell>{task.serialNumber}</TableCell>
                                   <TableCell>
                                     {task.templateId ? 
