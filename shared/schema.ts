@@ -262,5 +262,116 @@ export type GameItem = typeof gameItems.$inferSelect;
 export type InsertGameZombie = z.infer<typeof insertGameZombieSchema>;
 export type GameZombie = typeof gameZombies.$inferSelect;
 
+// Building Floor Maps
+export const floorMaps = pgTable("floor_maps", {
+  id: serial("id").primaryKey(),
+  buildingId: integer("building_id").notNull(), // For buildings with multiple maps
+  floorNumber: integer("floor_number").notNull(), // Floor number (e.g., 1, 2, 3, -1 for basement)
+  name: text("name").notNull(), // Name of the floor (e.g., "Ground Floor", "Basement")
+  mapData: text("map_data").notNull(), // JSON string containing map grid data, obstacles, etc.
+  navigationGraph: text("navigation_graph"), // JSON string of navigation nodes and paths
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+// Elevators
+export const elevators = pgTable("elevators", {
+  id: serial("id").primaryKey(),
+  buildingId: integer("building_id").notNull(), // Building identifier
+  name: text("name").notNull(), // Name/identifier for the elevator (e.g., "North Elevator")
+  status: text("status").notNull().default("OPERATIONAL"), // 'OPERATIONAL', 'MAINTENANCE', 'OUT_OF_SERVICE'
+  currentFloor: integer("current_floor"), // Current floor where the elevator is located
+  targetFloor: integer("target_floor"), // Floor the elevator is heading to (if moving)
+  maxCapacity: integer("max_capacity").default(1), // Maximum number of robots that can be in the elevator at once
+  doorLocation: text("door_location").notNull(), // JSON string with entrance coordinates on each floor
+  lastMaintenance: timestamp("last_maintenance"), // When the elevator was last maintained
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Elevator Queue (for managing robot access to elevators)
+export const elevatorQueue = pgTable("elevator_queue", {
+  id: serial("id").primaryKey(),
+  elevatorId: integer("elevator_id").references(() => elevators.id).notNull(),
+  robotId: text("robot_id").notNull(), // Serial number of the robot requesting elevator
+  startFloor: integer("start_floor").notNull(), // Floor where the robot is located
+  targetFloor: integer("target_floor").notNull(), // Floor where the robot wants to go
+  priority: integer("priority").default(0), // Higher number means higher priority
+  status: text("status").notNull().default("WAITING"), // 'WAITING', 'BOARDING', 'IN_TRANSIT', 'EXITING', 'COMPLETED', 'CANCELLED'
+  requestedAt: timestamp("requested_at").defaultNow(),
+  startedAt: timestamp("started_at"), // When robot entered the elevator
+  completedAt: timestamp("completed_at"), // When robot exited at destination
+});
+
+// Elevator Maintenance Log
+export const elevatorMaintenance = pgTable("elevator_maintenance", {
+  id: serial("id").primaryKey(),
+  elevatorId: integer("elevator_id").references(() => elevators.id).notNull(),
+  maintenanceType: text("maintenance_type").notNull(), // 'SCHEDULED', 'EMERGENCY', 'INSPECTION'
+  description: text("description").notNull(),
+  technician: text("technician"),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  status: text("status").notNull().default("SCHEDULED"), // 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'FAILED'
+  notes: text("notes"),
+});
+
+// Floor Map Schemas
+export const insertFloorMapSchema = createInsertSchema(floorMaps).pick({
+  buildingId: true,
+  floorNumber: true,
+  name: true,
+  mapData: true,
+  navigationGraph: true,
+  isActive: true,
+});
+
+// Elevator Schemas
+export const insertElevatorSchema = createInsertSchema(elevators).pick({
+  buildingId: true,
+  name: true,
+  status: true,
+  currentFloor: true,
+  targetFloor: true,
+  maxCapacity: true,
+  doorLocation: true,
+  lastMaintenance: true,
+});
+
+// Elevator Queue Schemas
+export const insertElevatorQueueSchema = createInsertSchema(elevatorQueue).pick({
+  elevatorId: true,
+  robotId: true,
+  startFloor: true,
+  targetFloor: true,
+  priority: true,
+  status: true,
+});
+
+// Elevator Maintenance Schemas
+export const insertElevatorMaintenanceSchema = createInsertSchema(elevatorMaintenance).pick({
+  elevatorId: true,
+  maintenanceType: true,
+  description: true,
+  technician: true,
+  startTime: true,
+  endTime: true,
+  status: true,
+  notes: true,
+});
+
 export type InsertRobotTask = z.infer<typeof insertRobotTaskSchema>;
 export type RobotTask = typeof robotTasks.$inferSelect;
+
+export type InsertFloorMap = z.infer<typeof insertFloorMapSchema>;
+export type FloorMap = typeof floorMaps.$inferSelect;
+
+export type InsertElevator = z.infer<typeof insertElevatorSchema>;
+export type Elevator = typeof elevators.$inferSelect;
+
+export type InsertElevatorQueue = z.infer<typeof insertElevatorQueueSchema>;
+export type ElevatorQueue = typeof elevatorQueue.$inferSelect;
+
+export type InsertElevatorMaintenance = z.infer<typeof insertElevatorMaintenanceSchema>;
+export type ElevatorMaintenance = typeof elevatorMaintenance.$inferSelect;

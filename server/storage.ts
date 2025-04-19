@@ -10,6 +10,10 @@ import {
   gameZombies,
   robotTemplateAssignments,
   robotTasks,
+  floorMaps,
+  elevators,
+  elevatorQueue,
+  elevatorMaintenance,
   type User, 
   type InsertUser, 
   type ApiConfig, 
@@ -27,7 +31,15 @@ import {
   type GameZombie,
   type InsertGameZombie,
   type RobotTask,
-  type InsertRobotTask
+  type InsertRobotTask,
+  type FloorMap,
+  type InsertFloorMap,
+  type Elevator,
+  type InsertElevator,
+  type ElevatorQueue,
+  type InsertElevatorQueue,
+  type ElevatorMaintenance,
+  type InsertElevatorMaintenance
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -103,6 +115,36 @@ export interface IStorage {
   cancelRobotTask(id: number): Promise<RobotTask | undefined>;
   completeRobotTask(id: number): Promise<RobotTask | undefined>;
   reorderTasks(taskIds: number[]): Promise<boolean>;
+  
+  // Floor Map methods
+  createFloorMap(floorMap: InsertFloorMap): Promise<FloorMap>;
+  getFloorMap(id: number): Promise<FloorMap | undefined>;
+  getFloorMapByBuildingAndFloor(buildingId: number, floorNumber: number): Promise<FloorMap | undefined>;
+  getAllFloorMaps(): Promise<FloorMap[]>;
+  updateFloorMap(id: number, updates: Partial<FloorMap>): Promise<FloorMap | undefined>;
+  deleteFloorMap(id: number): Promise<boolean>;
+  
+  // Elevator methods
+  createElevator(elevator: InsertElevator): Promise<Elevator>;
+  getElevator(id: number): Promise<Elevator | undefined>;
+  getAllElevators(): Promise<Elevator[]>;
+  getElevatorsByBuilding(buildingId: number): Promise<Elevator[]>;
+  updateElevator(id: number, updates: Partial<Elevator>): Promise<Elevator | undefined>;
+  updateElevatorStatus(id: number, status: string): Promise<Elevator | undefined>;
+  
+  // Elevator Queue methods
+  createElevatorQueueEntry(entry: InsertElevatorQueue): Promise<ElevatorQueue>;
+  getElevatorQueueEntry(id: number): Promise<ElevatorQueue | undefined>;
+  getElevatorQueueForElevator(elevatorId: number): Promise<ElevatorQueue[]>;
+  getElevatorQueueForRobot(robotId: string): Promise<ElevatorQueue[]>;
+  updateElevatorQueueEntryStatus(id: number, status: string): Promise<ElevatorQueue | undefined>;
+  completeElevatorQueueEntry(id: number): Promise<ElevatorQueue | undefined>;
+  
+  // Elevator Maintenance methods
+  createElevatorMaintenance(maintenance: InsertElevatorMaintenance): Promise<ElevatorMaintenance>;
+  getElevatorMaintenance(id: number): Promise<ElevatorMaintenance | undefined>;
+  getAllElevatorMaintenanceForElevator(elevatorId: number): Promise<ElevatorMaintenance[]>;
+  updateElevatorMaintenance(id: number, updates: Partial<ElevatorMaintenance>): Promise<ElevatorMaintenance | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -117,6 +159,10 @@ export class MemStorage implements IStorage {
   private gameItems: Map<number, GameItem>;
   private gameZombies: Map<number, GameZombie>;
   private robotTasks: Map<number, RobotTask>;
+  private floorMaps: Map<number, FloorMap>;
+  private elevators: Map<number, Elevator>;
+  private elevatorQueue: Map<number, ElevatorQueue>;
+  private elevatorMaintenance: Map<number, ElevatorMaintenance>;
   
   currentId: number;
   currentApiConfigId: number;
@@ -129,6 +175,10 @@ export class MemStorage implements IStorage {
   currentGameItemId: number;
   currentGameZombieId: number;
   currentRobotTaskId: number;
+  currentFloorMapId: number;
+  currentElevatorId: number;
+  currentElevatorQueueId: number;
+  currentElevatorMaintenanceId: number;
 
   constructor() {
     this.users = new Map();
@@ -142,6 +192,10 @@ export class MemStorage implements IStorage {
     this.gameItems = new Map();
     this.gameZombies = new Map();
     this.robotTasks = new Map();
+    this.floorMaps = new Map();
+    this.elevators = new Map();
+    this.elevatorQueue = new Map();
+    this.elevatorMaintenance = new Map();
     
     this.currentId = 1;
     this.currentApiConfigId = 1;
@@ -154,6 +208,10 @@ export class MemStorage implements IStorage {
     this.currentGameItemId = 1;
     this.currentGameZombieId = 1;
     this.currentRobotTaskId = 1;
+    this.currentFloorMapId = 1;
+    this.currentElevatorId = 1;
+    this.currentElevatorQueueId = 1;
+    this.currentElevatorMaintenanceId = 1;
   }
 
   // User methods
@@ -470,6 +528,182 @@ export class MemStorage implements IStorage {
   
   async removeGameZombie(id: number): Promise<boolean> {
     return this.gameZombies.delete(id);
+  }
+
+  // Floor Map methods
+  async createFloorMap(floorMap: InsertFloorMap): Promise<FloorMap> {
+    const id = this.currentFloorMapId++;
+    const newFloorMap: FloorMap = { 
+      ...floorMap, 
+      id, 
+      createdAt: new Date(),
+      updatedAt: new Date() 
+    };
+    this.floorMaps.set(id, newFloorMap);
+    return newFloorMap;
+  }
+  
+  async getFloorMap(id: number): Promise<FloorMap | undefined> {
+    return this.floorMaps.get(id);
+  }
+
+  async getFloorMapByBuildingAndFloor(buildingId: number, floorNumber: number): Promise<FloorMap | undefined> {
+    return Array.from(this.floorMaps.values()).find(
+      (map) => map.buildingId === buildingId && map.floorNumber === floorNumber
+    );
+  }
+  
+  async getAllFloorMaps(): Promise<FloorMap[]> {
+    return Array.from(this.floorMaps.values());
+  }
+  
+  async updateFloorMap(id: number, updates: Partial<FloorMap>): Promise<FloorMap | undefined> {
+    const floorMap = this.floorMaps.get(id);
+    if (!floorMap) return undefined;
+    
+    const updatedMap = { 
+      ...floorMap, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.floorMaps.set(id, updatedMap);
+    return updatedMap;
+  }
+  
+  async deleteFloorMap(id: number): Promise<boolean> {
+    return this.floorMaps.delete(id);
+  }
+  
+  // Elevator methods
+  async createElevator(elevator: InsertElevator): Promise<Elevator> {
+    const id = this.currentElevatorId++;
+    const newElevator: Elevator = { 
+      ...elevator, 
+      id, 
+      createdAt: new Date(),
+      updatedAt: new Date() 
+    };
+    this.elevators.set(id, newElevator);
+    return newElevator;
+  }
+  
+  async getElevator(id: number): Promise<Elevator | undefined> {
+    return this.elevators.get(id);
+  }
+  
+  async getAllElevators(): Promise<Elevator[]> {
+    return Array.from(this.elevators.values());
+  }
+  
+  async getElevatorsByBuilding(buildingId: number): Promise<Elevator[]> {
+    return Array.from(this.elevators.values()).filter(
+      (elevator) => elevator.buildingId === buildingId
+    );
+  }
+  
+  async updateElevator(id: number, updates: Partial<Elevator>): Promise<Elevator | undefined> {
+    const elevator = this.elevators.get(id);
+    if (!elevator) return undefined;
+    
+    const updatedElevator = { 
+      ...elevator, 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    this.elevators.set(id, updatedElevator);
+    return updatedElevator;
+  }
+  
+  async updateElevatorStatus(id: number, status: string): Promise<Elevator | undefined> {
+    const elevator = await this.getElevator(id);
+    if (!elevator) return undefined;
+    
+    return this.updateElevator(id, { status });
+  }
+  
+  // Elevator Queue methods
+  async createElevatorQueueEntry(entry: InsertElevatorQueue): Promise<ElevatorQueue> {
+    const id = this.currentElevatorQueueId++;
+    const newEntry: ElevatorQueue = { 
+      ...entry, 
+      id, 
+      requestedAt: new Date(),
+      startedAt: null,
+      completedAt: null
+    };
+    this.elevatorQueue.set(id, newEntry);
+    return newEntry;
+  }
+  
+  async getElevatorQueueEntry(id: number): Promise<ElevatorQueue | undefined> {
+    return this.elevatorQueue.get(id);
+  }
+  
+  async getElevatorQueueForElevator(elevatorId: number): Promise<ElevatorQueue[]> {
+    return Array.from(this.elevatorQueue.values())
+      .filter(entry => entry.elevatorId === elevatorId)
+      .sort((a, b) => a.priority - b.priority); // Sort by priority (highest first)
+  }
+  
+  async getElevatorQueueForRobot(robotId: string): Promise<ElevatorQueue[]> {
+    return Array.from(this.elevatorQueue.values())
+      .filter(entry => entry.robotId === robotId)
+      .sort((a, b) => a.requestedAt.getTime() - b.requestedAt.getTime()); // Sort by requested time (oldest first)
+  }
+  
+  async updateElevatorQueueEntryStatus(id: number, status: string): Promise<ElevatorQueue | undefined> {
+    const entry = this.elevatorQueue.get(id);
+    if (!entry) return undefined;
+    
+    let updates: Partial<ElevatorQueue> = { status };
+    
+    // If status is changing to BOARDING, update startedAt
+    if (status === 'BOARDING') {
+      updates.startedAt = new Date();
+    }
+    
+    // If status is changing to COMPLETED, update completedAt
+    if (status === 'COMPLETED') {
+      updates.completedAt = new Date();
+    }
+    
+    const updatedEntry = { ...entry, ...updates };
+    this.elevatorQueue.set(id, updatedEntry);
+    return updatedEntry;
+  }
+  
+  async completeElevatorQueueEntry(id: number): Promise<ElevatorQueue | undefined> {
+    return this.updateElevatorQueueEntryStatus(id, 'COMPLETED');
+  }
+  
+  // Elevator Maintenance methods
+  async createElevatorMaintenance(maintenance: InsertElevatorMaintenance): Promise<ElevatorMaintenance> {
+    const id = this.currentElevatorMaintenanceId++;
+    const newMaintenance: ElevatorMaintenance = { 
+      ...maintenance, 
+      id
+    };
+    this.elevatorMaintenance.set(id, newMaintenance);
+    return newMaintenance;
+  }
+  
+  async getElevatorMaintenance(id: number): Promise<ElevatorMaintenance | undefined> {
+    return this.elevatorMaintenance.get(id);
+  }
+  
+  async getAllElevatorMaintenanceForElevator(elevatorId: number): Promise<ElevatorMaintenance[]> {
+    return Array.from(this.elevatorMaintenance.values())
+      .filter(maint => maint.elevatorId === elevatorId)
+      .sort((a, b) => b.startTime.getTime() - a.startTime.getTime()); // Sort by start time (newest first)
+  }
+  
+  async updateElevatorMaintenance(id: number, updates: Partial<ElevatorMaintenance>): Promise<ElevatorMaintenance | undefined> {
+    const maintenance = this.elevatorMaintenance.get(id);
+    if (!maintenance) return undefined;
+    
+    const updatedMaintenance = { ...maintenance, ...updates };
+    this.elevatorMaintenance.set(id, updatedMaintenance);
+    return updatedMaintenance;
   }
 
   // Robot Task Queue methods
