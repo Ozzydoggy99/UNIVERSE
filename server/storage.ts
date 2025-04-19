@@ -25,7 +25,9 @@ import {
   type GameItem,
   type InsertGameItem,
   type GameZombie,
-  type InsertGameZombie
+  type InsertGameZombie,
+  type RobotTask,
+  type InsertRobotTask
 } from "@shared/schema";
 
 // modify the interface with any CRUD methods
@@ -137,6 +139,7 @@ export class MemStorage implements IStorage {
     this.gamePlayers = new Map();
     this.gameItems = new Map();
     this.gameZombies = new Map();
+    this.robotTasks = new Map();
     
     this.currentId = 1;
     this.currentApiConfigId = 1;
@@ -148,6 +151,7 @@ export class MemStorage implements IStorage {
     this.currentGamePlayerId = 1;
     this.currentGameItemId = 1;
     this.currentGameZombieId = 1;
+    this.currentRobotTaskId = 1;
   }
 
   // User methods
@@ -464,6 +468,102 @@ export class MemStorage implements IStorage {
   
   async removeGameZombie(id: number): Promise<boolean> {
     return this.gameZombies.delete(id);
+  }
+
+  // Robot Task Queue methods
+  async createRobotTask(task: InsertRobotTask): Promise<RobotTask> {
+    const id = this.currentRobotTaskId++;
+    const newTask: RobotTask = { 
+      ...task, 
+      id, 
+      createdAt: new Date(),
+      startedAt: null,
+      completedAt: null
+    };
+    this.robotTasks.set(id, newTask);
+    return newTask;
+  }
+
+  async getRobotTask(id: number): Promise<RobotTask | undefined> {
+    return this.robotTasks.get(id);
+  }
+
+  async getAllRobotTasks(): Promise<RobotTask[]> {
+    return Array.from(this.robotTasks.values());
+  }
+
+  async getRobotTasksBySerialNumber(serialNumber: string): Promise<RobotTask[]> {
+    return Array.from(this.robotTasks.values())
+      .filter(task => task.serialNumber === serialNumber)
+      .sort((a, b) => b.priority - a.priority); // Higher priority first
+  }
+
+  async getPendingRobotTasks(): Promise<RobotTask[]> {
+    return Array.from(this.robotTasks.values())
+      .filter(task => task.status === 'PENDING')
+      .sort((a, b) => b.priority - a.priority); // Higher priority first
+  }
+
+  async updateRobotTask(id: number, updates: Partial<RobotTask>): Promise<RobotTask | undefined> {
+    const task = this.robotTasks.get(id);
+    if (!task) return undefined;
+    
+    const updatedTask = { ...task, ...updates };
+    this.robotTasks.set(id, updatedTask);
+    return updatedTask;
+  }
+
+  async updateTaskPriority(id: number, newPriority: number): Promise<RobotTask | undefined> {
+    const task = this.robotTasks.get(id);
+    if (!task) return undefined;
+    
+    const updatedTask = { ...task, priority: newPriority };
+    this.robotTasks.set(id, updatedTask);
+    return updatedTask;
+  }
+
+  async cancelRobotTask(id: number): Promise<RobotTask | undefined> {
+    const task = this.robotTasks.get(id);
+    if (!task) return undefined;
+    
+    const updatedTask = { 
+      ...task, 
+      status: 'CANCELLED',
+      completedAt: new Date()
+    };
+    this.robotTasks.set(id, updatedTask);
+    return updatedTask;
+  }
+
+  async completeRobotTask(id: number): Promise<RobotTask | undefined> {
+    const task = this.robotTasks.get(id);
+    if (!task) return undefined;
+    
+    const updatedTask = { 
+      ...task, 
+      status: 'COMPLETED',
+      completedAt: new Date()
+    };
+    this.robotTasks.set(id, updatedTask);
+    return updatedTask;
+  }
+
+  async reorderTasks(taskIds: number[]): Promise<boolean> {
+    try {
+      // Update priority based on the order in taskIds (first has highest priority)
+      let priority = taskIds.length;
+      for (const id of taskIds) {
+        const task = this.robotTasks.get(id);
+        if (task && task.status === 'PENDING') {
+          this.updateTaskPriority(id, priority);
+          priority--;
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Error reordering tasks:', error);
+      return false;
+    }
   }
 }
 

@@ -13,9 +13,12 @@ import {
   InsertGamePlayer, 
   InsertGameItem, 
   InsertGameZombie,
-  insertRobotTemplateAssignmentSchema
+  InsertRobotTask,
+  RobotTask,
+  insertRobotTemplateAssignmentSchema,
+  insertRobotTaskSchema
 } from "../shared/schema";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 
 dotenv.config();
 
@@ -41,6 +44,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register mock assistant routes for development
   registerMockAssistantRoutes(app);
+  
+  // Create HTTP server
+  const httpServer = createServer(app);
+  
+  // Set up WebSocket server for real-time updates
+  const wssRobotTasks = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws/robot-tasks' 
+  });
+  
+  // Task update broadcast function
+  const broadcastTaskUpdate = (task: RobotTask) => {
+    wssRobotTasks.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN && (client as any).subscribed) {
+        client.send(JSON.stringify({
+          type: 'task_update',
+          task
+        }));
+      }
+    });
+  };
+  
+  // Handle WebSocket connections for robot task updates
+  wssRobotTasks.on('connection', (ws) => {
+    console.log('WebSocket client connected to robot tasks');
+    
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received robot task message:', data);
+        
+        // Handle different message types
+        if (data.type === 'subscribe') {
+          // Client subscribing to updates
+          (ws as any).subscribed = true;
+          ws.send(JSON.stringify({ 
+            type: 'subscribed', 
+            message: 'Successfully subscribed to robot task updates' 
+          }));
+        }
+      } catch (error) {
+        console.error('WebSocket message error for robot tasks:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected from robot tasks');
+    });
+  });
   // Authentication endpoint
   app.post("/api/authenticate", async (req, res) => {
     try {
@@ -431,6 +483,239 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting robot assignment:", error);
       return res.status(500).json({ message: "Error deleting robot template assignment" });
+    }
+  });
+
+  // Robot Task Queue endpoints
+  // Get all tasks
+  app.get("/api/robot-tasks", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view all robot tasks" });
+      }
+      
+      const tasks = await storage.getAllRobotTasks();
+      return res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching robot tasks:", error);
+      return res.status(500).json({ message: "Error fetching robot tasks" });
+    }
+  });
+
+  // Get pending tasks
+  app.get("/api/robot-tasks/pending", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const tasks = await storage.getPendingRobotTasks();
+      return res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching pending tasks:", error);
+      return res.status(500).json({ message: "Error fetching pending tasks" });
+    }
+  });
+
+  // Get tasks for specific robot
+  app.get("/api/robot-tasks/robot/:serialNumber", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const serialNumber = req.params.serialNumber;
+      const tasks = await storage.getRobotTasksBySerialNumber(serialNumber);
+      return res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching robot tasks:", error);
+      return res.status(500).json({ message: "Error fetching robot tasks" });
+    }
+  });
+
+  // Get task by ID
+  app.get("/api/robot-tasks/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const task = await storage.getRobotTask(id);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      return res.json(task);
+    } catch (error) {
+      console.error("Error fetching task:", error);
+      return res.status(500).json({ message: "Error fetching task" });
+    }
+  });
+
+  // Create task
+  app.post("/api/robot-tasks", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      try {
+        // Validate task data
+        const validatedTaskData = insertRobotTaskSchema.parse(req.body);
+        
+        // Add the user ID who created the task
+        const taskData = {
+          ...validatedTaskData,
+          createdBy: req.user.id
+        };
+        
+        const newTask = await storage.createRobotTask(taskData);
+        return res.status(201).json(newTask);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ message: formatZodError(error) });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error creating task:", error);
+      return res.status(500).json({ message: "Error creating task" });
+    }
+  });
+
+  // Update task
+  app.put("/api/robot-tasks/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const task = await storage.getRobotTask(id);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Only admin or the creator can update tasks
+      if (req.user.role !== 'admin' && task.createdBy !== req.user.id) {
+        return res.status(403).json({ message: "You can only update tasks you created" });
+      }
+      
+      const updatedTask = await storage.updateRobotTask(id, req.body);
+      return res.json(updatedTask);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      return res.status(500).json({ message: "Error updating task" });
+    }
+  });
+
+  // Update task priority
+  app.put("/api/robot-tasks/:id/priority", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { priority } = req.body;
+      
+      if (priority === undefined || typeof priority !== 'number') {
+        return res.status(400).json({ message: "Priority must be a number" });
+      }
+      
+      const task = await storage.getRobotTask(id);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Only admin or the creator can update task priority
+      if (req.user.role !== 'admin' && task.createdBy !== req.user.id) {
+        return res.status(403).json({ message: "You can only update tasks you created" });
+      }
+      
+      const updatedTask = await storage.updateTaskPriority(id, priority);
+      return res.json(updatedTask);
+    } catch (error) {
+      console.error("Error updating task priority:", error);
+      return res.status(500).json({ message: "Error updating task priority" });
+    }
+  });
+
+  // Cancel task
+  app.put("/api/robot-tasks/:id/cancel", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const task = await storage.getRobotTask(id);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Only admin or the creator can cancel tasks
+      if (req.user.role !== 'admin' && task.createdBy !== req.user.id) {
+        return res.status(403).json({ message: "You can only cancel tasks you created" });
+      }
+      
+      const cancelledTask = await storage.cancelRobotTask(id);
+      return res.json(cancelledTask);
+    } catch (error) {
+      console.error("Error cancelling task:", error);
+      return res.status(500).json({ message: "Error cancelling task" });
+    }
+  });
+
+  // Complete task (usually called by the robot or admin)
+  app.put("/api/robot-tasks/:id/complete", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can mark tasks as completed" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const task = await storage.getRobotTask(id);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const completedTask = await storage.completeRobotTask(id);
+      return res.json(completedTask);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      return res.status(500).json({ message: "Error completing task" });
+    }
+  });
+
+  // Reorder tasks
+  app.post("/api/robot-tasks/reorder", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can reorder tasks" });
+      }
+      
+      const { taskIds } = req.body;
+      
+      if (!Array.isArray(taskIds)) {
+        return res.status(400).json({ message: "taskIds must be an array of task IDs" });
+      }
+      
+      const success = await storage.reorderTasks(taskIds);
+      
+      if (!success) {
+        return res.status(500).json({ message: "Failed to reorder tasks" });
+      }
+      
+      return res.json({ message: "Tasks reordered successfully" });
+    } catch (error) {
+      console.error("Error reordering tasks:", error);
+      return res.status(500).json({ message: "Error reordering tasks" });
     }
   });
 
@@ -1009,17 +1294,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create an HTTP server and WebSocket server
-  const httpServer = createServer(app);
-  
   // Set up WebSocket server for real-time game updates with a specific path
   // Using a specific path to avoid conflicts with Vite's WebSocket server
-  const wss = new WebSocketServer({ 
+  const wssGame = new WebSocketServer({ 
     server: httpServer,
     path: '/ws/game'
   });
   
-  wss.on('connection', (ws) => {
+  wssGame.on('connection', (ws) => {
     console.log('New WebSocket game client connected');
     
     // Send initial game state
@@ -1068,8 +1350,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const updatedPlayer = await storage.updateGamePlayer(data.playerId, updates);
               
               // Broadcast the update to all clients
-              wss.clients.forEach((client) => {
-                if (client.readyState === 1) { // WebSocket.OPEN
+              wssGame.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) {
                   client.send(JSON.stringify({
                     type: 'player_updated',
                     data: updatedPlayer
@@ -1117,8 +1399,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 await storage.removeGameZombie(data.zombieId);
                 
                 // Broadcast zombie defeat
-                wss.clients.forEach((client) => {
-                  if (client.readyState === 1) {
+                wssGame.clients.forEach((client) => {
+                  if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({
                       type: 'zombie_defeated',
                       data: { zombieId: data.zombieId, killedBy: data.playerId }
@@ -1130,8 +1412,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const updatedZombie = await storage.updateGameZombie(data.zombieId, { health: newHealth });
                 
                 // Broadcast the update
-                wss.clients.forEach((client) => {
-                  if (client.readyState === 1) {
+                wssGame.clients.forEach((client) => {
+                  if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({
                       type: 'zombie_damaged',
                       data: updatedZombie
@@ -1154,8 +1436,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             
             // Broadcast new zombie
-            wss.clients.forEach((client) => {
-              if (client.readyState === 1) {
+            wssGame.clients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({
                   type: 'zombie_spawned',
                   data: newZombie

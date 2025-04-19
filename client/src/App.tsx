@@ -21,6 +21,7 @@ import TrashBoxes from "@/pages/trash-boxes";
 import PickupDropoffPage from "@/pages/pickup-dropoff-page";
 import UnitBoxes from "@/pages/unit-boxes";
 import AIAssistantPage from "@/pages/ai-assistant";
+import RobotTasks from "@/pages/robot-tasks";
 import Game from "@/pages/game";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
@@ -352,6 +353,16 @@ function Router() {
         component={() => (
           <AppLayout>
             <AIAssistantPage />
+          </AppLayout>
+        )} 
+      />
+      
+      {/* Robot Task Queue */}
+      <ProtectedRoute 
+        path="/robot-tasks" 
+        component={() => (
+          <AppLayout>
+            <RobotTasks />
           </AppLayout>
         )} 
       />
