@@ -559,6 +559,41 @@ export class MemStorage implements IStorage {
       completedAt: new Date()
     };
     this.robotTasks.set(id, updatedTask);
+    
+    // Check if this was a DROPOFF task and optimize for subsequent pickups
+    if (task.taskType === 'DROPOFF') {
+      // Find all pending pickup tasks for the same robot
+      const pendingPickups = Array.from(this.robotTasks.values())
+        .filter(t => 
+          t.status === 'PENDING' && 
+          t.serialNumber === task.serialNumber && 
+          t.taskType === 'PICKUP'
+        )
+        .sort((a, b) => b.priority - a.priority); // Sort by priority
+      
+      if (pendingPickups.length > 0) {
+        // If there are pending pickups, automatically assign the highest priority one
+        const nextPickup = pendingPickups[0];
+        console.log(`Robot ${task.serialNumber} completed a DROPOFF task, automatically assigning PICKUP task ${nextPickup.id}`);
+        
+        // Update this task to be started immediately after the dropoff
+        const optimizedPickup = {
+          ...nextPickup,
+          status: 'IN_PROGRESS',
+          startedAt: new Date(),
+          // Add optional metadata to indicate this was an optimized assignment
+          parameters: JSON.stringify({
+            ...JSON.parse(nextPickup.parameters || '{}'),
+            wasOptimizedAssignment: true,
+            previousTaskId: task.id
+          })
+        };
+        
+        this.robotTasks.set(nextPickup.id, optimizedPickup);
+        console.log(`Optimized route: Robot will go directly to PICKUP task instead of returning home`);
+      }
+    }
+    
     return updatedTask;
   }
 
