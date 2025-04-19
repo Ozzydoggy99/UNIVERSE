@@ -57,7 +57,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Task update broadcast function
   const broadcastTaskUpdate = (task: RobotTask) => {
     wssRobotTasks.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN && (client as any).subscribed) {
+      const wsClient = client as any;
+      if (client.readyState === WebSocket.OPEN && wsClient.subscribed) {
+        // If the client has subscribed to a specific template and it doesn't match, skip
+        if (wsClient.templateId && wsClient.templateId !== task.templateId) {
+          return;
+        }
+        
         client.send(JSON.stringify({
           type: 'task_update',
           task
@@ -79,10 +85,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (data.type === 'subscribe') {
           // Client subscribing to updates
           (ws as any).subscribed = true;
-          ws.send(JSON.stringify({ 
-            type: 'subscribed', 
-            message: 'Successfully subscribed to robot task updates' 
-          }));
+          
+          // Check if subscribing to a specific template
+          if (data.templateId) {
+            (ws as any).templateId = data.templateId;
+            ws.send(JSON.stringify({ 
+              type: 'subscribed', 
+              message: `Successfully subscribed to robot task updates for template ${data.templateId}`
+            }));
+          } else {
+            ws.send(JSON.stringify({ 
+              type: 'subscribed', 
+              message: 'Successfully subscribed to all robot task updates' 
+            }));
+          }
         }
       } catch (error) {
         console.error('WebSocket message error for robot tasks:', error);
@@ -517,6 +533,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get tasks for specific template
+  app.get("/api/robot-tasks/template/:templateId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const templateId = parseInt(req.params.templateId);
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      // For non-admin users, verify if they're allowed to access this template
+      if (req.user.role !== 'admin' && req.user.templateId !== templateId) {
+        return res.status(403).json({ message: "Access to this template's tasks is not allowed" });
+      }
+      
+      const tasks = await storage.getRobotTasksByTemplateId(templateId);
+      return res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching template robot tasks:", error);
+      return res.status(500).json({ message: "Error fetching template robot tasks" });
+    }
+  });
+  
+  // Get pending tasks for specific template
+  app.get("/api/robot-tasks/template/:templateId/pending", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const templateId = parseInt(req.params.templateId);
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      // For non-admin users, verify if they're allowed to access this template
+      if (req.user.role !== 'admin' && req.user.templateId !== templateId) {
+        return res.status(403).json({ message: "Access to this template's tasks is not allowed" });
+      }
+      
+      const tasks = await storage.getPendingRobotTasksByTemplateId(templateId);
+      return res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching pending template robot tasks:", error);
+      return res.status(500).json({ message: "Error fetching pending template robot tasks" });
+    }
+  });
+
   // Get tasks for specific robot
   app.get("/api/robot-tasks/robot/:serialNumber", async (req, res) => {
     try {
@@ -716,6 +782,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error reordering tasks:", error);
       return res.status(500).json({ message: "Error reordering tasks" });
+    }
+  });
+  
+  // Reorder tasks for a specific template
+  app.post("/api/robot-tasks/template/:templateId/reorder", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const templateId = parseInt(req.params.templateId);
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      // For non-admin users, verify if they're allowed to access this template
+      if (req.user.role !== 'admin' && req.user.templateId !== templateId) {
+        return res.status(403).json({ message: "Access to this template's tasks is not allowed" });
+      }
+      
+      const { taskIds } = req.body;
+      
+      if (!Array.isArray(taskIds)) {
+        return res.status(400).json({ message: "taskIds must be an array of task IDs" });
+      }
+      
+      // Verify that all tasks belong to the template
+      if (req.user.role !== 'admin') {
+        // For regular users, ensure all tasks belong to their template
+        const tasks = await Promise.all(taskIds.map(id => storage.getRobotTask(id)));
+        const allBelongToTemplate = tasks.every(task => task && task.templateId === templateId);
+        
+        if (!allBelongToTemplate) {
+          return res.status(403).json({ message: "You can only reorder tasks for your assigned template" });
+        }
+      }
+      
+      const success = await storage.reorderTasks(taskIds);
+      
+      if (!success) {
+        return res.status(500).json({ message: "Failed to reorder tasks" });
+      }
+      
+      return res.json({ message: "Tasks reordered successfully" });
+    } catch (error) {
+      console.error("Error reordering template tasks:", error);
+      return res.status(500).json({ message: "Error reordering template tasks" });
     }
   });
 
