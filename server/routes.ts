@@ -752,6 +752,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const completedTask = await storage.completeRobotTask(id);
+      
+      // Broadcast the completed task update
+      broadcastTaskUpdate(completedTask);
+      
+      // If this is a DROPOFF task, check if a new task was automatically assigned
+      if (task.taskType === 'DROPOFF') {
+        // Get all tasks for this robot that might have been updated by the optimization logic
+        const robotTasks = await storage.getRobotTasksBySerialNumber(task.serialNumber);
+        
+        // Find any newly assigned in-progress tasks
+        const newlyAssignedTasks = robotTasks.filter(t => 
+          t.status === 'IN_PROGRESS' && 
+          t.startedAt && 
+          new Date(t.startedAt).getTime() > new Date(completedTask.completedAt).getTime() - 5000 // Within 5 seconds
+        );
+        
+        // Broadcast updates for any optimized assignments
+        for (const assignedTask of newlyAssignedTasks) {
+          broadcastTaskUpdate(assignedTask);
+          console.log(`Broadcasting optimized task assignment: ${assignedTask.id}`);
+        }
+      }
+      
       return res.json(completedTask);
     } catch (error) {
       console.error("Error completing task:", error);

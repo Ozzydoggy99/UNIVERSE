@@ -37,6 +37,11 @@ type RobotTask = {
   startedAt: string | null;
   completedAt: string | null;
   templateId: number;
+  location?: string;
+  parameters?: string; // JSON string containing task parameters, including optimization metadata
+  targetX?: number;
+  targetY?: number;
+  targetZ?: number;
 };
 
 const statusColors = {
@@ -443,16 +448,47 @@ export default function RobotTasksPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Badge className={taskTypeFilter === task.taskType ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>{task.taskType}</Badge>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Task Type: {task.taskType}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
+                                    <div className="flex items-center space-x-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge className={taskTypeFilter === task.taskType ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>{task.taskType}</Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Task Type: {task.taskType}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                      
+                                      {/* Check for optimized route indicator */}
+                                      {task.parameters && (() => {
+                                        try {
+                                          const params = JSON.parse(task.parameters);
+                                          if (params.wasOptimizedAssignment) {
+                                            return (
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                                                      Optimized
+                                                    </Badge>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p>This task was automatically assigned after a dropoff task was completed</p>
+                                                    {params.previousTaskId && (
+                                                      <p className="text-xs">Previous Task: #{params.previousTaskId}</p>
+                                                    )}
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            );
+                                          }
+                                        } catch (e) {
+                                          return null;
+                                        }
+                                        return null;
+                                      })()}
+                                    </div>
                                   </TableCell>
                                   <TableCell>
                                     <Badge variant="secondary">{task.serialNumber}</Badge>
@@ -534,16 +570,44 @@ export default function RobotTasksPage() {
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.priority}</TableCell>
                       <TableCell>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge className={taskTypeFilter === task.taskType ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>{task.taskType}</Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Task Type: {task.taskType}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <div className="flex items-center space-x-2">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge className={taskTypeFilter === task.taskType ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>{task.taskType}</Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Task Type: {task.taskType}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
+                          {/* Check for optimized route indicator */}
+                          {task.parameters && (() => {
+                            try {
+                              const params = JSON.parse(task.parameters);
+                              if (params.wasOptimizedAssignment) {
+                                return (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                                          Optimized
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>This task was automatically assigned after a dropoff task was completed</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              }
+                            } catch (e) {
+                              return null;
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{task.serialNumber}</Badge>
