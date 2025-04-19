@@ -96,7 +96,7 @@ export default function RobotTasksPage() {
   
   useEffect(() => {
     if (data) {
-      setTasks(data);
+      setTasks(data as RobotTask[]);
     }
   }, [data]);
   
@@ -197,7 +197,10 @@ export default function RobotTasksPage() {
     updatePriorityMutation.mutate({ id, priority: newPriority });
   };
 
-  const onDragEnd = (result: any) => {
+  const onDragEnd = (result: {
+    destination?: { index: number },
+    source: { index: number }
+  }) => {
     // Dropped outside the list
     if (!result.destination) {
       return;
@@ -272,7 +275,7 @@ export default function RobotTasksPage() {
           <CardContent>
             <DragDropContext onDragEnd={onDragEnd}>
               <Droppable droppableId="pending-tasks">
-                {(provided) => (
+                {(provided: any) => (
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
@@ -299,7 +302,7 @@ export default function RobotTasksPage() {
                               draggableId={task.id.toString()} 
                               index={index}
                             >
-                              {(provided) => (
+                              {(provided: any) => (
                                 <TableRow 
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}

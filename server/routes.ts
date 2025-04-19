@@ -1375,8 +1375,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const updatedZombie = await storage.updateGameZombie(data.zombieId, updates);
               
               // Broadcast the update to all clients
-              wss.clients.forEach((client) => {
-                if (client.readyState === 1) { // WebSocket.OPEN
+              wssGame.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) {
                   client.send(JSON.stringify({
                     type: 'zombie_updated',
                     data: updatedZombie
