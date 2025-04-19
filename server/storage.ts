@@ -568,33 +568,106 @@ export class MemStorage implements IStorage {
           t.status === 'PENDING' && 
           t.serialNumber === task.serialNumber && 
           t.taskType === 'PICKUP'
-        )
-        .sort((a, b) => b.priority - a.priority); // Sort by priority
+        );
       
       if (pendingPickups.length > 0) {
-        // If there are pending pickups, automatically assign the highest priority one
-        const nextPickup = pendingPickups[0];
-        console.log(`Robot ${task.serialNumber} completed a DROPOFF task, automatically assigning PICKUP task ${nextPickup.id}`);
+        // Get the current robot location from the task that was just completed
+        const currentLocation = {
+          x: task.targetX || 0,
+          y: task.targetY || 0,
+          z: task.targetZ || 0,
+          floor: this.extractFloorFromLocation(task.location) || 0
+        };
+        
+        // Score tasks based on a combination of priority and proximity
+        const scoredTasks = pendingPickups.map(pickup => {
+          // Calculate distance score (lower is better)
+          const pickupLocation = {
+            x: pickup.targetX || 0,
+            y: pickup.targetY || 0,
+            z: pickup.targetZ || 0,
+            floor: this.extractFloorFromLocation(pickup.location) || 0
+          };
+          
+          // Calculate a base distance score
+          let distanceScore = Math.sqrt(
+            Math.pow(pickupLocation.x - currentLocation.x, 2) + 
+            Math.pow(pickupLocation.y - currentLocation.y, 2)
+          );
+          
+          // Heavily penalize floor changes (elevator travel is time-consuming)
+          if (pickupLocation.floor !== currentLocation.floor) {
+            distanceScore += 1000; // Large penalty for changing floors
+          }
+          
+          // Calculate priority score (higher priority is better)
+          const priorityScore = pickup.priority * 100; // Weight priority more heavily
+          
+          // Final score is a combination (lower is better)
+          // This balances distance with priority
+          const finalScore = distanceScore - priorityScore;
+          
+          return {
+            task: pickup,
+            score: finalScore
+          };
+        });
+        
+        // Sort by score (lowest score is best - closest high priority task)
+        scoredTasks.sort((a, b) => a.score - b.score);
+        
+        // Select the best task
+        const bestTask = scoredTasks[0].task;
+        console.log(`Robot ${task.serialNumber} completed a DROPOFF task, automatically assigning PICKUP task ${bestTask.id}`);
+        console.log(`Task selected based on proximity and priority with score: ${scoredTasks[0].score.toFixed(2)}`);
         
         // Update this task to be started immediately after the dropoff
         const optimizedPickup = {
-          ...nextPickup,
+          ...bestTask,
           status: 'IN_PROGRESS',
           startedAt: new Date(),
           // Add optional metadata to indicate this was an optimized assignment
           parameters: JSON.stringify({
-            ...JSON.parse(nextPickup.parameters || '{}'),
+            ...JSON.parse(bestTask.parameters || '{}'),
             wasOptimizedAssignment: true,
-            previousTaskId: task.id
+            previousTaskId: task.id,
+            optimizationScore: scoredTasks[0].score.toFixed(2),
+            distanceFromPrevious: this.calculateDistance(currentLocation, {
+              x: bestTask.targetX || 0,
+              y: bestTask.targetY || 0,
+              z: bestTask.targetZ || 0
+            }).toFixed(2)
           })
         };
         
-        this.robotTasks.set(nextPickup.id, optimizedPickup);
+        this.robotTasks.set(bestTask.id, optimizedPickup);
         console.log(`Optimized route: Robot will go directly to PICKUP task instead of returning home`);
       }
     }
     
     return updatedTask;
+  }
+  
+  // Helper method to extract floor number from location string
+  private extractFloorFromLocation(location?: string): number | null {
+    if (!location) return null;
+    
+    // Try to extract floor information
+    // Common formats: "Floor 3", "3rd Floor", "Building A Floor 2", etc.
+    const floorMatch = location.match(/floor\s+(\d+)/i) || location.match(/(\d+)(?:st|nd|rd|th)?\s+floor/i);
+    if (floorMatch && floorMatch[1]) {
+      return parseInt(floorMatch[1]);
+    }
+    return null;
+  }
+  
+  // Helper method to calculate distance between two points
+  private calculateDistance(point1: {x: number, y: number, z: number}, point2: {x: number, y: number, z: number}): number {
+    return Math.sqrt(
+      Math.pow(point2.x - point1.x, 2) + 
+      Math.pow(point2.y - point1.y, 2) + 
+      Math.pow(point2.z - point1.z, 2)
+    );
   }
 
   async reorderTasks(taskIds: number[]): Promise<boolean> {

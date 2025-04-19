@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowUp, ArrowDown, X, CheckCheck } from "lucide-react";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import OptimizationStats from "@/components/robot/optimization-stats";
 
 type RobotTask = {
   id: number;
@@ -327,6 +328,7 @@ export default function RobotTasksPage() {
     <div className="p-6">
       <h1 className="text-3xl font-bold mb-6">Robot Task Queue</h1>
       
+      {/* Filters Row */}
       <div className="flex gap-4 mb-6">
         <div>
           <Select
@@ -382,11 +384,19 @@ export default function RobotTasksPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Tasks</CardTitle>
-          </CardHeader>
+      {/* Main Content */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Stats Column */}
+        <div className="lg:col-span-3">
+          <OptimizationStats />
+        </div>
+        
+        {/* Tasks Column */}
+        <div className="lg:col-span-9 grid gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Tasks</CardTitle>
+            </CardHeader>
           <CardContent>
             <DragDropContext onDragEnd={onDragEnd}>
               <Droppable droppableId="pending-tasks">
@@ -473,11 +483,23 @@ export default function RobotTasksPage() {
                                                       Optimized
                                                     </Badge>
                                                   </TooltipTrigger>
-                                                  <TooltipContent>
+                                                  <TooltipContent className="max-w-sm">
+                                                    <p className="font-bold">Optimized Task Assignment</p>
                                                     <p>This task was automatically assigned after a dropoff task was completed</p>
-                                                    {params.previousTaskId && (
-                                                      <p className="text-xs">Previous Task: #{params.previousTaskId}</p>
-                                                    )}
+                                                    <div className="mt-2 space-y-1 text-xs">
+                                                      {params.previousTaskId && (
+                                                        <p>Previous Task: #{params.previousTaskId}</p>
+                                                      )}
+                                                      {params.optimizationScore && (
+                                                        <p>Selection Score: {params.optimizationScore}</p>
+                                                      )}
+                                                      {params.distanceFromPrevious && (
+                                                        <p>Distance: {params.distanceFromPrevious} units</p>
+                                                      )}
+                                                      <p className="italic text-green-600 pt-1">
+                                                        Optimized for proximity and priority
+                                                      </p>
+                                                    </div>
                                                   </TooltipContent>
                                                 </Tooltip>
                                               </TooltipProvider>
@@ -595,8 +617,23 @@ export default function RobotTasksPage() {
                                           Optimized
                                         </Badge>
                                       </TooltipTrigger>
-                                      <TooltipContent>
+                                      <TooltipContent className="max-w-sm">
+                                        <p className="font-bold">Optimized Task Assignment</p>
                                         <p>This task was automatically assigned after a dropoff task was completed</p>
+                                        <div className="mt-2 space-y-1 text-xs">
+                                          {params.previousTaskId && (
+                                            <p>Previous Task: #{params.previousTaskId}</p>
+                                          )}
+                                          {params.optimizationScore && (
+                                            <p>Selection Score: {params.optimizationScore}</p>
+                                          )}
+                                          {params.distanceFromPrevious && (
+                                            <p>Distance: {params.distanceFromPrevious} units</p>
+                                          )}
+                                          <p className="italic text-green-600 pt-1">
+                                            Optimized for proximity and priority
+                                          </p>
+                                        </div>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
@@ -730,6 +767,7 @@ export default function RobotTasksPage() {
             </Table>
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );
