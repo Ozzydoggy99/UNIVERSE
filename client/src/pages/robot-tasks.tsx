@@ -35,6 +35,7 @@ type RobotTask = {
   createdBy: number;
   startedAt: string | null;
   completedAt: string | null;
+  templateId: number;
 };
 
 const statusColors = {
@@ -48,7 +49,20 @@ export default function RobotTasksPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>('all');
+  const [templateFilter, setTemplateFilter] = useState<string>('all');
   const [tasks, setTasks] = useState<RobotTask[]>([]);
+  const [templates, setTemplates] = useState<{id: number, name: string}[]>([]);
+  
+  // Fetch available templates
+  const { data: templatesData } = useQuery({
+    queryKey: ['/api/templates'],
+  });
+  
+  useEffect(() => {
+    if (templatesData) {
+      setTemplates(templatesData.map((t: any) => ({ id: t.id, name: t.name })));
+    }
+  }, [templatesData]);
   
   // Set up WebSocket connection for real-time updates
   useEffect(() => {
@@ -58,7 +72,16 @@ export default function RobotTasksPage() {
     
     socket.onopen = () => {
       console.log('WebSocket connected');
-      socket.send(JSON.stringify({ type: 'subscribe' }));
+      
+      // Subscribe to either all tasks or template-specific tasks
+      if (templateFilter !== 'all') {
+        socket.send(JSON.stringify({ 
+          type: 'subscribe',
+          templateId: parseInt(templateFilter)
+        }));
+      } else {
+        socket.send(JSON.stringify({ type: 'subscribe' }));
+      }
     };
     
     socket.onmessage = (event) => {
@@ -67,9 +90,8 @@ export default function RobotTasksPage() {
         console.log('WebSocket message:', data);
         
         if (data.type === 'task_update') {
-          // Update task list
-          queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks/pending'] });
+          // Update task list based on current filters
+          invalidateCurrentQueries();
         }
       } catch (error) {
         console.error('Error processing WebSocket message:', error);
@@ -87,10 +109,42 @@ export default function RobotTasksPage() {
     return () => {
       socket.close();
     };
-  }, [queryClient]);
+  }, [queryClient, templateFilter]);
+  
+  // Helper function to invalidate relevant queries based on current filters
+  const invalidateCurrentQueries = () => {
+    if (templateFilter === 'all') {
+      // All tasks or all pending tasks
+      queryClient.invalidateQueries({ 
+        queryKey: [filter === 'pending' ? '/api/robot-tasks/pending' : '/api/robot-tasks'] 
+      });
+    } else {
+      // Template-specific tasks
+      const templateId = parseInt(templateFilter);
+      queryClient.invalidateQueries({ 
+        queryKey: [
+          filter === 'pending' 
+            ? `/api/robot-tasks/template/${templateId}/pending` 
+            : `/api/robot-tasks/template/${templateId}`
+        ] 
+      });
+    }
+  };
+  
+  // Get tasks based on status and template filters
+  const getQueryKey = () => {
+    if (templateFilter === 'all') {
+      return filter === 'pending' ? '/api/robot-tasks/pending' : '/api/robot-tasks';
+    } else {
+      const templateId = parseInt(templateFilter);
+      return filter === 'pending' 
+        ? `/api/robot-tasks/template/${templateId}/pending` 
+        : `/api/robot-tasks/template/${templateId}`;
+    }
+  };
   
   const { data, isLoading, error } = useQuery({
-    queryKey: [filter === 'pending' ? '/api/robot-tasks/pending' : '/api/robot-tasks'],
+    queryKey: [getQueryKey()],
     refetchInterval: 5000, // Refetch every 5 seconds
   });
   
@@ -103,8 +157,7 @@ export default function RobotTasksPage() {
   const cancelTaskMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/robot-tasks/${id}/cancel`, 'PUT'),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks/pending'] });
+      invalidateCurrentQueries();
       toast({
         title: "Task cancelled",
         description: "The task has been cancelled successfully.",
@@ -122,8 +175,7 @@ export default function RobotTasksPage() {
   const completeTaskMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/robot-tasks/${id}/complete`, 'PUT'),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks/pending'] });
+      invalidateCurrentQueries();
       toast({
         title: "Task completed",
         description: "The task has been marked as completed.",
@@ -142,8 +194,7 @@ export default function RobotTasksPage() {
     mutationFn: ({ id, priority }: { id: number, priority: number }) => 
       apiRequest(`/api/robot-tasks/${id}/priority`, 'PUT', { priority }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks/pending'] });
+      invalidateCurrentQueries();
       toast({
         title: "Priority updated",
         description: "Task priority has been updated.",
@@ -159,11 +210,16 @@ export default function RobotTasksPage() {
   });
   
   const reorderTasksMutation = useMutation({
-    mutationFn: (taskIds: number[]) => 
-      apiRequest('/api/robot-tasks/reorder', 'POST', { taskIds }),
+    mutationFn: (taskIds: number[]) => {
+      if (templateFilter === 'all') {
+        return apiRequest('/api/robot-tasks/reorder', 'POST', { taskIds });
+      } else {
+        const templateId = parseInt(templateFilter);
+        return apiRequest(`/api/robot-tasks/template/${templateId}/reorder`, 'POST', { taskIds });
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-tasks/pending'] });
+      invalidateCurrentQueries();
       toast({
         title: "Tasks reordered",
         description: "The task queue has been reordered.",
@@ -252,19 +308,40 @@ export default function RobotTasksPage() {
     <div className="p-6">
       <h1 className="text-3xl font-bold mb-6">Robot Task Queue</h1>
       
-      <div className="mb-6">
-        <Select
-          value={filter}
-          onValueChange={(value) => setFilter(value)}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tasks</SelectItem>
-            <SelectItem value="pending">Pending Only</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex gap-4 mb-6">
+        <div>
+          <Select
+            value={filter}
+            onValueChange={(value) => setFilter(value)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tasks</SelectItem>
+              <SelectItem value="pending">Pending Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Select
+            value={templateFilter}
+            onValueChange={(value) => setTemplateFilter(value)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by template" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Templates</SelectItem>
+              {templates.map(template => (
+                <SelectItem key={template.id} value={template.id.toString()}>
+                  {template.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid gap-6 mb-6">
@@ -286,6 +363,7 @@ export default function RobotTasksPage() {
                           <TableHead>Priority</TableHead>
                           <TableHead>Task Type</TableHead>
                           <TableHead>Robot</TableHead>
+                          <TableHead>Template</TableHead>
                           <TableHead>Created</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -333,6 +411,11 @@ export default function RobotTasksPage() {
                                   </TableCell>
                                   <TableCell>{task.taskType}</TableCell>
                                   <TableCell>{task.serialNumber}</TableCell>
+                                  <TableCell>
+                                    {task.templateId ? 
+                                      templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}` 
+                                      : 'None'}
+                                  </TableCell>
                                   <TableCell>{new Date(task.createdAt).toLocaleString()}</TableCell>
                                   <TableCell className="text-right">
                                     <Button
@@ -377,6 +460,7 @@ export default function RobotTasksPage() {
                   <TableHead>Priority</TableHead>
                   <TableHead>Task Type</TableHead>
                   <TableHead>Robot</TableHead>
+                  <TableHead>Template</TableHead>
                   <TableHead>Started</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -392,6 +476,11 @@ export default function RobotTasksPage() {
                       <TableCell className="font-medium">{task.priority}</TableCell>
                       <TableCell>{task.taskType}</TableCell>
                       <TableCell>{task.serialNumber}</TableCell>
+                      <TableCell>
+                        {task.templateId ? 
+                          templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}` 
+                          : 'None'}
+                      </TableCell>
                       <TableCell>{task.startedAt ? new Date(task.startedAt).toLocaleString() : 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <Button
