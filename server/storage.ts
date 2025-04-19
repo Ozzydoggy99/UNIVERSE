@@ -9,6 +9,7 @@ import {
   gameItems,
   gameZombies,
   robotTemplateAssignments,
+  robotTasks,
   type User, 
   type InsertUser, 
   type ApiConfig, 
@@ -86,6 +87,18 @@ export interface IStorage {
   updateGameZombie(id: number, updates: Partial<GameZombie>): Promise<GameZombie | undefined>;
   getAllGameZombies(): Promise<GameZombie[]>;
   removeGameZombie(id: number): Promise<boolean>;
+  
+  // Robot Task Queue methods
+  createRobotTask(task: InsertRobotTask): Promise<RobotTask>;
+  getRobotTask(id: number): Promise<RobotTask | undefined>;
+  getAllRobotTasks(): Promise<RobotTask[]>;
+  getRobotTasksBySerialNumber(serialNumber: string): Promise<RobotTask[]>;
+  getPendingRobotTasks(): Promise<RobotTask[]>;
+  updateRobotTask(id: number, updates: Partial<RobotTask>): Promise<RobotTask | undefined>;
+  updateTaskPriority(id: number, newPriority: number): Promise<RobotTask | undefined>;
+  cancelRobotTask(id: number): Promise<RobotTask | undefined>;
+  completeRobotTask(id: number): Promise<RobotTask | undefined>;
+  reorderTasks(taskIds: number[]): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -99,6 +112,7 @@ export class MemStorage implements IStorage {
   private gamePlayers: Map<number, GamePlayer>;
   private gameItems: Map<number, GameItem>;
   private gameZombies: Map<number, GameZombie>;
+  private robotTasks: Map<number, RobotTask>;
   
   currentId: number;
   currentApiConfigId: number;
@@ -110,6 +124,7 @@ export class MemStorage implements IStorage {
   currentGamePlayerId: number;
   currentGameItemId: number;
   currentGameZombieId: number;
+  currentRobotTaskId: number;
 
   constructor() {
     this.users = new Map();

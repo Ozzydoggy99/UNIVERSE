@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, real, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -119,6 +119,26 @@ export const positionHistory = pgTable("position_history", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+// Robot Task Queue
+export const robotTasks = pgTable("robot_tasks", {
+  id: serial("id").primaryKey(),
+  serialNumber: text("serial_number").notNull(), // The robot assigned to this task
+  title: text("title").notNull(), // Short title for the task
+  description: text("description"), // Detailed description of the task
+  taskType: text("task_type").notNull(), // E.g., 'PICKUP', 'DELIVERY', 'CLEANING', 'PATROL'
+  priority: integer("priority").default(0), // Higher number means higher priority
+  status: text("status").notNull().default("PENDING"), // 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED'
+  location: text("location"), // String representation of task location (e.g., "Room 101")
+  targetX: integer("target_x"), // Target X coordinate (if applicable)
+  targetY: integer("target_y"), // Target Y coordinate (if applicable)
+  targetZ: integer("target_z"), // Target Z coordinate (if applicable)
+  parameters: text("parameters"), // JSON string of additional parameters (e.g. items to deliver)
+  createdAt: timestamp("created_at").defaultNow(),
+  startedAt: timestamp("started_at"), // When the task was started
+  completedAt: timestamp("completed_at"), // When the task was completed
+  createdBy: integer("created_by").references(() => users.id), // User who created the task
+});
+
 // User Schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -152,6 +172,22 @@ export const insertSensorReadingSchema = createInsertSchema(sensorReadings);
 
 // Position History Schemas
 export const insertPositionHistorySchema = createInsertSchema(positionHistory);
+
+// Robot Task Schemas
+export const insertRobotTaskSchema = createInsertSchema(robotTasks).pick({
+  serialNumber: true,
+  title: true,
+  description: true,
+  taskType: true,
+  priority: true,
+  status: true,
+  location: true,
+  targetX: true,
+  targetY: true,
+  targetZ: true,
+  parameters: true,
+  createdBy: true,
+});
 
 // Robot Template Assignment Schema
 export const insertRobotTemplateAssignmentSchema = createInsertSchema(robotTemplateAssignments).pick({
@@ -223,3 +259,6 @@ export type GameItem = typeof gameItems.$inferSelect;
 
 export type InsertGameZombie = z.infer<typeof insertGameZombieSchema>;
 export type GameZombie = typeof gameZombies.$inferSelect;
+
+export type InsertRobotTask = z.infer<typeof insertRobotTaskSchema>;
+export type RobotTask = typeof robotTasks.$inferSelect;
