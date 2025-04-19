@@ -123,6 +123,7 @@ export const positionHistory = pgTable("position_history", {
 export const robotTasks = pgTable("robot_tasks", {
   id: serial("id").primaryKey(),
   serialNumber: text("serial_number").notNull(), // The robot assigned to this task
+  templateId: integer("template_id"), // The template this task is associated with
   title: text("title").notNull(), // Short title for the task
   description: text("description"), // Detailed description of the task
   taskType: text("task_type").notNull(), // E.g., 'PICKUP', 'DELIVERY', 'CLEANING', 'PATROL'
@@ -176,6 +177,7 @@ export const insertPositionHistorySchema = createInsertSchema(positionHistory);
 // Robot Task Schemas
 export const insertRobotTaskSchema = createInsertSchema(robotTasks).pick({
   serialNumber: true,
+  templateId: true,
   title: true,
   description: true,
   taskType: true,

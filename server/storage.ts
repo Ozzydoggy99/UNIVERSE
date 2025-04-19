@@ -95,7 +95,9 @@ export interface IStorage {
   getRobotTask(id: number): Promise<RobotTask | undefined>;
   getAllRobotTasks(): Promise<RobotTask[]>;
   getRobotTasksBySerialNumber(serialNumber: string): Promise<RobotTask[]>;
+  getRobotTasksByTemplateId(templateId: number): Promise<RobotTask[]>;
   getPendingRobotTasks(): Promise<RobotTask[]>;
+  getPendingRobotTasksByTemplateId(templateId: number): Promise<RobotTask[]>;
   updateRobotTask(id: number, updates: Partial<RobotTask>): Promise<RobotTask | undefined>;
   updateTaskPriority(id: number, newPriority: number): Promise<RobotTask | undefined>;
   cancelRobotTask(id: number): Promise<RobotTask | undefined>;
@@ -497,10 +499,22 @@ export class MemStorage implements IStorage {
       .filter(task => task.serialNumber === serialNumber)
       .sort((a, b) => b.priority - a.priority); // Higher priority first
   }
+  
+  async getRobotTasksByTemplateId(templateId: number): Promise<RobotTask[]> {
+    return Array.from(this.robotTasks.values())
+      .filter(task => task.templateId === templateId)
+      .sort((a, b) => b.priority - a.priority); // Higher priority first
+  }
 
   async getPendingRobotTasks(): Promise<RobotTask[]> {
     return Array.from(this.robotTasks.values())
       .filter(task => task.status === 'PENDING')
+      .sort((a, b) => b.priority - a.priority); // Higher priority first
+  }
+  
+  async getPendingRobotTasksByTemplateId(templateId: number): Promise<RobotTask[]> {
+    return Array.from(this.robotTasks.values())
+      .filter(task => task.status === 'PENDING' && task.templateId === templateId)
       .sort((a, b) => b.priority - a.priority); // Higher priority first
   }
 
