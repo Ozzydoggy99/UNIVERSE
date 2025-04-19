@@ -371,7 +371,7 @@ export default function RobotTasksPage() {
                       <TableBody>
                         {pendingTasks.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center">No pending tasks</TableCell>
+                            <TableCell colSpan={6} className="text-center">No pending tasks</TableCell>
                           </TableRow>
                         ) : (
                           pendingTasks.map((task, index) => (
@@ -468,7 +468,7 @@ export default function RobotTasksPage() {
               <TableBody>
                 {inProgressTasks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">No tasks in progress</TableCell>
+                    <TableCell colSpan={6} className="text-center">No tasks in progress</TableCell>
                   </TableRow>
                 ) : (
                   inProgressTasks.map((task) => (
@@ -517,6 +517,7 @@ export default function RobotTasksPage() {
                 <TableRow>
                   <TableHead>Task Type</TableHead>
                   <TableHead>Robot</TableHead>
+                  <TableHead>Template</TableHead>
                   <TableHead>Completed</TableHead>
                   <TableHead>Duration</TableHead>
                 </TableRow>
@@ -524,7 +525,7 @@ export default function RobotTasksPage() {
               <TableBody>
                 {completedTasks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center">No completed tasks</TableCell>
+                    <TableCell colSpan={5} className="text-center">No completed tasks</TableCell>
                   </TableRow>
                 ) : (
                   completedTasks.slice(0, 5).map((task) => {
@@ -539,6 +540,11 @@ export default function RobotTasksPage() {
                       <TableRow key={task.id}>
                         <TableCell>{task.taskType}</TableCell>
                         <TableCell>{task.serialNumber}</TableCell>
+                        <TableCell>
+                          {task.templateId ? 
+                            templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}` 
+                            : 'None'}
+                        </TableCell>
                         <TableCell>{task.completedAt ? new Date(task.completedAt).toLocaleString() : 'N/A'}</TableCell>
                         <TableCell>{duration}</TableCell>
                       </TableRow>
