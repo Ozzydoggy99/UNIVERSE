@@ -454,11 +454,26 @@ export default function RobotTasksPage() {
                                       </Tooltip>
                                     </TooltipProvider>
                                   </TableCell>
-                                  <TableCell>{task.serialNumber}</TableCell>
                                   <TableCell>
-                                    {task.templateId ? 
-                                      templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}` 
-                                      : 'None'}
+                                    <Badge variant="secondary">{task.serialNumber}</Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    {task.templateId ? (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge variant="outline" className={parseInt(templateFilter) === task.templateId ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : ""}>
+                                              {templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}`}
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Template ID: {task.templateId}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    ) : (
+                                      <span className="text-gray-500">None</span>
+                                    )}
                                   </TableCell>
                                   <TableCell>{new Date(task.createdAt).toLocaleString()}</TableCell>
                                   <TableCell className="text-right">
@@ -518,12 +533,38 @@ export default function RobotTasksPage() {
                   inProgressTasks.map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.priority}</TableCell>
-                      <TableCell>{task.taskType}</TableCell>
-                      <TableCell>{task.serialNumber}</TableCell>
                       <TableCell>
-                        {task.templateId ? 
-                          templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}` 
-                          : 'None'}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge className={taskTypeFilter === task.taskType ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>{task.taskType}</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Task Type: {task.taskType}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{task.serialNumber}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {task.templateId ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className={parseInt(templateFilter) === task.templateId ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : ""}>
+                                  {templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}`}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Template ID: {task.templateId}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-gray-500">None</span>
+                        )}
                       </TableCell>
                       <TableCell>{task.startedAt ? new Date(task.startedAt).toLocaleString() : 'N/A'}</TableCell>
                       <TableCell className="text-right">
@@ -582,12 +623,38 @@ export default function RobotTasksPage() {
                     
                     return (
                       <TableRow key={task.id}>
-                        <TableCell>{task.taskType}</TableCell>
-                        <TableCell>{task.serialNumber}</TableCell>
                         <TableCell>
-                          {task.templateId ? 
-                            templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}` 
-                            : 'None'}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge className={taskTypeFilter === task.taskType ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}>{task.taskType}</Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Task Type: {task.taskType}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{task.serialNumber}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {task.templateId ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="outline" className={parseInt(templateFilter) === task.templateId ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : ""}>
+                                    {templates.find(t => t.id === task.templateId)?.name || `Template ${task.templateId}`}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Template ID: {task.templateId}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <span className="text-gray-500">None</span>
+                          )}
                         </TableCell>
                         <TableCell>{task.completedAt ? new Date(task.completedAt).toLocaleString() : 'N/A'}</TableCell>
                         <TableCell>{duration}</TableCell>
