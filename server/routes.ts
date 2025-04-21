@@ -54,6 +54,223 @@ export async function registerRoutes(app: Express): Promise<Server> {
     path: '/ws/robot-tasks' 
   });
   
+  // Set up WebSocket server for elevator real-time updates
+  const wssElevator = new WebSocketServer({
+    server: httpServer,
+    path: '/ws/elevator'
+  });
+  
+  // Handle WebSocket connections for elevator events
+  wssElevator.on('connection', (ws) => {
+    console.log('WebSocket client connected to elevator service');
+    
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received elevator message:', data);
+        
+        // Handle different message types
+        if (data.type === 'subscribe') {
+          // Client subscribing to updates
+          (ws as any).subscribed = true;
+          
+          // Check if subscribing to a specific building
+          if (data.buildingId) {
+            (ws as any).buildingId = data.buildingId;
+            ws.send(JSON.stringify({ 
+              type: 'subscribed', 
+              message: `Successfully subscribed to elevator updates for building ${data.buildingId}`
+            }));
+          } else {
+            ws.send(JSON.stringify({ 
+              type: 'subscribed', 
+              message: 'Successfully subscribed to all elevator updates'
+            }));
+          }
+        } else if (data.type === 'elevator_status_update') {
+          // Handle elevator status updates from robots
+          if (data.elevatorId && data.status) {
+            // Update the elevator status in the database
+            storage.updateElevatorStatus(data.elevatorId, data.status)
+              .then(updatedElevator => {
+                if (updatedElevator) {
+                  // Broadcast the update to all connected clients
+                  wssElevator.clients.forEach(client => {
+                    const wsClient = client as any;
+                    if (client.readyState === WebSocket.OPEN && wsClient.subscribed) {
+                      // If client is subscribed to a specific building and it doesn't match, skip
+                      if (wsClient.buildingId && wsClient.buildingId !== updatedElevator.buildingId) {
+                        return;
+                      }
+                      
+                      client.send(JSON.stringify({
+                        type: 'elevator_update',
+                        elevator: updatedElevator
+                      }));
+                    }
+                  });
+                }
+              })
+              .catch(error => {
+                console.error('Error updating elevator status:', error);
+              });
+          }
+        } else if (data.type === 'elevator_queue_request') {
+          // Handle elevator queue requests from robots
+          if (data.robotId && data.elevatorId && data.startFloor !== undefined && data.targetFloor !== undefined) {
+            // Create a new queue entry
+            const queueEntry = {
+              elevatorId: data.elevatorId,
+              robotId: data.robotId,
+              startFloor: data.startFloor,
+              targetFloor: data.targetFloor,
+              priority: data.priority || 0,
+              status: 'WAITING'
+            };
+            
+            storage.createElevatorQueueEntry(queueEntry)
+              .then(newEntry => {
+                // Notify all clients about the new queue entry
+                wssElevator.clients.forEach(client => {
+                  const wsClient = client as any;
+                  if (client.readyState === WebSocket.OPEN && wsClient.subscribed) {
+                    // If client is subscribed to a specific building, check if elevator is in that building
+                    if (wsClient.buildingId) {
+                      // Get the elevator to check its building
+                      storage.getElevator(newEntry.elevatorId)
+                        .then(elevator => {
+                          if (elevator && elevator.buildingId === wsClient.buildingId) {
+                            client.send(JSON.stringify({
+                              type: 'elevator_queue_update',
+                              queueEntry: newEntry
+                            }));
+                          }
+                        })
+                        .catch(error => {
+                          console.error('Error getting elevator:', error);
+                        });
+                    } else {
+                      client.send(JSON.stringify({
+                        type: 'elevator_queue_update',
+                        queueEntry: newEntry
+                      }));
+                    }
+                  }
+                });
+                
+                // Send a direct response to the requesting client
+                ws.send(JSON.stringify({
+                  type: 'elevator_queue_response',
+                  queueEntry: newEntry
+                }));
+              })
+              .catch(error => {
+                console.error('Error creating elevator queue entry:', error);
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  message: 'Failed to create elevator queue entry'
+                }));
+              });
+          }
+        } else if (data.type === 'elevator_queue_status_update') {
+          // Handle elevator queue status updates from robots or elevators
+          if (data.queueId && data.status) {
+            storage.updateElevatorQueueEntryStatus(data.queueId, data.status)
+              .then(updatedEntry => {
+                if (updatedEntry) {
+                  // Broadcast the update to all connected clients
+                  wssElevator.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN && (client as any).subscribed) {
+                      client.send(JSON.stringify({
+                        type: 'elevator_queue_update',
+                        queueEntry: updatedEntry
+                      }));
+                    }
+                  });
+                }
+              })
+              .catch(error => {
+                console.error('Error updating elevator queue status:', error);
+              });
+          }
+        } else if (data.type === 'load_map') {
+          // Handle load map requests from robots
+          if (data.serialNumber && data.floorNumber !== undefined) {
+            // Get the robot's template assignment
+            storage.getRobotTemplateAssignmentBySerial(data.serialNumber)
+              .then(assignment => {
+                if (assignment) {
+                  // Get the template
+                  return storage.getTemplate(assignment.templateId)
+                    .then(template => {
+                      if (template) {
+                        // Parse the template layout
+                        try {
+                          const layout = JSON.parse(template.layout);
+                          if (layout.mapInfo && layout.mapInfo.buildingId) {
+                            const buildingId = layout.mapInfo.buildingId;
+                            
+                            // Get the floor map
+                            return storage.getFloorMapByBuildingAndFloor(buildingId, data.floorNumber)
+                              .then(floorMap => {
+                                if (floorMap) {
+                                  ws.send(JSON.stringify({
+                                    type: 'map_data',
+                                    floorMap
+                                  }));
+                                } else {
+                                  ws.send(JSON.stringify({
+                                    type: 'error',
+                                    message: `Floor map not found for building ${buildingId}, floor ${data.floorNumber}`
+                                  }));
+                                }
+                              });
+                          } else {
+                            ws.send(JSON.stringify({
+                              type: 'error',
+                              message: 'No map information found in template'
+                            }));
+                          }
+                        } catch (error) {
+                          console.error('Error parsing template layout:', error);
+                          ws.send(JSON.stringify({
+                            type: 'error',
+                            message: 'Invalid template layout format'
+                          }));
+                        }
+                      } else {
+                        ws.send(JSON.stringify({
+                          type: 'error',
+                          message: 'Template not found'
+                        }));
+                      }
+                    });
+                } else {
+                  ws.send(JSON.stringify({
+                    type: 'error',
+                    message: 'Robot not found or not assigned to a template'
+                  }));
+                }
+              })
+              .catch(error => {
+                console.error('Error loading map:', error);
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  message: 'Error loading map'
+                }));
+              });
+          }
+        }
+      } catch (error) {
+        console.error('WebSocket message error for elevator:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected from elevator service');
+    });
+  });
+  
   // Task update broadcast function
   const broadcastTaskUpdate = (task: RobotTask) => {
     wssRobotTasks.clients.forEach((client) => {
@@ -1592,6 +1809,626 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
     });
+  });
+
+  // Elevator Integration System API Endpoints
+  
+  // Floor Maps
+  app.get("/api/floor-maps", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view floor maps" });
+      }
+      
+      const floorMaps = await storage.getAllFloorMaps();
+      return res.json(floorMaps);
+    } catch (error) {
+      console.error("Error fetching floor maps:", error);
+      return res.status(500).json({ message: "Error fetching floor maps" });
+    }
+  });
+  
+  app.get("/api/floor-maps/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const floorMap = await storage.getFloorMap(id);
+      
+      if (!floorMap) {
+        return res.status(404).json({ message: "Floor map not found" });
+      }
+      
+      return res.json(floorMap);
+    } catch (error) {
+      console.error("Error fetching floor map:", error);
+      return res.status(500).json({ message: "Error fetching floor map" });
+    }
+  });
+  
+  app.get("/api/floor-maps/building/:buildingId/floor/:floorNumber", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const buildingId = parseInt(req.params.buildingId);
+      const floorNumber = parseInt(req.params.floorNumber);
+      
+      if (isNaN(buildingId) || isNaN(floorNumber)) {
+        return res.status(400).json({ message: "Invalid building ID or floor number" });
+      }
+      
+      const floorMap = await storage.getFloorMapByBuildingAndFloor(buildingId, floorNumber);
+      
+      if (!floorMap) {
+        return res.status(404).json({ message: "Floor map not found" });
+      }
+      
+      return res.json(floorMap);
+    } catch (error) {
+      console.error("Error fetching floor map by building and floor:", error);
+      return res.status(500).json({ message: "Error fetching floor map" });
+    }
+  });
+  
+  app.post("/api/floor-maps", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can create floor maps" });
+      }
+      
+      const floorMapData = req.body;
+      
+      if (!floorMapData.buildingId || floorMapData.floorNumber === undefined || !floorMapData.mapData) {
+        return res.status(400).json({ 
+          message: "Building ID, floor number, and map data are required" 
+        });
+      }
+      
+      const newFloorMap = await storage.createFloorMap(floorMapData);
+      return res.status(201).json(newFloorMap);
+    } catch (error) {
+      console.error("Error creating floor map:", error);
+      return res.status(500).json({ message: "Error creating floor map" });
+    }
+  });
+  
+  app.put("/api/floor-maps/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update floor maps" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const floorMapData = req.body;
+      
+      const updatedFloorMap = await storage.updateFloorMap(id, floorMapData);
+      
+      if (!updatedFloorMap) {
+        return res.status(404).json({ message: "Floor map not found" });
+      }
+      
+      return res.json(updatedFloorMap);
+    } catch (error) {
+      console.error("Error updating floor map:", error);
+      return res.status(500).json({ message: "Error updating floor map" });
+    }
+  });
+  
+  app.delete("/api/floor-maps/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete floor maps" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteFloorMap(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Floor map not found" });
+      }
+      
+      return res.json({ message: "Floor map deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting floor map:", error);
+      return res.status(500).json({ message: "Error deleting floor map" });
+    }
+  });
+  
+  // Elevators
+  app.get("/api/elevators", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const elevators = await storage.getAllElevators();
+      return res.json(elevators);
+    } catch (error) {
+      console.error("Error fetching elevators:", error);
+      return res.status(500).json({ message: "Error fetching elevators" });
+    }
+  });
+  
+  app.get("/api/elevators/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const elevator = await storage.getElevator(id);
+      
+      if (!elevator) {
+        return res.status(404).json({ message: "Elevator not found" });
+      }
+      
+      return res.json(elevator);
+    } catch (error) {
+      console.error("Error fetching elevator:", error);
+      return res.status(500).json({ message: "Error fetching elevator" });
+    }
+  });
+  
+  app.get("/api/elevators/building/:buildingId", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const buildingId = parseInt(req.params.buildingId);
+      
+      if (isNaN(buildingId)) {
+        return res.status(400).json({ message: "Invalid building ID" });
+      }
+      
+      const elevators = await storage.getElevatorsByBuilding(buildingId);
+      return res.json(elevators);
+    } catch (error) {
+      console.error("Error fetching elevators by building:", error);
+      return res.status(500).json({ message: "Error fetching elevators" });
+    }
+  });
+  
+  app.post("/api/elevators", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can create elevators" });
+      }
+      
+      const elevatorData = req.body;
+      
+      if (!elevatorData.buildingId || !elevatorData.name || elevatorData.currentFloor === undefined) {
+        return res.status(400).json({ 
+          message: "Building ID, name, and current floor are required" 
+        });
+      }
+      
+      const newElevator = await storage.createElevator(elevatorData);
+      return res.status(201).json(newElevator);
+    } catch (error) {
+      console.error("Error creating elevator:", error);
+      return res.status(500).json({ message: "Error creating elevator" });
+    }
+  });
+  
+  app.put("/api/elevators/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update elevators" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const elevatorData = req.body;
+      
+      const updatedElevator = await storage.updateElevator(id, elevatorData);
+      
+      if (!updatedElevator) {
+        return res.status(404).json({ message: "Elevator not found" });
+      }
+      
+      return res.json(updatedElevator);
+    } catch (error) {
+      console.error("Error updating elevator:", error);
+      return res.status(500).json({ message: "Error updating elevator" });
+    }
+  });
+  
+  app.patch("/api/elevators/:id/status", async (req, res) => {
+    try {
+      // Status updates can be done by any authenticated user
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      const updatedElevator = await storage.updateElevatorStatus(id, status);
+      
+      if (!updatedElevator) {
+        return res.status(404).json({ message: "Elevator not found" });
+      }
+      
+      return res.json(updatedElevator);
+    } catch (error) {
+      console.error("Error updating elevator status:", error);
+      return res.status(500).json({ message: "Error updating elevator status" });
+    }
+  });
+  
+  app.delete("/api/elevators/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete elevators" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteElevator(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Elevator not found" });
+      }
+      
+      return res.json({ message: "Elevator deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting elevator:", error);
+      return res.status(500).json({ message: "Error deleting elevator" });
+    }
+  });
+  
+  // Elevator Queue
+  app.get("/api/elevator-queue", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const queue = await storage.getAllElevatorQueueEntries();
+      return res.json(queue);
+    } catch (error) {
+      console.error("Error fetching elevator queue:", error);
+      return res.status(500).json({ message: "Error fetching elevator queue" });
+    }
+  });
+  
+  app.get("/api/elevator-queue/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const queueEntry = await storage.getElevatorQueueEntry(id);
+      
+      if (!queueEntry) {
+        return res.status(404).json({ message: "Queue entry not found" });
+      }
+      
+      return res.json(queueEntry);
+    } catch (error) {
+      console.error("Error fetching queue entry:", error);
+      return res.status(500).json({ message: "Error fetching queue entry" });
+    }
+  });
+  
+  app.get("/api/elevator-queue/elevator/:elevatorId", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const elevatorId = parseInt(req.params.elevatorId);
+      
+      if (isNaN(elevatorId)) {
+        return res.status(400).json({ message: "Invalid elevator ID" });
+      }
+      
+      const queueEntries = await storage.getElevatorQueueEntriesByElevator(elevatorId);
+      return res.json(queueEntries);
+    } catch (error) {
+      console.error("Error fetching queue entries by elevator:", error);
+      return res.status(500).json({ message: "Error fetching queue entries" });
+    }
+  });
+  
+  app.get("/api/elevator-queue/robot/:robotId", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const robotId = req.params.robotId;
+      
+      if (!robotId) {
+        return res.status(400).json({ message: "Invalid robot ID" });
+      }
+      
+      const queueEntries = await storage.getElevatorQueueEntriesByRobot(robotId);
+      return res.json(queueEntries);
+    } catch (error) {
+      console.error("Error fetching queue entries by robot:", error);
+      return res.status(500).json({ message: "Error fetching queue entries" });
+    }
+  });
+  
+  app.post("/api/elevator-queue", async (req, res) => {
+    try {
+      // Ensure user is authenticated
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const queueData = req.body;
+      
+      if (!queueData.elevatorId || !queueData.robotId || 
+          queueData.startFloor === undefined || queueData.targetFloor === undefined) {
+        return res.status(400).json({ 
+          message: "Elevator ID, robot ID, start floor, and target floor are required" 
+        });
+      }
+      
+      // Default status to 'WAITING' if not provided
+      if (!queueData.status) {
+        queueData.status = 'WAITING';
+      }
+      
+      const newQueueEntry = await storage.createElevatorQueueEntry(queueData);
+      return res.status(201).json(newQueueEntry);
+    } catch (error) {
+      console.error("Error creating queue entry:", error);
+      return res.status(500).json({ message: "Error creating queue entry" });
+    }
+  });
+  
+  app.patch("/api/elevator-queue/:id/status", async (req, res) => {
+    try {
+      // Status updates can be done by any authenticated user
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      const updatedQueueEntry = await storage.updateElevatorQueueEntryStatus(id, status);
+      
+      if (!updatedQueueEntry) {
+        return res.status(404).json({ message: "Queue entry not found" });
+      }
+      
+      return res.json(updatedQueueEntry);
+    } catch (error) {
+      console.error("Error updating queue entry status:", error);
+      return res.status(500).json({ message: "Error updating queue entry status" });
+    }
+  });
+  
+  app.patch("/api/elevator-queue/:id/priority", async (req, res) => {
+    try {
+      // Priority updates should only be done by admins
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update queue priorities" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { priority } = req.body;
+      
+      if (priority === undefined) {
+        return res.status(400).json({ message: "Priority is required" });
+      }
+      
+      const updatedQueueEntry = await storage.updateElevatorQueueEntryPriority(id, priority);
+      
+      if (!updatedQueueEntry) {
+        return res.status(404).json({ message: "Queue entry not found" });
+      }
+      
+      return res.json(updatedQueueEntry);
+    } catch (error) {
+      console.error("Error updating queue entry priority:", error);
+      return res.status(500).json({ message: "Error updating queue entry priority" });
+    }
+  });
+  
+  app.delete("/api/elevator-queue/:id", async (req, res) => {
+    try {
+      // Deleting queue entries should only be done by admins
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete queue entries" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteElevatorQueueEntry(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Queue entry not found" });
+      }
+      
+      return res.json({ message: "Queue entry deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting queue entry:", error);
+      return res.status(500).json({ message: "Error deleting queue entry" });
+    }
+  });
+  
+  // Elevator Maintenance
+  app.get("/api/elevator-maintenance", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view maintenance records" });
+      }
+      
+      const maintenanceRecords = await storage.getAllElevatorMaintenanceRecords();
+      return res.json(maintenanceRecords);
+    } catch (error) {
+      console.error("Error fetching maintenance records:", error);
+      return res.status(500).json({ message: "Error fetching maintenance records" });
+    }
+  });
+  
+  app.get("/api/elevator-maintenance/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view maintenance records" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const maintenanceRecord = await storage.getElevatorMaintenanceRecord(id);
+      
+      if (!maintenanceRecord) {
+        return res.status(404).json({ message: "Maintenance record not found" });
+      }
+      
+      return res.json(maintenanceRecord);
+    } catch (error) {
+      console.error("Error fetching maintenance record:", error);
+      return res.status(500).json({ message: "Error fetching maintenance record" });
+    }
+  });
+  
+  app.get("/api/elevator-maintenance/elevator/:elevatorId", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can view maintenance records" });
+      }
+      
+      const elevatorId = parseInt(req.params.elevatorId);
+      
+      if (isNaN(elevatorId)) {
+        return res.status(400).json({ message: "Invalid elevator ID" });
+      }
+      
+      const maintenanceRecords = await storage.getElevatorMaintenanceRecordsByElevator(elevatorId);
+      return res.json(maintenanceRecords);
+    } catch (error) {
+      console.error("Error fetching maintenance records by elevator:", error);
+      return res.status(500).json({ message: "Error fetching maintenance records" });
+    }
+  });
+  
+  app.post("/api/elevator-maintenance", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can create maintenance records" });
+      }
+      
+      const maintenanceData = req.body;
+      
+      if (!maintenanceData.elevatorId || !maintenanceData.maintenanceType || !maintenanceData.scheduledDate) {
+        return res.status(400).json({ 
+          message: "Elevator ID, maintenance type, and scheduled date are required" 
+        });
+      }
+      
+      const newMaintenanceRecord = await storage.createElevatorMaintenanceRecord(maintenanceData);
+      return res.status(201).json(newMaintenanceRecord);
+    } catch (error) {
+      console.error("Error creating maintenance record:", error);
+      return res.status(500).json({ message: "Error creating maintenance record" });
+    }
+  });
+  
+  app.patch("/api/elevator-maintenance/:id/complete", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update maintenance records" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const { completedDate, notes } = req.body;
+      
+      if (!completedDate) {
+        return res.status(400).json({ message: "Completed date is required" });
+      }
+      
+      const updatedRecord = await storage.completeElevatorMaintenanceRecord(id, completedDate, notes);
+      
+      if (!updatedRecord) {
+        return res.status(404).json({ message: "Maintenance record not found" });
+      }
+      
+      return res.json(updatedRecord);
+    } catch (error) {
+      console.error("Error completing maintenance record:", error);
+      return res.status(500).json({ message: "Error completing maintenance record" });
+    }
+  });
+  
+  app.put("/api/elevator-maintenance/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can update maintenance records" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const maintenanceData = req.body;
+      
+      const updatedRecord = await storage.updateElevatorMaintenanceRecord(id, maintenanceData);
+      
+      if (!updatedRecord) {
+        return res.status(404).json({ message: "Maintenance record not found" });
+      }
+      
+      return res.json(updatedRecord);
+    } catch (error) {
+      console.error("Error updating maintenance record:", error);
+      return res.status(500).json({ message: "Error updating maintenance record" });
+    }
+  });
+  
+  app.delete("/api/elevator-maintenance/:id", async (req, res) => {
+    try {
+      // Ensure user is authenticated and is an admin
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete maintenance records" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteElevatorMaintenanceRecord(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Maintenance record not found" });
+      }
+      
+      return res.json({ message: "Maintenance record deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting maintenance record:", error);
+      return res.status(500).json({ message: "Error deleting maintenance record" });
+    }
   });
 
   return httpServer;
