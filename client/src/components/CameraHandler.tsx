@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 
 interface CameraHandlerProps {
   serialNumber?: string;
@@ -93,13 +94,11 @@ export const CameraHandler: React.FC<CameraHandlerProps> = ({ serialNumber }) =>
           {cameraData.enabled && cameraData.streamUrl && (
             <div className="mt-4">
               <div className="relative bg-gray-100 rounded-lg overflow-hidden aspect-video">
-                {/* Use iframe for live MJPEG stream */}
-                <iframe 
-                  src={cameraData.streamUrl} 
-                  title="Robot Camera Live Feed"
-                  className="w-full h-full border-0"
-                  sandbox="allow-same-origin"
-                  allow="camera"
+                {/* Use dedicated LiveMjpegStream component for better performance */}
+                <LiveMjpegStream 
+                  streamUrl={cameraData.streamUrl}
+                  refreshInterval={500} // Refresh every 500ms for smoother video
+                  className="w-full h-full"
                 />
                 <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 text-xs rounded">
                   {cameraData.resolution.width} x {cameraData.resolution.height}

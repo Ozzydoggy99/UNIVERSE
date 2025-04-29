@@ -786,13 +786,13 @@ export default function RobotDetails() {
                           <div className="border rounded-md overflow-hidden aspect-video bg-gray-900 relative">
                             {cameraDataToUse?.streamUrl ? (
                               <div className="w-full h-full flex items-center justify-center">
-                                {/* Use iframe for live MJPEG streaming */}
-                                <iframe 
-                                  src={cameraDataToUse.streamUrl} 
-                                  title="Robot Camera Live Feed"
-                                  className="w-full h-full border-0"
-                                  sandbox="allow-same-origin"
-                                  allow="camera"
+                                {/* Use direct img tag for MJPEG streams with cache busting */}
+                                <img 
+                                  src={`${cameraDataToUse.streamUrl}?t=${new Date().getTime()}`}
+                                  alt="Robot Camera Live Feed"
+                                  className="w-full h-full object-contain"
+                                  style={{ maxWidth: '100%', maxHeight: '100%' }}
+                                  key={new Date().getTime()} // Force re-render
                                 />
                               </div>
                             ) : (
