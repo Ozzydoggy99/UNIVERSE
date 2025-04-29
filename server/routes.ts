@@ -33,6 +33,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register mock assistant routes
   registerMockAssistantRoutes(app);
   
+  // Templates API endpoints
+  app.get('/api/templates', async (req: Request, res: Response) => {
+    try {
+      const templates = await storage.getAllTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+      res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+  });
+  
+  app.get('/api/templates/:id', async (req: Request, res: Response) => {
+    try {
+      const templateId = parseInt(req.params.id);
+      const template = await storage.getTemplate(templateId);
+      
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      console.error('Error fetching template:', error);
+      res.status(500).json({ error: 'Failed to fetch template' });
+    }
+  });
+  
+  app.post('/api/templates', async (req: Request, res: Response) => {
+    try {
+      const template = await storage.createTemplate(req.body);
+      res.status(201).json(template);
+    } catch (error) {
+      console.error('Error creating template:', error);
+      res.status(500).json({ error: 'Failed to create template' });
+    }
+  });
+  
+  app.put('/api/templates/:id', async (req: Request, res: Response) => {
+    try {
+      const templateId = parseInt(req.params.id);
+      const updatedTemplate = await storage.updateTemplate(templateId, req.body);
+      
+      if (!updatedTemplate) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      res.json(updatedTemplate);
+    } catch (error) {
+      console.error('Error updating template:', error);
+      res.status(500).json({ error: 'Failed to update template' });
+    }
+  });
+  
+  app.delete('/api/templates/:id', async (req: Request, res: Response) => {
+    try {
+      const templateId = parseInt(req.params.id);
+      const success = await storage.deleteTemplate(templateId);
+      
+      if (!success) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      res.status(500).json({ error: 'Failed to delete template' });
+    }
+  });
+  
   // Create HTTP server
   const httpServer = createServer(app);
   
