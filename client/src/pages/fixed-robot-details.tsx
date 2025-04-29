@@ -372,7 +372,7 @@ export default function RobotDetails() {
               
               {/* WebSocket Connection Status */}
               <div className="pt-2 border-t">
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex justify-between items-center">
                   <span className="flex items-center gap-1 text-sm">
                     {connectionState === 'connected' ? (
                       <Wifi className="h-4 w-4 text-green-500" />
@@ -392,30 +392,6 @@ export default function RobotDetails() {
                       <span className="text-gray-500">Disconnected</span>
                     )}
                   </span>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant={connectionState === 'connected' ? 'outline' : 'default'} 
-                    className="w-full" 
-                    onClick={connectWebSocket}
-                    disabled={connectionState === 'connected' || connectionState === 'connecting'}
-                  >
-                    <Wifi className="h-4 w-4 mr-1" />
-                    Connect
-                  </Button>
-                  
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="w-full" 
-                    onClick={disconnectWebSocket}
-                    disabled={connectionState === 'disconnected'}
-                  >
-                    <WifiOff className="h-4 w-4 mr-1" />
-                    Disconnect
-                  </Button>
                 </div>
               </div>
             </CardContent>
