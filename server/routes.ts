@@ -118,9 +118,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/robots', async (req: Request, res: Response) => {
     try {
       // Return a list of all robot status data from the demo data
-      const robots = Object.keys(demoRobotStatus).map(serialNumber => ({
-        serialNumber,
-        ...demoRobotStatus[serialNumber]
+      const robots = Object.keys(demoRobotStatus).map(serial => ({
+        id: serial,  // Use different property name to avoid duplication
+        ...demoRobotStatus[serial]
       }));
       res.json(robots);
     } catch (error) {

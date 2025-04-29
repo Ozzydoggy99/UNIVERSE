@@ -41,6 +41,23 @@ async function comparePasswords(supplied: string, stored: string) {
 // Function to create predefined users, templates, and assign templates to users
 async function createPredefinedUsers() {
   try {
+    console.log("Creating predefined users and templates...");
+    
+    // Create admin user if it doesn't exist
+    let adminUser = await storage.getUserByUsername("admin");
+    if (!adminUser) {
+      console.log("Creating admin user...");
+      const hashedPassword = await hashPassword("admin");
+      adminUser = await storage.createUser({
+        username: "admin",
+        password: hashedPassword,
+        role: "admin"
+      });
+      console.log("Created admin user with ID:", adminUser.id);
+    } else {
+      console.log("Admin user already exists with ID:", adminUser.id);
+    }
+    
     // Create UI templates if they don't exist
     const templates = await storage.getAllTemplates();
     
@@ -117,10 +134,10 @@ async function createPredefinedUsers() {
     }
 
     // Check if Ozzydog exists, if not create admin user
-    let adminUser = await storage.getUserByUsername("Ozzydog");
-    if (!adminUser) {
+    let ozzydogUser = await storage.getUserByUsername("Ozzydog");
+    if (!ozzydogUser) {
       const hashedPassword = await hashPassword("Ozzydog");
-      adminUser = await storage.createUser({
+      ozzydogUser = await storage.createUser({
         username: "Ozzydog",
         password: hashedPassword,
         role: "admin"
@@ -286,14 +303,21 @@ export async function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user: any, done) => {
-    // Explicitly access the id property
-    done(null, user.id);
+  // Serialize and deserialize users
+  passport.serializeUser((user: Express.User, done) => {
+    // Access the id with proper type casting
+    const typedUser = user as unknown as { id: number };
+    done(null, typedUser.id);
   });
   
   passport.deserializeUser(async (id: number, done) => {
-    const user = await storage.getUser(id);
-    done(null, user || null);
+    try {
+      const user = await storage.getUser(id);
+      done(null, user || null);
+    } catch (error) {
+      console.error('Error deserializing user:', error);
+      done(error, null);
+    }
   });
 
   app.post("/api/register", async (req, res, next) => {
