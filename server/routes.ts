@@ -9,8 +9,10 @@ import {
   demoRobotSensors, 
   demoMapData, 
   demoTasks,
+  demoCameraData,
   registerRobotApiRoutes 
 } from './robot-api';
+import { registerCameraApiRoutes, setupCameraWebSocketHandlers } from './camera-api';
 import { adminRequired, renderAdminPage, getAdminTemplatesList, getTemplateAssignments } from './admin-renderer';
 import { registerMockAssistantRoutes } from './mock-assistant';
 import { registerRobot } from './register-robot';
@@ -30,6 +32,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register robot API routes
   registerRobotApiRoutes(app);
+  
+  // Register camera API routes
+  registerCameraApiRoutes(app);
   
   // Register mock assistant routes
   registerMockAssistantRoutes(app);
