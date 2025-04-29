@@ -148,6 +148,77 @@ function ensurePhysicalRobotData() {
     // Add to registered robots set
     registeredRobots.add(PUBLIC_ROBOT_SERIAL);
   }
+  
+  // Third robot - completely new robot being added
+  const NEW_ROBOT_SERIAL = 'AX923701583RT';
+  
+  // Add data for the new physical robot
+  if (!demoRobotStatus[NEW_ROBOT_SERIAL]) {
+    console.log(`Initializing data for new robot ${NEW_ROBOT_SERIAL}`);
+    
+    demoRobotStatus[NEW_ROBOT_SERIAL] = {
+      model: "AxBot 5000 Pro",
+      serialNumber: NEW_ROBOT_SERIAL,
+      battery: 87,
+      status: 'active',
+      mode: 'navigation',
+      lastUpdate: new Date().toISOString()
+    };
+    
+    demoRobotPositions[NEW_ROBOT_SERIAL] = {
+      x: 210,
+      y: 135,
+      z: 0,
+      orientation: 45,
+      speed: 0.3,
+      timestamp: new Date().toISOString()
+    };
+    
+    demoRobotSensors[NEW_ROBOT_SERIAL] = {
+      temperature: 26.1,
+      humidity: 52,
+      proximity: [2.1, 3.2, 4.5, 2.8],
+      battery: 87,
+      timestamp: new Date().toISOString()
+    };
+    
+    demoMapData[NEW_ROBOT_SERIAL] = {
+      grid: [],
+      obstacles: [
+        { x: 75, y: 90, z: 0 },
+        { x: 140, y: 130, z: 0 },
+        { x: 190, y: 110, z: 0 }
+      ],
+      paths: [
+        {
+          points: [
+            { x: 80, y: 80, z: 0 },
+            { x: 120, y: 110, z: 0 },
+            { x: 160, y: 120, z: 0 },
+            { x: 210, y: 135, z: 0 }
+          ],
+          status: 'active'
+        }
+      ]
+    };
+    
+    demoCameraData[NEW_ROBOT_SERIAL] = {
+      enabled: true,
+      streamUrl: `http://axbot-demo.example.com/stream/${NEW_ROBOT_SERIAL}`,
+      resolution: {
+        width: 1920,
+        height: 1080
+      },
+      rotation: 0,
+      nightVision: true,
+      timestamp: new Date().toISOString()
+    };
+    
+    demoTasks[NEW_ROBOT_SERIAL] = 'Navigating to delivery zone';
+    
+    // Add to registered robots set
+    registeredRobots.add(NEW_ROBOT_SERIAL);
+  }
 }
 
 // Type definitions for robot data

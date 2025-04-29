@@ -57,6 +57,10 @@ export function processCameraWebSocketMessage(data: any, ws: WebSocket, connecte
           // Public accessible robot
           camera.streamUrl = 'http://47.180.91.99:8080/stream';
           console.log('Using public IP camera stream for robot via WebSocket:', data.serialNumber);
+        } else if (data.serialNumber === 'AX923701583RT') {
+          // New AxBot 5000 Pro robot
+          camera.streamUrl = 'http://axbot-demo.example.com/stream/AX923701583RT';
+          console.log('Using AxBot 5000 Pro camera stream via WebSocket:', data.serialNumber);
         } else {
           camera.streamUrl = 'https://example.com/robot-stream-' + data.serialNumber + '.jpg';
         }
