@@ -117,12 +117,15 @@ export default function RobotAssignments() {
         data,
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: 'Success',
         description: 'Robot template assignment created successfully',
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
+      // Force a refetch of the robot assignments data
+      await queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
+      await queryClient.refetchQueries({ queryKey: ['/api/robot-assignments'] });
+      
       setIsCreateDialogOpen(false);
       createForm.reset();
     },
@@ -144,12 +147,16 @@ export default function RobotAssignments() {
         data: updateData,
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: 'Success',
         description: 'Robot template assignment updated successfully',
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
+      
+      // Force a refetch of the robot assignments data
+      await queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
+      await queryClient.refetchQueries({ queryKey: ['/api/robot-assignments'] });
+      
       setIsEditDialogOpen(false);
       setCurrentAssignment(null);
     },
@@ -169,12 +176,14 @@ export default function RobotAssignments() {
         method: 'DELETE',
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: 'Success',
         description: 'Robot template assignment deleted successfully',
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
+      // Force a refetch of the robot assignments data
+      await queryClient.invalidateQueries({ queryKey: ['/api/robot-assignments'] });
+      await queryClient.refetchQueries({ queryKey: ['/api/robot-assignments'] });
     },
     onError: (error: any) => {
       toast({
