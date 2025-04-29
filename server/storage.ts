@@ -41,6 +41,14 @@ import {
   type ElevatorMaintenance,
   type InsertElevatorMaintenance
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, and } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import createMemoryStore from "memorystore";
+import { pool } from "./db";
+
+const MemoryStore = createMemoryStore(session);
 
 // modify the interface with any CRUD methods
 // you might need
@@ -145,6 +153,531 @@ export interface IStorage {
   getElevatorMaintenance(id: number): Promise<ElevatorMaintenance | undefined>;
   getAllElevatorMaintenanceForElevator(elevatorId: number): Promise<ElevatorMaintenance[]>;
   updateElevatorMaintenance(id: number, updates: Partial<ElevatorMaintenance>): Promise<ElevatorMaintenance | undefined>;
+  
+  // Session store for auth
+  sessionStore: session.Store;
+}
+
+// Database Storage Implementation
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+  
+  constructor() {
+    const PostgresSessionStore = connectPg(session);
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true 
+    });
+  }
+  
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.username, username));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getAllUsers(): Promise<Map<number, User>> {
+    const result = await db.select().from(users);
+    const userMap = new Map<number, User>();
+    
+    for (const user of result) {
+      userMap.set(user.id, user);
+    }
+    
+    return userMap;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    
+    return user || undefined;
+  }
+  
+  // UI Template methods
+  async createTemplate(template: InsertUITemplate): Promise<UITemplate> {
+    const [newTemplate] = await db.insert(uiTemplates).values(template).returning();
+    return newTemplate;
+  }
+  
+  async getTemplate(id: number): Promise<UITemplate | undefined> {
+    const result = await db.select().from(uiTemplates).where(eq(uiTemplates.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getAllTemplates(): Promise<UITemplate[]> {
+    return await db.select().from(uiTemplates);
+  }
+  
+  async updateTemplate(id: number, updates: Partial<UITemplate>): Promise<UITemplate | undefined> {
+    const [template] = await db.update(uiTemplates)
+      .set(updates)
+      .where(eq(uiTemplates.id, id))
+      .returning();
+    
+    return template || undefined;
+  }
+  
+  async deleteTemplate(id: number): Promise<boolean> {
+    const result = await db.delete(uiTemplates)
+      .where(eq(uiTemplates.id, id))
+      .returning({ id: uiTemplates.id });
+    
+    return result.length > 0;
+  }
+  
+  // Robot Template Assignment methods
+  async createRobotTemplateAssignment(assignment: InsertRobotTemplateAssignment): Promise<RobotTemplateAssignment> {
+    const [newAssignment] = await db.insert(robotTemplateAssignments)
+      .values(assignment)
+      .returning();
+    
+    return newAssignment;
+  }
+  
+  async getRobotTemplateAssignment(id: number): Promise<RobotTemplateAssignment | undefined> {
+    const result = await db.select()
+      .from(robotTemplateAssignments)
+      .where(eq(robotTemplateAssignments.id, id));
+    
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getRobotTemplateAssignmentBySerial(serialNumber: string): Promise<RobotTemplateAssignment | undefined> {
+    const result = await db.select()
+      .from(robotTemplateAssignments)
+      .where(eq(robotTemplateAssignments.serialNumber, serialNumber));
+    
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async updateRobotTemplateAssignment(id: number, updates: Partial<RobotTemplateAssignment>): Promise<RobotTemplateAssignment | undefined> {
+    const [assignment] = await db.update(robotTemplateAssignments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(robotTemplateAssignments.id, id))
+      .returning();
+    
+    return assignment || undefined;
+  }
+  
+  async getAllRobotTemplateAssignments(): Promise<RobotTemplateAssignment[]> {
+    return await db.select().from(robotTemplateAssignments);
+  }
+  
+  async deleteRobotTemplateAssignment(id: number): Promise<boolean> {
+    const result = await db.delete(robotTemplateAssignments)
+      .where(eq(robotTemplateAssignments.id, id))
+      .returning({ id: robotTemplateAssignments.id });
+    
+    return result.length > 0;
+  }
+  
+  // API Config methods
+  async getApiConfig(id: number): Promise<ApiConfig | undefined> {
+    const result = await db.select().from(apiConfigs).where(eq(apiConfigs.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async saveApiConfig(apiKey: string, apiEndpoint: string): Promise<void> {
+    await db.insert(apiConfigs).values({
+      userId: 1, // Default to first user
+      apiEndpoint,
+      apiKey,
+      isActive: true
+    });
+  }
+  
+  // Robot Status History methods
+  async saveRobotStatus(status: any): Promise<void> {
+    const statusRecord = {
+      robotId: status.serialNumber || "unknown",
+      status: status.status || "unknown",
+      battery: status.battery || null,
+      model: status.model || null,
+      serialNumber: status.serialNumber || null,
+      operationalStatus: status.operationalStatus || null,
+      uptime: status.uptime || null
+    };
+    
+    await db.insert(robotStatusHistory).values(statusRecord);
+  }
+  
+  async getRobotStatusHistory(robotId?: string, limit: number = 100): Promise<RobotStatusHistory[]> {
+    let query = db.select().from(robotStatusHistory).orderBy(desc(robotStatusHistory.timestamp)).limit(limit);
+    
+    if (robotId) {
+      query = query.where(eq(robotStatusHistory.robotId, robotId));
+    }
+    
+    return await query;
+  }
+  
+  // Sensor Reading methods
+  async saveSensorReading(reading: any): Promise<void> {
+    const sensorRecord = {
+      robotId: reading.robotId || "unknown",
+      temperature: reading.temperature || null,
+      humidity: reading.humidity || null,
+      proximity: reading.proximity || null,
+      light: reading.light || null,
+      noise: reading.noise || null
+    };
+    
+    await db.insert(sensorReadings).values(sensorRecord);
+  }
+  
+  async getSensorReadings(robotId?: string, limit: number = 100): Promise<SensorReading[]> {
+    let query = db.select().from(sensorReadings).orderBy(desc(sensorReadings.timestamp)).limit(limit);
+    
+    if (robotId) {
+      query = query.where(eq(sensorReadings.robotId, robotId));
+    }
+    
+    return await query;
+  }
+  
+  // Position History methods
+  async saveRobotPosition(position: any): Promise<void> {
+    const positionRecord = {
+      robotId: position.robotId || "unknown",
+      x: position.x || 0,
+      y: position.y || 0,
+      z: position.z || 0,
+      orientation: position.orientation || null,
+      speed: position.speed || null
+    };
+    
+    await db.insert(positionHistory).values(positionRecord);
+  }
+  
+  async getPositionHistory(robotId?: string, limit: number = 100): Promise<PositionHistory[]> {
+    let query = db.select().from(positionHistory).orderBy(desc(positionHistory.timestamp)).limit(limit);
+    
+    if (robotId) {
+      query = query.where(eq(positionHistory.robotId, robotId));
+    }
+    
+    return await query;
+  }
+  
+  // Game Player methods
+  async createGamePlayer(player: InsertGamePlayer): Promise<GamePlayer> {
+    const [newPlayer] = await db.insert(gamePlayers).values(player).returning();
+    return newPlayer;
+  }
+  
+  async getGamePlayer(id: number): Promise<GamePlayer | undefined> {
+    const result = await db.select().from(gamePlayers).where(eq(gamePlayers.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getGamePlayerByUserId(userId: number): Promise<GamePlayer | undefined> {
+    const result = await db.select().from(gamePlayers).where(eq(gamePlayers.userId, userId));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async updateGamePlayer(id: number, updates: Partial<GamePlayer>): Promise<GamePlayer | undefined> {
+    const [player] = await db.update(gamePlayers)
+      .set(updates)
+      .where(eq(gamePlayers.id, id))
+      .returning();
+    
+    return player || undefined;
+  }
+  
+  async getAllGamePlayers(): Promise<GamePlayer[]> {
+    return await db.select().from(gamePlayers);
+  }
+  
+  // Game Item methods
+  async createGameItem(item: InsertGameItem): Promise<GameItem> {
+    const [newItem] = await db.insert(gameItems).values(item).returning();
+    return newItem;
+  }
+  
+  async getGameItem(id: number): Promise<GameItem | undefined> {
+    const result = await db.select().from(gameItems).where(eq(gameItems.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getAllGameItems(): Promise<GameItem[]> {
+    return await db.select().from(gameItems);
+  }
+  
+  // Game Zombie methods
+  async createGameZombie(zombie: InsertGameZombie): Promise<GameZombie> {
+    const [newZombie] = await db.insert(gameZombies).values(zombie).returning();
+    return newZombie;
+  }
+  
+  async getGameZombie(id: number): Promise<GameZombie | undefined> {
+    const result = await db.select().from(gameZombies).where(eq(gameZombies.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async updateGameZombie(id: number, updates: Partial<GameZombie>): Promise<GameZombie | undefined> {
+    const [zombie] = await db.update(gameZombies)
+      .set(updates)
+      .where(eq(gameZombies.id, id))
+      .returning();
+    
+    return zombie || undefined;
+  }
+  
+  async getAllGameZombies(): Promise<GameZombie[]> {
+    return await db.select().from(gameZombies);
+  }
+  
+  async removeGameZombie(id: number): Promise<boolean> {
+    const result = await db.delete(gameZombies)
+      .where(eq(gameZombies.id, id))
+      .returning({ id: gameZombies.id });
+    
+    return result.length > 0;
+  }
+  
+  // Robot Task Queue methods
+  async createRobotTask(task: InsertRobotTask): Promise<RobotTask> {
+    const [newTask] = await db.insert(robotTasks).values(task).returning();
+    return newTask;
+  }
+  
+  async getRobotTask(id: number): Promise<RobotTask | undefined> {
+    const result = await db.select().from(robotTasks).where(eq(robotTasks.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getAllRobotTasks(): Promise<RobotTask[]> {
+    return await db.select().from(robotTasks);
+  }
+  
+  async getRobotTasksBySerialNumber(serialNumber: string): Promise<RobotTask[]> {
+    return await db.select().from(robotTasks).where(eq(robotTasks.serialNumber, serialNumber));
+  }
+  
+  async getRobotTasksByTemplateId(templateId: number): Promise<RobotTask[]> {
+    return await db.select().from(robotTasks).where(eq(robotTasks.templateId, templateId));
+  }
+  
+  async getPendingRobotTasks(): Promise<RobotTask[]> {
+    return await db.select().from(robotTasks).where(eq(robotTasks.status, "PENDING"));
+  }
+  
+  async getPendingRobotTasksByTemplateId(templateId: number): Promise<RobotTask[]> {
+    return await db.select()
+      .from(robotTasks)
+      .where(and(
+        eq(robotTasks.templateId, templateId),
+        eq(robotTasks.status, "PENDING")
+      ));
+  }
+  
+  async updateRobotTask(id: number, updates: Partial<RobotTask>): Promise<RobotTask | undefined> {
+    const [task] = await db.update(robotTasks)
+      .set(updates)
+      .where(eq(robotTasks.id, id))
+      .returning();
+    
+    return task || undefined;
+  }
+  
+  async updateTaskPriority(id: number, newPriority: number): Promise<RobotTask | undefined> {
+    const [task] = await db.update(robotTasks)
+      .set({ priority: newPriority })
+      .where(eq(robotTasks.id, id))
+      .returning();
+    
+    return task || undefined;
+  }
+  
+  async cancelRobotTask(id: number): Promise<RobotTask | undefined> {
+    const [task] = await db.update(robotTasks)
+      .set({ 
+        status: "CANCELLED",
+        completedAt: new Date()
+      })
+      .where(eq(robotTasks.id, id))
+      .returning();
+    
+    return task || undefined;
+  }
+  
+  async completeRobotTask(id: number): Promise<RobotTask | undefined> {
+    const [task] = await db.update(robotTasks)
+      .set({ 
+        status: "COMPLETED",
+        completedAt: new Date()
+      })
+      .where(eq(robotTasks.id, id))
+      .returning();
+    
+    return task || undefined;
+  }
+  
+  async reorderTasks(taskIds: number[]): Promise<boolean> {
+    // In a more complex implementation, we would update priorities here
+    // For now, we'll just return true as if it was successful
+    return true;
+  }
+  
+  // Floor Map methods
+  async createFloorMap(floorMap: InsertFloorMap): Promise<FloorMap> {
+    const [newMap] = await db.insert(floorMaps).values(floorMap).returning();
+    return newMap;
+  }
+  
+  async getFloorMap(id: number): Promise<FloorMap | undefined> {
+    const result = await db.select().from(floorMaps).where(eq(floorMaps.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getFloorMapByBuildingAndFloor(buildingId: number, floorNumber: number): Promise<FloorMap | undefined> {
+    const result = await db.select()
+      .from(floorMaps)
+      .where(and(
+        eq(floorMaps.buildingId, buildingId),
+        eq(floorMaps.floorNumber, floorNumber)
+      ));
+    
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getAllFloorMaps(): Promise<FloorMap[]> {
+    return await db.select().from(floorMaps);
+  }
+  
+  async updateFloorMap(id: number, updates: Partial<FloorMap>): Promise<FloorMap | undefined> {
+    const [floorMap] = await db.update(floorMaps)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(floorMaps.id, id))
+      .returning();
+    
+    return floorMap || undefined;
+  }
+  
+  async deleteFloorMap(id: number): Promise<boolean> {
+    const result = await db.delete(floorMaps)
+      .where(eq(floorMaps.id, id))
+      .returning({ id: floorMaps.id });
+    
+    return result.length > 0;
+  }
+  
+  // Elevator methods
+  async createElevator(elevator: InsertElevator): Promise<Elevator> {
+    const [newElevator] = await db.insert(elevators).values(elevator).returning();
+    return newElevator;
+  }
+  
+  async getElevator(id: number): Promise<Elevator | undefined> {
+    const result = await db.select().from(elevators).where(eq(elevators.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getAllElevators(): Promise<Elevator[]> {
+    return await db.select().from(elevators);
+  }
+  
+  async getElevatorsByBuilding(buildingId: number): Promise<Elevator[]> {
+    return await db.select().from(elevators).where(eq(elevators.buildingId, buildingId));
+  }
+  
+  async updateElevator(id: number, updates: Partial<Elevator>): Promise<Elevator | undefined> {
+    const [elevator] = await db.update(elevators)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(elevators.id, id))
+      .returning();
+    
+    return elevator || undefined;
+  }
+  
+  async updateElevatorStatus(id: number, status: string): Promise<Elevator | undefined> {
+    const [elevator] = await db.update(elevators)
+      .set({ 
+        status, 
+        updatedAt: new Date() 
+      })
+      .where(eq(elevators.id, id))
+      .returning();
+    
+    return elevator || undefined;
+  }
+  
+  // Elevator Queue methods
+  async createElevatorQueueEntry(entry: InsertElevatorQueue): Promise<ElevatorQueue> {
+    const [newEntry] = await db.insert(elevatorQueue).values(entry).returning();
+    return newEntry;
+  }
+  
+  async getElevatorQueueEntry(id: number): Promise<ElevatorQueue | undefined> {
+    const result = await db.select().from(elevatorQueue).where(eq(elevatorQueue.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getElevatorQueueForElevator(elevatorId: number): Promise<ElevatorQueue[]> {
+    return await db.select().from(elevatorQueue).where(eq(elevatorQueue.elevatorId, elevatorId));
+  }
+  
+  async getElevatorQueueForRobot(robotId: string): Promise<ElevatorQueue[]> {
+    return await db.select().from(elevatorQueue).where(eq(elevatorQueue.robotId, robotId));
+  }
+  
+  async updateElevatorQueueEntryStatus(id: number, status: string): Promise<ElevatorQueue | undefined> {
+    const [entry] = await db.update(elevatorQueue)
+      .set({ status })
+      .where(eq(elevatorQueue.id, id))
+      .returning();
+    
+    return entry || undefined;
+  }
+  
+  async completeElevatorQueueEntry(id: number): Promise<ElevatorQueue | undefined> {
+    const [entry] = await db.update(elevatorQueue)
+      .set({ 
+        status: "COMPLETED",
+        completedAt: new Date()
+      })
+      .where(eq(elevatorQueue.id, id))
+      .returning();
+    
+    return entry || undefined;
+  }
+  
+  // Elevator Maintenance methods
+  async createElevatorMaintenance(maintenance: InsertElevatorMaintenance): Promise<ElevatorMaintenance> {
+    const [newMaintenance] = await db.insert(elevatorMaintenance).values(maintenance).returning();
+    return newMaintenance;
+  }
+  
+  async getElevatorMaintenance(id: number): Promise<ElevatorMaintenance | undefined> {
+    const result = await db.select().from(elevatorMaintenance).where(eq(elevatorMaintenance.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+  
+  async getAllElevatorMaintenanceForElevator(elevatorId: number): Promise<ElevatorMaintenance[]> {
+    return await db.select().from(elevatorMaintenance).where(eq(elevatorMaintenance.elevatorId, elevatorId));
+  }
+  
+  async updateElevatorMaintenance(id: number, updates: Partial<ElevatorMaintenance>): Promise<ElevatorMaintenance | undefined> {
+    const [maintenance] = await db.update(elevatorMaintenance)
+      .set(updates)
+      .where(eq(elevatorMaintenance.id, id))
+      .returning();
+    
+    return maintenance || undefined;
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -179,6 +712,8 @@ export class MemStorage implements IStorage {
   currentElevatorId: number;
   currentElevatorQueueId: number;
   currentElevatorMaintenanceId: number;
+  
+  sessionStore: session.Store;
 
   constructor() {
     this.users = new Map();
@@ -212,6 +747,11 @@ export class MemStorage implements IStorage {
     this.currentElevatorId = 1;
     this.currentElevatorQueueId = 1;
     this.currentElevatorMaintenanceId = 1;
+    
+    // Initialize the session store
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
+    });
   }
 
   // User methods
@@ -923,4 +1463,5 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Use DatabaseStorage for persistance
+export const storage = new DatabaseStorage();
