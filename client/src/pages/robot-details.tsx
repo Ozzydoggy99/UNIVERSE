@@ -78,12 +78,20 @@ export default function RobotDetails() {
     queryKey: ['/api/robot-assignments/by-serial', serialNumber],
     enabled: !!serialNumber,
     refetchInterval: 60000, // Refresh every minute
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 30000, // Keep data fresh for 30 seconds
+    refetchOnWindowFocus: false, // Don't refetch when window gets focus
   });
 
   // Fetch template
   const { data: template, isLoading: templateLoading } = useQuery({
     queryKey: ['/api/templates', assignment?.templateId],
     enabled: !!assignment?.templateId,
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 60000, // Keep data fresh for 1 minute
+    refetchOnWindowFocus: false, // Don't refetch when window gets focus
   });
 
   // Get robot WebSocket state from context
@@ -100,6 +108,11 @@ export default function RobotDetails() {
     queryKey: ['/api/robots/status', serialNumber],
     enabled: !!serialNumber,
     refetchInterval: 10000, // Refresh every 10 seconds
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 5000, // Keep data fresh for 5 seconds
+    refetchOnWindowFocus: false,
+    gcTime: 60000 // Keep unused data in memory for 1 minute
   });
 
   // Fetch robot position
@@ -107,6 +120,11 @@ export default function RobotDetails() {
     queryKey: ['/api/robots/position', serialNumber],
     enabled: !!serialNumber,
     refetchInterval: 5000, // Refresh every 5 seconds
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 3000, // Keep data fresh for 3 seconds
+    refetchOnWindowFocus: false,
+    gcTime: 60000 // Keep unused data in memory for 1 minute
   });
 
   // Fetch robot sensor data
@@ -114,6 +132,11 @@ export default function RobotDetails() {
     queryKey: ['/api/robots/sensors', serialNumber],
     enabled: !!serialNumber,
     refetchInterval: 10000, // Refresh every 10 seconds
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 5000, // Keep data fresh for 5 seconds
+    refetchOnWindowFocus: false,
+    gcTime: 60000 // Keep unused data in memory for 1 minute
   });
 
   // Fetch map data
@@ -121,6 +144,11 @@ export default function RobotDetails() {
     queryKey: ['/api/robots/map', serialNumber],
     enabled: !!serialNumber,
     refetchInterval: 15000, // Refresh every 15 seconds
+    retry: 3,
+    retryDelay: 1000, 
+    staleTime: 10000, // Keep data fresh for 10 seconds
+    refetchOnWindowFocus: false,
+    gcTime: 60000 // Keep unused data in memory for 1 minute
   });
 
   // Handle back button click
@@ -132,7 +160,22 @@ export default function RobotDetails() {
   const isLoading = assignmentLoading || templateLoading || statusLoading || positionLoading || sensorLoading || mapLoading;
 
   // Handle case when robot is not found
-  if (!isLoading && !assignment) {
+  // Only show "not found" after we're sure it's not loading AND we've tried to fetch multiple times
+  const [notFoundCount, setNotFoundCount] = useState(0);
+  
+  // Use effect to track consecutive "not found" responses
+  useEffect(() => {
+    if (!isLoading) {
+      if (!assignment) {
+        setNotFoundCount(prev => Math.min(prev + 1, 5)); // Cap at 5 to avoid infinite growth
+      } else {
+        setNotFoundCount(0); // Reset counter if data is found
+      }
+    }
+  }, [isLoading, assignment]);
+  
+  // Only show error after 3 consecutive "not found" responses to avoid flickering
+  if (!isLoading && !assignment && notFoundCount >= 3) {
     return (
       <div className="container mx-auto p-6">
         <Button variant="outline" className="mb-6" onClick={handleBack}>
