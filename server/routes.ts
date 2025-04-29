@@ -14,6 +14,7 @@ import { adminRequired, renderAdminPage, getAdminTemplatesList, getTemplateAssig
 import { registerMockAssistantRoutes } from './mock-assistant';
 import { registerRobot } from './register-robot';
 import { storage } from './storage';
+import { setupAuth } from './auth';
 
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -23,6 +24,9 @@ function formatError(error: unknown): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication
+  await setupAuth(app);
+  
   // Register robot API routes
   registerRobotApiRoutes(app);
   
