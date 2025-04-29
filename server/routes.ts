@@ -20,9 +20,7 @@ import {
   handleRobotSensorRequest,
   handleRobotMapRequest,
   handleRobotCameraRequest,
-  handleToggleRobotCamera,
-  sendError,
-  broadcastRobotUpdate
+  handleToggleRobotCamera
 } from './websocket-handlers';
 import { adminRequired, renderAdminPage, getAdminTemplatesList, getTemplateAssignments } from './admin-renderer';
 import { registerMockAssistantRoutes } from './mock-assistant';
@@ -242,8 +240,23 @@ function setupWebSockets(httpServer: Server) {
             const data = JSON.parse(message.toString());
             console.log('Received camera message:', data);
             
-            // Use our new camera WebSocket handler
-            processCameraWebSocketMessage(data, ws, connectedClients);
+            // First, try using the camera WebSocket handler
+            if (data.type === 'get_robot_camera' || data.type === 'toggle_robot_camera') {
+              processCameraWebSocketMessage(data, ws, connectedClients);
+            }
+            // Handle other robot data types as well
+            else if (data.type === 'get_robot_status' && data.serialNumber) {
+              handleRobotStatusRequest(ws, data.serialNumber);
+            }
+            else if (data.type === 'get_robot_position' && data.serialNumber) {
+              handleRobotPositionRequest(ws, data.serialNumber);
+            }
+            else if (data.type === 'get_robot_sensors' && data.serialNumber) {
+              handleRobotSensorRequest(ws, data.serialNumber);
+            }
+            else if (data.type === 'get_robot_map' && data.serialNumber) {
+              handleRobotMapRequest(ws, data.serialNumber);
+            }
           } catch (error) {
             console.error('Error processing camera WebSocket message:', error);
             sendError(ws, 'Error processing message');
@@ -643,74 +656,24 @@ function setupWebSockets(httpServer: Server) {
         });
       });
     }
-    // For Replit environment, handle root path WebSocket connections as client connections
+    // Skip root path in Replit environment since it's used by Vite
     else if (pathname === '/') {
-      console.log('Handling root path WebSocket connection as client connection in Replit environment');
-      clientWss.handleUpgrade(request, socket, head, (ws) => {
-        console.log('Client WebSocket connection established via root path (Replit)');
-        
-        // Add to connected clients list for broadcasting
-        connectedClients.push(ws);
-        
-        // Send initial data to the client
-        ws.send(JSON.stringify({
-          type: 'connection_established',
-          message: 'Connected to robot monitoring system',
-          timestamp: new Date().toISOString()
-        }));
-        
-        // Handle client messages
-        ws.on('message', (message) => {
-          try {
-            const data = JSON.parse(message.toString());
-            console.log('Received client message:', data);
-            
-            // Handle different request types
-            if (data.type === 'get_robot_status' && data.serialNumber) {
-              console.log('Status requested for robot:', data.serialNumber);
-              handleRobotStatusRequest(ws, data.serialNumber);
-            }
-            else if (data.type === 'get_robot_position' && data.serialNumber) {
-              console.log('Position requested for robot:', data.serialNumber);
-              handleRobotPositionRequest(ws, data.serialNumber);
-            }
-            else if (data.type === 'get_robot_sensors' && data.serialNumber) {
-              console.log('Sensors requested for robot:', data.serialNumber);
-              handleRobotSensorRequest(ws, data.serialNumber);
-            }
-            else if (data.type === 'get_robot_map' && data.serialNumber) {
-              console.log('Map requested for robot:', data.serialNumber);
-              handleRobotMapRequest(ws, data.serialNumber);
-            }
-            else if (data.type === 'get_robot_camera' && data.serialNumber) {
-              console.log('Camera data requested for robot:', data.serialNumber);
-              handleRobotCameraRequest(ws, data.serialNumber);
-            }
-            else if (data.type === 'toggle_robot_camera' && data.serialNumber) {
-              console.log('Toggle camera requested for robot:', data.serialNumber, 'enabled:', data.enabled);
-              handleToggleRobotCamera(ws, data.serialNumber, data.enabled, connectedClients);
-            }
-          } catch (error) {
-            console.error('Error processing client WebSocket message:', error);
-            sendError(ws, 'Error processing message');
-          }
-        });
-        
-        // Handle disconnection
-        ws.on('close', () => {
-          console.log('Client WebSocket connection closed (Replit)');
-          // Remove from connected clients
-          const index = connectedClients.indexOf(ws);
-          if (index !== -1) {
-            connectedClients.splice(index, 1);
-          }
-        });
-        
-        // Handle errors
-        ws.on('error', (error) => {
-          console.error('Client WebSocket error (Replit):', error);
-        });
-      });
+      console.log('Skipping root path in Replit environment to avoid conflicts with Vite');
+      
+      // Just acknowledge the connection then close it properly
+      socket.write(
+        'HTTP/1.1 101 Switching Protocols\r\n' +
+        'Upgrade: websocket\r\n' +
+        'Connection: Upgrade\r\n' +
+        '\r\n'
+      );
+      
+      // Don't destroy the socket immediately to avoid errors
+      setTimeout(() => {
+        if (!socket.destroyed) {
+          socket.end();
+        }
+      }, 100);
     }
     else {
       // Not a recognized WebSocket endpoint
