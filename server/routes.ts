@@ -224,6 +224,7 @@ function setupWebSockets(httpServer: Server) {
     const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
     
     console.log(`WebSocket upgrade request for path: ${pathname}`);
+    console.log(`Request URL: ${request.url}, Full path: ${request.headers.host}${pathname}`);
     
     // Handle specific WebSocket connections as client connections
     // Avoid root path which can conflict with Vite's HMR WebSocket

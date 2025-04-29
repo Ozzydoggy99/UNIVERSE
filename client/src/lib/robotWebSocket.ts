@@ -39,6 +39,7 @@ class RobotWebSocketClient {
     // Determine WebSocket URL (consider protocol, host)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // Use a specific path that won't conflict with Vite's HMR
+    // For Vite development, use the current hostname and port
     const wsUrl = `${protocol}//${window.location.host}/api/ws`;
     console.log('Connecting to WebSocket URL:', wsUrl);
 
