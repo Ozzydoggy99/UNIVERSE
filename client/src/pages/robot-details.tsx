@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useLocation } from 'wouter';
 import { 
@@ -29,7 +29,8 @@ import {
   Signal,
   Layers,
   Wifi,
-  WifiOff
+  WifiOff,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -72,30 +73,45 @@ export default function RobotDetails() {
   const serialNumber = params.serialNumber;
   
   const [activeTab, setActiveTab] = useState('map');
-
-  // Fetch robot template assignment
-  const { data: assignment, isLoading: assignmentLoading } = useQuery({
+  // Data stability flags
+  const [isStable, setIsStable] = useState(false);
+  const [notFoundCount, setNotFoundCount] = useState(0);
+  const [lastSuccessTime, setLastSuccessTime] = useState<number | null>(null);
+  const stableCountRef = useRef(0);
+  
+  // Prevent flashing by keeping previously loaded data
+  const [cachedAssignment, setCachedAssignment] = useState<any>(null);
+  const [cachedTemplate, setCachedTemplate] = useState<any>(null);
+  
+  // Fetch robot template assignment with stability measures
+  const { data: assignment, isLoading: assignmentLoading, error: assignmentError } = useQuery({
     queryKey: ['/api/robot-assignments/by-serial', serialNumber],
     enabled: !!serialNumber,
     refetchInterval: 60000, // Refresh every minute
-    retry: 3,
+    retry: 5,
     retryDelay: 1000,
     staleTime: 30000, // Keep data fresh for 30 seconds
     refetchOnWindowFocus: false, // Don't refetch when window gets focus
+    gcTime: 120000, // Keep unused data in memory for 2 minutes
   });
 
-  // Fetch template
-  const { data: template, isLoading: templateLoading } = useQuery({
-    queryKey: ['/api/templates', assignment?.templateId],
-    enabled: !!assignment?.templateId,
-    retry: 3,
+  // Fetch template with stability measures
+  const { data: template, isLoading: templateLoading, error: templateError } = useQuery({
+    queryKey: ['/api/templates', cachedAssignment?.templateId || assignment?.templateId],
+    enabled: !!(cachedAssignment?.templateId || assignment?.templateId),
+    retry: 5,
     retryDelay: 1000,
     staleTime: 60000, // Keep data fresh for 1 minute
     refetchOnWindowFocus: false, // Don't refetch when window gets focus
+    gcTime: 120000, // Keep unused data in memory for 2 minutes
   });
 
   // Get robot WebSocket state from context
   const { 
+    robotStatus: wsRobotStatus,
+    robotPosition: wsRobotPosition,
+    robotSensorData: wsSensorData,
+    mapData: wsMapData,
     connectionState, 
     connectWebSocket, 
     disconnectWebSocket, 
@@ -103,52 +119,54 @@ export default function RobotDetails() {
     refreshData
   } = useRobot();
 
-  // Fetch robot status
-  const { data: robotStatus, isLoading: statusLoading } = useQuery<RobotStatus>({
+  // Get data from WebSocket provider OR use fallback queries
+  
+  // Fetch robot status as fallback to WebSocket
+  const { data: restRobotStatus, isLoading: statusLoading } = useQuery<RobotStatus>({
     queryKey: ['/api/robots/status', serialNumber],
-    enabled: !!serialNumber,
-    refetchInterval: 10000, // Refresh every 10 seconds
-    retry: 3,
+    enabled: !!serialNumber && !wsRobotStatus,
+    refetchInterval: connectionState !== 'connected' ? 8000 : false, // Only poll when WebSocket is not available
+    retry: 5,
     retryDelay: 1000,
-    staleTime: 5000, // Keep data fresh for 5 seconds
+    staleTime: 10000,
     refetchOnWindowFocus: false,
-    gcTime: 60000 // Keep unused data in memory for 1 minute
+    gcTime: 60000
   });
 
-  // Fetch robot position
-  const { data: robotPosition, isLoading: positionLoading } = useQuery<RobotPosition>({
+  // Fetch robot position as fallback to WebSocket
+  const { data: restRobotPosition, isLoading: positionLoading } = useQuery<RobotPosition>({
     queryKey: ['/api/robots/position', serialNumber],
-    enabled: !!serialNumber,
-    refetchInterval: 5000, // Refresh every 5 seconds
-    retry: 3,
+    enabled: !!serialNumber && !wsRobotPosition,
+    refetchInterval: connectionState !== 'connected' ? 5000 : false, // Only poll when WebSocket is not available
+    retry: 5,
     retryDelay: 1000,
-    staleTime: 3000, // Keep data fresh for 3 seconds
+    staleTime: 10000,
     refetchOnWindowFocus: false,
-    gcTime: 60000 // Keep unused data in memory for 1 minute
+    gcTime: 60000
   });
 
-  // Fetch robot sensor data
-  const { data: sensorData, isLoading: sensorLoading } = useQuery<RobotSensorData>({
+  // Fetch robot sensor data as fallback to WebSocket
+  const { data: restSensorData, isLoading: sensorLoading } = useQuery<RobotSensorData>({
     queryKey: ['/api/robots/sensors', serialNumber],
-    enabled: !!serialNumber,
-    refetchInterval: 10000, // Refresh every 10 seconds
-    retry: 3,
+    enabled: !!serialNumber && !wsSensorData,
+    refetchInterval: connectionState !== 'connected' ? 10000 : false, // Only poll when WebSocket is not available
+    retry: 5,
     retryDelay: 1000,
-    staleTime: 5000, // Keep data fresh for 5 seconds
+    staleTime: 10000,
     refetchOnWindowFocus: false,
-    gcTime: 60000 // Keep unused data in memory for 1 minute
+    gcTime: 60000
   });
 
-  // Fetch map data
-  const { data: mapData, isLoading: mapLoading } = useQuery({
+  // Fetch map data as fallback to WebSocket
+  const { data: restMapData, isLoading: mapLoading } = useQuery({
     queryKey: ['/api/robots/map', serialNumber],
-    enabled: !!serialNumber,
-    refetchInterval: 15000, // Refresh every 15 seconds
-    retry: 3,
+    enabled: !!serialNumber && !wsMapData,
+    refetchInterval: connectionState !== 'connected' ? 15000 : false, // Only poll when WebSocket is not available
+    retry: 5,
     retryDelay: 1000, 
-    staleTime: 10000, // Keep data fresh for 10 seconds
+    staleTime: 10000,
     refetchOnWindowFocus: false,
-    gcTime: 60000 // Keep unused data in memory for 1 minute
+    gcTime: 60000
   });
 
   // Handle back button click
@@ -156,26 +174,74 @@ export default function RobotDetails() {
     navigate('/robot-hub');
   };
 
-  // Check if data is still loading
-  const isLoading = assignmentLoading || templateLoading || statusLoading || positionLoading || sensorLoading || mapLoading;
-
-  // Handle case when robot is not found
-  // Only show "not found" after we're sure it's not loading AND we've tried to fetch multiple times
-  const [notFoundCount, setNotFoundCount] = useState(0);
-  
-  // Use effect to track consecutive "not found" responses
+  // Request data refresh if we detect the data is missing
   useEffect(() => {
-    if (!isLoading) {
-      if (!assignment) {
-        setNotFoundCount(prev => Math.min(prev + 1, 5)); // Cap at 5 to avoid infinite growth
-      } else {
-        setNotFoundCount(0); // Reset counter if data is found
+    // If WebSocket is connected, periodically request fresh data
+    const intervalId = setInterval(() => {
+      if (isConnected()) {
+        refreshData();
       }
+    }, 5000);
+    
+    return () => clearInterval(intervalId);
+  }, [isConnected, refreshData]);
+
+  // Cache valid data to prevent flickering
+  useEffect(() => {
+    if (assignment) {
+      setCachedAssignment(assignment);
+      setLastSuccessTime(Date.now());
+      setNotFoundCount(0);
+      stableCountRef.current++;
+    } else if (!assignmentLoading && !assignment) {
+      setNotFoundCount(prev => prev + 1);
     }
-  }, [isLoading, assignment]);
+    
+    if (template) {
+      setCachedTemplate(template);
+    }
+    
+    // Mark the UI as stable after a few successful loads
+    if (stableCountRef.current >= 3 && !isStable) {
+      setIsStable(true);
+    }
+  }, [assignment, template, assignmentLoading, isStable]);
   
-  // Only show error after 3 consecutive "not found" responses to avoid flickering
-  if (!isLoading && !assignment && notFoundCount >= 3) {
+  // Determine if we should render loading state
+  const initialLoading = !isStable && (
+    assignmentLoading || 
+    templateLoading || 
+    (connectionState === 'connecting' && (!wsRobotStatus && !restRobotStatus))
+  );
+  
+  // Determine if we should render "not found" state
+  // Only show the error after multiple consecutive failures and some time has passed
+  const shouldShowNotFound = !initialLoading && 
+    !cachedAssignment && 
+    notFoundCount >= 5 && 
+    (!lastSuccessTime || (Date.now() - lastSuccessTime) > 10000);
+
+  // Show loading state initially
+  if (initialLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <Button variant="outline" className="mb-6" onClick={handleBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Robot Hub
+        </Button>
+        
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
+            <p className="text-lg font-medium">Loading robot data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show robot not found only after multiple confirmed errors
+  if (shouldShowNotFound) {
     return (
       <div className="container mx-auto p-6">
         <Button variant="outline" className="mb-6" onClick={handleBack}>
@@ -203,7 +269,7 @@ export default function RobotDetails() {
     );
   }
 
-  // Use mock data for development if needed
+  // Fallback data for development/display purposes
   const mockStatus: RobotStatus = {
     model: 'AxBot 2000',
     serialNumber: serialNumber || 'AX-2000-1',
@@ -250,11 +316,15 @@ export default function RobotDetails() {
     ]
   };
 
-  // Use actual data if available, otherwise use mock data
-  const status = robotStatus || mockStatus;
-  const position = robotPosition || mockPosition;
-  const sensors = sensorData || mockSensorData;
-  const mapDataToUse = mapData || mockMapData;
+  // Prioritize WebSocket data, then REST API data, then fallback to cached or mock data
+  const status = wsRobotStatus || restRobotStatus || mockStatus;
+  const position = wsRobotPosition || restRobotPosition || mockPosition;
+  const sensors = wsSensorData || restSensorData || mockSensorData;
+  const mapDataToUse = wsMapData || restMapData || mockMapData;
+  
+  // Use cached data for assignment and template
+  const displayAssignment = cachedAssignment || assignment;
+  const displayTemplate = cachedTemplate || template;
 
   // Format time difference
   const formatTimeSince = (timestamp: string) => {
@@ -307,14 +377,14 @@ export default function RobotDetails() {
               <div className="flex justify-between items-start">
                 <CardTitle className="text-xl flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
-                  {assignment?.name || `Robot ${serialNumber}`}
+                  {displayAssignment?.name || `Robot ${serialNumber}`}
                 </CardTitle>
                 <Badge className={getStatusColor(status.status)}>
                   {status.status?.toUpperCase() || 'UNKNOWN'}
                 </Badge>
               </div>
               <CardDescription>
-                {template?.name || `Template #${assignment?.templateId}`}
+                {displayTemplate?.name || `Template #${displayAssignment?.templateId}`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
