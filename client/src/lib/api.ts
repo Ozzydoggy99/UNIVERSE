@@ -25,21 +25,57 @@ export async function authenticate(apiKey: string, apiEndpoint: string) {
 }
 
 // Robot Status
-export async function getRobotStatus(): Promise<RobotStatus> {
-  const response = await apiRequest("GET", `${API_URL}/status`);
-  return response.json();
+export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus> {
+  // If serial number is provided, fetch that specific robot's status
+  if (serialNumber) {
+    try {
+      const response = await apiRequest("GET", `/api/robots/status/${serialNumber}`);
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching status for robot ${serialNumber}:`, error);
+      throw error;
+    }
+  } else {
+    // Use the general API endpoint
+    const response = await apiRequest("GET", `${API_URL}/status`);
+    return response.json();
+  }
 }
 
 // Robot Position
-export async function getRobotPosition(): Promise<RobotPosition> {
-  const response = await apiRequest("GET", `${API_URL}/position`);
-  return response.json();
+export async function getRobotPosition(serialNumber?: string): Promise<RobotPosition> {
+  // If serial number is provided, fetch that specific robot's position
+  if (serialNumber) {
+    try {
+      const response = await apiRequest("GET", `/api/robots/position/${serialNumber}`);
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching position for robot ${serialNumber}:`, error);
+      throw error;
+    }
+  } else {
+    // Use the general API endpoint
+    const response = await apiRequest("GET", `${API_URL}/position`);
+    return response.json();
+  }
 }
 
 // Robot Sensor Data
-export async function getRobotSensorData(): Promise<RobotSensorData> {
-  const response = await apiRequest("GET", `${API_URL}/sensors`);
-  return response.json();
+export async function getRobotSensorData(serialNumber?: string): Promise<RobotSensorData> {
+  // If serial number is provided, fetch that specific robot's sensor data
+  if (serialNumber) {
+    try {
+      const response = await apiRequest("GET", `/api/robots/sensors/${serialNumber}`);
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching sensor data for robot ${serialNumber}:`, error);
+      throw error;
+    }
+  } else {
+    // Use the general API endpoint
+    const response = await apiRequest("GET", `${API_URL}/sensors`);
+    return response.json();
+  }
 }
 
 // Robot Controls
@@ -89,9 +125,21 @@ export async function sendCustomCommand(command: string) {
 }
 
 // Map Functions
-export async function getMapData() {
-  const response = await apiRequest("GET", `${API_URL}/map`);
-  return response.json();
+export async function getMapData(serialNumber?: string) {
+  // If serial number is provided, fetch that specific robot's map data
+  if (serialNumber) {
+    try {
+      const response = await apiRequest("GET", `/api/robots/map/${serialNumber}`);
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching map data for robot ${serialNumber}:`, error);
+      throw error;
+    }
+  } else {
+    // Use the general API endpoint
+    const response = await apiRequest("GET", `${API_URL}/map`);
+    return response.json();
+  }
 }
 
 // Fallback data for when the API is unavailable
