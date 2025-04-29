@@ -52,10 +52,16 @@ export function RobotProvider({ children }: RobotProviderProps) {
   // Initial data fetch using REST API
   const fetchInitialData = async () => {
     try {
-      const status = await getRobotStatus();
-      const position = await getRobotPosition();
-      const sensorData = await getRobotSensorData();
-      const map = await getMapData();
+      // Use our physical robot serial number for direct data access
+      const PHYSICAL_ROBOT_SERIAL = 'L382502104988is';
+      
+      // Get data directly from the physical robot
+      const status = await getRobotStatus(PHYSICAL_ROBOT_SERIAL);
+      const position = await getRobotPosition(PHYSICAL_ROBOT_SERIAL);
+      const sensorData = await getRobotSensorData(PHYSICAL_ROBOT_SERIAL);
+      const map = await getMapData(PHYSICAL_ROBOT_SERIAL);
+      
+      console.log("Successfully fetched robot data for", PHYSICAL_ROBOT_SERIAL, status);
       
       setRobotStatus(status);
       setRobotPosition(position);

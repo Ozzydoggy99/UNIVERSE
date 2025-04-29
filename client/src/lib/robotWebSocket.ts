@@ -221,41 +221,51 @@ class RobotWebSocketClient {
 
   // Request robot status update
   requestStatus(serialNumber?: string) {
+    // Always default to our physical robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104988is';
     return this.sendMessage({
       type: 'get_robot_status',
-      serialNumber
+      serialNumber: robotSerial
     });
   }
 
   // Request robot position update
   requestPosition(serialNumber?: string) {
+    // Always default to our physical robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104988is';
     return this.sendMessage({
       type: 'get_robot_position',
-      serialNumber
+      serialNumber: robotSerial
     });
   }
 
   // Request robot sensor data
   requestSensorData(serialNumber?: string) {
+    // Always default to our physical robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104988is';
     return this.sendMessage({
       type: 'get_robot_sensors',
-      serialNumber
+      serialNumber: robotSerial
     });
   }
 
   // Request robot map data
   requestMapData(serialNumber?: string) {
+    // Always default to our physical robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104988is';
     return this.sendMessage({
       type: 'get_robot_map',
-      serialNumber
+      serialNumber: robotSerial
     });
   }
 
   // Request current task for robot
   requestTaskInfo(serialNumber?: string) {
+    // Always default to our physical robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104988is';
     return this.sendMessage({
       type: 'get_robot_task',
-      serialNumber
+      serialNumber: robotSerial
     });
   }
 }
