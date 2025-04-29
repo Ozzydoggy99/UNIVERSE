@@ -144,10 +144,25 @@ export function RobotProvider({ children }: RobotProviderProps) {
       }
     }, 1000); // Small delay to ensure connection is established
     
-    // Clean up subscription on unmount
+    // Set up automatic refresh every 2 seconds
+    const refreshInterval = setInterval(() => {
+      if (robotWebSocket.isConnected()) {
+        console.log('Auto-refreshing robot data (2s interval)');
+        // Update timestamp on server response instead of here
+        robotWebSocket.requestStatus();
+        robotWebSocket.requestPosition();
+        robotWebSocket.requestSensorData();
+        robotWebSocket.requestMapData();
+        robotWebSocket.requestCameraData();
+        robotWebSocket.requestTaskInfo();
+      }
+    }, 2000);
+    
+    // Clean up subscription and interval on unmount
     return () => {
       unsubscribe();
       robotWebSocket.disconnect();
+      clearInterval(refreshInterval);
     };
   }, [user]);
 
