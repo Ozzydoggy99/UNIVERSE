@@ -609,6 +609,39 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
   
+  // Update a robot assignment
+  app.put('/api/robot-assignments/:id', async (req: Request, res: Response) => {
+    try {
+      // Add cache control headers to prevent caching
+      res.set('Cache-Control', 'no-store, max-age=0');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      
+      // Get the assignment first to check if it exists
+      const existingAssignment = await storage.getRobotTemplateAssignment(id);
+      
+      if (!existingAssignment) {
+        return res.status(404).json({ error: 'Robot assignment not found' });
+      }
+      
+      // Update the assignment in storage
+      const updatedAssignment = await storage.updateRobotTemplateAssignment(id, updates);
+      
+      if (!updatedAssignment) {
+        return res.status(500).json({ error: 'Failed to update robot assignment' });
+      }
+      
+      // Return the updated assignment
+      res.json(updatedAssignment);
+    } catch (error) {
+      console.error('Error updating robot assignment:', error);
+      res.status(500).json({ error: 'Failed to update robot assignment' });
+    }
+  });
+  
   // Delete a robot assignment
   app.delete('/api/robot-assignments/:id', async (req: Request, res: Response) => {
     try {
