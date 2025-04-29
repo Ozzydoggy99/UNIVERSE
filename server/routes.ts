@@ -203,6 +203,98 @@ function setupWebSockets(httpServer: Server) {
     
     console.log(`WebSocket upgrade request for path: ${pathname}`);
     
+    // Handle specific WebSocket connections as client connections
+    // Avoid root path which can conflict with Vite's HMR WebSocket
+    if (pathname === '/ws' || pathname === '/socket' || pathname === '/api/ws') {
+      console.log('Redirecting root WebSocket connection to client handler');
+      clientWss.handleUpgrade(request, socket, head, (ws) => {
+        console.log('Client WebSocket connection established via root path');
+        
+        // Add to connected clients list for broadcasting
+        connectedClients.push(ws);
+        
+        // Send initial data to the client
+        ws.send(JSON.stringify({
+          type: 'connection_established',
+          message: 'Connected to robot monitoring system',
+          timestamp: new Date().toISOString()
+        }));
+        
+        // Handle client messages
+        ws.on('message', (message) => {
+          try {
+            const data = JSON.parse(message.toString());
+            console.log('Received client message:', data);
+            
+            // Handle different request types
+            if (data.type === 'get_robot_status' && data.serialNumber) {
+              const status = demoRobotStatus[data.serialNumber];
+              if (status) {
+                ws.send(JSON.stringify({
+                  type: 'status',
+                  data: status
+                }));
+              } else {
+                sendError(ws, `No status data for robot ${data.serialNumber}`);
+              }
+            }
+            else if (data.type === 'get_robot_position' && data.serialNumber) {
+              const position = demoRobotPositions[data.serialNumber];
+              if (position) {
+                ws.send(JSON.stringify({
+                  type: 'position',
+                  data: position
+                }));
+              } else {
+                sendError(ws, `No position data for robot ${data.serialNumber}`);
+              }
+            }
+            else if (data.type === 'get_robot_sensors' && data.serialNumber) {
+              const sensors = demoRobotSensors[data.serialNumber];
+              if (sensors) {
+                ws.send(JSON.stringify({
+                  type: 'sensors',
+                  data: sensors
+                }));
+              } else {
+                sendError(ws, `No sensor data for robot ${data.serialNumber}`);
+              }
+            }
+            else if (data.type === 'get_robot_map' && data.serialNumber) {
+              const map = demoMapData[data.serialNumber];
+              if (map) {
+                ws.send(JSON.stringify({
+                  type: 'map',
+                  data: map
+                }));
+              } else {
+                sendError(ws, `No map data for robot ${data.serialNumber}`);
+              }
+            }
+          } catch (error) {
+            console.error('Error processing client WebSocket message:', error);
+            sendError(ws, 'Error processing message');
+          }
+        });
+        
+        // Handle disconnection
+        ws.on('close', () => {
+          console.log('Client WebSocket connection closed');
+          // Remove from connected clients
+          const index = connectedClients.indexOf(ws);
+          if (index !== -1) {
+            connectedClients.splice(index, 1);
+          }
+        });
+        
+        // Handle errors
+        ws.on('error', (error) => {
+          console.error('Client WebSocket error:', error);
+        });
+      });
+      return;
+    }
+    
     if (pathname === '/api/ws/robot') {
       robotWss.handleUpgrade(request, socket, head, (ws) => {
         console.log('Robot WebSocket connection established');
@@ -496,6 +588,8 @@ function setupWebSockets(httpServer: Server) {
     }
   });
 }
+
+// Helper functions for WebSocket handling below
 
 // Helper to send error messages
 function sendError(ws: WebSocket, message: string) {
