@@ -67,6 +67,14 @@ export function RobotProvider({ children }: RobotProviderProps) {
       const sensorData = await getRobotSensorData(PHYSICAL_ROBOT_SERIAL);
       const map = await getMapData(PHYSICAL_ROBOT_SERIAL);
       
+      // Also fetch camera data
+      try {
+        const camera = await getRobotCameraData(PHYSICAL_ROBOT_SERIAL);
+        setCameraData(camera);
+      } catch (cameraError) {
+        console.warn("Camera data not available:", cameraError);
+      }
+      
       console.log("Successfully fetched robot data for", PHYSICAL_ROBOT_SERIAL, status);
       
       setRobotStatus(status);
@@ -96,6 +104,10 @@ export function RobotProvider({ children }: RobotProviderProps) {
         break;
       case 'map':
         setMapData(event.data);
+        updateTimestamp();
+        break;
+      case 'camera':
+        setCameraData(event.data);
         updateTimestamp();
         break;
       case 'connection':
@@ -156,14 +168,38 @@ export function RobotProvider({ children }: RobotProviderProps) {
     status: RobotStatus | null, 
     position: RobotPosition | null, 
     sensorData: RobotSensorData | null,
-    mapData: MapData | null
+    mapData: MapData | null,
+    camera: CameraData | null
   ) => {
     if (status) setRobotStatus(status);
     if (position) setRobotPosition(position);
     if (sensorData) setRobotSensorData(sensorData);
     if (mapData) setMapData(mapData);
+    if (camera) setCameraData(camera);
     
     updateTimestamp();
+  };
+  
+  const handleToggleCamera = async (enabled: boolean): Promise<void> => {
+    // Use our physical robot serial number for direct access
+    const PHYSICAL_ROBOT_SERIAL = 'L382502104988is';
+    
+    try {
+      const response = await toggleRobotCamera(PHYSICAL_ROBOT_SERIAL, enabled);
+      setCameraData(response);
+      
+      // If we're enabling the camera, also update the status to reflect this
+      if (robotStatus && enabled !== (robotStatus.cameraEnabled || false)) {
+        setRobotStatus({
+          ...robotStatus,
+          cameraEnabled: enabled
+        });
+      }
+      
+      updateTimestamp();
+    } catch (error) {
+      console.error("Error toggling camera:", error);
+    }
   };
 
   return (
@@ -173,9 +209,11 @@ export function RobotProvider({ children }: RobotProviderProps) {
         robotPosition,
         robotSensorData,
         mapData,
+        cameraData,
         lastUpdated,
         connectionState,
         setRobotData: handleSetRobotData,
+        toggleCamera: handleToggleCamera,
         connectWebSocket: robotWebSocket.connect.bind(robotWebSocket),
         disconnectWebSocket: robotWebSocket.disconnect.bind(robotWebSocket),
         isConnected: robotWebSocket.isConnected.bind(robotWebSocket),

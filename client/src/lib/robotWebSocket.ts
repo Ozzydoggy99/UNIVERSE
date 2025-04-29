@@ -1,4 +1,4 @@
-import { RobotStatus, RobotPosition, RobotSensorData, MapData } from "@/types/robot";
+import { RobotStatus, RobotPosition, RobotSensorData, MapData, CameraData } from "@/types/robot";
 
 // WebSocket connection states
 type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -9,6 +9,7 @@ export type RobotUpdateEvent =
   | { type: 'position'; data: RobotPosition }
   | { type: 'sensors'; data: RobotSensorData }
   | { type: 'map'; data: MapData }
+  | { type: 'camera'; data: CameraData }
   | { type: 'connection'; state: ConnectionState }
   | { type: 'error'; message: string };
 
@@ -79,6 +80,11 @@ class RobotWebSocketClient {
           } else if (data.type === 'map' && data.data) {
             this.notifyListeners({
               type: 'map',
+              data: data.data
+            });
+          } else if (data.type === 'camera' && data.data) {
+            this.notifyListeners({
+              type: 'camera',
               data: data.data
             });
           } else if (data.type === 'robot_status_update' && data.data) {
@@ -266,6 +272,25 @@ class RobotWebSocketClient {
     return this.sendMessage({
       type: 'get_robot_task',
       serialNumber: robotSerial
+    });
+  }
+  
+  // Request camera data
+  requestCameraData(serialNumber?: string) {
+    // Always default to our physical robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104988is';
+    return this.sendMessage({
+      type: 'get_robot_camera',
+      serialNumber: robotSerial
+    });
+  }
+  
+  // Toggle camera on/off
+  toggleCamera(serialNumber: string, enabled: boolean) {
+    return this.sendMessage({
+      type: 'toggle_robot_camera',
+      serialNumber,
+      enabled
     });
   }
 }
