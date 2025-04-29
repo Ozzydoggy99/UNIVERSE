@@ -271,7 +271,25 @@ export default function RobotAssignments() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="relative flex items-center w-72">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search robots by name..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button 
+                  className="absolute right-3" 
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Clear search"
+                >
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+            </div>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2">
@@ -393,8 +411,8 @@ export default function RobotAssignments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {assignments && assignments.length > 0 ? (
-                assignments.map((assignment: RobotTemplateAssignment & { templateName?: string }) => (
+              {filteredAssignments.length > 0 ? (
+                filteredAssignments.map((assignment: RobotTemplateAssignment & { templateName?: string }) => (
                   <TableRow key={assignment.id}>
                     <TableCell>{assignment.id}</TableCell>
                     <TableCell>{assignment.serialNumber}</TableCell>
