@@ -5,11 +5,16 @@ import { useRobot } from "@/providers/robot-provider";
 export function RobotSensorCard() {
   const { robotSensorData } = useRobot();
 
-  const getProximityColor = (proximity?: number) => {
+  const getProximityColor = (proximity?: number | number[]) => {
     if (proximity === undefined) return "bg-muted";
     
-    if (proximity > 5) return "bg-success";
-    if (proximity > 2) return "bg-warning";
+    // Handle array or single value
+    const value = Array.isArray(proximity) 
+      ? Math.min(...proximity) // Use the closest distance from array 
+      : proximity;
+    
+    if (value > 5) return "bg-success";
+    if (value > 2) return "bg-warning";
     return "bg-destructive";
   };
 
@@ -41,33 +46,25 @@ export function RobotSensorCard() {
             <div className="flex items-center">
               <div className="w-24 mr-2">
                 <Progress 
-                  value={robotSensorData?.proximity ? Math.min(100, (robotSensorData.proximity / 10) * 100) : 0} 
+                  value={robotSensorData?.proximity 
+                    ? Math.min(100, (Array.isArray(robotSensorData.proximity) 
+                      ? Math.min(...robotSensorData.proximity) 
+                      : robotSensorData.proximity) / 10 * 100) 
+                    : 0
+                  } 
                   className={`h-2 ${getProximityColor(robotSensorData?.proximity)}`} 
                 />
               </div>
               <span className="text-sm font-medium">
                 {robotSensorData?.proximity !== undefined 
-                  ? `${robotSensorData.proximity.toFixed(1)}m` 
+                  ? Array.isArray(robotSensorData.proximity)
+                    ? `${Math.min(...robotSensorData.proximity).toFixed(1)}m` 
+                    : `${robotSensorData.proximity.toFixed(1)}m`
                   : "Unknown"}
               </span>
             </div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Light Level:</span>
-            <span className="font-medium">
-              {robotSensorData?.light !== undefined 
-                ? `${robotSensorData.light} lux` 
-                : "Unknown"}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Noise Level:</span>
-            <span className="font-medium">
-              {robotSensorData?.noise !== undefined 
-                ? `${robotSensorData.noise} dB` 
-                : "Unknown"}
-            </span>
-          </div>
+          {/* Light and noise levels removed since they're not in the RobotSensorData type */}
         </div>
       </CardContent>
     </Card>
