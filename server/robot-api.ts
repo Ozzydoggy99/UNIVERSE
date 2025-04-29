@@ -50,7 +50,7 @@ interface MapData {
 }
 
 // Demo mode for robot data when no real robot connection is available
-const demoRobotStatus: Record<string, RobotStatus> = {
+export const demoRobotStatus: Record<string, RobotStatus> = {
   'AX-2000-1': {
     model: 'AxBot 2000',
     serialNumber: 'AX-2000-1',
@@ -77,7 +77,7 @@ const demoRobotStatus: Record<string, RobotStatus> = {
   }
 };
 
-const demoRobotPositions: Record<string, RobotPosition> = {
+export const demoRobotPositions: Record<string, RobotPosition> = {
   'AX-2000-1': {
     x: 120,
     y: 80,

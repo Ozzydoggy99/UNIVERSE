@@ -8,6 +8,7 @@ import { registerAdminRoutes } from "./admin-routes";
 import { registerRobotApiRoutes } from "./robot-api";
 import { registerMockAssistantRoutes } from "./mock-assistant";
 import { z } from "zod";
+import { WebSocketServer, WebSocket } from 'ws';
 import { 
   User, 
   InsertGamePlayer, 
@@ -18,7 +19,6 @@ import {
   insertRobotTemplateAssignmentSchema,
   insertRobotTaskSchema
 } from "../shared/schema";
-import { WebSocketServer, WebSocket } from "ws";
 
 dotenv.config();
 
