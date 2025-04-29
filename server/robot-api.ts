@@ -308,6 +308,57 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to fetch robot position' });
     }
   });
+  
+  // Update a robot's position
+  app.post('/api/robots/position/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const positionUpdate = req.body;
+      
+      if (!positionUpdate || typeof positionUpdate !== 'object') {
+        return res.status(400).json({ error: 'Position update data is required' });
+      }
+      
+      // Check if the robot exists in our position data
+      if (!demoRobotPositions[serialNumber]) {
+        // Check if robot is registered
+        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+        
+        if (!existingAssignment) {
+          return res.status(404).json({ 
+            error: 'Robot not found', 
+            message: 'Please register the robot first using the /api/robots/register endpoint'
+          });
+        }
+        
+        // Create a new position entry for this robot
+        demoRobotPositions[serialNumber] = {
+          x: positionUpdate.x !== undefined ? positionUpdate.x : 0,
+          y: positionUpdate.y !== undefined ? positionUpdate.y : 0,
+          z: positionUpdate.z !== undefined ? positionUpdate.z : 0,
+          orientation: positionUpdate.orientation !== undefined ? positionUpdate.orientation : 0,
+          speed: positionUpdate.speed !== undefined ? positionUpdate.speed : 0,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        // Update the existing position with new data
+        const currentPosition = demoRobotPositions[serialNumber];
+        
+        // Update only the provided fields
+        if (positionUpdate.x !== undefined) currentPosition.x = positionUpdate.x;
+        if (positionUpdate.y !== undefined) currentPosition.y = positionUpdate.y;
+        if (positionUpdate.z !== undefined) currentPosition.z = positionUpdate.z;
+        if (positionUpdate.orientation !== undefined) currentPosition.orientation = positionUpdate.orientation;
+        if (positionUpdate.speed !== undefined) currentPosition.speed = positionUpdate.speed;
+        currentPosition.timestamp = new Date().toISOString();
+      }
+      
+      res.json(demoRobotPositions[serialNumber]);
+    } catch (error) {
+      console.error('Error updating robot position:', error);
+      res.status(500).json({ error: 'Failed to update robot position' });
+    }
+  });
 
   // Get a specific robot sensor data by serial number
   app.get('/api/robots/sensors/:serialNumber', async (req: Request, res: Response) => {
@@ -326,6 +377,55 @@ export function registerRobotApiRoutes(app: Express) {
     } catch (error) {
       console.error('Error fetching robot sensors:', error);
       res.status(500).json({ error: 'Failed to fetch robot sensors' });
+    }
+  });
+  
+  // Update a robot's sensor data
+  app.post('/api/robots/sensors/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const sensorUpdate = req.body;
+      
+      if (!sensorUpdate || typeof sensorUpdate !== 'object') {
+        return res.status(400).json({ error: 'Sensor update data is required' });
+      }
+      
+      // Check if the robot exists in our sensor data
+      if (!demoRobotSensors[serialNumber]) {
+        // Check if robot is registered
+        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+        
+        if (!existingAssignment) {
+          return res.status(404).json({ 
+            error: 'Robot not found', 
+            message: 'Please register the robot first using the /api/robots/register endpoint'
+          });
+        }
+        
+        // Create a new sensor entry for this robot
+        demoRobotSensors[serialNumber] = {
+          temperature: sensorUpdate.temperature !== undefined ? sensorUpdate.temperature : 22,
+          humidity: sensorUpdate.humidity !== undefined ? sensorUpdate.humidity : 50,
+          proximity: sensorUpdate.proximity !== undefined ? sensorUpdate.proximity : [100, 100, 100, 100],
+          battery: sensorUpdate.battery !== undefined ? sensorUpdate.battery : 100,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        // Update the existing sensor data with new data
+        const currentSensors = demoRobotSensors[serialNumber];
+        
+        // Update only the provided fields
+        if (sensorUpdate.temperature !== undefined) currentSensors.temperature = sensorUpdate.temperature;
+        if (sensorUpdate.humidity !== undefined) currentSensors.humidity = sensorUpdate.humidity;
+        if (sensorUpdate.proximity !== undefined) currentSensors.proximity = sensorUpdate.proximity;
+        if (sensorUpdate.battery !== undefined) currentSensors.battery = sensorUpdate.battery;
+        currentSensors.timestamp = new Date().toISOString();
+      }
+      
+      res.json(demoRobotSensors[serialNumber]);
+    } catch (error) {
+      console.error('Error updating robot sensors:', error);
+      res.status(500).json({ error: 'Failed to update robot sensors' });
     }
   });
 

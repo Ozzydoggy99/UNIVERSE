@@ -60,6 +60,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     path: '/ws/elevator'
   });
   
+  // Set up WebSocket server for direct robot communication
+  const wssRobot = new WebSocketServer({
+    server: httpServer,
+    path: '/ws/robot'
+  });
+  
   // Handle WebSocket connections for elevator events
   wssElevator.on('connection', (ws) => {
     console.log('WebSocket client connected to elevator service');
@@ -288,6 +294,209 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   };
+  
+  // Handle WebSocket connections for direct robot communication
+  wssRobot.on('connection', (ws) => {
+    console.log('WebSocket client connected for direct robot communication');
+    
+    // Store for robot identity and registration
+    let robotSerial = null;
+    let robotModel = null;
+    let isRegistered = false;
+    
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received direct robot message:', data);
+        
+        // Handle different message types
+        if (data.type === 'register') {
+          // Robot is registering with the system
+          if (!data.serialNumber || !data.model) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Serial number and model are required for registration'
+            }));
+            return;
+          }
+          
+          robotSerial = data.serialNumber;
+          robotModel = data.model;
+          
+          // Register the robot
+          storage.getRobotTemplateAssignmentBySerial(robotSerial)
+            .then(assignment => {
+              if (assignment) {
+                isRegistered = true;
+                ws.send(JSON.stringify({
+                  type: 'registered',
+                  serialNumber: robotSerial,
+                  assignment
+                }));
+              } else {
+                // Not assigned yet, just register
+                isRegistered = true;
+                ws.send(JSON.stringify({
+                  type: 'registered',
+                  serialNumber: robotSerial,
+                  message: 'Robot registered but not assigned to a template yet'
+                }));
+              }
+            })
+            .catch(error => {
+              console.error('Error checking robot registration:', error);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Error checking robot registration'
+              }));
+            });
+        } else if (data.type === 'status_update') {
+          // Robot is sending a status update
+          if (!robotSerial) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Robot not registered yet. Send a register message first.'
+            }));
+            return;
+          }
+          
+          // Update the robot status
+          if (data.status && typeof data.status === 'object') {
+            // Check if the robot exists in the demo data
+            if (!demoRobotStatus[robotSerial]) {
+              // Create a new status entry for this robot
+              demoRobotStatus[robotSerial] = {
+                model: robotModel || 'Unknown Model',
+                serialNumber: robotSerial,
+                battery: data.status.battery || 100,
+                status: data.status.status || 'active',
+                mode: data.status.mode || 'manual',
+                lastUpdate: new Date().toISOString()
+              };
+            } else {
+              // Update the existing status with new data
+              const currentStatus = demoRobotStatus[robotSerial];
+              
+              // Update only the provided fields
+              if (data.status.battery !== undefined) currentStatus.battery = data.status.battery;
+              if (data.status.status !== undefined) currentStatus.status = data.status.status;
+              if (data.status.mode !== undefined) currentStatus.mode = data.status.mode;
+              currentStatus.lastUpdate = new Date().toISOString();
+            }
+            
+            ws.send(JSON.stringify({
+              type: 'status_updated',
+              serialNumber: robotSerial
+            }));
+          }
+        } else if (data.type === 'position_update') {
+          // Robot is sending a position update
+          if (!robotSerial) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Robot not registered yet. Send a register message first.'
+            }));
+            return;
+          }
+          
+          // Update the robot position
+          if (data.position && typeof data.position === 'object') {
+            // Check if the robot exists in the demo position data
+            if (!demoRobotPositions[robotSerial]) {
+              // Create a new position entry for this robot
+              demoRobotPositions[robotSerial] = {
+                x: data.position.x !== undefined ? data.position.x : 0,
+                y: data.position.y !== undefined ? data.position.y : 0,
+                z: data.position.z !== undefined ? data.position.z : 0,
+                orientation: data.position.orientation !== undefined ? data.position.orientation : 0,
+                speed: data.position.speed !== undefined ? data.position.speed : 0,
+                timestamp: new Date().toISOString()
+              };
+            } else {
+              // Update the existing position with new data
+              const currentPosition = demoRobotPositions[robotSerial];
+              
+              // Update only the provided fields
+              if (data.position.x !== undefined) currentPosition.x = data.position.x;
+              if (data.position.y !== undefined) currentPosition.y = data.position.y;
+              if (data.position.z !== undefined) currentPosition.z = data.position.z;
+              if (data.position.orientation !== undefined) currentPosition.orientation = data.position.orientation;
+              if (data.position.speed !== undefined) currentPosition.speed = data.position.speed;
+              currentPosition.timestamp = new Date().toISOString();
+            }
+            
+            ws.send(JSON.stringify({
+              type: 'position_updated',
+              serialNumber: robotSerial
+            }));
+          }
+        } else if (data.type === 'sensor_update') {
+          // Robot is sending a sensor update
+          if (!robotSerial) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Robot not registered yet. Send a register message first.'
+            }));
+            return;
+          }
+          
+          // Update the robot sensor data
+          if (data.sensors && typeof data.sensors === 'object') {
+            // Check if the robot exists in the demo sensor data
+            if (!demoRobotSensors[robotSerial]) {
+              // Create a new sensor entry for this robot
+              demoRobotSensors[robotSerial] = {
+                temperature: data.sensors.temperature !== undefined ? data.sensors.temperature : 22,
+                humidity: data.sensors.humidity !== undefined ? data.sensors.humidity : 50,
+                proximity: data.sensors.proximity !== undefined ? data.sensors.proximity : [100, 100, 100, 100],
+                battery: data.sensors.battery !== undefined ? data.sensors.battery : 100,
+                timestamp: new Date().toISOString()
+              };
+            } else {
+              // Update the existing sensor data with new data
+              const currentSensors = demoRobotSensors[robotSerial];
+              
+              // Update only the provided fields
+              if (data.sensors.temperature !== undefined) currentSensors.temperature = data.sensors.temperature;
+              if (data.sensors.humidity !== undefined) currentSensors.humidity = data.sensors.humidity;
+              if (data.sensors.proximity !== undefined) currentSensors.proximity = data.sensors.proximity;
+              if (data.sensors.battery !== undefined) currentSensors.battery = data.sensors.battery;
+              currentSensors.timestamp = new Date().toISOString();
+            }
+            
+            ws.send(JSON.stringify({
+              type: 'sensors_updated',
+              serialNumber: robotSerial
+            }));
+          }
+        } else if (data.type === 'get_task') {
+          // Robot is requesting its current task
+          if (!robotSerial) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Robot not registered yet. Send a register message first.'
+            }));
+            return;
+          }
+          
+          // Get the robot's current task
+          const task = demoTasks[robotSerial];
+          
+          ws.send(JSON.stringify({
+            type: 'task_info',
+            serialNumber: robotSerial,
+            task: task || 'Awaiting instructions'
+          }));
+        }
+      } catch (error) {
+        console.error('WebSocket message error for direct robot communication:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected from direct robot communication');
+    });
+  });
   
   // Handle WebSocket connections for robot task updates
   wssRobotTasks.on('connection', (ws) => {
