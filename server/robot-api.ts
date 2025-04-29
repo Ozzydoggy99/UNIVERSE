@@ -16,7 +16,7 @@ function ensurePhysicalRobotData() {
     demoRobotStatus[PHYSICAL_ROBOT_SERIAL] = {
       model: "Physical Robot",
       serialNumber: PHYSICAL_ROBOT_SERIAL,
-      battery: 78,
+      battery: 99,
       status: 'charging',
       mode: 'ready',
       lastUpdate: new Date().toISOString()
@@ -35,7 +35,7 @@ function ensurePhysicalRobotData() {
       temperature: 23.5,
       humidity: 48,
       proximity: [1.2, 2.5, 3.2, 1.8],
-      battery: 78,
+      battery: 99,
       timestamp: new Date().toISOString()
     };
     
@@ -61,7 +61,7 @@ function ensurePhysicalRobotData() {
     
     demoCameraData[PHYSICAL_ROBOT_SERIAL] = {
       enabled: true,
-      streamUrl: 'https://example.com/robot-stream-physical.jpg',
+      streamUrl: 'http://192.168.4.32:8080/stream',
       resolution: {
         width: 1280,
         height: 720
