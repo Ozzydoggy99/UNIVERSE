@@ -203,6 +203,7 @@ function setupWebSockets(httpServer: Server) {
   // Create WebSocket servers in noServer mode
   const robotWss = new WebSocketServer({ noServer: true });
   const clientWss = new WebSocketServer({ noServer: true });
+  const cameraWss = new WebSocketServer({ noServer: true });
   
   // Keep track of connected clients for broadcasting
   const connectedClients: WebSocket[] = [];
@@ -215,7 +216,46 @@ function setupWebSockets(httpServer: Server) {
     
     // Handle specific WebSocket connections as client connections
     // Avoid root path which can conflict with Vite's HMR WebSocket
-    if (pathname === '/ws' || pathname === '/socket' || pathname === '/api/ws') {
+    if (pathname === '/api/ws/camera') {
+      // Handle camera WebSocket requests
+      cameraWss.handleUpgrade(request, socket, head, (ws) => {
+        console.log('Camera WebSocket connection established');
+        
+        // Add to connected clients list for broadcasting
+        connectedClients.push(ws);
+        
+        // Handle client messages
+        ws.on('message', (message) => {
+          try {
+            const data = JSON.parse(message.toString());
+            console.log('Received camera message:', data);
+            
+            // Use our camera API handler
+            setupCameraWebSocketHandlers(ws, data, connectedClients);
+          } catch (error) {
+            console.error('Error processing camera WebSocket message:', error);
+            sendError(ws, 'Error processing message');
+          }
+        });
+        
+        // Handle disconnection
+        ws.on('close', () => {
+          console.log('Camera WebSocket connection closed');
+          // Remove from connected clients
+          const index = connectedClients.indexOf(ws);
+          if (index !== -1) {
+            connectedClients.splice(index, 1);
+          }
+        });
+        
+        // Handle errors
+        ws.on('error', (error) => {
+          console.error('Camera WebSocket error:', error);
+        });
+      });
+      return;
+    }
+    else if (pathname === '/ws' || pathname === '/socket' || pathname === '/api/ws') {
       console.log('Redirecting root WebSocket connection to client handler');
       clientWss.handleUpgrade(request, socket, head, (ws) => {
         console.log('Client WebSocket connection established via root path');
