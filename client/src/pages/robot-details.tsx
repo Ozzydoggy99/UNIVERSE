@@ -763,7 +763,7 @@ export default function RobotDetails() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => toggleCamera(serialNumber || '', !cameraDataToUse?.enabled)}
+                            onClick={() => toggleCamera(!cameraDataToUse?.enabled)}
                             className="flex items-center gap-1"
                           >
                             {cameraDataToUse?.enabled ? (
@@ -868,7 +868,7 @@ export default function RobotDetails() {
                           </p>
                           <Button 
                             variant="default" 
-                            onClick={() => toggleCamera(serialNumber || '', true)}
+                            onClick={() => toggleCamera(true)}
                             className="flex items-center gap-1"
                           >
                             <Eye className="h-4 w-4" />

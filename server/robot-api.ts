@@ -59,6 +59,18 @@ function ensurePhysicalRobotData() {
       ]
     };
     
+    demoCameraData[PHYSICAL_ROBOT_SERIAL] = {
+      enabled: true,
+      streamUrl: 'https://example.com/robot-stream-physical.jpg',
+      resolution: {
+        width: 1280,
+        height: 720
+      },
+      rotation: 0,
+      nightVision: true,
+      timestamp: new Date().toISOString()
+    };
+    
     demoTasks[PHYSICAL_ROBOT_SERIAL] = 'Charging at station';
     
     // Add to registered robots set
@@ -108,6 +120,18 @@ interface MapData {
   grid: any[];
   obstacles: MapPoint[];
   paths: MapPath[];
+}
+
+interface CameraData {
+  enabled: boolean;
+  streamUrl: string;
+  resolution: {
+    width: number;
+    height: number;
+  };
+  rotation: number;
+  nightVision: boolean;
+  timestamp: string;
 }
 
 // Demo mode for robot data when no real robot connection is available
@@ -244,6 +268,42 @@ export const demoMapData: Record<string, MapData> = {
         status: 'charging'
       }
     ]
+  }
+};
+
+export const demoCameraData: Record<string, CameraData> = {
+  'AX-2000-1': {
+    enabled: true,
+    streamUrl: 'https://example.com/robot-stream-ax2000-1.jpg',
+    resolution: {
+      width: 1280,
+      height: 720
+    },
+    rotation: 0,
+    nightVision: false,
+    timestamp: new Date().toISOString()
+  },
+  'AX-2000-2': {
+    enabled: false,
+    streamUrl: '',
+    resolution: {
+      width: 1280,
+      height: 720
+    },
+    rotation: 0,
+    nightVision: true,
+    timestamp: new Date().toISOString()
+  },
+  'AX-2000-3': {
+    enabled: true,
+    streamUrl: 'https://example.com/robot-stream-ax2000-3.jpg',
+    resolution: {
+      width: 1920,
+      height: 1080
+    },
+    rotation: 90,
+    nightVision: true,
+    timestamp: new Date().toISOString()
   }
 };
 
