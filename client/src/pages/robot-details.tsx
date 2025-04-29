@@ -50,6 +50,7 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
 import { Map } from '@/components/ui/map';
+import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 
 interface RobotStatus {
   model: string;
@@ -786,13 +787,12 @@ export default function RobotDetails() {
                           <div className="border rounded-md overflow-hidden aspect-video bg-gray-900 relative">
                             {cameraDataToUse?.streamUrl ? (
                               <div className="w-full h-full flex items-center justify-center">
-                                {/* Use direct img tag for MJPEG streams with cache busting */}
-                                <img 
-                                  src={`${cameraDataToUse.streamUrl}?t=${new Date().getTime()}`}
-                                  alt="Robot Camera Live Feed"
-                                  className="w-full h-full object-contain"
-                                  style={{ maxWidth: '100%', maxHeight: '100%' }}
-                                  key={new Date().getTime()} // Force re-render
+                                {/* Use dedicated LiveMjpegStream component for better performance */}
+                                <LiveMjpegStream 
+                                  streamUrl={cameraDataToUse.streamUrl}
+                                  refreshInterval={500} // Refresh every 500ms for smoother video
+                                  className="w-full h-full"
+                                  title="Robot Camera Feed"
                                 />
                               </div>
                             ) : (
