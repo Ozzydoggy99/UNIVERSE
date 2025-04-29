@@ -8,7 +8,7 @@
 import { WebSocket } from 'ws';
 
 // Server configuration - Change this to your actual server URL if needed
-const SERVER_URL = 'ws://localhost:5000/ws/robot';
+const SERVER_URL = 'ws://localhost:5000/api/ws/robot';
 
 // Test robot configuration
 const TEST_ROBOT = {

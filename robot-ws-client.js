@@ -17,15 +17,15 @@
 // This is an ES module
 import { WebSocket } from 'ws';
 
-// Configuration - Replace these with your actual robot's details
+// Configuration - Using your actual robot's details
 const ROBOT_CONFIG = {
-  serialNumber: "ROBOT123",  // Your robot's serial number
-  model: "YourModel"         // Your robot's model
+  serialNumber: "L382502104988is",  // Your robot's serial number
+  model: "RobotChassis"             // Your robot's model
 };
 
 // Server configuration - Change this to your actual server URL
-// Example: const SERVER_URL = 'wss://your-app-name.replit.app/ws/robot';
-const SERVER_URL = 'ws://localhost:5000/ws/robot';
+// Example: const SERVER_URL = 'wss://your-app-name.replit.app/api/ws/robot';
+const SERVER_URL = 'ws://localhost:5000/api/ws/robot';
 
 // Global websocket connection
 let ws = null;
