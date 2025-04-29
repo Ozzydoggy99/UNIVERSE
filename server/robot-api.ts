@@ -188,7 +188,26 @@ const demoTasks: Record<string, string> = {
   'AX-2000-3': 'Charging at station 3'
 };
 
+import { registerRobot } from './register-robot';
+
 export function registerRobotApiRoutes(app: Express) {
+  // Register a new robot or update existing robot
+  app.post('/api/robots/register', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber, model, templateId } = req.body;
+      
+      if (!serialNumber || !model) {
+        return res.status(400).json({ error: 'Serial number and model are required' });
+      }
+      
+      const result = await registerRobot(serialNumber, model, templateId);
+      res.status(201).json(result);
+    } catch (error) {
+      console.error('Error registering robot:', error);
+      res.status(500).json({ error: 'Failed to register robot' });
+    }
+  });
+  
   // Get all robots statuses
   app.get('/api/robots/statuses', async (req: Request, res: Response) => {
     try {
@@ -218,6 +237,55 @@ export function registerRobotApiRoutes(app: Express) {
     } catch (error) {
       console.error('Error fetching robot status:', error);
       res.status(500).json({ error: 'Failed to fetch robot status' });
+    }
+  });
+  
+  // Update a robot's status
+  app.post('/api/robots/status/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const statusUpdate = req.body;
+      
+      if (!statusUpdate) {
+        return res.status(400).json({ error: 'Status update data is required' });
+      }
+      
+      // Check if the robot exists in our demo data
+      if (!demoRobotStatus[serialNumber]) {
+        // This is a new robot, let's make sure it's registered
+        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+        
+        if (!existingAssignment) {
+          return res.status(404).json({ 
+            error: 'Robot not found', 
+            message: 'Please register the robot first using the /api/robots/register endpoint'
+          });
+        }
+        
+        // Create a new status entry for this robot
+        demoRobotStatus[serialNumber] = {
+          model: existingAssignment.robotModel || 'Unknown Model',
+          serialNumber,
+          battery: statusUpdate.battery || 100,
+          status: statusUpdate.status || 'active',
+          mode: statusUpdate.mode || 'manual',
+          lastUpdate: new Date().toISOString()
+        };
+      } else {
+        // Update the existing status with new data
+        const currentStatus = demoRobotStatus[serialNumber];
+        
+        // Update only the provided fields
+        if (statusUpdate.battery !== undefined) currentStatus.battery = statusUpdate.battery;
+        if (statusUpdate.status !== undefined) currentStatus.status = statusUpdate.status;
+        if (statusUpdate.mode !== undefined) currentStatus.mode = statusUpdate.mode;
+        currentStatus.lastUpdate = new Date().toISOString();
+      }
+      
+      res.json(demoRobotStatus[serialNumber]);
+    } catch (error) {
+      console.error('Error updating robot status:', error);
+      res.status(500).json({ error: 'Failed to update robot status' });
     }
   });
 
