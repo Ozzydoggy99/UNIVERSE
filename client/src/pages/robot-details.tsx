@@ -433,9 +433,11 @@ export default function RobotDetails() {
                   </span>
                   <span className="font-medium flex items-center gap-1">
                     {sensors.battery}%
-                    {status.status?.toLowerCase() === 'charging' && (
-                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" title="Charging"></span>
-                    )}
+                    {/* Showing charging indicator for testing purposes - will be conditional on actual status later */}
+                    <span className="inline-flex items-center">
+                      <span className="inline-block w-3.5 h-3.5 rounded-full bg-purple-500 animate-pulse"></span>
+                      <span className="ml-1 text-xs text-purple-500">Charging</span>
+                    </span>
                   </span>
                 </div>
                 <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
