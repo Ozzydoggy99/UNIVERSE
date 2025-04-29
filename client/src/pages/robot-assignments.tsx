@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Card, 
   CardHeader, 
@@ -43,7 +43,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { RobotTemplateAssignment, UITemplate } from '@shared/schema';
-import { Trash2, Edit, Plus } from 'lucide-react';
+import { Trash2, Edit, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
 // Schema for the form
@@ -74,6 +74,7 @@ export default function RobotAssignments() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentAssignment, setCurrentAssignment] = useState<RobotTemplateAssignment | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   
   // Fetch robot assignments
   const { data: assignments, isLoading: assignmentsLoading } = useQuery({
@@ -215,6 +216,22 @@ export default function RobotAssignments() {
       deleteMutation.mutate(id);
     }
   };
+  
+  // Filter assignments based on search term
+  const filteredAssignments = useMemo(() => {
+    if (!assignments || !Array.isArray(assignments)) {
+      return [];
+    }
+    
+    if (!searchTerm.trim()) {
+      return assignments;
+    }
+    
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return assignments.filter((assignment: RobotTemplateAssignment) => 
+      assignment.name.toLowerCase().includes(lowerSearchTerm)
+    );
+  }, [assignments, searchTerm]);
   
   // Loading state
   if (authLoading || assignmentsLoading || templatesLoading) {
