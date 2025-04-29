@@ -16,7 +16,9 @@ export const robotTemplateAssignments = pgTable("robot_template_assignments", {
   id: serial("id").primaryKey(),
   serialNumber: text("serial_number").notNull().unique(),
   templateId: integer("template_id").notNull(),
-  robotName: text("robot_name"),
+  name: text("name"),  // Robot name
+  location: text("location"),  // Where the robot is located
+  robotName: text("robot_name"),  // Legacy field
   robotModel: text("robot_model"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
