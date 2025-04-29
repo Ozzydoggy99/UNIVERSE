@@ -35,7 +35,13 @@ import {
   Layers,
   Wifi,
   WifiOff,
-  Loader2
+  Loader2,
+  Camera,
+  Eye,
+  EyeOff,
+  MonitorPlay,
+  PlayCircle,
+  PauseCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,6 +74,18 @@ interface RobotSensorData {
   humidity: number;
   proximity: number[];
   battery: number;
+  timestamp: string;
+}
+
+interface CameraData {
+  enabled: boolean;
+  streamUrl: string;
+  resolution: {
+    width: number;
+    height: number;
+  };
+  rotation: number;
+  nightVision: boolean;
   timestamp: string;
 }
 
@@ -117,11 +135,13 @@ export default function RobotDetails() {
     robotPosition: wsRobotPosition,
     robotSensorData: wsSensorData,
     mapData: wsMapData,
+    cameraData: wsCameraData,
     connectionState, 
     connectWebSocket, 
     disconnectWebSocket, 
     isConnected,
-    refreshData
+    refreshData,
+    toggleCamera
   } = useRobot();
 
   // Get data from WebSocket provider OR use fallback queries
@@ -169,6 +189,18 @@ export default function RobotDetails() {
     refetchInterval: connectionState !== 'connected' ? 15000 : false, // Only poll when WebSocket is not available
     retry: 5,
     retryDelay: 1000, 
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
+    gcTime: 60000
+  });
+  
+  // Fetch camera data as fallback to WebSocket
+  const { data: restCameraData, isLoading: cameraLoading } = useQuery<CameraData>({
+    queryKey: ['/api/robots/camera', serialNumber],
+    enabled: !!serialNumber && !wsCameraData,
+    refetchInterval: connectionState !== 'connected' ? 20000 : false, // Only poll when WebSocket is not available
+    retry: 5,
+    retryDelay: 1000,
     staleTime: 10000,
     refetchOnWindowFocus: false,
     gcTime: 60000
@@ -320,12 +352,25 @@ export default function RobotDetails() {
       }
     ]
   };
+  
+  const mockCameraData: CameraData = {
+    enabled: true,
+    streamUrl: 'https://example.com/robot-stream.jpg',
+    resolution: {
+      width: 1280,
+      height: 720
+    },
+    rotation: 0,
+    nightVision: false,
+    timestamp: new Date().toISOString()
+  };
 
   // Prioritize WebSocket data, then REST API data - never use mock data for production
   const status = wsRobotStatus || restRobotStatus || null;
   const position = wsRobotPosition || restRobotPosition || null;
   const sensors = wsSensorData || restSensorData || null;
   const mapDataToUse = wsMapData || restMapData || null;
+  const cameraDataToUse = wsCameraData || restCameraData || null;
   
   // Show loading state if we don't have real data yet
   if (!status || !position || !sensors || !mapDataToUse) {
@@ -630,6 +675,10 @@ export default function RobotDetails() {
                     <Layers className="h-4 w-4" />
                     Layers
                   </TabsTrigger>
+                  <TabsTrigger value="camera" className="flex items-center gap-1">
+                    <Camera className="h-4 w-4" />
+                    Camera
+                  </TabsTrigger>
                 </TabsList>
                 
                 <div className="h-[calc(100%-50px)]">
@@ -697,6 +746,136 @@ export default function RobotDetails() {
                           <Badge variant="outline">Disabled</Badge>
                         </div>
                       </div>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="camera" className="h-full m-0">
+                    <div className="h-full border rounded-md p-4 bg-white overflow-auto">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium flex items-center gap-2">
+                          <Camera className="h-5 w-5 text-primary" />
+                          Onboard Camera
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            {cameraDataToUse?.enabled ? 'Camera Active' : 'Camera Inactive'}
+                          </span>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => toggleCamera(serialNumber || '', !cameraDataToUse?.enabled)}
+                            className="flex items-center gap-1"
+                          >
+                            {cameraDataToUse?.enabled ? (
+                              <>
+                                <EyeOff className="h-4 w-4" />
+                                Disable
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-4 w-4" />
+                                Enable
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {cameraDataToUse?.enabled ? (
+                        <div className="space-y-4">
+                          <div className="border rounded-md overflow-hidden aspect-video bg-gray-900 relative">
+                            {cameraDataToUse?.streamUrl ? (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <img 
+                                  src={cameraDataToUse.streamUrl} 
+                                  alt="Robot camera feed" 
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-white p-4">
+                                <MonitorPlay className="h-8 w-8 mb-2 text-gray-400" />
+                                <p className="text-center text-gray-400">Camera stream unavailable. The robot may be offline or the camera stream is not configured.</p>
+                              </div>
+                            )}
+                            
+                            <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                              Live Feed
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <Card>
+                              <CardHeader className="py-2">
+                                <CardTitle className="text-sm">Camera Settings</CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-2 py-2">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Resolution:</span>
+                                  <span>{cameraDataToUse?.resolution?.width || 0} x {cameraDataToUse?.resolution?.height || 0}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Rotation:</span>
+                                  <span>{cameraDataToUse?.rotation || 0}°</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Night Vision:</span>
+                                  <Badge variant={cameraDataToUse?.nightVision ? "default" : "outline"}>
+                                    {cameraDataToUse?.nightVision ? "Enabled" : "Disabled"}
+                                  </Badge>
+                                </div>
+                              </CardContent>
+                            </Card>
+                            
+                            <Card>
+                              <CardHeader className="py-2">
+                                <CardTitle className="text-sm">Stream Control</CardTitle>
+                              </CardHeader>
+                              <CardContent className="py-2">
+                                <div className="flex gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="flex items-center gap-1 w-full"
+                                    disabled={!cameraDataToUse?.streamUrl}
+                                  >
+                                    <PlayCircle className="h-4 w-4" />
+                                    Start Recording
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="flex items-center gap-1 w-full"
+                                    disabled={!cameraDataToUse?.streamUrl}
+                                  >
+                                    <PauseCircle className="h-4 w-4" />
+                                    Snapshot
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                          
+                          <div className="text-xs text-muted-foreground text-right">
+                            Last updated: {cameraDataToUse?.timestamp ? formatTimeSince(cameraDataToUse.timestamp) : 'N/A'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border rounded-md flex flex-col items-center justify-center p-8 bg-gray-50 h-64">
+                          <Camera className="h-12 w-12 text-muted-foreground mb-4" />
+                          <p className="text-center text-muted-foreground mb-4">
+                            The robot's camera is currently disabled. Enable it to view the live camera feed.
+                          </p>
+                          <Button 
+                            variant="default" 
+                            onClick={() => toggleCamera(serialNumber || '', true)}
+                            className="flex items-center gap-1"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Enable Camera
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
                 </div>
