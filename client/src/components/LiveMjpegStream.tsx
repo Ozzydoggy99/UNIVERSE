@@ -92,7 +92,10 @@ export const LiveMjpegStream: React.FC<LiveMjpegStreamProps> = ({
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
           </svg>
           <p className="text-sm text-center text-gray-700">
-            Unable to load stream. The robot camera may be offline.
+            Unable to load stream. The robot camera may be offline or not accessible from this network. 
+            <span className="block mt-1 text-xs">
+              Due to browser security restrictions, the camera feed at {streamUrl} cannot be directly accessed.
+            </span>
           </p>
         </div>
       )}

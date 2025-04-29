@@ -96,7 +96,7 @@ export const CameraHandler: React.FC<CameraHandlerProps> = ({ serialNumber }) =>
               <div className="relative bg-gray-100 rounded-lg overflow-hidden aspect-video">
                 {/* Use dedicated LiveMjpegStream component for better performance */}
                 <LiveMjpegStream 
-                  streamUrl={cameraData.streamUrl}
+                  streamUrl={`/api/camera-stream/${serialNumber || 'L382502104988is'}`}
                   refreshInterval={500} // Refresh every 500ms for smoother video
                   className="w-full h-full"
                 />

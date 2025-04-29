@@ -2,9 +2,64 @@ import { Express, Request, Response } from 'express';
 import { storage } from './storage';
 import { demoCameraData } from './robot-api';
 import { WebSocket } from 'ws';
+import axios from 'axios';
+import { createReadStream } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// Get the current file path for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Stream buffer to use as fallback when a camera is offline or unreachable
+const DEFAULT_CAMERA_IMAGE_PATH = join(__dirname, '../attached_assets/IMG_1576.jpeg');
 
 // Register camera API routes
 export function registerCameraApiRoutes(app: Express) {
+  // Camera stream proxy endpoint to handle CORS issues
+  app.get('/api/camera-stream/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      
+      // Get the robot camera data to find the stream URL
+      const camera = demoCameraData[serialNumber];
+      
+      if (!camera || !camera.enabled || !camera.streamUrl) {
+        // If the camera is not available, return a default image
+        return createReadStream(DEFAULT_CAMERA_IMAGE_PATH).pipe(res);
+      }
+      
+      // Try to proxy the camera stream
+      try {
+        console.log(`Attempting to proxy camera stream from ${camera.streamUrl}`);
+        const response = await axios.get(camera.streamUrl, {
+          responseType: 'stream',
+          timeout: 5000, // 5 second timeout
+        });
+        
+        // Forward the response headers and data
+        Object.entries(response.headers).forEach(([key, value]) => {
+          res.setHeader(key, value);
+        });
+        
+        // Set CORS headers to allow access
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        
+        // Stream the data back to the client
+        return response.data.pipe(res);
+      } catch (error) {
+        console.error(`Error proxying camera stream from ${camera.streamUrl}:`, error);
+        // If the camera is unreachable, return a default image
+        return createReadStream(DEFAULT_CAMERA_IMAGE_PATH).pipe(res);
+      }
+    } catch (error) {
+      console.error('Error in camera stream proxy:', error);
+      res.status(500).send('Camera stream error');
+    }
+  });
   // Get camera data for a specific robot
   app.get('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
     try {
