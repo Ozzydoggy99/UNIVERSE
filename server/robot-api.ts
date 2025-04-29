@@ -505,10 +505,10 @@ export const demoCameraData: Record<string, CameraData> = {
     nightVision: true,
     timestamp: new Date().toISOString()
   },
-  // Add the AxBot 5000 Pro camera data
+  // Add the AxBot 5000 Pro camera data with the same live stream as physical robot
   'AX923701583RT': {
     enabled: true,
-    streamUrl: 'http://axbot-demo.example.com/stream/AX923701583RT',
+    streamUrl: 'http://47.180.91.99:8080/stream',
     resolution: {
       width: 1920,
       height: 1080
