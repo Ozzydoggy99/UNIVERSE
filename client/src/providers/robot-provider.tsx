@@ -159,6 +159,8 @@ export function RobotProvider({ children }: RobotProviderProps) {
       robotWebSocket.requestPosition();
       robotWebSocket.requestSensorData();
       robotWebSocket.requestMapData();
+      robotWebSocket.requestCameraData(); // Add camera data request
+      robotWebSocket.requestTaskInfo();
     } else {
       // Fallback to REST API if WebSocket is not connected
       await fetchInitialData();

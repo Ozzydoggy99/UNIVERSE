@@ -272,6 +272,17 @@ export const demoMapData: Record<string, MapData> = {
 };
 
 export const demoCameraData: Record<string, CameraData> = {
+  'L382502104988is': { // Our physical robot
+    enabled: true,
+    streamUrl: 'https://example.com/robot-stream-L382502104988is.jpg',
+    resolution: {
+      width: 1280,
+      height: 720
+    },
+    rotation: 0,
+    nightVision: true,
+    timestamp: new Date().toISOString()
+  },
   'AX-2000-1': {
     enabled: true,
     streamUrl: 'https://example.com/robot-stream-ax2000-1.jpg',
