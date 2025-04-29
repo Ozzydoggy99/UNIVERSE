@@ -13,6 +13,17 @@ import {
   registerRobotApiRoutes 
 } from './robot-api';
 import { registerCameraApiRoutes, setupCameraWebSocketHandlers } from './camera-api';
+import { processCameraWebSocketMessage } from './camera-websocket';
+import {
+  handleRobotStatusRequest,
+  handleRobotPositionRequest,
+  handleRobotSensorRequest,
+  handleRobotMapRequest,
+  handleRobotCameraRequest,
+  handleToggleRobotCamera,
+  sendError,
+  broadcastRobotUpdate
+} from './websocket-handlers';
 import { adminRequired, renderAdminPage, getAdminTemplatesList, getTemplateAssignments } from './admin-renderer';
 import { registerMockAssistantRoutes } from './mock-assistant';
 import { registerRobot } from './register-robot';

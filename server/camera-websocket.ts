@@ -1,4 +1,4 @@
-import { WebSocket } from 'ws';
+import WebSocket from 'ws';
 import { demoCameraData } from './robot-api';
 
 /**
@@ -6,7 +6,6 @@ import { demoCameraData } from './robot-api';
  * This function will handle all camera-related WebSocket requests
  */
 export function processCameraWebSocketMessage(data: any, ws: WebSocket, connectedClients: WebSocket[]) {
-  // Camera data request
   if (data.type === 'get_robot_camera' && data.serialNumber) {
     console.log('Camera data requested for robot:', data.serialNumber);
     const camera = demoCameraData[data.serialNumber];
@@ -16,9 +15,8 @@ export function processCameraWebSocketMessage(data: any, ws: WebSocket, connecte
         data: camera
       }));
       console.log('Sent camera data for robot:', data.serialNumber);
-      return true; // Message was processed
     } else {
-      // Create default camera data for this robot
+      // If no camera data exists for this robot, create a default entry
       const newCameraData = {
         enabled: false,
         streamUrl: '',
@@ -40,11 +38,8 @@ export function processCameraWebSocketMessage(data: any, ws: WebSocket, connecte
         data: newCameraData
       }));
       console.log('Created and sent new camera data for robot:', data.serialNumber);
-      return true; // Message was processed
     }
   }
-  
-  // Toggle camera enabled state
   else if (data.type === 'toggle_robot_camera' && data.serialNumber) {
     console.log('Toggle camera requested for robot:', data.serialNumber, 'enabled:', data.enabled);
     const camera = demoCameraData[data.serialNumber];
@@ -66,40 +61,38 @@ export function processCameraWebSocketMessage(data: any, ws: WebSocket, connecte
       }));
       console.log('Toggled camera for robot:', data.serialNumber, 'to:', camera.enabled);
       
-      // Broadcast to all other connected clients
+      // Broadcast to all other connected clients if we have them
       broadcastRobotUpdate(
         connectedClients.filter(client => client !== ws),
         'camera',
         data.serialNumber,
         camera
       );
-      return true; // Message was processed
     } else {
       sendError(ws, `No camera data for robot ${data.serialNumber}`);
-      return true; // Message was processed
     }
   }
-  
-  // Not a camera-related message
-  return false;
 }
 
-// Helper function to send error message
 function sendError(ws: WebSocket, message: string) {
-  ws.send(JSON.stringify({
-    type: 'error',
-    message: message
-  }));
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message
+    }));
+  }
 }
 
-// Helper function to broadcast robot updates to connected clients
-function broadcastRobotUpdate(connectedClients: WebSocket[], updateType: string, serialNumber: string, data: any) {
-  connectedClients.forEach((client) => {
+function broadcastRobotUpdate(clients: WebSocket[], updateType: string, serialNumber: string, data: any) {
+  const update = JSON.stringify({
+    type: `robot_${updateType}_update`,
+    serialNumber,
+    data
+  });
+  
+  clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({
-        type: updateType,
-        data: data
-      }));
+      client.send(update);
     }
   });
 }
