@@ -1,5 +1,9 @@
 import { Express, Request, Response } from 'express';
 import { storage } from './storage';
+import { registerRobot } from './register-robot';
+
+// Keep track of registered robots
+const registeredRobots = new Set<string>();
 
 // Type definitions for robot data
 interface RobotStatus {
@@ -188,8 +192,6 @@ const demoTasks: Record<string, string> = {
   'AX-2000-3': 'Charging at station 3'
 };
 
-import { registerRobot } from './register-robot';
-
 export function registerRobotApiRoutes(app: Express) {
   // Register a new robot or update existing robot
   app.post('/api/robots/register', async (req: Request, res: Response) => {
@@ -201,6 +203,48 @@ export function registerRobotApiRoutes(app: Express) {
       }
       
       const result = await registerRobot(serialNumber, model, templateId);
+      
+      // Add this robot to our tracking set
+      registeredRobots.add(serialNumber);
+      
+      // Store initial robot data
+      if (!demoRobotStatus[serialNumber]) {
+        demoRobotStatus[serialNumber] = {
+          model: model,
+          serialNumber: serialNumber,
+          battery: 100,
+          status: 'registered',
+          mode: 'manual',
+          lastUpdate: new Date().toISOString()
+        };
+      }
+      
+      if (!demoRobotPositions[serialNumber]) {
+        demoRobotPositions[serialNumber] = {
+          x: 0,
+          y: 0,
+          z: 0,
+          orientation: 0,
+          speed: 0,
+          timestamp: new Date().toISOString()
+        };
+      }
+      
+      if (!demoRobotSensors[serialNumber]) {
+        demoRobotSensors[serialNumber] = {
+          temperature: 22,
+          humidity: 50,
+          proximity: [100, 100, 100, 100],
+          battery: 100,
+          timestamp: new Date().toISOString()
+        };
+      }
+      
+      if (!demoTasks[serialNumber]) {
+        demoTasks[serialNumber] = 'Awaiting instructions';
+      }
+      
+      console.log(`Registered new robot ${serialNumber} with model ${model}`);
       res.status(201).json(result);
     } catch (error) {
       console.error('Error registering robot:', error);
