@@ -5,6 +5,67 @@ import { registerRobot } from './register-robot';
 // Keep track of registered robots
 const registeredRobots = new Set<string>();
 
+// Initialize demo status for physical robot if it doesn't exist
+function ensurePhysicalRobotData() {
+  const PHYSICAL_ROBOT_SERIAL = 'L382502104988is';
+  
+  // Add demo status for the physical robot if it doesn't exist
+  if (!demoRobotStatus[PHYSICAL_ROBOT_SERIAL]) {
+    console.log(`Initializing data for physical robot ${PHYSICAL_ROBOT_SERIAL}`);
+    
+    demoRobotStatus[PHYSICAL_ROBOT_SERIAL] = {
+      model: "Physical Robot",
+      serialNumber: PHYSICAL_ROBOT_SERIAL,
+      battery: 78,
+      status: 'charging',
+      mode: 'ready',
+      lastUpdate: new Date().toISOString()
+    };
+    
+    demoRobotPositions[PHYSICAL_ROBOT_SERIAL] = {
+      x: 120,
+      y: 85,
+      z: 0,
+      orientation: 90,
+      speed: 0,
+      timestamp: new Date().toISOString()
+    };
+    
+    demoRobotSensors[PHYSICAL_ROBOT_SERIAL] = {
+      temperature: 23.5,
+      humidity: 48,
+      proximity: [1.2, 2.5, 3.2, 1.8],
+      battery: 78,
+      timestamp: new Date().toISOString()
+    };
+    
+    demoMapData[PHYSICAL_ROBOT_SERIAL] = {
+      grid: [],
+      obstacles: [
+        { x: 50, y: 50, z: 0 },
+        { x: 100, y: 120, z: 0 },
+        { x: 200, y: 80, z: 0 }
+      ],
+      paths: [
+        {
+          points: [
+            { x: 50, y: 50, z: 0 },
+            { x: 75, y: 75, z: 0 },
+            { x: 100, y: 100, z: 0 },
+            { x: 120, y: 85, z: 0 }
+          ],
+          status: 'active'
+        }
+      ]
+    };
+    
+    demoTasks[PHYSICAL_ROBOT_SERIAL] = 'Charging at station';
+    
+    // Add to registered robots set
+    registeredRobots.add(PHYSICAL_ROBOT_SERIAL);
+  }
+}
+
 // Type definitions for robot data
 interface RobotStatus {
   model: string;
@@ -193,6 +254,8 @@ export const demoTasks: Record<string, string> = {
 };
 
 export function registerRobotApiRoutes(app: Express) {
+  // Make sure our physical robot data is initialized
+  ensurePhysicalRobotData();
   // Register a specific robot by serial number (helper endpoint for physical robots)
   app.get('/api/robots/register-physical/:serialNumber', async (req: Request, res: Response) => {
     try {
