@@ -104,7 +104,7 @@ export const demoRobotPositions: Record<string, RobotPosition> = {
   }
 };
 
-const demoRobotSensors: Record<string, RobotSensorData> = {
+export const demoRobotSensors: Record<string, RobotSensorData> = {
   'AX-2000-1': {
     temperature: 23.5,
     humidity: 48,
@@ -128,7 +128,7 @@ const demoRobotSensors: Record<string, RobotSensorData> = {
   }
 };
 
-const demoMapData: Record<string, MapData> = {
+export const demoMapData: Record<string, MapData> = {
   'AX-2000-1': {
     grid: [],
     obstacles: [
@@ -186,7 +186,7 @@ const demoMapData: Record<string, MapData> = {
   }
 };
 
-const demoTasks: Record<string, string> = {
+export const demoTasks: Record<string, string> = {
   'AX-2000-1': 'Delivering packages to zone A',
   'AX-2000-2': 'Awaiting instructions',
   'AX-2000-3': 'Charging at station 3'

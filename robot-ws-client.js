@@ -14,6 +14,7 @@
  *    functions to read actual data from your robot's sensors
  */
 
+// This is an ES module
 import { WebSocket } from 'ws';
 
 // Configuration - Replace these with your actual robot's details

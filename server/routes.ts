@@ -5,7 +5,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import { setupAuth } from "./auth";
 import { registerAdminRoutes } from "./admin-routes"; 
-import { registerRobotApiRoutes } from "./robot-api";
+import { registerRobotApiRoutes, demoRobotStatus, demoRobotPositions, demoRobotSensors, demoMapData, demoTasks } from "./robot-api";
 import { registerMockAssistantRoutes } from "./mock-assistant";
 import { z } from "zod";
 import { WebSocketServer, WebSocket } from 'ws';
@@ -300,9 +300,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('WebSocket client connected for direct robot communication');
     
     // Store for robot identity and registration
-    let robotSerial = null;
-    let robotModel = null;
-    let isRegistered = false;
+    let robotSerial: string | null = null;
+    let robotModel: string | null = null;
+    let isRegistered: boolean = false;
     
     ws.on('message', (message) => {
       try {
