@@ -112,7 +112,7 @@ export default function RobotAssignments() {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (data: AssignmentFormData) => {
-      return apiRequest('/api/robot-assignments', {
+      return apiRequest('/api/robot-assignments/register', {
         method: 'POST',
         data,
       });
