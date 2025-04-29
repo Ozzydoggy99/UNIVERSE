@@ -155,7 +155,7 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
 
 export async function toggleRobotCamera(serialNumber: string, enabled: boolean): Promise<CameraData> {
   try {
-    const response = await apiRequest("POST", `/api/robots/camera/${serialNumber}/toggle`, { enabled });
+    const response = await apiRequest("POST", `/api/robots/camera/${serialNumber}`, { enabled });
     return await response.json();
   } catch (error) {
     console.error(`Error toggling camera for robot ${serialNumber}:`, error);

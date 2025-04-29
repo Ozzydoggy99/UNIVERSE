@@ -140,6 +140,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
         robotWebSocket.requestSensorData();
         robotWebSocket.requestMapData();
         robotWebSocket.requestTaskInfo();
+        robotWebSocket.requestCameraData(); // Add camera data request
       }
     }, 1000); // Small delay to ensure connection is established
     
