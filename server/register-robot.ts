@@ -41,7 +41,8 @@ export async function registerRobot(
         serialNumber,
         robotModel: model,
         templateId,
-        name: `${model} (${serialNumber})`
+        name: `${model} (${serialNumber})`,
+        location: 'Main Floor'
       };
       
       const assignment = await storage.createRobotTemplateAssignment(newAssignment);

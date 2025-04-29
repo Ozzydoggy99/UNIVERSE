@@ -197,6 +197,8 @@ export const insertRobotTaskSchema = createInsertSchema(robotTasks).pick({
 export const insertRobotTemplateAssignmentSchema = createInsertSchema(robotTemplateAssignments).pick({
   serialNumber: true,
   templateId: true,
+  name: true,
+  location: true,
   robotName: true,
   robotModel: true,
   isActive: true,

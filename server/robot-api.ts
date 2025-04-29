@@ -219,10 +219,10 @@ export function registerRobotApiRoutes(app: Express) {
       // Create a new assignment
       const assignment = await storage.createRobotTemplateAssignment({
         name: `Robot ${serialNumber}`,
-        description: `Physical robot (${serialNumber})`,
         serialNumber: serialNumber,
         templateId: 1,
         location: 'Main Floor',
+        robotModel: 'Physical Robot',
         isActive: true
       });
       
