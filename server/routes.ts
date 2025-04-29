@@ -2,6 +2,7 @@ import express, { type Express, Request, Response } from "express";
 import { z } from 'zod';
 import WebSocket, { WebSocketServer } from 'ws';
 import { createServer, Server } from 'http';
+import fetch from 'node-fetch';
 import { 
   demoRobotStatus, 
   demoRobotPositions, 
@@ -227,6 +228,39 @@ function setupWebSockets(httpServer: Server) {
               robotSerial = data.serialNumber;
               robotModel = data.model;
               isRegistered = true;
+              
+              // Add the robot to demoRobotStatus if it doesn't exist
+              if (!demoRobotStatus[robotSerial]) {
+                demoRobotStatus[robotSerial] = {
+                  model: robotModel,
+                  serialNumber: robotSerial,
+                  battery: 100,
+                  status: 'registered',
+                  mode: 'manual',
+                  lastUpdate: new Date().toISOString()
+                };
+                
+                console.log(`Added robot to demoRobotStatus: ${robotSerial}`);
+              }
+              
+              // Manually create a robot assignment if it doesn't exist
+              // We will use the existing API to register it fully
+              fetch('http://localhost:5000/api/robots/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  serialNumber: robotSerial,
+                  model: robotModel || 'Physical Robot',
+                  templateId: 1
+                })
+              })
+              .then(response => response.json())
+              .then(data => {
+                console.log(`Created robot assignment for ${robotSerial}:`, data);
+              })
+              .catch(error => {
+                console.error(`Failed to create robot assignment for ${robotSerial}:`, error);
+              });
               
               ws.send(JSON.stringify({
                 type: 'registered',
