@@ -113,6 +113,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Robots list API endpoint
+  app.get('/api/robots', async (req: Request, res: Response) => {
+    try {
+      // Return a list of all robot status data from the demo data
+      const robots = Object.keys(demoRobotStatus).map(serialNumber => ({
+        serialNumber,
+        ...demoRobotStatus[serialNumber]
+      }));
+      res.json(robots);
+    } catch (error) {
+      console.error('Error fetching robots:', error);
+      res.status(500).json({ error: 'Failed to fetch robots' });
+    }
+  });
+  
   app.get('/api/users/:id', async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id);
