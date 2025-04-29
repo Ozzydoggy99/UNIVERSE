@@ -241,8 +241,8 @@ function setupWebSockets(httpServer: Server) {
             const data = JSON.parse(message.toString());
             console.log('Received camera message:', data);
             
-            // Use our camera API handler
-            setupCameraWebSocketHandlers(ws, data, connectedClients);
+            // Use our new camera WebSocket handler
+            processCameraWebSocketMessage(data, ws, connectedClients);
           } catch (error) {
             console.error('Error processing camera WebSocket message:', error);
             sendError(ws, 'Error processing message');
