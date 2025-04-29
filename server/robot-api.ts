@@ -7,9 +7,10 @@ const registeredRobots = new Set<string>();
 
 // Initialize demo status for physical robot if it doesn't exist
 function ensurePhysicalRobotData() {
+  // First robot (original)
   const PHYSICAL_ROBOT_SERIAL = 'L382502104988is';
   
-  // Add demo status for the physical robot if it doesn't exist
+  // Add demo status for the first physical robot if it doesn't exist
   if (!demoRobotStatus[PHYSICAL_ROBOT_SERIAL]) {
     console.log(`Initializing data for physical robot ${PHYSICAL_ROBOT_SERIAL}`);
     
@@ -75,6 +76,77 @@ function ensurePhysicalRobotData() {
     
     // Add to registered robots set
     registeredRobots.add(PHYSICAL_ROBOT_SERIAL);
+  }
+  
+  // Second robot (with public IP access)
+  const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
+  
+  // Add data for the second physical robot with public IP access
+  if (!demoRobotStatus[PUBLIC_ROBOT_SERIAL]) {
+    console.log(`Initializing data for public-accessible robot ${PUBLIC_ROBOT_SERIAL}`);
+    
+    demoRobotStatus[PUBLIC_ROBOT_SERIAL] = {
+      model: "Physical Robot (Public)",
+      serialNumber: PUBLIC_ROBOT_SERIAL,
+      battery: 95,
+      status: 'charging',
+      mode: 'ready',
+      lastUpdate: new Date().toISOString()
+    };
+    
+    demoRobotPositions[PUBLIC_ROBOT_SERIAL] = {
+      x: 150,
+      y: 95,
+      z: 0,
+      orientation: 180,
+      speed: 0,
+      timestamp: new Date().toISOString()
+    };
+    
+    demoRobotSensors[PUBLIC_ROBOT_SERIAL] = {
+      temperature: 24.2,
+      humidity: 45,
+      proximity: [1.5, 2.8, 3.0, 1.7],
+      battery: 95,
+      timestamp: new Date().toISOString()
+    };
+    
+    demoMapData[PUBLIC_ROBOT_SERIAL] = {
+      grid: [],
+      obstacles: [
+        { x: 60, y: 60, z: 0 },
+        { x: 120, y: 110, z: 0 },
+        { x: 180, y: 70, z: 0 }
+      ],
+      paths: [
+        {
+          points: [
+            { x: 60, y: 60, z: 0 },
+            { x: 90, y: 80, z: 0 },
+            { x: 120, y: 90, z: 0 },
+            { x: 150, y: 95, z: 0 }
+          ],
+          status: 'active'
+        }
+      ]
+    };
+    
+    demoCameraData[PUBLIC_ROBOT_SERIAL] = {
+      enabled: true,
+      streamUrl: `http://47.180.91.99:8080/stream`,
+      resolution: {
+        width: 1280,
+        height: 720
+      },
+      rotation: 0,
+      nightVision: true,
+      timestamp: new Date().toISOString()
+    };
+    
+    demoTasks[PUBLIC_ROBOT_SERIAL] = 'Charging at station';
+    
+    // Add to registered robots set
+    registeredRobots.add(PUBLIC_ROBOT_SERIAL);
   }
 }
 
