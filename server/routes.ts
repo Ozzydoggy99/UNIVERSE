@@ -230,21 +230,40 @@ function setupWebSockets(httpServer: Server) {
               isRegistered = true;
               
               // Add the robot to demoRobotStatus if it doesn't exist
-              if (!demoRobotStatus[robotSerial]) {
+              if (robotSerial && !demoRobotStatus[robotSerial]) {
                 demoRobotStatus[robotSerial] = {
-                  model: robotModel,
+                  model: robotModel || 'Physical Robot',
                   serialNumber: robotSerial,
                   battery: 100,
-                  status: 'registered',
-                  mode: 'manual',
+                  status: 'online',
+                  mode: 'ready',
                   lastUpdate: new Date().toISOString()
                 };
                 
                 console.log(`Added robot to demoRobotStatus: ${robotSerial}`);
+                
+                // Also create a new assignment manually in memory
+                const newAssignment = {
+                  id: Date.now(),
+                  name: `Robot ${robotSerial}`,
+                  description: `Physical robot (${robotModel || 'Unknown Model'})`,
+                  serialNumber: robotSerial,
+                  templateId: 1,
+                  location: 'Main Floor'
+                };
+                
+                // Add this assignment directly to the database
+                storage.createRobotTemplateAssignment(newAssignment)
+                  .then(assignment => {
+                    console.log(`Created robot assignment for ${robotSerial} in database:`, assignment);
+                  })
+                  .catch(err => {
+                    console.error(`Error creating robot assignment for ${robotSerial}:`, err);
+                  });
               }
               
-              // Manually create a robot assignment if it doesn't exist
-              // We will use the existing API to register it fully
+              // Try direct API call as a backup method
+              console.log(`Attempting to register robot ${robotSerial} via direct API call...`);
               fetch('http://localhost:5000/api/robots/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -254,12 +273,18 @@ function setupWebSockets(httpServer: Server) {
                   templateId: 1
                 })
               })
-              .then(response => response.json())
+              .then(response => {
+                if (response.ok) {
+                  return response.json();
+                } else {
+                  throw new Error(`HTTP error: ${response.status}`);
+                }
+              })
               .then(data => {
-                console.log(`Created robot assignment for ${robotSerial}:`, data);
+                console.log(`Created robot assignment for ${robotSerial} via API:`, data);
               })
               .catch(error => {
-                console.error(`Failed to create robot assignment for ${robotSerial}:`, error);
+                console.error(`Failed to create robot assignment for ${robotSerial} via API:`, error);
               });
               
               ws.send(JSON.stringify({
