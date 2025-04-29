@@ -50,6 +50,7 @@ class RobotWebSocketClient {
         console.log('Robot WebSocket connection established');
         this.connectionState = 'connected';
         this.reconnectAttempts = 0;
+        this.lastSuccessfulConnection = Date.now(); // Track successful connection time
         this.notifyListeners({ type: 'connection', state: this.connectionState });
       });
 
@@ -58,6 +59,9 @@ class RobotWebSocketClient {
         try {
           const data = JSON.parse(event.data);
           console.log('Received robot data:', data);
+          
+          // Each successful message indicates connection is still active
+          this.lastSuccessfulConnection = Date.now();
 
           // Process different message types
           if (data.type === 'connection_established') {
@@ -142,27 +146,52 @@ class RobotWebSocketClient {
     }
   }
 
-  // Reconnect after connection lost
+  // Reconnect after connection lost with exponential backoff
   private reconnect() {
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
     }
 
+    // Reset reconnect attempts after 2 minutes of successful connection
+    const now = Date.now();
+    if (this.lastSuccessfulConnection && (now - this.lastSuccessfulConnection) > 120000) {
+      this.reconnectAttempts = 0;
+    }
+
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`Reconnecting in ${this.reconnectTimeout/1000}s... (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      
+      // Exponential backoff with a maximum of 30 seconds
+      const backoffTime = Math.min(
+        this.reconnectTimeout * Math.pow(1.5, this.reconnectAttempts - 1),
+        30000
+      );
+      
+      console.log(`Reconnecting in ${Math.round(backoffTime/1000)}s... (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
       
       this.reconnectTimer = window.setTimeout(() => {
+        console.log('Attempting to reconnect WebSocket...');
         this.connect();
-      }, this.reconnectTimeout);
+      }, backoffTime);
     } else {
-      console.error('Maximum reconnection attempts reached');
+      console.error('Maximum reconnection attempts reached, will try again in 30 seconds');
+      
+      // After max attempts, try one more time after 30 seconds
+      this.reconnectTimer = window.setTimeout(() => {
+        console.log('Final reconnection attempt...');
+        this.reconnectAttempts = 0; // Reset for fresh start
+        this.connect();
+      }, 30000);
+      
       this.notifyListeners({
         type: 'error',
-        message: 'Failed to connect to robot after multiple attempts'
+        message: 'Failed to connect to robot after multiple attempts. Will try again soon.'
       });
     }
   }
+  
+  // Track the last successful connection time
+  private lastSuccessfulConnection: number | null = null;
 
   // Close connection
   disconnect() {
