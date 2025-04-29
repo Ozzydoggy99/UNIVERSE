@@ -433,17 +433,29 @@ export default function RobotDetails() {
                   </span>
                   <span className="font-medium flex items-center gap-1">
                     {sensors.battery}%
-                    {/* Showing charging indicator for testing purposes - will be conditional on actual status later */}
-                    <span className="inline-flex items-center">
-                      <span className="inline-block w-3.5 h-3.5 rounded-full bg-purple-500 animate-pulse"></span>
-                      <span className="ml-1 text-xs text-purple-500">Charging</span>
-                    </span>
+                    {status.status?.toLowerCase() === 'charging' ? (
+                      <span className="inline-flex items-center">
+                        <span className="inline-block w-3.5 h-3.5 rounded-full bg-purple-500 animate-pulse"></span>
+                        <span className="ml-1 text-xs text-purple-500">Charging</span>
+                      </span>
+                    ) : status.status?.toLowerCase() === 'working' || status.status?.toLowerCase() === 'active' ? (
+                      <span className="inline-flex items-center">
+                        <span className="inline-block w-3.5 h-3.5 rounded-full bg-blue-500 animate-pulse"></span>
+                        <span className="ml-1 text-xs text-blue-500">In-Use</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center">
+                        <span className="inline-block w-3.5 h-3.5 rounded-full bg-gray-400"></span>
+                        <span className="ml-1 text-xs text-gray-500">Not Charging</span>
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
                   <div 
                     className={`h-full transition-all ${
                       status.status?.toLowerCase() === 'charging' ? "bg-purple-500" :
+                      status.status?.toLowerCase() === 'working' || status.status?.toLowerCase() === 'active' ? "bg-blue-500" :
                       sensors.battery >= 50 ? "bg-green-500" : 
                       sensors.battery >= 20 ? "bg-amber-500" : 
                       "bg-red-500"
