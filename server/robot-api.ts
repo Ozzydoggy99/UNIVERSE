@@ -193,6 +193,47 @@ export const demoTasks: Record<string, string> = {
 };
 
 export function registerRobotApiRoutes(app: Express) {
+  // Register a specific robot by serial number (helper endpoint for physical robots)
+  app.get('/api/robots/register-physical/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      
+      // Add to demo status if it doesn't exist
+      if (!demoRobotStatus[serialNumber]) {
+        demoRobotStatus[serialNumber] = {
+          model: "Physical Robot",
+          serialNumber: serialNumber,
+          battery: 100,
+          status: 'online',
+          mode: 'ready',
+          lastUpdate: new Date().toISOString()
+        };
+      }
+      
+      // Check if this robot already has an assignment
+      const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      if (existingAssignment) {
+        return res.json(existingAssignment);
+      }
+      
+      // Create a new assignment
+      const assignment = await storage.createRobotTemplateAssignment({
+        name: `Robot ${serialNumber}`,
+        description: `Physical robot (${serialNumber})`,
+        serialNumber: serialNumber,
+        templateId: 1,
+        location: 'Main Floor',
+        isActive: true
+      });
+      
+      console.log(`Created assignment for physical robot ${serialNumber}`);
+      res.json(assignment);
+    } catch (error) {
+      console.error(`Error registering physical robot ${req.params.serialNumber}:`, error);
+      res.status(500).json({ error: 'Failed to register physical robot' });
+    }
+  });
+  
   // Register a new robot or update existing robot
   app.post('/api/robots/register', async (req: Request, res: Response) => {
     try {
@@ -560,6 +601,56 @@ export function registerRobotApiRoutes(app: Express) {
     } catch (error) {
       console.error('Error fetching robot task:', error);
       res.status(500).json({ error: 'Failed to fetch robot task' });
+    }
+  });
+  
+  // Delete a robot assignment
+  app.delete('/api/robot-assignments/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Get the assignment first to retrieve the serial number
+      const assignment = await storage.getRobotTemplateAssignment(id);
+      
+      if (!assignment) {
+        return res.status(404).json({ error: 'Robot assignment not found' });
+      }
+      
+      // Delete the assignment from storage
+      const success = await storage.deleteRobotTemplateAssignment(id);
+      
+      if (!success) {
+        return res.status(500).json({ error: 'Failed to delete robot assignment' });
+      }
+      
+      // Also clean up the robot data from our demo data
+      const serialNumber = assignment.serialNumber;
+      if (serialNumber) {
+        // Remove from demo status if it exists
+        if (demoRobotStatus[serialNumber]) {
+          delete demoRobotStatus[serialNumber];
+        }
+        
+        // Remove from position data if it exists
+        if (demoRobotPositions[serialNumber]) {
+          delete demoRobotPositions[serialNumber];
+        }
+        
+        // Remove from sensor data if it exists
+        if (demoRobotSensors[serialNumber]) {
+          delete demoRobotSensors[serialNumber];
+        }
+        
+        // Remove from task data if it exists
+        if (demoTasks[serialNumber]) {
+          delete demoTasks[serialNumber];
+        }
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error('Error deleting robot assignment:', error);
+      res.status(500).json({ error: 'Failed to delete robot assignment' });
     }
   });
 }
