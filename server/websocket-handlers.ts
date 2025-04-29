@@ -122,7 +122,12 @@ export function handleToggleRobotCamera(ws: WebSocket, serialNumber: string, ena
     
     // Update stream URL based on enabled state
     if (camera.enabled && !camera.streamUrl) {
-      camera.streamUrl = 'https://example.com/robot-stream-' + serialNumber + '.jpg';
+      // Use the real robot IP for our physical robot
+      if (serialNumber === 'L382502104988is') {
+        camera.streamUrl = 'http://192.168.4.32:8080/stream';
+      } else {
+        camera.streamUrl = 'https://example.com/robot-stream-' + serialNumber + '.jpg';
+      }
     } else if (!camera.enabled) {
       camera.streamUrl = '';
     }

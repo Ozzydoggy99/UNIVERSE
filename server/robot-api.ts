@@ -274,7 +274,7 @@ export const demoMapData: Record<string, MapData> = {
 export const demoCameraData: Record<string, CameraData> = {
   'L382502104988is': { // Our physical robot
     enabled: true,
-    streamUrl: 'https://example.com/robot-stream-L382502104988is.jpg',
+    streamUrl: 'http://192.168.4.32:8080/stream',
     resolution: {
       width: 1280,
       height: 720

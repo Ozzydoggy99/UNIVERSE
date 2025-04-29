@@ -49,7 +49,12 @@ export function processCameraWebSocketMessage(data: any, ws: WebSocket, connecte
       
       // Update stream URL based on enabled state
       if (camera.enabled && !camera.streamUrl) {
-        camera.streamUrl = 'https://example.com/robot-stream-' + data.serialNumber + '.jpg';
+        // Use the real robot IP for our physical robot
+        if (data.serialNumber === 'L382502104988is') {
+          camera.streamUrl = 'http://192.168.4.32:8080/stream';
+        } else {
+          camera.streamUrl = 'https://example.com/robot-stream-' + data.serialNumber + '.jpg';
+        }
       } else if (!camera.enabled) {
         camera.streamUrl = '';
       }

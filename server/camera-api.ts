@@ -63,7 +63,12 @@ export function registerCameraApiRoutes(app: Express) {
           
           // Update the stream URL based on the enabled state
           if (enabled && !cameraData.streamUrl) {
-            cameraData.streamUrl = 'https://example.com/robot-stream-default.jpg';
+            // Use the real robot IP for our physical robot
+            if (serialNumber === 'L382502104988is') {
+              cameraData.streamUrl = 'http://192.168.4.32:8080/stream';
+            } else {
+              cameraData.streamUrl = 'https://example.com/robot-stream-default.jpg';
+            }
           } else if (!enabled) {
             cameraData.streamUrl = '';
           }
