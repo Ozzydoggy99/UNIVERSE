@@ -24,6 +24,11 @@ import {
   Laptop,
   RotateCw,
   Battery,
+  BatteryCharging,
+  BatteryFull,
+  BatteryMedium,
+  BatteryLow,
+  BatteryWarning,
   Thermometer,
   Droplets,
   Signal,
@@ -338,9 +343,9 @@ export default function RobotDetails() {
   };
 
   // Format sensor proximity data
-  const formatProximity = (proximity: number[]) => {
-    if (!proximity || proximity.length === 0) return 'No data';
-    return `${proximity.map(p => p.toFixed(1)).join('m, ')}m`;
+  const formatProximity = (proximity: number[] | undefined) => {
+    if (!proximity || !Array.isArray(proximity) || proximity.length === 0) return 'No data';
+    return `${proximity.map(p => Number(p).toFixed(1)).join('m, ')}m`;
   };
 
   // Get status color based on robot status
@@ -413,12 +418,36 @@ export default function RobotDetails() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="flex items-center gap-1 text-sm">
-                    <Battery className="h-4 w-4 text-green-500" />
+                    {status.status?.toLowerCase() === 'charging' ? (
+                      <BatteryCharging className="h-4 w-4 text-purple-500" />
+                    ) : sensors.battery >= 90 ? (
+                      <BatteryFull className="h-4 w-4 text-green-500" />
+                    ) : sensors.battery >= 50 ? (
+                      <BatteryMedium className="h-4 w-4 text-green-500" />
+                    ) : sensors.battery >= 20 ? (
+                      <BatteryLow className="h-4 w-4 text-amber-500" />
+                    ) : (
+                      <BatteryWarning className="h-4 w-4 text-red-500" />
+                    )}
                     Battery
                   </span>
                   <span className="font-medium">{sensors.battery}%</span>
                 </div>
-                <Progress value={sensors.battery} className="h-2" />
+                <Progress 
+                  value={sensors.battery} 
+                  className={`h-2 ${
+                    status.status?.toLowerCase() === 'charging' ? "bg-purple-500" :
+                    sensors.battery >= 50 ? "bg-green-500" : 
+                    sensors.battery >= 20 ? "bg-amber-500" : 
+                    "bg-red-500"
+                  }`}
+                />
+                {status.status?.toLowerCase() === 'charging' && (
+                  <div className="flex items-center justify-start mt-1 text-xs text-purple-500">
+                    <div className="w-2 h-2 rounded-full bg-purple-500 mr-1 animate-pulse"></div>
+                    <span>Charging</span>
+                  </div>
+                )}
               </div>
 
               {/* Location */}
