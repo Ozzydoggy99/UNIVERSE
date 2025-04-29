@@ -279,7 +279,7 @@ export default function RobotDetails() {
     model: 'AxBot 2000',
     serialNumber: serialNumber || 'AX-2000-1',
     battery: 78,
-    status: 'active',
+    status: 'charging',  // Changed to charging for testing
     mode: 'autonomous',
     lastUpdate: new Date().toISOString()
   };
