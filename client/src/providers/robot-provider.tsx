@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { RobotStatus, RobotPosition, RobotSensorData, MapData } from "@/types/robot";
+import { RobotStatus, RobotPosition, RobotSensorData, MapData, CameraData } from "@/types/robot";
 import { 
   getRobotStatus, 
   getRobotPosition, 
   getRobotSensorData, 
-  getMapData 
+  getMapData,
+  getRobotCameraData,
+  toggleRobotCamera
 } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import { robotWebSocket, RobotUpdateEvent, RobotUpdateListener } from "@/lib/robotWebSocket";
@@ -14,14 +16,17 @@ interface RobotContextType {
   robotPosition: RobotPosition | null;
   robotSensorData: RobotSensorData | null;
   mapData: MapData | null;
+  cameraData: CameraData | null;
   lastUpdated: Date | null;
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'error';
   setRobotData: (
     status: RobotStatus | null, 
     position: RobotPosition | null, 
     sensorData: RobotSensorData | null,
-    mapData: MapData | null
+    mapData: MapData | null,
+    cameraData: CameraData | null
   ) => void;
+  toggleCamera: (enabled: boolean) => Promise<void>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
   isConnected: () => boolean;
@@ -39,6 +44,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
   const [robotPosition, setRobotPosition] = useState<RobotPosition | null>(null);
   const [robotSensorData, setRobotSensorData] = useState<RobotSensorData | null>(null);
   const [mapData, setMapData] = useState<MapData | null>(null);
+  const [cameraData, setCameraData] = useState<CameraData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   

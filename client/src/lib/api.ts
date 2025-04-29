@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
-import { RobotStatus, RobotPosition, RobotSensorData } from "@/types/robot";
+import { RobotStatus, RobotPosition, RobotSensorData, CameraData } from "@/types/robot";
 
 // API endpoint configurations
 const API_URL = import.meta.env.VITE_AXBOT_API_URL || "/api/axbot";
@@ -139,6 +139,27 @@ export async function getMapData(serialNumber?: string) {
     // Use the general API endpoint
     const response = await apiRequest("GET", `${API_URL}/map`);
     return response.json();
+  }
+}
+
+// Camera Functions
+export async function getRobotCameraData(serialNumber: string): Promise<CameraData> {
+  try {
+    const response = await apiRequest("GET", `/api/robots/camera/${serialNumber}`);
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching camera data for robot ${serialNumber}:`, error);
+    throw error;
+  }
+}
+
+export async function toggleRobotCamera(serialNumber: string, enabled: boolean): Promise<CameraData> {
+  try {
+    const response = await apiRequest("POST", `/api/robots/camera/${serialNumber}/toggle`, { enabled });
+    return await response.json();
+  } catch (error) {
+    console.error(`Error toggling camera for robot ${serialNumber}:`, error);
+    throw error;
   }
 }
 

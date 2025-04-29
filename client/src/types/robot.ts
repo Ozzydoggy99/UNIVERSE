@@ -7,6 +7,8 @@ export interface RobotStatus {
   mode?: string;
   lastUpdate?: string;
   task?: string;
+  cameraEnabled?: boolean;
+  cameraUrl?: string;
   location?: {
     x: number;
     y: number;
@@ -46,4 +48,16 @@ export interface MapData {
   grid: any[];
   obstacles: MapPoint[];
   paths: MapPath[];
+}
+
+export interface CameraData {
+  enabled: boolean;
+  streamUrl: string;
+  resolution: {
+    width: number;
+    height: number;
+  };
+  rotation: number;
+  nightVision: boolean;
+  timestamp: string;
 }
