@@ -1,0 +1,10 @@
+{
+  "name": "robot-client",
+  "version": "1.0.0",
+  "description": "Robot WebSocket Client",
+  "main": "robot-ws-client.js",
+  "type": "module",
+  "scripts": {
+    "start": "node robot-ws-client.js"
+  }
+}

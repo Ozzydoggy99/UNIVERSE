@@ -51,19 +51,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up WebSocket server for real-time updates
   const wssRobotTasks = new WebSocketServer({ 
     server: httpServer, 
-    path: '/ws/robot-tasks' 
+    path: '/api/ws/robot-tasks' 
   });
   
   // Set up WebSocket server for elevator real-time updates
   const wssElevator = new WebSocketServer({
     server: httpServer,
-    path: '/ws/elevator'
+    path: '/api/ws/elevator'
   });
   
   // Set up WebSocket server for direct robot communication
   const wssRobot = new WebSocketServer({
     server: httpServer,
-    path: '/ws/robot'
+    path: '/api/ws/robot'
   });
   
   // Handle WebSocket connections for elevator events
