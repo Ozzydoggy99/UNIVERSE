@@ -153,15 +153,20 @@ function setupWebSockets(httpServer: Server) {
               
               if (data.sensors) {
                 // Update sensors in demo data
-                demoRobotSensors[robotSerial] = {
+                const sensorData = {
                   ...data.sensors,
                   timestamp: new Date().toISOString()
                 };
+                demoRobotSensors[robotSerial] = sensorData;
                 
+                // Send confirmation to robot
                 ws.send(JSON.stringify({
                   type: 'sensors_updated',
                   timestamp: new Date().toISOString()
                 }));
+                
+                // Broadcast to all connected clients
+                broadcastRobotUpdate(connectedClients, 'robot_sensors_update', robotSerial, sensorData);
               }
             }
             else if (data.type === 'get_task') {

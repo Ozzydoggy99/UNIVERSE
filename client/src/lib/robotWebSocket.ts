@@ -37,7 +37,7 @@ class RobotWebSocketClient {
 
     // Determine WebSocket URL (consider protocol, host)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/ws/robot`;
+    const wsUrl = `${protocol}//${window.location.host}/api/ws/client`;
     console.log('Connecting to WebSocket URL:', wsUrl);
 
     try {
@@ -58,25 +58,42 @@ class RobotWebSocketClient {
           console.log('Received robot data:', data);
 
           // Process different message types
-          if (data.type === 'status_updated' && data.status) {
+          if (data.type === 'connection_established') {
+            console.log('WebSocket connection established:', data.message);
+          } else if (data.type === 'status' && data.data) {
             this.notifyListeners({
               type: 'status',
-              data: data.status
+              data: data.data
             });
-          } else if (data.type === 'position_updated' && data.position) {
+          } else if (data.type === 'position' && data.data) {
             this.notifyListeners({
               type: 'position',
-              data: data.position
+              data: data.data
             });
-          } else if (data.type === 'sensors_updated' && data.sensors) {
+          } else if (data.type === 'sensors' && data.data) {
             this.notifyListeners({
               type: 'sensors',
-              data: data.sensors
+              data: data.data
             });
-          } else if (data.type === 'map_updated' && data.map) {
+          } else if (data.type === 'map' && data.data) {
             this.notifyListeners({
               type: 'map',
-              data: data.map
+              data: data.data
+            });
+          } else if (data.type === 'robot_status_update' && data.data) {
+            this.notifyListeners({
+              type: 'status',
+              data: data.data
+            });
+          } else if (data.type === 'robot_position_update' && data.data) {
+            this.notifyListeners({
+              type: 'position',
+              data: data.data
+            });
+          } else if (data.type === 'robot_sensors_update' && data.data) {
+            this.notifyListeners({
+              type: 'sensors',
+              data: data.data
             });
           } else if (data.type === 'error') {
             this.notifyListeners({
@@ -204,7 +221,7 @@ class RobotWebSocketClient {
   // Request robot status update
   requestStatus(serialNumber?: string) {
     return this.sendMessage({
-      type: 'get_status',
+      type: 'get_robot_status',
       serialNumber
     });
   }
@@ -212,7 +229,7 @@ class RobotWebSocketClient {
   // Request robot position update
   requestPosition(serialNumber?: string) {
     return this.sendMessage({
-      type: 'get_position',
+      type: 'get_robot_position',
       serialNumber
     });
   }
@@ -220,7 +237,7 @@ class RobotWebSocketClient {
   // Request robot sensor data
   requestSensorData(serialNumber?: string) {
     return this.sendMessage({
-      type: 'get_sensors',
+      type: 'get_robot_sensors',
       serialNumber
     });
   }
@@ -228,7 +245,7 @@ class RobotWebSocketClient {
   // Request robot map data
   requestMapData(serialNumber?: string) {
     return this.sendMessage({
-      type: 'get_map',
+      type: 'get_robot_map',
       serialNumber
     });
   }
@@ -236,7 +253,7 @@ class RobotWebSocketClient {
   // Request current task for robot
   requestTaskInfo(serialNumber?: string) {
     return this.sendMessage({
-      type: 'get_task',
+      type: 'get_robot_task',
       serialNumber
     });
   }
