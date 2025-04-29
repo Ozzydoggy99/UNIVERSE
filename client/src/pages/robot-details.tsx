@@ -431,7 +431,12 @@ export default function RobotDetails() {
                     )}
                     Battery
                   </span>
-                  <span className="font-medium">{sensors.battery}%</span>
+                  <span className="font-medium flex items-center gap-1">
+                    {sensors.battery}%
+                    {status.status?.toLowerCase() === 'charging' && (
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" title="Charging"></span>
+                    )}
+                  </span>
                 </div>
                 <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
                   <div 
@@ -444,12 +449,6 @@ export default function RobotDetails() {
                     style={{ width: `${sensors.battery}%` }}
                   ></div>
                 </div>
-                {status.status?.toLowerCase() === 'charging' && (
-                  <div className="flex items-center justify-start mt-1 text-xs text-purple-500">
-                    <div className="w-2 h-2 rounded-full bg-purple-500 mr-1 animate-pulse"></div>
-                    <span>Charging</span>
-                  </div>
-                )}
               </div>
 
               {/* Location */}
