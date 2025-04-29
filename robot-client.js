@@ -13,7 +13,7 @@
  *    to read actual data from your robot's sensors
  */
 
-const axios = require('axios');
+import axios from 'axios';
 
 // Configuration - Replace these with your actual robot's details
 const ROBOT_CONFIG = {

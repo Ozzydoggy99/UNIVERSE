@@ -14,7 +14,7 @@
  *    functions to read actual data from your robot's sensors
  */
 
-const WebSocket = require('ws');
+import { WebSocket } from 'ws';
 
 // Configuration - Replace these with your actual robot's details
 const ROBOT_CONFIG = {
