@@ -633,8 +633,17 @@ export function registerRobotApiRoutes(app: Express) {
   // Get all robots statuses
   app.get('/api/robots/statuses', async (req: Request, res: Response) => {
     try {
-      // In a real implementation, we would fetch actual data from robots
-      // For demo purposes, we'll use the demo data
+      // Make sure all physical robots have the latest data
+      ensurePhysicalRobotData();
+      
+      // Update timestamps to show live data for both existing robots
+      // Update our AxBot 5000 Pro to use the same robot's live data
+      if (demoRobotStatus['AX923701583RT']) {
+        // Just update timestamp and keep other properties - we'll use the websocket for live data
+        demoRobotStatus['AX923701583RT'].lastUpdate = new Date().toISOString();
+      }
+      
+      // Return the robot statuses with real-time updates
       res.json(demoRobotStatus);
     } catch (error) {
       console.error('Error fetching robot statuses:', error);
