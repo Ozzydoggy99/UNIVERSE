@@ -128,12 +128,29 @@ class RobotWebSocketClient {
       // Connection error
       this.ws.addEventListener('error', (error) => {
         console.error('Robot WebSocket error:', error);
-        this.connectionState = 'error';
-        this.notifyListeners({ 
-          type: 'connection', 
-          state: this.connectionState 
-        });
-        // Error handling is also managed by the 'close' event
+        console.log('WebSocket readyState:', this.ws?.readyState);
+        
+        // Only set error state if we're not already disconnected
+        // This prevents duplicate error notifications
+        if (this.connectionState !== 'disconnected') {
+          this.connectionState = 'error';
+          this.notifyListeners({ 
+            type: 'connection', 
+            state: this.connectionState 
+          });
+          
+          this.notifyListeners({
+            type: 'error',
+            message: 'Connection error occurred. Attempting to reconnect...'
+          });
+        }
+        
+        // Don't wait for close event if readyState is already closed
+        if (this.ws?.readyState === WebSocket.CLOSED) {
+          console.log('WebSocket already closed after error, initiating reconnect directly');
+          this.reconnect();
+        }
+        // Close event will handle reconnection in other cases
       });
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);
