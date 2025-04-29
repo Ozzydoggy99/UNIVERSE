@@ -24,9 +24,9 @@ export function registerCameraApiRoutes(app: Express) {
       // Get the robot camera data to find the stream URL
       const camera = demoCameraData[serialNumber];
       
-      // If this is our publicly accessible robot, try to use its stream directly
-      if (serialNumber === 'L382502104987ir' && camera && camera.enabled && camera.streamUrl) {
-        console.log(`Attempting to proxy public robot camera stream from ${camera.streamUrl}`);
+      // If this is one of our publicly accessible robots, try to use its stream directly
+      if ((serialNumber === 'L382502104987ir' || serialNumber === 'AX923701583RT') && camera && camera.enabled && camera.streamUrl) {
+        console.log(`Attempting to proxy robot camera stream from ${camera.streamUrl} for ${serialNumber}`);
         try {
           // Try to get a real-time stream from our public robot
           const response = await axios.get(camera.streamUrl, {
@@ -45,11 +45,11 @@ export function registerCameraApiRoutes(app: Express) {
           res.setHeader('Pragma', 'no-cache');
           res.setHeader('Expires', '0');
           
-          console.log('Successfully connected to public robot camera stream!');
+          console.log(`Successfully connected to ${serialNumber} robot camera stream!`);
           // Stream the data back to the client
           return response.data.pipe(res);
         } catch (error) {
-          console.error(`Error connecting to public robot camera stream: ${error}`);
+          console.error(`Error connecting to ${serialNumber} robot camera stream: ${error}`);
           // Fall through to regular camera handling
         }
       }
@@ -156,6 +156,14 @@ export function registerCameraApiRoutes(app: Express) {
               // Public accessible robot
               cameraData.streamUrl = 'http://47.180.91.99:8080/stream';
               console.log('Using public IP camera stream for robot:', serialNumber);
+            } else if (serialNumber === 'AX923701583RT') {
+              // AxBot 5000 Pro - new robot with high resolution camera
+              cameraData.streamUrl = 'http://axbot-demo.example.com/stream/AX923701583RT';
+              cameraData.resolution = {
+                width: 1920,
+                height: 1080
+              };
+              console.log('Using high resolution camera stream for AxBot 5000 Pro:', serialNumber);
             } else {
               cameraData.streamUrl = 'https://example.com/robot-stream-default.jpg';
             }
@@ -207,6 +215,14 @@ export function setupCameraWebSocketHandlers(ws: WebSocket, data: any, connected
           // Public accessible robot
           camera.streamUrl = 'http://47.180.91.99:8080/stream';
           console.log('Using public IP camera stream for robot via WebSocket:', data.serialNumber);
+        } else if (data.serialNumber === 'AX923701583RT') {
+          // AxBot 5000 Pro - new robot with high resolution camera
+          camera.streamUrl = 'http://axbot-demo.example.com/stream/AX923701583RT';
+          camera.resolution = {
+            width: 1920,
+            height: 1080
+          };
+          console.log('Using high resolution camera stream for AxBot 5000 Pro via WebSocket:', data.serialNumber);
         } else {
           camera.streamUrl = 'https://example.com/robot-stream-default.jpg';
         }
