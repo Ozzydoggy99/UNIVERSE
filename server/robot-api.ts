@@ -302,6 +302,15 @@ export const demoRobotStatus: Record<string, RobotStatus> = {
     status: 'charging',
     mode: 'sleep',
     lastUpdate: new Date().toISOString()
+  },
+  // Add the new AxBot 5000 Pro robot
+  'AX923701583RT': {
+    model: 'AxBot 5000 Pro',
+    serialNumber: 'AX923701583RT',
+    battery: 87,
+    status: 'active',
+    mode: 'navigation',
+    lastUpdate: new Date().toISOString()
   }
 };
 
@@ -329,6 +338,15 @@ export const demoRobotPositions: Record<string, RobotPosition> = {
     orientation: 270,
     speed: 0,
     timestamp: new Date().toISOString()
+  },
+  // Add the new AxBot 5000 Pro robot position
+  'AX923701583RT': {
+    x: 210,
+    y: 135,
+    z: 0,
+    orientation: 45,
+    speed: 0.3,
+    timestamp: new Date().toISOString()
   }
 };
 
@@ -352,6 +370,14 @@ export const demoRobotSensors: Record<string, RobotSensorData> = {
     humidity: 47,
     proximity: [5.5, 4.2, 3.5, 4.8],
     battery: 92,
+    timestamp: new Date().toISOString()
+  },
+  // Add the new AxBot 5000 Pro robot sensors
+  'AX923701583RT': {
+    temperature: 26.1,
+    humidity: 52,
+    proximity: [2.1, 3.2, 4.5, 2.8],
+    battery: 87,
     timestamp: new Date().toISOString()
   }
 };
@@ -411,6 +437,26 @@ export const demoMapData: Record<string, MapData> = {
         status: 'charging'
       }
     ]
+  },
+  // Add the new AxBot 5000 Pro robot map data
+  'AX923701583RT': {
+    grid: [],
+    obstacles: [
+      { x: 75, y: 90, z: 0 },
+      { x: 140, y: 130, z: 0 },
+      { x: 190, y: 110, z: 0 }
+    ],
+    paths: [
+      {
+        points: [
+          { x: 80, y: 80, z: 0 },
+          { x: 120, y: 110, z: 0 },
+          { x: 160, y: 120, z: 0 },
+          { x: 210, y: 135, z: 0 }
+        ],
+        status: 'active'
+      }
+    ]
   }
 };
 
@@ -458,13 +504,27 @@ export const demoCameraData: Record<string, CameraData> = {
     rotation: 90,
     nightVision: true,
     timestamp: new Date().toISOString()
+  },
+  // Add the AxBot 5000 Pro camera data
+  'AX923701583RT': {
+    enabled: true,
+    streamUrl: 'http://axbot-demo.example.com/stream/AX923701583RT',
+    resolution: {
+      width: 1920,
+      height: 1080
+    },
+    rotation: 0,
+    nightVision: true,
+    timestamp: new Date().toISOString()
   }
 };
 
 export const demoTasks: Record<string, string> = {
   'AX-2000-1': 'Delivering packages to zone A',
   'AX-2000-2': 'Awaiting instructions',
-  'AX-2000-3': 'Charging at station 3'
+  'AX-2000-3': 'Charging at station 3',
+  // Add the AxBot 5000 Pro task
+  'AX923701583RT': 'Navigating to delivery zone'
 };
 
 export function registerRobotApiRoutes(app: Express) {
