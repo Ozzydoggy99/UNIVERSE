@@ -102,6 +102,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // User API endpoints
+  app.get('/api/users', async (req: Request, res: Response) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(Array.from(users.values()));
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ error: 'Failed to fetch users' });
+    }
+  });
+  
+  app.get('/api/users/:id', async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      res.status(500).json({ error: 'Failed to fetch user' });
+    }
+  });
+  
+  // Update user's template
+  app.put('/api/users/:id/template', async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { templateId } = req.body;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // If templateId is null, remove the template assignment
+      if (templateId === null) {
+        const updatedUser = await storage.updateUser(userId, { templateId: null });
+        return res.json(updatedUser);
+      }
+      
+      // Otherwise, verify the template exists and assign it
+      const parsedTemplateId = parseInt(templateId);
+      const template = await storage.getTemplate(parsedTemplateId);
+      
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, { templateId: parsedTemplateId });
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Error updating user template:', error);
+      res.status(500).json({ error: 'Failed to update user template' });
+    }
+  });
+  
   // Create HTTP server
   const httpServer = createServer(app);
   
