@@ -37,6 +37,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Templates API endpoints
   app.get('/api/templates', async (req: Request, res: Response) => {
     try {
+      // Add cache control headers to prevent caching
+      res.set('Cache-Control', 'no-store, max-age=0');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      
       const templates = await storage.getAllTemplates();
       res.json(templates);
     } catch (error) {

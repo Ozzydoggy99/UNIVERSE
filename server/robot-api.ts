@@ -537,6 +537,11 @@ export function registerRobotApiRoutes(app: Express) {
   // Get all robot template assignments
   app.get('/api/robot-assignments', async (req: Request, res: Response) => {
     try {
+      // Add cache control headers to prevent caching
+      res.set('Cache-Control', 'no-store, max-age=0');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      
       // Get all robot template assignments from storage
       const assignments = await storage.getAllRobotTemplateAssignments();
       res.json(assignments);
