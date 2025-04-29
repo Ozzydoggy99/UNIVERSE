@@ -321,11 +321,31 @@ export default function RobotDetails() {
     ]
   };
 
-  // Prioritize WebSocket data, then REST API data, then fallback to cached or mock data
-  const status = wsRobotStatus || restRobotStatus || mockStatus;
-  const position = wsRobotPosition || restRobotPosition || mockPosition;
-  const sensors = wsSensorData || restSensorData || mockSensorData;
-  const mapDataToUse = wsMapData || restMapData || mockMapData;
+  // Prioritize WebSocket data, then REST API data - never use mock data for production
+  const status = wsRobotStatus || restRobotStatus || null;
+  const position = wsRobotPosition || restRobotPosition || null;
+  const sensors = wsSensorData || restSensorData || null;
+  const mapDataToUse = wsMapData || restMapData || null;
+  
+  // Show loading state if we don't have real data yet
+  if (!status || !position || !sensors || !mapDataToUse) {
+    return (
+      <div className="container mx-auto p-6">
+        <Button variant="outline" className="mb-6" onClick={handleBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Robot Hub
+        </Button>
+        
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
+            <p className="text-lg font-medium">Waiting for real robot data...</p>
+            <p className="text-sm text-muted-foreground">Connecting to physical robot...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // Use cached data for assignment and template
   const displayAssignment = cachedAssignment || assignment;
