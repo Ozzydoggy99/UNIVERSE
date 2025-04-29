@@ -38,6 +38,7 @@ class RobotWebSocketClient {
     // Determine WebSocket URL (consider protocol, host)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/ws/robot`;
+    console.log('Connecting to WebSocket URL:', wsUrl);
 
     try {
       this.ws = new WebSocket(wsUrl);
