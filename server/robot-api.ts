@@ -493,6 +493,18 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
 
+  // Get all robot template assignments
+  app.get('/api/robot-assignments', async (req: Request, res: Response) => {
+    try {
+      // Get all robot template assignments from storage
+      const assignments = await storage.getAllRobotTemplateAssignments();
+      res.json(assignments);
+    } catch (error) {
+      console.error('Error fetching robot assignments:', error);
+      res.status(500).json({ error: 'Failed to fetch robot assignments' });
+    }
+  });
+  
   // Get robot by serial number
   app.get('/api/robot-assignments/by-serial/:serialNumber', async (req: Request, res: Response) => {
     try {
@@ -512,6 +524,25 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
 
+  // Register a physical robot and assign it to a template
+  app.post('/api/robot-assignments/register', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber, model, templateId } = req.body;
+      
+      if (!serialNumber || !model) {
+        return res.status(400).json({ error: 'Serial number and model are required' });
+      }
+      
+      // Register the robot with the template
+      const result = await registerRobot(serialNumber, model, templateId);
+      
+      res.status(201).json(result);
+    } catch (error) {
+      console.error('Error registering robot with template:', error);
+      res.status(500).json({ error: 'Failed to register robot with template' });
+    }
+  });
+  
   // Get robot's current task
   app.get('/api/robots/task/:serialNumber', async (req: Request, res: Response) => {
     try {
