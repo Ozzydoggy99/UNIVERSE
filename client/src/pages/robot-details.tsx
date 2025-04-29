@@ -433,15 +433,17 @@ export default function RobotDetails() {
                   </span>
                   <span className="font-medium">{sensors.battery}%</span>
                 </div>
-                <Progress 
-                  value={sensors.battery} 
-                  className={`h-2 ${
-                    status.status?.toLowerCase() === 'charging' ? "bg-purple-500" :
-                    sensors.battery >= 50 ? "bg-green-500" : 
-                    sensors.battery >= 20 ? "bg-amber-500" : 
-                    "bg-red-500"
-                  }`}
-                />
+                <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+                  <div 
+                    className={`h-full transition-all ${
+                      status.status?.toLowerCase() === 'charging' ? "bg-purple-500" :
+                      sensors.battery >= 50 ? "bg-green-500" : 
+                      sensors.battery >= 20 ? "bg-amber-500" : 
+                      "bg-red-500"
+                    }`}
+                    style={{ width: `${sensors.battery}%` }}
+                  ></div>
+                </div>
                 {status.status?.toLowerCase() === 'charging' && (
                   <div className="flex items-center justify-start mt-1 text-xs text-purple-500">
                     <div className="w-2 h-2 rounded-full bg-purple-500 mr-1 animate-pulse"></div>
