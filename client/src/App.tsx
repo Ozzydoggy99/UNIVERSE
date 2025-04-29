@@ -22,7 +22,6 @@ import PickupDropoffPage from "@/pages/pickup-dropoff-page";
 import UnitBoxes from "@/pages/unit-boxes";
 import AIAssistantPage from "@/pages/ai-assistant";
 import RobotTasks from "@/pages/robot-tasks";
-import Game from "@/pages/game";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -341,12 +340,7 @@ function Router() {
         )} 
       />
       
-      {/* Game */}
-      <ProtectedRoute 
-        path="/game" 
-        component={Game} 
-      />
-      
+
       {/* AI Assistant */}
       <ProtectedRoute 
         path="/ai-assistant" 
