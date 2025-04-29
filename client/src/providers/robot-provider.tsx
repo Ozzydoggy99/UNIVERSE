@@ -58,24 +58,55 @@ export function RobotProvider({ children }: RobotProviderProps) {
   // Initial data fetch using REST API
   const fetchInitialData = async () => {
     try {
-      // Use our physical robot serial number for direct data access
-      const PHYSICAL_ROBOT_SERIAL = 'L382502104988is';
+      // Use our publicly accessible robot serial number for direct data access
+      const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
       
-      // Get data directly from the physical robot
-      const status = await getRobotStatus(PHYSICAL_ROBOT_SERIAL);
-      const position = await getRobotPosition(PHYSICAL_ROBOT_SERIAL);
-      const sensorData = await getRobotSensorData(PHYSICAL_ROBOT_SERIAL);
-      const map = await getMapData(PHYSICAL_ROBOT_SERIAL);
+      // First try to access the public robot
+      try {
+        // Get data directly from the public robot
+        const status = await getRobotStatus(PUBLIC_ROBOT_SERIAL);
+        const position = await getRobotPosition(PUBLIC_ROBOT_SERIAL);
+        const sensorData = await getRobotSensorData(PUBLIC_ROBOT_SERIAL);
+        const map = await getMapData(PUBLIC_ROBOT_SERIAL);
+        
+        // Also fetch camera data
+        try {
+          const camera = await getRobotCameraData(PUBLIC_ROBOT_SERIAL);
+          setCameraData(camera);
+        } catch (cameraError) {
+          console.warn("Camera data not available for public robot:", cameraError);
+        }
+        
+        console.log("Successfully fetched PUBLIC robot data for", PUBLIC_ROBOT_SERIAL, status);
+        
+        setRobotStatus(status);
+        setRobotPosition(position);
+        setRobotSensorData(sensorData);
+        setMapData(map);
+        updateTimestamp();
+        return; // Exit early if public robot data was retrieved successfully
+      } catch (publicError) {
+        console.warn("Could not connect to public robot, falling back to local robot:", publicError);
+      }
+      
+      // Fall back to the local robot if public robot not accessible
+      const LOCAL_ROBOT_SERIAL = 'L382502104988is';
+      
+      // Get data from the local robot
+      const status = await getRobotStatus(LOCAL_ROBOT_SERIAL);
+      const position = await getRobotPosition(LOCAL_ROBOT_SERIAL);
+      const sensorData = await getRobotSensorData(LOCAL_ROBOT_SERIAL);
+      const map = await getMapData(LOCAL_ROBOT_SERIAL);
       
       // Also fetch camera data
       try {
-        const camera = await getRobotCameraData(PHYSICAL_ROBOT_SERIAL);
+        const camera = await getRobotCameraData(LOCAL_ROBOT_SERIAL);
         setCameraData(camera);
       } catch (cameraError) {
-        console.warn("Camera data not available:", cameraError);
+        console.warn("Camera data not available for local robot:", cameraError);
       }
       
-      console.log("Successfully fetched robot data for", PHYSICAL_ROBOT_SERIAL, status);
+      console.log("Successfully fetched LOCAL robot data for", LOCAL_ROBOT_SERIAL, status);
       
       setRobotStatus(status);
       setRobotPosition(position);
@@ -199,11 +230,33 @@ export function RobotProvider({ children }: RobotProviderProps) {
   };
   
   const handleToggleCamera = async (enabled: boolean): Promise<void> => {
-    // Use our physical robot serial number for direct access
-    const PHYSICAL_ROBOT_SERIAL = 'L382502104988is';
+    // Use our publicly accessible robot serial number for direct access
+    const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
     
     try {
-      const response = await toggleRobotCamera(PHYSICAL_ROBOT_SERIAL, enabled);
+      // First try public robot
+      try {
+        const response = await toggleRobotCamera(PUBLIC_ROBOT_SERIAL, enabled);
+        setCameraData(response);
+        
+        // If we're enabling the camera, also update the status to reflect this
+        if (robotStatus && enabled !== (robotStatus.cameraEnabled || false)) {
+          setRobotStatus({
+            ...robotStatus,
+            cameraEnabled: enabled
+          });
+        }
+        
+        updateTimestamp();
+        console.log(`Successfully toggled PUBLIC robot camera to: ${enabled ? 'enabled' : 'disabled'}`);
+        return; // Exit early if successful
+      } catch (publicError) {
+        console.warn("Could not toggle public robot camera, falling back to local robot:", publicError);
+      }
+      
+      // Fall back to the local robot if needed
+      const LOCAL_ROBOT_SERIAL = 'L382502104988is';
+      const response = await toggleRobotCamera(LOCAL_ROBOT_SERIAL, enabled);
       setCameraData(response);
       
       // If we're enabling the camera, also update the status to reflect this
@@ -215,6 +268,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
       }
       
       updateTimestamp();
+      console.log(`Successfully toggled LOCAL robot camera to: ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error("Error toggling camera:", error);
     }

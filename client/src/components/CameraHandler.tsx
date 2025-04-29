@@ -96,9 +96,10 @@ export const CameraHandler: React.FC<CameraHandlerProps> = ({ serialNumber }) =>
               <div className="relative bg-gray-100 rounded-lg overflow-hidden aspect-video">
                 {/* Use dedicated LiveMjpegStream component for better performance */}
                 <LiveMjpegStream 
-                  streamUrl={`/api/camera-stream/${serialNumber || 'L382502104988is'}`}
+                  streamUrl={`/api/camera-stream/${serialNumber || 'L382502104987ir'}`}
                   refreshInterval={500} // Refresh every 500ms for smoother video
                   className="w-full h-full"
+                  title="Live Camera Feed (Public Robot)"
                 />
                 <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 text-xs rounded">
                   {cameraData.resolution.width} x {cameraData.resolution.height}

@@ -227,8 +227,8 @@ class RobotWebSocketClient {
 
   // Request robot status update
   requestStatus(serialNumber?: string) {
-    // Always default to our physical robot if no serial number provided
-    const robotSerial = serialNumber || 'L382502104988is';
+    // Always default to our publicly accessible robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104987ir';
     return this.sendMessage({
       type: 'get_robot_status',
       serialNumber: robotSerial
@@ -237,8 +237,8 @@ class RobotWebSocketClient {
 
   // Request robot position update
   requestPosition(serialNumber?: string) {
-    // Always default to our physical robot if no serial number provided
-    const robotSerial = serialNumber || 'L382502104988is';
+    // Always default to our publicly accessible robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104987ir';
     return this.sendMessage({
       type: 'get_robot_position',
       serialNumber: robotSerial
@@ -247,8 +247,8 @@ class RobotWebSocketClient {
 
   // Request robot sensor data
   requestSensorData(serialNumber?: string) {
-    // Always default to our physical robot if no serial number provided
-    const robotSerial = serialNumber || 'L382502104988is';
+    // Always default to our publicly accessible robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104987ir';
     return this.sendMessage({
       type: 'get_robot_sensors',
       serialNumber: robotSerial
@@ -257,8 +257,8 @@ class RobotWebSocketClient {
 
   // Request robot map data
   requestMapData(serialNumber?: string) {
-    // Always default to our physical robot if no serial number provided
-    const robotSerial = serialNumber || 'L382502104988is';
+    // Always default to our publicly accessible robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104987ir';
     return this.sendMessage({
       type: 'get_robot_map',
       serialNumber: robotSerial
@@ -267,8 +267,8 @@ class RobotWebSocketClient {
 
   // Request current task for robot
   requestTaskInfo(serialNumber?: string) {
-    // Always default to our physical robot if no serial number provided
-    const robotSerial = serialNumber || 'L382502104988is';
+    // Always default to our publicly accessible robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104987ir';
     return this.sendMessage({
       type: 'get_robot_task',
       serialNumber: robotSerial
@@ -277,8 +277,8 @@ class RobotWebSocketClient {
   
   // Request camera data
   requestCameraData(serialNumber?: string) {
-    // Always default to our physical robot if no serial number provided
-    const robotSerial = serialNumber || 'L382502104988is';
+    // Always default to our publicly accessible robot if no serial number provided
+    const robotSerial = serialNumber || 'L382502104987ir';
     return this.sendMessage({
       type: 'get_robot_camera',
       serialNumber: robotSerial
