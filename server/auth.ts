@@ -205,27 +205,30 @@ async function createPredefinedUsers() {
       // Create assignment for robot 1
       await storage.createRobotTemplateAssignment({
         name: "Floor Robot 1",
-        description: "Main floor service robot",
+        location: "Main Floor",
         serialNumber: "AX-2000-1",
         templateId: template1.id,
+        robotModel: "AX-2000",
         isActive: true
       });
       
       // Create assignment for robot 2
       await storage.createRobotTemplateAssignment({
         name: "Floor Robot 2",
-        description: "Secondary floor service robot",
+        location: "Secondary Floor",
         serialNumber: "AX-2000-2",
         templateId: template1.id,
+        robotModel: "AX-2000",
         isActive: true
       });
       
       // Create assignment for robot 3
       await storage.createRobotTemplateAssignment({
         name: "Storage Robot",
-        description: "Inventory management robot",
+        location: "Storage Area",
         serialNumber: "AX-2000-3",
         templateId: template2.id,
+        robotModel: "AX-2000",
         isActive: true
       });
       
@@ -237,14 +240,11 @@ async function createPredefinedUsers() {
 }
 
 export async function setupAuth(app: Express) {
-  const MemoryStore = memorystore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "skytech-automated-secret",
     resave: false,
     saveUninitialized: false,
-    store: new MemoryStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
-    }),
+    store: storage.sessionStore,
     cookie: {
       maxAge: 86400000, // 24 hours
     }
@@ -286,7 +286,11 @@ export async function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user: any, done) => {
+    // Explicitly access the id property
+    done(null, user.id);
+  });
+  
   passport.deserializeUser(async (id: number, done) => {
     const user = await storage.getUser(id);
     done(null, user || null);
