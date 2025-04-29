@@ -6,7 +6,8 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle, 
-  CardDescription 
+  CardDescription,
+  CardFooter 
 } from '@/components/ui/card';
 import { 
   Tabs, 
@@ -26,13 +27,16 @@ import {
   Thermometer,
   Droplets,
   Signal,
-  Layers
+  Layers,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
+import { useRobot } from '@/providers/robot-provider';
 import { Map } from '@/components/ui/map';
 
 interface RobotStatus {

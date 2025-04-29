@@ -7,6 +7,7 @@ import {
   getMapData 
 } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
+import { robotWebSocket, RobotUpdateEvent, RobotUpdateListener } from "@/lib/robotWebSocket";
 
 interface RobotContextType {
   robotStatus: RobotStatus | null;
@@ -14,12 +15,17 @@ interface RobotContextType {
   robotSensorData: RobotSensorData | null;
   mapData: MapData | null;
   lastUpdated: Date | null;
+  connectionState: 'disconnected' | 'connecting' | 'connected' | 'error';
   setRobotData: (
     status: RobotStatus | null, 
     position: RobotPosition | null, 
     sensorData: RobotSensorData | null,
     mapData: MapData | null
   ) => void;
+  connectWebSocket: () => void;
+  disconnectWebSocket: () => void;
+  isConnected: () => boolean;
+  refreshData: () => Promise<void>;
 }
 
 const RobotContext = createContext<RobotContextType | undefined>(undefined);
@@ -34,38 +40,105 @@ export function RobotProvider({ children }: RobotProviderProps) {
   const [robotSensorData, setRobotSensorData] = useState<RobotSensorData | null>(null);
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   
   const { user } = useAuth();
   
-  // Poll for robot data when authenticated
+  // Helper to update the last updated timestamp
+  const updateTimestamp = () => {
+    setLastUpdated(new Date());
+  };
+
+  // Initial data fetch using REST API
+  const fetchInitialData = async () => {
+    try {
+      const status = await getRobotStatus();
+      const position = await getRobotPosition();
+      const sensorData = await getRobotSensorData();
+      const map = await getMapData();
+      
+      setRobotStatus(status);
+      setRobotPosition(position);
+      setRobotSensorData(sensorData);
+      setMapData(map);
+      updateTimestamp();
+    } catch (error) {
+      console.error("Error fetching initial robot data:", error);
+    }
+  };
+
+  // WebSocket event handler
+  const handleWebSocketUpdate = (event: RobotUpdateEvent) => {
+    switch (event.type) {
+      case 'status':
+        setRobotStatus(event.data);
+        updateTimestamp();
+        break;
+      case 'position':
+        setRobotPosition(event.data);
+        updateTimestamp();
+        break;
+      case 'sensors':
+        setRobotSensorData(event.data);
+        updateTimestamp();
+        break;
+      case 'map':
+        setMapData(event.data);
+        updateTimestamp();
+        break;
+      case 'connection':
+        setConnectionState(event.state);
+        break;
+      case 'error':
+        console.error('Robot WebSocket error:', event.message);
+        break;
+    }
+  };
+  
+  // Connect to WebSocket when user is authenticated
   useEffect(() => {
     if (!user) return;
     
-    async function fetchRobotData() {
-      try {
-        const status = await getRobotStatus();
-        const position = await getRobotPosition();
-        const sensorData = await getRobotSensorData();
-        const map = await getMapData();
-        
-        setRobotStatus(status);
-        setRobotPosition(position);
-        setRobotSensorData(sensorData);
-        setMapData(map);
-        setLastUpdated(new Date());
-      } catch (error) {
-        console.error("Error fetching robot data:", error);
+    // First fetch data via REST
+    fetchInitialData();
+    
+    // Then subscribe to WebSocket events
+    const unsubscribe = robotWebSocket.subscribe(handleWebSocketUpdate);
+    
+    // Establish connection
+    robotWebSocket.connect();
+    
+    // Request initial data via WebSocket
+    setTimeout(() => {
+      if (robotWebSocket.isConnected()) {
+        robotWebSocket.requestStatus();
+        robotWebSocket.requestPosition();
+        robotWebSocket.requestSensorData();
+        robotWebSocket.requestMapData();
+        robotWebSocket.requestTaskInfo();
       }
-    }
+    }, 1000); // Small delay to ensure connection is established
     
-    // Initial fetch
-    fetchRobotData();
-    
-    // Set up interval for polling
-    const interval = setInterval(fetchRobotData, 10000); // Poll every 10 seconds
-    
-    return () => clearInterval(interval);
+    // Clean up subscription on unmount
+    return () => {
+      unsubscribe();
+      robotWebSocket.disconnect();
+    };
   }, [user]);
+
+  // Manual data refresh function
+  const refreshData = async () => {
+    if (robotWebSocket.isConnected()) {
+      // If WebSocket is connected, request updates via WebSocket
+      robotWebSocket.requestStatus();
+      robotWebSocket.requestPosition();
+      robotWebSocket.requestSensorData();
+      robotWebSocket.requestMapData();
+    } else {
+      // Fallback to REST API if WebSocket is not connected
+      await fetchInitialData();
+    }
+  };
 
   const handleSetRobotData = (
     status: RobotStatus | null, 
@@ -78,7 +151,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
     if (sensorData) setRobotSensorData(sensorData);
     if (mapData) setMapData(mapData);
     
-    setLastUpdated(new Date());
+    updateTimestamp();
   };
 
   return (
@@ -89,7 +162,12 @@ export function RobotProvider({ children }: RobotProviderProps) {
         robotSensorData,
         mapData,
         lastUpdated,
+        connectionState,
         setRobotData: handleSetRobotData,
+        connectWebSocket: robotWebSocket.connect.bind(robotWebSocket),
+        disconnectWebSocket: robotWebSocket.disconnect.bind(robotWebSocket),
+        isConnected: robotWebSocket.isConnected.bind(robotWebSocket),
+        refreshData
       }}
     >
       {children}
