@@ -13,6 +13,7 @@ import {
   registerRobotApiRoutes 
 } from './robot-api';
 import { registerCameraApiRoutes, setupCameraWebSocketHandlers } from './camera-api';
+import { registerRobotVideoRoutes } from './robot-video';
 import { processCameraWebSocketMessage } from './camera-websocket';
 import {
   handleRobotStatusRequest,
