@@ -20,6 +20,9 @@ export function registerCameraApiRoutes(app: Express) {
   app.get('/api/camera-stream/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
+      const { endpoint } = req.query; // Get any specific endpoint from the query
+      
+      console.log(`Camera stream request for ${serialNumber}${endpoint ? ` with specific endpoint: ${endpoint}` : ''}`);
       
       // Get the robot camera data to find the stream URL
       const camera = demoCameraData[serialNumber];
@@ -30,7 +33,47 @@ export function registerCameraApiRoutes(app: Express) {
         
         // For the specific ngrok URL, we add a special case
         let targetUrl = camera.streamUrl;
-        if (targetUrl.includes('ngrok-free.app')) {
+        
+        // Check if a specific endpoint was requested
+        if (endpoint && typeof endpoint === 'string') {
+          // Use the explicit endpoint from the query parameter
+          const ngrokBase = 'http://8f50-47-180-91-99.ngrok-free.app';
+          targetUrl = `${ngrokBase}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+          console.log(`Using custom endpoint for camera feed: ${targetUrl}`);
+          
+          // Try to directly access the specified endpoint
+          try {
+            console.log(`Attempting to access specified robot endpoint: ${targetUrl}`);
+            const response = await axios.get(targetUrl, {
+              responseType: 'stream',
+              timeout: 8000,
+              headers: {
+                'Accept': 'image/jpeg, video/*, */*',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache'
+              }
+            });
+            
+            // Set appropriate content type
+            const contentType = response.headers['content-type'] || 'application/octet-stream';
+            res.setHeader('Content-Type', contentType);
+            
+            // Set CORS headers
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            
+            console.log(`Successfully connected to custom endpoint: ${targetUrl}`);
+            return response.data.pipe(res);
+          } catch (error) {
+            const typedError = error as Error;
+            console.log(`Failed to access custom endpoint ${targetUrl}: ${typedError.message}`);
+            // Fall through to try other methods
+          }
+        } else if (targetUrl.includes('ngrok-free.app')) {
           console.log(`Using ngrok proxy for camera feed: ${targetUrl}`);
           
           // Determine if we should use the RGB video stream or JPEG image stream based on the robot documentation

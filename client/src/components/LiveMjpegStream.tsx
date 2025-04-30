@@ -44,10 +44,17 @@ export const LiveMjpegStream: React.FC<LiveMjpegStreamProps> = ({
         // Extract the serial number from the URL
         const parts = streamUrl.split('/');
         const serialNumber = parts[parts.length - 1];
+        
+        // Use the correct endpoint for ngrok - using '/topic' endpoint for RGB cameras
         finalUrl = `/api/camera-stream/${serialNumber}`;
+        console.log(`Using proxy for ngrok URL via our server: ${finalUrl}`);
       } else if (streamUrl.startsWith('/api/')) {
         // Already a proper API endpoint
         finalUrl = streamUrl;
+      } else if (streamUrl.includes('topic') || streamUrl.includes('rgb_cameras')) {
+        // This is a direct robot camera topic endpoint, proxy it through our server
+        finalUrl = `/api/camera-stream/L382502104987ir?endpoint=${encodeURIComponent(streamUrl)}`;
+        console.log(`Using robot topic endpoint through proxy: ${finalUrl}`);
       } else {
         // Default to the known robot serial number
         finalUrl = `/api/camera-stream/L382502104987ir`;

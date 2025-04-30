@@ -96,8 +96,8 @@ export const CameraHandler: React.FC<CameraHandlerProps> = ({ serialNumber }) =>
               <div className="relative bg-gray-100 rounded-lg overflow-hidden aspect-video">
                 {/* Use dedicated LiveMjpegStream component for better performance */}
                 <LiveMjpegStream 
-                  streamUrl={`/api/camera-stream/${serialNumber || 'L382502104987ir'}`}
-                  refreshInterval={serialNumber === 'AX923701583RT' ? 300 : 500} // Faster refresh for high-res camera
+                  streamUrl={`/api/camera-stream/${serialNumber || 'L382502104987ir'}?endpoint=/rgb_cameras/front/compressed`}
+                  refreshInterval={2000} // Use longer interval to avoid overloading the camera 
                   className="w-full h-full"
                   title={`Live Camera Feed (${serialNumber === 'AX923701583RT' ? 'AxBot 5000 Pro' : 'Public Robot'})`}
                 />
