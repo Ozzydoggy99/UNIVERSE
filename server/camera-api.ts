@@ -27,30 +27,68 @@ export function registerCameraApiRoutes(app: Express) {
       // If this is one of our publicly accessible robots, try to use its stream directly
       if ((serialNumber === 'L382502104987ir' || serialNumber === 'AX923701583RT') && camera && camera.enabled && camera.streamUrl) {
         console.log(`Attempting to proxy robot camera stream from ${camera.streamUrl} for ${serialNumber}`);
-        try {
-          // Try to get a real-time stream from our public robot
-          const response = await axios.get(camera.streamUrl, {
-            responseType: 'stream',
-            timeout: 8000, // Increase timeout for public connection
-          });
+        
+        // For the specific ngrok URL, we add a special case
+        let targetUrl = camera.streamUrl;
+        if (targetUrl.includes('ngrok-free.app')) {
+          console.log(`Using ngrok proxy for camera feed: ${targetUrl}`);
           
-          // Forward the response headers and data
-          Object.entries(response.headers).forEach(([key, value]) => {
-            res.setHeader(key, value);
-          });
-          
-          // Set CORS headers to allow access
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-          res.setHeader('Pragma', 'no-cache');
-          res.setHeader('Expires', '0');
-          
-          console.log(`Successfully connected to ${serialNumber} robot camera stream!`);
-          // Stream the data back to the client
-          return response.data.pipe(res);
-        } catch (error) {
-          console.error(`Error connecting to ${serialNumber} robot camera stream: ${error}`);
-          // Fall through to regular camera handling
+          try {
+            // Try to get a real-time stream from our ngrok proxy
+            const response = await axios.get(targetUrl, {
+              responseType: 'stream',
+              timeout: 10000, // Increase timeout for ngrok connection
+              headers: {
+                // Add headers that might be needed for the ngrok proxy
+                'Accept': 'multipart/x-mixed-replace; boundary=frame',
+                'Connection': 'keep-alive'
+              }
+            });
+            
+            // Explicitly set content type for mjpeg stream
+            res.setHeader('Content-Type', 'multipart/x-mixed-replace; boundary=frame');
+            
+            // Set CORS headers to allow access from any origin
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            
+            console.log(`Successfully connected to ${serialNumber} robot camera stream via ngrok!`);
+            // Stream the data back to the client
+            return response.data.pipe(res);
+          } catch (error) {
+            console.error(`Error connecting to ${serialNumber} robot camera stream via ngrok: ${error}`);
+            // Fall through to regular camera handling
+          }
+        } else {
+          try {
+            // For non-ngrok URLs, use standard approach
+            const response = await axios.get(camera.streamUrl, {
+              responseType: 'stream',
+              timeout: 8000, // Increase timeout for public connection
+            });
+            
+            // Forward the response headers and data
+            Object.entries(response.headers).forEach(([key, value]) => {
+              res.setHeader(key, value);
+            });
+            
+            // Set CORS headers to allow access
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            
+            console.log(`Successfully connected to ${serialNumber} robot camera stream!`);
+            // Stream the data back to the client
+            return response.data.pipe(res);
+          } catch (error) {
+            console.error(`Error connecting to ${serialNumber} robot camera stream: ${error}`);
+            // Fall through to regular camera handling
+          }
         }
       }
       

@@ -27,10 +27,27 @@ export const LiveMjpegStream: React.FC<LiveMjpegStreamProps> = ({
   const [error, setError] = useState<boolean>(false);
   
   useEffect(() => {
+    // If no stream URL is provided, don't attempt to refresh
+    if (!streamUrl) {
+      setError(true);
+      return;
+    }
+    
     // Function to refresh the stream by updating the timestamp
     const refreshStream = () => {
       const newTimestamp = Date.now();
-      cachedUrl.current = `${streamUrl}?t=${newTimestamp}`;
+      
+      // If the URL contains ngrok-free.app, we need to proxy it through our server
+      let finalUrl = streamUrl;
+      if (streamUrl.includes('ngrok-free.app')) {
+        // Extract the serial number from the URL
+        const parts = streamUrl.split('/');
+        const serialNumber = parts[parts.length - 1];
+        finalUrl = `/api/camera-stream/${serialNumber}`;
+        console.log(`Using proxy URL for camera stream: ${finalUrl}`);
+      }
+      
+      cachedUrl.current = `${finalUrl}?t=${newTimestamp}`;
       setTimestamp(newTimestamp);
     };
     
