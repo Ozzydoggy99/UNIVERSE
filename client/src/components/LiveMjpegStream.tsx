@@ -37,22 +37,35 @@ export const LiveMjpegStream: React.FC<LiveMjpegStreamProps> = ({
     const refreshStream = () => {
       const newTimestamp = Date.now();
       
-      // If the URL contains ngrok-free.app, we need to proxy it through our server
-      let finalUrl = streamUrl;
+      // Always use our server proxy to avoid CORS issues
+      let finalUrl;
+      
       if (streamUrl.includes('ngrok-free.app')) {
         // Extract the serial number from the URL
         const parts = streamUrl.split('/');
         const serialNumber = parts[parts.length - 1];
         finalUrl = `/api/camera-stream/${serialNumber}`;
-        console.log(`Using proxy URL for camera stream: ${finalUrl}`);
+      } else if (streamUrl.startsWith('/api/')) {
+        // Already a proper API endpoint
+        finalUrl = streamUrl;
+      } else {
+        // Default to the known robot serial number
+        finalUrl = `/api/camera-stream/L382502104987ir`;
       }
+      
+      console.log(`Using camera stream URL: ${finalUrl}`);
+      
+      // Reset error state on refresh attempt
+      setLoading(true);
+      setError(false);
       
       cachedUrl.current = `${finalUrl}?t=${newTimestamp}`;
       setTimestamp(newTimestamp);
     };
     
     // Set up interval to refresh the stream
-    const interval = setInterval(refreshStream, refreshInterval);
+    // Use a longer interval (2 seconds) to reduce server load
+    const interval = setInterval(refreshStream, Math.max(refreshInterval, 2000));
     
     // Refresh immediately on mount or when stream URL changes
     refreshStream();

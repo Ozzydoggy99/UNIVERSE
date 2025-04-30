@@ -33,20 +33,26 @@ export function registerCameraApiRoutes(app: Express) {
         if (targetUrl.includes('ngrok-free.app')) {
           console.log(`Using ngrok proxy for camera feed: ${targetUrl}`);
           
+          // Determine if we should use the RGB video stream or JPEG image stream based on the robot documentation
+          // First try to use the /rgb_cameras/front/compressed endpoint (JPEG images)
+          const imageStreamUrl = `https://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed`;
+          
           try {
-            // Try to get a real-time stream from our ngrok proxy
-            const response = await axios.get(targetUrl, {
+            console.log(`Attempting to get RGB image stream from: ${imageStreamUrl}`);
+            // Try to get JPEG image stream first (usually more reliable)
+            const response = await axios.get(imageStreamUrl, {
               responseType: 'stream',
-              timeout: 10000, // Increase timeout for ngrok connection
+              timeout: 12000, // Longer timeout for image data
               headers: {
-                // Add headers that might be needed for the ngrok proxy
-                'Accept': 'multipart/x-mixed-replace; boundary=frame',
-                'Connection': 'keep-alive'
+                'Accept': 'image/jpeg, image/*',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache'
               }
             });
             
-            // Explicitly set content type for mjpeg stream
-            res.setHeader('Content-Type', 'multipart/x-mixed-replace; boundary=frame');
+            // Forward appropriate content type header based on what we received
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            res.setHeader('Content-Type', contentType);
             
             // Set CORS headers to allow access from any origin
             res.setHeader('Access-Control-Allow-Origin', '*');
@@ -56,12 +62,71 @@ export function registerCameraApiRoutes(app: Express) {
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Expires', '0');
             
-            console.log(`Successfully connected to ${serialNumber} robot camera stream via ngrok!`);
+            console.log(`Successfully connected to ${serialNumber} robot image stream via ngrok!`);
             // Stream the data back to the client
             return response.data.pipe(res);
           } catch (error) {
-            console.error(`Error connecting to ${serialNumber} robot camera stream via ngrok: ${error}`);
-            // Fall through to regular camera handling
+            const imageError = error as Error;
+            console.warn(`Error connecting to image stream: ${imageError.message}. Trying video stream...`);
+            
+            // If image stream fails, try the video stream
+            try {
+              const videoStreamUrl = `https://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/video`;
+              console.log(`Attempting to get RGB video stream from: ${videoStreamUrl}`);
+              
+              const response = await axios.get(videoStreamUrl, {
+                responseType: 'stream',
+                timeout: 10000,
+                headers: {
+                  'Accept': 'multipart/x-mixed-replace; boundary=frame, */*',
+                  'Connection': 'keep-alive'
+                }
+              });
+              
+              // Explicitly set content type for stream
+              const contentType = response.headers['content-type'] || 'multipart/x-mixed-replace; boundary=frame';
+              res.setHeader('Content-Type', contentType);
+              
+              // Set CORS headers
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+              res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+              res.setHeader('Pragma', 'no-cache');
+              res.setHeader('Expires', '0');
+              
+              console.log(`Successfully connected to ${serialNumber} robot video stream via ngrok!`);
+              return response.data.pipe(res);
+            } catch (error) {
+              const videoError = error as Error;
+              console.error(`Error connecting to video stream: ${videoError.message}`);
+              
+              // If both methods fail, try the original URL as fallback
+              try {
+                console.log(`Falling back to original URL: ${targetUrl}`);
+                const response = await axios.get(targetUrl, {
+                  responseType: 'stream',
+                  timeout: 8000,
+                  headers: {
+                    'Accept': 'multipart/x-mixed-replace; boundary=frame, */*',
+                    'Connection': 'keep-alive'
+                  }
+                });
+                
+                // Set proper content headers
+                res.setHeader('Content-Type', response.headers['content-type'] || 'multipart/x-mixed-replace; boundary=frame');
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
+                
+                return response.data.pipe(res);
+              } catch (error) {
+                const finalError = error as Error;
+                console.error(`All connection attempts to camera stream failed: ${finalError.message}`);
+                // Fall through to regular camera handling
+              }
+            }
           }
         } else {
           try {
