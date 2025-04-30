@@ -133,7 +133,7 @@ function ensurePhysicalRobotData() {
     
     demoCameraData[PUBLIC_ROBOT_SERIAL] = {
       enabled: true,
-      streamUrl: `http://47.180.91.99:8080/stream`,
+      streamUrl: `https://8f50-47-180-91-99.ngrok-free.app/robot-camera/${PUBLIC_ROBOT_SERIAL}`,
       resolution: {
         width: 1280,
         height: 720
