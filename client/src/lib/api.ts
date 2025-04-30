@@ -117,7 +117,7 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
     }
   } else {
     // Use the general API endpoint
-    const response = await apiRequest("GET", `${API_URL}/position`);
+    const response = await apiRequest(`${API_URL}/position`);
     return response.json();
   }
 }
@@ -154,7 +154,7 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
       }
       
       // Fall back to the regular API
-      const response = await apiRequest("GET", `/api/robots/sensors/${serialNumber}`);
+      const response = await apiRequest(`/api/robots/sensors/${serialNumber}`);
       return await response.json();
     } catch (error) {
       console.error(`Error fetching sensor data for robot ${serialNumber}:`, error);
@@ -162,54 +162,63 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
     }
   } else {
     // Use the general API endpoint
-    const response = await apiRequest("GET", `${API_URL}/sensors`);
+    const response = await apiRequest(`${API_URL}/sensors`);
     return response.json();
   }
 }
 
 // Robot Controls
 export async function startRobot() {
-  const response = await apiRequest("POST", `${API_URL}/control/start`);
+  const response = await apiRequest(`${API_URL}/control/start`, { method: 'POST' });
   return response.json();
 }
 
 export async function stopRobot() {
-  const response = await apiRequest("POST", `${API_URL}/control/stop`);
+  const response = await apiRequest(`${API_URL}/control/stop`, { method: 'POST' });
   return response.json();
 }
 
 export async function pauseRobot() {
-  const response = await apiRequest("POST", `${API_URL}/control/pause`);
+  const response = await apiRequest(`${API_URL}/control/pause`, { method: 'POST' });
   return response.json();
 }
 
 export async function homeRobot() {
-  const response = await apiRequest("POST", `${API_URL}/control/home`);
+  const response = await apiRequest(`${API_URL}/control/home`, { method: 'POST' });
   return response.json();
 }
 
 export async function calibrateRobot() {
-  const response = await apiRequest("POST", `${API_URL}/control/calibrate`);
+  const response = await apiRequest(`${API_URL}/control/calibrate`, { method: 'POST' });
   return response.json();
 }
 
 export async function moveRobot(direction: 'forward' | 'backward' | 'left' | 'right', speed: number) {
-  const response = await apiRequest("POST", `${API_URL}/control/move`, { direction, speed });
+  const response = await apiRequest(`${API_URL}/control/move`, { 
+    method: 'POST', 
+    data: { direction, speed } 
+  });
   return response.json();
 }
 
 export async function stopMovement() {
-  const response = await apiRequest("POST", `${API_URL}/control/move/stop`);
+  const response = await apiRequest(`${API_URL}/control/move/stop`, { method: 'POST' });
   return response.json();
 }
 
 export async function setSpeed(speed: number) {
-  const response = await apiRequest("POST", `${API_URL}/control/speed`, { speed });
+  const response = await apiRequest(`${API_URL}/control/speed`, { 
+    method: 'POST', 
+    data: { speed }
+  });
   return response.json();
 }
 
 export async function sendCustomCommand(command: string) {
-  const response = await apiRequest("POST", `${API_URL}/control/custom`, { command });
+  const response = await apiRequest(`${API_URL}/control/custom`, { 
+    method: 'POST', 
+    data: { command }
+  });
   return response.json();
 }
 
@@ -218,7 +227,7 @@ export async function getMapData(serialNumber?: string) {
   // If serial number is provided, fetch that specific robot's map data
   if (serialNumber) {
     try {
-      const response = await apiRequest("GET", `/api/robots/map/${serialNumber}`);
+      const response = await apiRequest(`/api/robots/map/${serialNumber}`);
       return await response.json();
     } catch (error) {
       console.error(`Error fetching map data for robot ${serialNumber}:`, error);
@@ -226,7 +235,7 @@ export async function getMapData(serialNumber?: string) {
     }
   } else {
     // Use the general API endpoint
-    const response = await apiRequest("GET", `${API_URL}/map`);
+    const response = await apiRequest(`${API_URL}/map`);
     return response.json();
   }
 }
@@ -261,7 +270,7 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
     }
     
     // Fall back to the regular API
-    const response = await apiRequest("GET", `/api/robots/camera/${serialNumber}`);
+    const response = await apiRequest(`/api/robots/camera/${serialNumber}`);
     return await response.json();
   } catch (error) {
     console.error(`Error fetching camera data for robot ${serialNumber}:`, error);
@@ -271,7 +280,10 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
 
 export async function toggleRobotCamera(serialNumber: string, enabled: boolean): Promise<CameraData> {
   try {
-    const response = await apiRequest("POST", `/api/robots/camera/${serialNumber}`, { enabled });
+    const response = await apiRequest(`/api/robots/camera/${serialNumber}`, { 
+      method: 'POST', 
+      data: { enabled }
+    });
     return await response.json();
   } catch (error) {
     console.error(`Error toggling camera for robot ${serialNumber}:`, error);
