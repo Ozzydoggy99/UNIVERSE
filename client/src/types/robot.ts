@@ -27,14 +27,21 @@ export interface RobotPosition {
   orientation: number;
   speed: number;
   timestamp: string;
+  // Additional fields for proxy connection
+  currentTask?: string;
+  destination?: { x: number; y: number; z: number };
+  distanceToTarget?: number;
 }
 
 export interface RobotSensorData {
   temperature: number;
   humidity: number;
-  proximity: number[];
+  proximity: number | number[];
   battery: number;
   timestamp: string;
+  // Additional fields for the proxy
+  light?: number;
+  noise?: number;
 }
 
 export interface MapPoint {
