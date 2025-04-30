@@ -43,8 +43,61 @@ export function registerCameraApiRoutes(app: Express) {
         targetUrl = `${ngrokBase}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
         console.log(`Using custom endpoint for camera feed: ${targetUrl}`);
         
+        // Handle RGB cameras directly, based on the documentation
+        if (endpoint.startsWith('/rgb_cameras/')) {
+          try {
+            console.log(`Accessing RGB camera stream directly: ${targetUrl}`);
+            
+            // First, try to enable the topic
+            try {
+              const enableMsg = JSON.stringify({ "enable_topic": endpoint.replace(/^\//, '') });
+              console.log(`Enabling camera topic with: ${enableMsg}`);
+              
+              await axios.post(ngrokBase, enableMsg, {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 3000
+              });
+              console.log('Successfully sent enable_topic command');
+            } catch (wsError) {
+              // Continue anyway even if enabling fails
+              console.warn(`Enable topic failed (continuing anyway): ${(wsError as Error).message}`);
+            }
+            
+            // Short delay to let the topic initialize
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Now try to stream from the endpoint
+            try {
+              console.log(`Streaming from: ${targetUrl}`);
+              const response = await axios.get(targetUrl, {
+                responseType: 'stream',
+                timeout: 5000,
+                headers: {
+                  'Accept': 'image/jpeg, */*',
+                  'Connection': 'keep-alive',
+                  'Cache-Control': 'no-cache'
+                }
+              });
+              
+              // Set headers and return the stream
+              const contentType = response.headers['content-type'] || 'image/jpeg';
+              res.setHeader('Content-Type', contentType);
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+              
+              console.log(`Successfully connected to RGB camera stream`);
+              return response.data.pipe(res);
+            } catch (streamError) {
+              console.error(`RGB camera stream error: ${(streamError as Error).message}`);
+              // Fall through to default handling
+            }
+          } catch (error) {
+            console.error(`Failed to access RGB camera: ${(error as Error).message}`);
+            // Fall through to default handling
+          }
+        }
         // Special handling for topic enabling
-        if (endpoint.startsWith('/enable_topic/')) {
+        else if (endpoint.startsWith('/enable_topic/')) {
           try {
             const topicName = endpoint.replace('/enable_topic/', '');
             console.log(`Enabling topic '${topicName}' via WebSocket`);
@@ -55,7 +108,7 @@ export function registerCameraApiRoutes(app: Express) {
             
             await axios.post(wsUrl, enableMsg, {
               headers: { 'Content-Type': 'application/json' },
-              timeout: 5000
+              timeout: 3000
             });
             
             // Now try to access the stream
@@ -64,9 +117,9 @@ export function registerCameraApiRoutes(app: Express) {
             
             const response = await axios.get(streamUrl, {
               responseType: 'stream',
-              timeout: 8000,
+              timeout: 5000,
               headers: {
-                'Accept': 'image/jpeg, video/*, */*',
+                'Accept': 'image/jpeg, */*',
                 'Connection': 'keep-alive',
                 'Cache-Control': 'no-cache'
               }
@@ -76,7 +129,7 @@ export function registerCameraApiRoutes(app: Express) {
             const contentType = response.headers['content-type'] || 'image/jpeg';
             res.setHeader('Content-Type', contentType);
             res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             
             console.log(`Successfully connected to topic '${topicName}'`);
             return response.data.pipe(res);
@@ -114,16 +167,39 @@ export function registerCameraApiRoutes(app: Express) {
       } catch (streamError) {
         console.error(`Error streaming camera: ${(streamError as Error).message}`);
         
-        // If we're using ngrok, try some alternative endpoints
-        if (targetUrl.includes('ngrok-free.app')) {
+        // If our URL is from ngrok or we have no specific endpoint yet but it's the rgb camera stream
+        if (targetUrl.includes('ngrok-free.app') || (!endpoint && serialNumber === 'L382502104987ir')) {
+          // The CameraHandler component now passes a simple path like '/rgb_cameras/front/compressed'
+          // We need to properly enable the topic first, then try to get the stream
+          
+          // Try up to 3 different approaches to get a camera feed
+          
+          // Approach 1: Enable the topic via WebSocket and then access direct URL
           try {
-            // Try the RGB cameras compressed format specifically
-            const altUrl = 'http://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed';
-            console.log(`Trying alternative endpoint: ${altUrl}`);
+            // First, try to enable the topic via WebSocket
+            try {
+              const enableMsg = JSON.stringify({ "enable_topic": "rgb_cameras/front/compressed" });
+              console.log(`Approach 1: Enabling camera topic first: ${enableMsg}`);
+              
+              await axios.post('http://8f50-47-180-91-99.ngrok-free.app', enableMsg, {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 3000
+              });
+              console.log('Successfully sent enable_topic command');
+            } catch (wsError) {
+              console.warn(`Enable topic command failed (continuing anyway): ${(wsError as Error).message}`);
+            }
             
-            const response = await axios.get(altUrl, {
+            // Short delay to let the topic initialize
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Try the RGB cameras compressed format specifically
+            const rgbUrl = 'http://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed';
+            console.log(`Trying RGB camera endpoint: ${rgbUrl}`);
+            
+            const response = await axios.get(rgbUrl, {
               responseType: 'stream',
-              timeout: 8000,
+              timeout: 5000,
               headers: {
                 'Accept': 'image/jpeg, */*',
                 'Connection': 'keep-alive',
@@ -135,12 +211,71 @@ export function registerCameraApiRoutes(app: Express) {
             const contentType = response.headers['content-type'] || 'image/jpeg';
             res.setHeader('Content-Type', contentType);
             res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
             
-            console.log(`Successfully connected to alternative endpoint`);
+            console.log(`Successfully connected to RGB camera endpoint`);
             return response.data.pipe(res);
-          } catch (altError) {
-            console.error(`Alternative endpoint failed: ${(altError as Error).message}`);
+          } catch (rgbError) {
+            console.error(`RGB camera endpoint failed: ${(rgbError as Error).message}`);
+            
+            // Approach 2: Try with the topic prefix
+            try {
+              const topicUrl = 'http://8f50-47-180-91-99.ngrok-free.app/topic/rgb_cameras/front/compressed';
+              console.log(`Approach 2: Trying with topic/ prefix: ${topicUrl}`);
+              
+              const response = await axios.get(topicUrl, {
+                responseType: 'stream',
+                timeout: 5000,
+                headers: {
+                  'Accept': 'image/jpeg, */*',
+                  'Connection': 'keep-alive',
+                  'Cache-Control': 'no-cache'
+                }
+              });
+              
+              // Set headers
+              const contentType = response.headers['content-type'] || 'image/jpeg';
+              res.setHeader('Content-Type', contentType);
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+              
+              console.log(`Successfully connected to topic endpoint`);
+              return response.data.pipe(res);
+            } catch (topicError) {
+              console.error(`Topic endpoint failed: ${(topicError as Error).message}`);
+              
+              // Approach 3: Try JSON WebSocket messages
+              try {
+                // Try sending a structured message to get a jpeg snapshot from the camera
+                console.log('Approach 3: Trying to get snapshot via WebSocket-style request');
+                
+                const snapshotResponse = await axios.post('http://8f50-47-180-91-99.ngrok-free.app', 
+                  JSON.stringify({ "get_jpeg_snapshot": "rgb_cameras/front" }),
+                  {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 5000,
+                    responseType: 'arraybuffer'
+                  }
+                );
+                
+                if (snapshotResponse.data && snapshotResponse.data.length > 0) {
+                  // Stream the snapshot data back to client
+                  res.setHeader('Content-Type', 'image/jpeg');
+                  res.setHeader('Access-Control-Allow-Origin', '*');
+                  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                  
+                  console.log('Successfully got a camera snapshot');
+                  res.end(snapshotResponse.data);
+                  return;
+                } else {
+                  throw new Error('Empty snapshot response');
+                }
+              } catch (snapshotError) {
+                console.error(`Snapshot attempt failed: ${(snapshotError as Error).message}`);
+              }
+            }
           }
         }
         

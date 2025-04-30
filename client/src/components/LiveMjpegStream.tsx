@@ -40,24 +40,30 @@ export const LiveMjpegStream: React.FC<LiveMjpegStreamProps> = ({
       // Always use our server proxy to avoid CORS issues
       let finalUrl;
       
-      if (streamUrl.includes('ngrok-free.app')) {
-        // Extract the serial number from the URL
+      if (streamUrl.includes('endpoint=')) {
+        // URL already contains an endpoint query parameter, use as is
+        finalUrl = streamUrl;
+      } else if (streamUrl.startsWith('/api/camera-stream')) {
+        // Already a camera stream endpoint
+        finalUrl = streamUrl;
+      } else if (streamUrl.includes('ngrok-free.app')) {
+        // Extract the serial number from the URL if possible
         const parts = streamUrl.split('/');
         const serialNumber = parts[parts.length - 1];
         
-        // Use the correct endpoint for ngrok - using '/topic' endpoint for RGB cameras
-        finalUrl = `/api/camera-stream/${serialNumber}`;
+        // Use the correct endpoint for ngrok
+        finalUrl = `/api/camera-stream/${serialNumber || 'L382502104987ir'}`;
         console.log(`Using proxy for ngrok URL via our server: ${finalUrl}`);
       } else if (streamUrl.startsWith('/api/')) {
         // Already a proper API endpoint
         finalUrl = streamUrl;
-      } else if (streamUrl.includes('topic') || streamUrl.includes('rgb_cameras')) {
+      } else if (streamUrl.includes('/rgb_cameras/')) {
         // This is a direct robot camera topic endpoint, proxy it through our server
         finalUrl = `/api/camera-stream/L382502104987ir?endpoint=${encodeURIComponent(streamUrl)}`;
-        console.log(`Using robot topic endpoint through proxy: ${finalUrl}`);
+        console.log(`Using RGB camera endpoint through proxy: ${finalUrl}`);
       } else {
-        // Default to the known robot serial number
-        finalUrl = `/api/camera-stream/L382502104987ir`;
+        // Default to the known robot serial number with the provided endpoint
+        finalUrl = `/api/camera-stream/L382502104987ir?endpoint=${encodeURIComponent(streamUrl)}`;
       }
       
       console.log(`Using camera stream URL: ${finalUrl}`);
@@ -66,13 +72,16 @@ export const LiveMjpegStream: React.FC<LiveMjpegStreamProps> = ({
       setLoading(true);
       setError(false);
       
-      cachedUrl.current = `${finalUrl}?t=${newTimestamp}`;
+      // Add a cache-busting timestamp to prevent browser caching
+      const separator = finalUrl.includes('?') ? '&' : '?';
+      cachedUrl.current = `${finalUrl}${separator}t=${newTimestamp}`;
       setTimestamp(newTimestamp);
     };
     
     // Set up interval to refresh the stream
-    // Use a longer interval (2 seconds) to reduce server load
-    const interval = setInterval(refreshStream, Math.max(refreshInterval, 2000));
+    // Use a minimum interval of 3 seconds to reduce server load
+    const actualInterval = Math.max(refreshInterval, 3000);
+    const interval = setInterval(refreshStream, actualInterval);
     
     // Refresh immediately on mount or when stream URL changes
     refreshStream();
