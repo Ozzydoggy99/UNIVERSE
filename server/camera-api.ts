@@ -34,15 +34,70 @@ export function registerCameraApiRoutes(app: Express) {
           console.log(`Using ngrok proxy for camera feed: ${targetUrl}`);
           
           // Determine if we should use the RGB video stream or JPEG image stream based on the robot documentation
-          // First try to use the /rgb_cameras/front/compressed endpoint (JPEG images)
-          const imageStreamUrl = `https://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed`;
+          // First try a list of possible topic endpoints
+          const possibleEndpoints = [
+            // Topic endpoints (from documentation)
+            '/topic',
+            '/enable_topic',
+            '/rgb_cameras/front/compressed',
+            '/rgb_cameras/front/video',
+            
+            // Direct camera feed
+            '/camera/mjpeg',
+            '/camera/image',
+            '/camera',
+            
+            // Standard robot endpoints
+            '/status',
+            '/device/info'
+          ];
           
+          // Try each endpoint in sequence
+          for (const endpoint of possibleEndpoints) {
+            const endpointUrl = `https://8f50-47-180-91-99.ngrok-free.app${endpoint}`;
+            
+            try {
+              console.log(`Attempting to access robot camera endpoint: ${endpointUrl}`);
+              const response = await axios.get(endpointUrl, {
+                responseType: 'stream',
+                timeout: 5000, // Shorter timeout to check multiple endpoints
+                headers: {
+                  'Accept': 'image/jpeg, video/*, */*',
+                  'Connection': 'keep-alive',
+                  'Cache-Control': 'no-cache'
+                }
+              });
+              
+              console.log(`Successful connection to endpoint: ${endpoint}`);
+              
+              // Set appropriate content type
+              const contentType = response.headers['content-type'] || 'application/octet-stream';
+              res.setHeader('Content-Type', contentType);
+              
+              // Set CORS headers
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+              res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+              res.setHeader('Pragma', 'no-cache');
+              res.setHeader('Expires', '0');
+              
+              console.log(`Successfully connected to ${serialNumber} robot camera via endpoint: ${endpoint}`);
+              return response.data.pipe(res);
+            } catch (error) {
+              const typedError = error as Error;
+              console.log(`Failed to access endpoint ${endpoint}: ${typedError.message}`);
+              // Continue to the next endpoint
+            }
+          }
+          
+          // If we get here, all endpoints failed, try one more with the specific JPEG stream
+          const imageStreamUrl = `https://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed`;
           try {
-            console.log(`Attempting to get RGB image stream from: ${imageStreamUrl}`);
-            // Try to get JPEG image stream first (usually more reliable)
+            console.log(`Making final attempt with RGB image stream from: ${imageStreamUrl}`);
             const response = await axios.get(imageStreamUrl, {
               responseType: 'stream',
-              timeout: 12000, // Longer timeout for image data
+              timeout: 8000, // Longer timeout for this final attempt
               headers: {
                 'Accept': 'image/jpeg, image/*',
                 'Connection': 'keep-alive',
