@@ -32,13 +32,21 @@ export function RobotH264Stream({
 
     // Clean up any previous muxer instance
     if (muxerRef.current) {
-      muxerRef.current.destroy();
+      try {
+        muxerRef.current.destroy();
+      } catch (e) {
+        console.warn('Error destroying previous JMuxer instance:', e);
+      }
       muxerRef.current = null;
     }
 
     // Clean up any previous socket connection
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.close();
+    if (socketRef.current) {
+      try {
+        socketRef.current.close();
+      } catch (e) {
+        console.warn('Error closing previous WebSocket connection:', e);
+      }
       socketRef.current = null;
     }
 
@@ -46,17 +54,21 @@ export function RobotH264Stream({
     setError(null);
 
     let isComponentMounted = true;
+    let reconnectTimeoutId: NodeJS.Timeout | null = null;
+    let frameCount = 0;
+    let lastFrameTime = Date.now();
+    let framesSinceLastReport = 0;
 
     const initializeVideoStream = () => {
       if (!videoRef.current || !isComponentMounted) return;
 
       try {
-        // Initialize JMuxer
+        // Initialize JMuxer with improved settings
         muxerRef.current = new JMuxer({
           node: videoRef.current,
           mode: 'video',
-          fps: 30,
-          flushingTime: 33, // ~30fps
+          fps: 24, // Lower fps for better stability
+          flushingTime: 41, // ~24fps
           debug: false,
           clearBuffer: true
         });
@@ -73,8 +85,16 @@ export function RobotH264Stream({
         socket.binaryType = 'arraybuffer';
 
         socket.onopen = () => {
-          console.log('H264 WebSocket connected');
-          setIsLoading(false);
+          console.log('H264 WebSocket connected successfully');
+          if (isComponentMounted) {
+            setIsLoading(false);
+            setError(null);
+            
+            // Reset counters on successful connection
+            frameCount = 0;
+            lastFrameTime = Date.now();
+            framesSinceLastReport = 0;
+          }
         };
 
         socket.onmessage = (event) => {
@@ -86,6 +106,7 @@ export function RobotH264Stream({
               try {
                 const jsonResponse = JSON.parse(event.data);
                 if (jsonResponse.error) {
+                  console.warn('Video stream error:', jsonResponse.error);
                   setError(jsonResponse.error);
                   setIsLoading(false);
                 }
@@ -102,9 +123,25 @@ export function RobotH264Stream({
               // Skip empty frames
               if (videoData.length === 0) return;
               
+              // Feed data to the muxer
               muxerRef.current.feed({
                 video: videoData
               });
+              
+              // Update frame statistics
+              frameCount++;
+              framesSinceLastReport++;
+              
+              // Log frame rate every 100 frames
+              const now = Date.now();
+              if (framesSinceLastReport >= 100) {
+                const elapsed = now - lastFrameTime;
+                const fps = framesSinceLastReport / (elapsed / 1000);
+                console.log(`Video stream running at ~${fps.toFixed(1)} fps`);
+                
+                framesSinceLastReport = 0;
+                lastFrameTime = now;
+              }
             }
           } catch (err) {
             console.error('Error processing video frame:', err);
@@ -113,43 +150,56 @@ export function RobotH264Stream({
 
         socket.onerror = (error) => {
           console.error('H264 WebSocket error:', error);
-          setError('Connection error occurred. Attempting to reconnect...');
           
           if (isComponentMounted) {
+            setError('Connection error occurred. Attempting to reconnect...');
             setReconnectCount(prev => prev + 1);
           }
         };
 
-        socket.onclose = () => {
-          console.warn('WebSocket disconnected - attempting to reconnect...');
+        socket.onclose = (event) => {
+          console.warn(`WebSocket disconnected (code: ${event.code}, reason: ${event.reason || 'none'}) - attempting to reconnect...`);
           
-          if (isComponentMounted) {
-            // Get appropriate backoff delay based on reconnect count
-            const delay = Math.min(1000 * Math.pow(2, reconnectCount), 30000);
-            
-            // Attempt reconnection after a delay with exponential backoff
-            setTimeout(() => {
-              if (isComponentMounted && reconnectCount < 5) {
-                console.log(`Attempting to reconnect to video stream (attempt ${reconnectCount + 1}/5)...`);
-                setReconnectCount(prevCount => prevCount + 1);
-                initializeVideoStream();
-              } else if (isComponentMounted) {
-                setError('Failed to connect to video stream after multiple attempts. Will try again in 30 seconds.');
-                setIsLoading(false);
-                
-                // Final retry attempt after a longer delay
-                setTimeout(() => {
-                  if (isComponentMounted) {
-                    console.log('Making final video stream connection attempt...');
-                    setReconnectCount(0);
-                    setError(null);
-                    setIsLoading(true);
-                    initializeVideoStream();
-                  }
-                }, 30000);
-              }
-            }, delay);
+          if (!isComponentMounted) return;
+          
+          // Clear any existing timeout
+          if (reconnectTimeoutId) {
+            clearTimeout(reconnectTimeoutId);
+            reconnectTimeoutId = null;
           }
+          
+          // Calculate backoff delay with a gentler curve (1.5 instead of 2)
+          const delay = Math.min(1000 * Math.pow(1.5, reconnectCount), 30000);
+          
+          // Attempt reconnection with exponential backoff
+          reconnectTimeoutId = setTimeout(() => {
+            reconnectTimeoutId = null;
+            
+            if (!isComponentMounted) return;
+            
+            if (reconnectCount < 5) {
+              console.log(`Attempting to reconnect to video stream (attempt ${reconnectCount + 1}/5)...`);
+              setReconnectCount(prevCount => prevCount + 1);
+              initializeVideoStream();
+            } else {
+              console.warn('Maximum reconnection attempts reached, will try again in 30 seconds');
+              setError('Failed to connect to robot after multiple attempts. Will try again soon.');
+              setIsLoading(false);
+              
+              // Final retry attempt after a longer delay
+              reconnectTimeoutId = setTimeout(() => {
+                reconnectTimeoutId = null;
+                
+                if (isComponentMounted) {
+                  console.log('Making final video stream connection attempt...');
+                  setReconnectCount(0);
+                  setError(null);
+                  setIsLoading(true);
+                  initializeVideoStream();
+                }
+              }, 30000);
+            }
+          }, delay);
         };
       } catch (err) {
         console.error('Error initializing video stream:', err);
@@ -161,19 +211,36 @@ export function RobotH264Stream({
       }
     };
 
+    // Start the initialization process
     initializeVideoStream();
 
     // Clean up when the component unmounts
     return () => {
       isComponentMounted = false;
       
+      // Clear any pending timeouts
+      if (reconnectTimeoutId) {
+        clearTimeout(reconnectTimeoutId);
+        reconnectTimeoutId = null;
+      }
+      
+      // Close and cleanup WebSocket
       if (socketRef.current) {
-        socketRef.current.close();
+        try {
+          socketRef.current.close();
+        } catch (e) {
+          console.warn('Error closing socket during cleanup:', e);
+        }
         socketRef.current = null;
       }
       
+      // Destroy JMuxer instance
       if (muxerRef.current) {
-        muxerRef.current.destroy();
+        try {
+          muxerRef.current.destroy();
+        } catch (e) {
+          console.warn('Error destroying JMuxer during cleanup:', e);
+        }
         muxerRef.current = null;
       }
     };
