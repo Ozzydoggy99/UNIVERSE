@@ -54,7 +54,8 @@ export function registerCameraApiRoutes(app: Express) {
           
           // Try each endpoint in sequence
           for (const endpoint of possibleEndpoints) {
-            const endpointUrl = `https://8f50-47-180-91-99.ngrok-free.app${endpoint}`;
+            // Use HTTP instead of HTTPS for ngrok connections to avoid SSL protocol issues
+            const endpointUrl = `http://8f50-47-180-91-99.ngrok-free.app${endpoint}`;
             
             try {
               console.log(`Attempting to access robot camera endpoint: ${endpointUrl}`);
@@ -92,7 +93,7 @@ export function registerCameraApiRoutes(app: Express) {
           }
           
           // If we get here, all endpoints failed, try one more with the specific JPEG stream
-          const imageStreamUrl = `https://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed`;
+          const imageStreamUrl = `http://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed`;
           try {
             console.log(`Making final attempt with RGB image stream from: ${imageStreamUrl}`);
             const response = await axios.get(imageStreamUrl, {
@@ -126,7 +127,7 @@ export function registerCameraApiRoutes(app: Express) {
             
             // If image stream fails, try the video stream
             try {
-              const videoStreamUrl = `https://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/video`;
+              const videoStreamUrl = `http://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/video`;
               console.log(`Attempting to get RGB video stream from: ${videoStreamUrl}`);
               
               const response = await axios.get(videoStreamUrl, {

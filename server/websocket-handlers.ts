@@ -8,8 +8,8 @@ import {
   demoTasks 
 } from './robot-api';
 
-// URL for our robot proxy server
-const ROBOT_PROXY_URL = 'https://8f50-47-180-91-99.ngrok-free.app';
+// URL for our robot proxy server - using HTTP instead of HTTPS to avoid SSL protocol issues
+const ROBOT_PROXY_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
 
 // Helper function to fetch live data from the proxy server
 async function fetchLiveData(endpoint: string) {
