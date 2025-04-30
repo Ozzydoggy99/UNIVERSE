@@ -12,7 +12,7 @@ import {
   demoCameraData,
   registerRobotApiRoutes 
 } from './robot-api';
-import { registerCameraApiRoutes, setupCameraWebSocketHandlers } from './camera-api';
+import { registerCameraApiRoutes } from './camera-api';
 import { registerRobotVideoRoutes } from './robot-video';
 import { processCameraWebSocketMessage } from './camera-websocket';
 import {
@@ -203,6 +203,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Custom WebSocket setup
   setupWebSockets(httpServer);
+  
+  // Register robot video streaming routes (requires the HTTP server for WebSockets)
+  registerRobotVideoRoutes(app, httpServer);
   
   // Return the HTTP server
   return httpServer;
