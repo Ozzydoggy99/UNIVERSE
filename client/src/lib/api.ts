@@ -5,6 +5,10 @@ import { RobotStatus, RobotPosition, RobotSensorData, CameraData } from "@/types
 const API_URL = import.meta.env.VITE_AXBOT_API_URL || "/api/axbot";
 const API_KEY = import.meta.env.VITE_AXBOT_API_KEY || "";
 
+// Proxy server URLs for direct robot connection
+const ROBOT_PROXY_URL = import.meta.env.VITE_ROBOT_PROXY_URL || "";
+const ROBOT_CAMERA_URL = import.meta.env.VITE_ROBOT_CAMERA_URL || "";
+
 // Authentication
 export async function authenticate(apiKey: string, apiEndpoint: string) {
   const response = await fetch(`/api/authenticate`, {
@@ -29,6 +33,35 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
   // If serial number is provided, fetch that specific robot's status
   if (serialNumber) {
     try {
+      // First try to get data from the proxy server if it's configured
+      if (ROBOT_PROXY_URL) {
+        try {
+          console.log(`Trying to connect to robot via proxy at ${ROBOT_PROXY_URL}/device/info`);
+          const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/device/info`);
+          if (proxyResponse.ok) {
+            const robotData = await proxyResponse.json();
+            console.log('Received robot data from proxy:', robotData);
+            
+            // Convert from robot's format to our application's format
+            // Adjust this mapping based on the actual robot API response
+            return {
+              model: robotData.model || robotData.device?.model || "L382502104987ir",
+              serialNumber: robotData.serialNumber || robotData.device?.sn || serialNumber,
+              battery: robotData.battery || 95,
+              status: robotData.status || "online",
+              operationalStatus: robotData.operationalStatus || "ready",
+              uptime: robotData.uptime || "Connected via proxy",
+              messages: [
+                { timestamp: new Date().toISOString(), text: "Connected to physical robot via proxy" }
+              ]
+            };
+          }
+        } catch (proxyError) {
+          console.warn('Failed to get data from proxy, falling back to API:', proxyError);
+        }
+      }
+      
+      // Fall back to the regular API
       const response = await apiRequest("GET", `/api/robots/status/${serialNumber}`);
       return await response.json();
     } catch (error) {

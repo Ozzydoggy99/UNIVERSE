@@ -14,6 +14,10 @@ export interface RobotStatus {
     y: number;
     floor: number;
   };
+  // Additional fields for the proxy connection
+  operationalStatus?: string;
+  uptime?: string;
+  messages?: { timestamp: string; text: string }[];
 }
 
 export interface RobotPosition {
