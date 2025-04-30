@@ -207,10 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up WebSocket handling
   setupWebSockets(httpServer);
   
-  // Add special logging to diagnose WebSocket upgrade issues
-  httpServer.on('upgrade', function(req, socket, head) {
-    console.log('upgrade', req.url);
-  });
+  // We don't need additional upgrade handlers as we've consolidated them in setupWebSockets
   
   // Return the HTTP server
   return httpServer;
@@ -230,8 +227,94 @@ function setupWebSockets(httpServer: Server) {
   httpServer.on('upgrade', (request, socket, head) => {
     const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
     
+    // Log all WebSocket upgrade requests
     console.log(`WebSocket upgrade request for path: ${pathname}`);
-    console.log(`Request URL: ${request.url}, Full path: ${request.headers.host}${pathname}`);
+    
+    // Additional debugging for video streaming WebSocket connections
+    if (pathname.startsWith('/api/robot-video/')) {
+      const serialNumber = pathname.split('/').pop();
+      console.log(`📹 VIDEO: WebSocket connection request for robot ${serialNumber} camera stream`);
+      console.log(`VIDEO: Request URL: ${request.url}`);
+      console.log(`VIDEO: Headers:`, request.headers);
+    } else {
+      console.log(`Request URL: ${request.url}, Full path: ${request.headers.host}${pathname}`);
+    }
+    
+    // Handle video WebSocket path - must be checked first before other paths
+    if (pathname.startsWith('/api/robot-video/')) {
+      console.log('Robot video WebSocket connection request received');
+      
+      // Extract the robot serial number from the URL
+      const serialNumber = pathname.split('/').pop();
+      if (!serialNumber) {
+        console.error('Missing robot serial number in video WebSocket path');
+        socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      
+      // Handle with the videoWss server
+      const videoWss = new WebSocketServer({ noServer: true });
+      videoWss.handleUpgrade(request, socket, head, (ws) => {
+        console.log(`Robot video WebSocket connection established for ${serialNumber}`);
+        
+        // Start streaming video data
+        let isActive = true;
+        const intervalId = setInterval(async () => {
+          if (!isActive || ws.readyState !== WebSocket.OPEN) {
+            clearInterval(intervalId);
+            return;
+          }
+          
+          try {
+            // Get the camera data
+            const cameraData = demoCameraData[serialNumber];
+            
+            if (!cameraData || !cameraData.enabled || !cameraData.streamUrl) {
+              throw new Error('Camera not available');
+            }
+            
+            // The streamUrl should be from the ngrok proxy server
+            const h264Url = `${cameraData.streamUrl}/h264-frame`;
+            
+            console.log(`Fetching H.264 frame from: ${h264Url}`);
+            
+            const response = await fetch(h264Url);
+            
+            if (!response.ok) {
+              console.error(`Error fetching H.264 frame: ${response.status} ${response.statusText}`);
+              return;
+            }
+            
+            const buffer = await response.buffer();
+            
+            if (buffer && ws.readyState === WebSocket.OPEN) {
+              ws.send(buffer);
+            }
+          } catch (error) {
+            console.error(`Error streaming video for ${serialNumber}:`, error);
+            
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ error: 'Failed to retrieve video frame' }));
+            }
+          }
+        }, 33); // ~30fps
+        
+        // Clean up on close
+        ws.on('close', () => {
+          console.log(`Robot video WebSocket for ${serialNumber} closed`);
+          isActive = false;
+          clearInterval(intervalId);
+        });
+        
+        ws.on('error', (err) => {
+          console.error(`Robot video WebSocket error for ${serialNumber}:`, err);
+          isActive = false;
+          clearInterval(intervalId);
+        });
+      });
+      return;
+    }
     
     // Handle specific WebSocket connections as client connections
     // Avoid root path which can conflict with Vite's HMR WebSocket
@@ -379,79 +462,7 @@ function setupWebSockets(httpServer: Server) {
       return;
     }
     
-    // Handle video WebSocket path - must be checked before other paths
-    if (pathname.startsWith('/api/robot-video/')) {
-      console.log('Robot video WebSocket connection request received');
-      
-      // Extract the robot serial number from the URL
-      const serialNumber = pathname.split('/').pop();
-      if (!serialNumber) {
-        console.error('Missing robot serial number in video WebSocket path');
-        socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
-        socket.destroy();
-        return;
-      }
-      
-      // Handle with the videoWss server
-      const videoWss = new WebSocketServer({ noServer: true });
-      videoWss.handleUpgrade(request, socket, head, (ws) => {
-        console.log(`Robot video WebSocket connection established for ${serialNumber}`);
-        
-        // Start streaming video data
-        let isActive = true;
-        const intervalId = setInterval(async () => {
-          if (!isActive || ws.readyState !== WebSocket.OPEN) {
-            clearInterval(intervalId);
-            return;
-          }
-          
-          try {
-            // Get the camera data
-            const cameraData = demoCameraData[serialNumber];
-            
-            if (!cameraData || !cameraData.enabled || !cameraData.streamUrl) {
-              throw new Error('Camera not available');
-            }
-            
-            // The streamUrl should be from the ngrok proxy server
-            const h264Url = `${cameraData.streamUrl}/h264-frame`;
-            
-            const response = await fetch(h264Url);
-            
-            if (!response.ok) {
-              console.error(`Error fetching H.264 frame: ${response.status} ${response.statusText}`);
-              return;
-            }
-            
-            const buffer = await response.buffer();
-            
-            if (buffer && ws.readyState === WebSocket.OPEN) {
-              ws.send(buffer);
-            }
-          } catch (error) {
-            console.error(`Error streaming video for ${serialNumber}:`, error);
-            
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ error: 'Failed to retrieve video frame' }));
-            }
-          }
-        }, 33); // ~30fps
-        
-        // Clean up on close
-        ws.on('close', () => {
-          console.log(`Robot video WebSocket for ${serialNumber} closed`);
-          isActive = false;
-          clearInterval(intervalId);
-        });
-        
-        ws.on('error', (err) => {
-          console.error(`Robot video WebSocket error for ${serialNumber}:`, err);
-          isActive = false;
-          clearInterval(intervalId);
-        });
-      });
-      return;
-    }
+    // The video websocket handling is already done above, no need for a duplicate handler here
     
     if (pathname === '/api/ws/robot') {
       robotWss.handleUpgrade(request, socket, head, (ws) => {

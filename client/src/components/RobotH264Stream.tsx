@@ -61,7 +61,7 @@ export function RobotH264Stream({
           clearBuffer: true
         });
 
-        // Set up WebSocket
+        // Set up WebSocket for video streaming
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/api/robot-video/${serialNumber}`;
         
@@ -124,15 +124,31 @@ export function RobotH264Stream({
           console.warn('WebSocket disconnected - attempting to reconnect...');
           
           if (isComponentMounted) {
-            // Attempt reconnection after a delay
+            // Get appropriate backoff delay based on reconnect count
+            const delay = Math.min(1000 * Math.pow(2, reconnectCount), 30000);
+            
+            // Attempt reconnection after a delay with exponential backoff
             setTimeout(() => {
               if (isComponentMounted && reconnectCount < 5) {
+                console.log(`Attempting to reconnect to video stream (attempt ${reconnectCount + 1}/5)...`);
+                setReconnectCount(prevCount => prevCount + 1);
                 initializeVideoStream();
               } else if (isComponentMounted) {
-                setError('Failed to connect to video stream after multiple attempts.');
+                setError('Failed to connect to video stream after multiple attempts. Will try again in 30 seconds.');
                 setIsLoading(false);
+                
+                // Final retry attempt after a longer delay
+                setTimeout(() => {
+                  if (isComponentMounted) {
+                    console.log('Making final video stream connection attempt...');
+                    setReconnectCount(0);
+                    setError(null);
+                    setIsLoading(true);
+                    initializeVideoStream();
+                  }
+                }, 30000);
               }
-            }, 2000);
+            }, delay);
           }
         };
       } catch (err) {
