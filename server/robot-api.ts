@@ -505,10 +505,10 @@ export const demoCameraData: Record<string, CameraData> = {
     nightVision: true,
     timestamp: new Date().toISOString()
   },
-  // Add the AxBot 5000 Pro camera data with the same live stream as physical robot
+  // Add the AxBot 5000 Pro camera data with the live stream from our proxy
   'AX923701583RT': {
     enabled: true,
-    streamUrl: 'http://47.180.91.99:8080/stream',
+    streamUrl: 'https://8f50-47-180-91-99.ngrok-free.app/robot-camera/L382502104987ir',
     resolution: {
       width: 1920,
       height: 1080

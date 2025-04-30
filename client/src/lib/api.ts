@@ -62,7 +62,7 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
       }
       
       // Fall back to the regular API
-      const response = await apiRequest("GET", `/api/robots/status/${serialNumber}`);
+      const response = await apiRequest(`/api/robots/status/${serialNumber}`);
       return await response.json();
     } catch (error) {
       console.error(`Error fetching status for robot ${serialNumber}:`, error);
@@ -70,7 +70,7 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
     }
   } else {
     // Use the general API endpoint
-    const response = await apiRequest("GET", `${API_URL}/status`);
+    const response = await apiRequest(`${API_URL}/status`);
     return response.json();
   }
 }
