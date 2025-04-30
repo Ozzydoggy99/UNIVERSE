@@ -38,30 +38,37 @@ export function registerRobotVideoRoutes(app: Express, httpServer: Server) {
  * Gets a single frame of H.264 video data from the robot
  */
 export async function getVideoFrame(serialNumber: string): Promise<Buffer | null> {
+  const cameraData = demoCameraData[serialNumber];
+  
+  if (!cameraData || !cameraData.enabled || !cameraData.streamUrl) {
+    console.error(`Camera not available for robot ${serialNumber}`);
+    return null;
+  }
+  
+  // The streamUrl should be from the ngrok proxy server which is converting 
+  // the robot camera feed to H.264
+  const h264Url = `${cameraData.streamUrl}/h264-frame`;
+  
+  // For debugging
+  console.log(`Fetching H.264 frame from: ${h264Url}`);
+  
+  // Set up abort controller for timeout functionality
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  
   try {
-    const cameraData = demoCameraData[serialNumber];
-    
-    if (!cameraData || !cameraData.enabled || !cameraData.streamUrl) {
-      console.error(`Camera not available for robot ${serialNumber}`);
-      return null;
-    }
-    
-    // The streamUrl should be from the ngrok proxy server which is converting 
-    // the robot camera feed to H.264
-    const h264Url = `${cameraData.streamUrl}/h264-frame`;
-    
-    // For debugging
-    console.log(`Fetching H.264 frame from: ${h264Url}`);
-    
     const response = await fetch(h264Url, {
       method: 'GET',
       headers: {
         'Accept': 'application/octet-stream',
         'Cache-Control': 'no-cache'
       },
-      timeout: 5000 // 5 second timeout
+      signal: controller.signal
     });
     
+    // Clear the timeout since fetch completed
+    clearTimeout(timeoutId);
+  
     if (!response.ok) {
       console.error(`Error fetching H.264 frame: ${response.status} ${response.statusText}`);
       return null;
@@ -79,6 +86,8 @@ export async function getVideoFrame(serialNumber: string): Promise<Buffer | null
     return buffer;
   } catch (error) {
     console.error(`Error getting video frame for ${serialNumber}:`, error);
+    // Make sure to clean up the timeout in case of an error
+    clearTimeout(timeoutId);
     return null;
   }
 }

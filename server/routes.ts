@@ -260,45 +260,52 @@ function setupWebSockets(httpServer: Server) {
         
         // Start streaming video data
         let isActive = true;
+        let frameCount = 0;
+        let errorCount = 0;
+        
         const intervalId = setInterval(async () => {
+          // Check if connection is still active
           if (!isActive || ws.readyState !== WebSocket.OPEN) {
+            console.log(`Stopping video stream for ${serialNumber} (inactive connection)`);
             clearInterval(intervalId);
             return;
           }
           
+          // Track error count, if too many consecutive errors, back off
+          if (errorCount > 5) {
+            console.warn(`Too many errors for ${serialNumber} video stream, pausing for recovery`);
+            setTimeout(() => {
+              if (isActive && ws.readyState === WebSocket.OPEN) {
+                console.log(`Resuming video stream for ${serialNumber} after error pause`);
+                errorCount = 0;
+              }
+            }, 5000);
+            return;
+          }
+          
           try {
-            // Get the camera data
-            const cameraData = demoCameraData[serialNumber];
-            
-            if (!cameraData || !cameraData.enabled || !cameraData.streamUrl) {
-              throw new Error('Camera not available');
-            }
-            
-            // The streamUrl should be from the ngrok proxy server
-            const h264Url = `${cameraData.streamUrl}/h264-frame`;
-            
-            console.log(`Fetching H.264 frame from: ${h264Url}`);
-            
-            const response = await fetch(h264Url);
-            
-            if (!response.ok) {
-              console.error(`Error fetching H.264 frame: ${response.status} ${response.statusText}`);
-              return;
-            }
-            
-            const buffer = await response.buffer();
+            // Use our optimized getVideoFrame function
+            const buffer = await getVideoFrame(serialNumber);
             
             if (buffer && ws.readyState === WebSocket.OPEN) {
               ws.send(buffer);
+              frameCount++;
+              errorCount = 0; // Reset error count on success
+              
+              // Log frame rate periodically
+              if (frameCount % 100 === 0) {
+                console.log(`Sent ${frameCount} frames to ${serialNumber}`);
+              }
             }
           } catch (error) {
+            errorCount++;
             console.error(`Error streaming video for ${serialNumber}:`, error);
             
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ error: 'Failed to retrieve video frame' }));
             }
           }
-        }, 33); // ~30fps
+        }, 50); // ~20fps to reduce bandwidth and processor load
         
         // Clean up on close
         ws.on('close', () => {
