@@ -109,7 +109,7 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
       }
       
       // Fall back to the regular API
-      const response = await apiRequest("GET", `/api/robots/position/${serialNumber}`);
+      const response = await apiRequest(`/api/robots/position/${serialNumber}`);
       return await response.json();
     } catch (error) {
       console.error(`Error fetching position for robot ${serialNumber}:`, error);

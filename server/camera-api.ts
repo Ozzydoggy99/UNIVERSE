@@ -27,24 +27,42 @@ export function registerCameraApiRoutes(app: Express) {
       // Get the robot camera data to find the stream URL
       const camera = demoCameraData[serialNumber];
       
-      // If this is one of our publicly accessible robots, try to use its stream directly
-      if ((serialNumber === 'L382502104987ir' || serialNumber === 'AX923701583RT') && camera && camera.enabled && camera.streamUrl) {
-        console.log(`Attempting to proxy robot camera stream from ${camera.streamUrl} for ${serialNumber}`);
+      if (!camera || !camera.enabled || !camera.streamUrl) {
+        // If the camera is not available, return a default image
+        console.log('Camera not available or not enabled, returning default image');
+        res.setHeader('Content-Type', 'image/jpeg');
+        return createReadStream(DEFAULT_CAMERA_IMAGE_PATH).pipe(res);
+      }
+      
+      // Build target URL based on parameters
+      let targetUrl = camera.streamUrl;
+      
+      // If a specific endpoint was requested, use it instead of the default URL
+      if (endpoint && typeof endpoint === 'string') {
+        const ngrokBase = 'http://8f50-47-180-91-99.ngrok-free.app';
+        targetUrl = `${ngrokBase}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+        console.log(`Using custom endpoint for camera feed: ${targetUrl}`);
         
-        // For the specific ngrok URL, we add a special case
-        let targetUrl = camera.streamUrl;
-        
-        // Check if a specific endpoint was requested
-        if (endpoint && typeof endpoint === 'string') {
-          // Use the explicit endpoint from the query parameter
-          const ngrokBase = 'http://8f50-47-180-91-99.ngrok-free.app';
-          targetUrl = `${ngrokBase}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-          console.log(`Using custom endpoint for camera feed: ${targetUrl}`);
-          
-          // Try to directly access the specified endpoint
+        // Special handling for topic enabling
+        if (endpoint.startsWith('/enable_topic/')) {
           try {
-            console.log(`Attempting to access specified robot endpoint: ${targetUrl}`);
-            const response = await axios.get(targetUrl, {
+            const topicName = endpoint.replace('/enable_topic/', '');
+            console.log(`Enabling topic '${topicName}' via WebSocket`);
+            
+            // Send WebSocket message to enable the topic
+            const wsUrl = 'http://8f50-47-180-91-99.ngrok-free.app';
+            const enableMsg = JSON.stringify({ "enable_topic": topicName });
+            
+            await axios.post(wsUrl, enableMsg, {
+              headers: { 'Content-Type': 'application/json' },
+              timeout: 5000
+            });
+            
+            // Now try to access the stream
+            console.log(`Topic '${topicName}' enabled. Now attempting to access the stream...`);
+            const streamUrl = `http://8f50-47-180-91-99.ngrok-free.app/${topicName}`;
+            
+            const response = await axios.get(streamUrl, {
               responseType: 'stream',
               timeout: 8000,
               headers: {
@@ -54,419 +72,243 @@ export function registerCameraApiRoutes(app: Express) {
               }
             });
             
-            // Set appropriate content type
-            const contentType = response.headers['content-type'] || 'application/octet-stream';
-            res.setHeader('Content-Type', contentType);
-            
-            // Set CORS headers
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-            
-            console.log(`Successfully connected to custom endpoint: ${targetUrl}`);
-            return response.data.pipe(res);
-          } catch (error) {
-            const typedError = error as Error;
-            console.log(`Failed to access custom endpoint ${targetUrl}: ${typedError.message}`);
-            // Fall through to try other methods
-          }
-        } else if (targetUrl.includes('ngrok-free.app')) {
-          console.log(`Using ngrok proxy for camera feed: ${targetUrl}`);
-          
-          // Determine if we should use the RGB video stream or JPEG image stream based on the robot documentation
-          // First try a list of possible topic endpoints
-          const possibleEndpoints = [
-            // Topic endpoints (from documentation)
-            '/topic',
-            '/enable_topic',
-            '/rgb_cameras/front/compressed',
-            '/rgb_cameras/front/video',
-            
-            // Direct camera feed
-            '/camera/mjpeg',
-            '/camera/image',
-            '/camera',
-            
-            // Standard robot endpoints
-            '/status',
-            '/device/info'
-          ];
-          
-          // Try each endpoint in sequence
-          for (const endpoint of possibleEndpoints) {
-            // Use HTTP instead of HTTPS for ngrok connections to avoid SSL protocol issues
-            const endpointUrl = `http://8f50-47-180-91-99.ngrok-free.app${endpoint}`;
-            
-            try {
-              console.log(`Attempting to access robot camera endpoint: ${endpointUrl}`);
-              const response = await axios.get(endpointUrl, {
-                responseType: 'stream',
-                timeout: 5000, // Shorter timeout to check multiple endpoints
-                headers: {
-                  'Accept': 'image/jpeg, video/*, */*',
-                  'Connection': 'keep-alive',
-                  'Cache-Control': 'no-cache'
-                }
-              });
-              
-              console.log(`Successful connection to endpoint: ${endpoint}`);
-              
-              // Set appropriate content type
-              const contentType = response.headers['content-type'] || 'application/octet-stream';
-              res.setHeader('Content-Type', contentType);
-              
-              // Set CORS headers
-              res.setHeader('Access-Control-Allow-Origin', '*');
-              res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-              res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-              res.setHeader('Pragma', 'no-cache');
-              res.setHeader('Expires', '0');
-              
-              console.log(`Successfully connected to ${serialNumber} robot camera via endpoint: ${endpoint}`);
-              return response.data.pipe(res);
-            } catch (error) {
-              const typedError = error as Error;
-              console.log(`Failed to access endpoint ${endpoint}: ${typedError.message}`);
-              // Continue to the next endpoint
-            }
-          }
-          
-          // If we get here, all endpoints failed, try one more with the specific JPEG stream
-          const imageStreamUrl = `http://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed`;
-          try {
-            console.log(`Making final attempt with RGB image stream from: ${imageStreamUrl}`);
-            const response = await axios.get(imageStreamUrl, {
-              responseType: 'stream',
-              timeout: 8000, // Longer timeout for this final attempt
-              headers: {
-                'Accept': 'image/jpeg, image/*',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache'
-              }
-            });
-            
-            // Forward appropriate content type header based on what we received
+            // Set headers and return the stream
             const contentType = response.headers['content-type'] || 'image/jpeg';
             res.setHeader('Content-Type', contentType);
-            
-            // Set CORS headers to allow access from any origin
             res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
+            res.setHeader('Cache-Control', 'no-cache');
             
-            console.log(`Successfully connected to ${serialNumber} robot image stream via ngrok!`);
-            // Stream the data back to the client
+            console.log(`Successfully connected to topic '${topicName}'`);
             return response.data.pipe(res);
           } catch (error) {
-            const imageError = error as Error;
-            console.warn(`Error connecting to image stream: ${imageError.message}. Trying video stream...`);
-            
-            // If image stream fails, try the video stream
-            try {
-              const videoStreamUrl = `http://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/video`;
-              console.log(`Attempting to get RGB video stream from: ${videoStreamUrl}`);
-              
-              const response = await axios.get(videoStreamUrl, {
-                responseType: 'stream',
-                timeout: 10000,
-                headers: {
-                  'Accept': 'multipart/x-mixed-replace; boundary=frame, */*',
-                  'Connection': 'keep-alive'
-                }
-              });
-              
-              // Explicitly set content type for stream
-              const contentType = response.headers['content-type'] || 'multipart/x-mixed-replace; boundary=frame';
-              res.setHeader('Content-Type', contentType);
-              
-              // Set CORS headers
-              res.setHeader('Access-Control-Allow-Origin', '*');
-              res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-              res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-              res.setHeader('Pragma', 'no-cache');
-              res.setHeader('Expires', '0');
-              
-              console.log(`Successfully connected to ${serialNumber} robot video stream via ngrok!`);
-              return response.data.pipe(res);
-            } catch (error) {
-              const videoError = error as Error;
-              console.error(`Error connecting to video stream: ${videoError.message}`);
-              
-              // If both methods fail, try the original URL as fallback
-              try {
-                console.log(`Falling back to original URL: ${targetUrl}`);
-                const response = await axios.get(targetUrl, {
-                  responseType: 'stream',
-                  timeout: 8000,
-                  headers: {
-                    'Accept': 'multipart/x-mixed-replace; boundary=frame, */*',
-                    'Connection': 'keep-alive'
-                  }
-                });
-                
-                // Set proper content headers
-                res.setHeader('Content-Type', response.headers['content-type'] || 'multipart/x-mixed-replace; boundary=frame');
-                res.setHeader('Access-Control-Allow-Origin', '*');
-                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-                res.setHeader('Pragma', 'no-cache');
-                res.setHeader('Expires', '0');
-                
-                return response.data.pipe(res);
-              } catch (error) {
-                const finalError = error as Error;
-                console.error(`All connection attempts to camera stream failed: ${finalError.message}`);
-                // Fall through to regular camera handling
-              }
-            }
-          }
-        } else {
-          try {
-            // For non-ngrok URLs, use standard approach
-            const response = await axios.get(camera.streamUrl, {
-              responseType: 'stream',
-              timeout: 8000, // Increase timeout for public connection
-            });
-            
-            // Forward the response headers and data
-            Object.entries(response.headers).forEach(([key, value]) => {
-              res.setHeader(key, value);
-            });
-            
-            // Set CORS headers to allow access
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-            
-            console.log(`Successfully connected to ${serialNumber} robot camera stream!`);
-            // Stream the data back to the client
-            return response.data.pipe(res);
-          } catch (error) {
-            console.error(`Error connecting to ${serialNumber} robot camera stream: ${error}`);
-            // Fall through to regular camera handling
+            console.error(`Failed to enable topic: ${(error as Error).message}`);
+            // Fall through to default handling
           }
         }
       }
       
-      if (!camera || !camera.enabled || !camera.streamUrl) {
-        // If the camera is not available, return a default image
-        return createReadStream(DEFAULT_CAMERA_IMAGE_PATH).pipe(res);
-      }
-      
-      // Try to proxy the camera stream
+      // Default approach: try to proxy the camera stream directly
       try {
-        console.log(`Attempting to proxy camera stream from ${camera.streamUrl}`);
-        const response = await axios.get(camera.streamUrl, {
+        console.log(`Attempting to proxy camera stream from ${targetUrl}`);
+        
+        const response = await axios.get(targetUrl, {
           responseType: 'stream',
-          timeout: 5000, // 5 second timeout
+          timeout: 8000,
+          headers: {
+            'Accept': 'image/jpeg, video/*, */*',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache'
+          }
         });
         
-        // Forward the response headers and data
-        Object.entries(response.headers).forEach(([key, value]) => {
-          res.setHeader(key, value);
-        });
-        
-        // Set CORS headers to allow access
+        // Set headers
+        const contentType = response.headers['content-type'] || 'image/jpeg';
+        res.setHeader('Content-Type', contentType);
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
         
-        // Stream the data back to the client
+        console.log(`Successfully connected to ${serialNumber} camera`);
         return response.data.pipe(res);
-      } catch (error) {
-        console.error(`Error proxying camera stream from ${camera.streamUrl}:`, error);
-        // If the camera is unreachable, return a default image
-        return createReadStream(DEFAULT_CAMERA_IMAGE_PATH).pipe(res);
-      }
-    } catch (error) {
-      console.error('Error in camera stream proxy:', error);
-      res.status(500).send('Camera stream error');
-    }
-  });
-  // Get camera data for a specific robot
-  app.get('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
-    try {
-      const { serialNumber } = req.params;
-      
-      // Get camera data for the robot
-      const cameraData = demoCameraData[serialNumber];
-      
-      if (!cameraData) {
-        return res.status(404).json({ error: 'Robot camera data not found' });
-      }
-      
-      res.json(cameraData);
-    } catch (error) {
-      console.error('Error fetching robot camera data:', error);
-      res.status(500).json({ error: 'Failed to fetch robot camera data' });
-    }
-  });
-  
-  // Toggle camera state (enable/disable)
-  app.post('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
-    try {
-      const { serialNumber } = req.params;
-      const { enabled } = req.body;
-      
-      // Check if the robot exists in our data
-      if (!demoCameraData[serialNumber]) {
-        // Check if robot is registered
-        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      } catch (streamError) {
+        console.error(`Error streaming camera: ${(streamError as Error).message}`);
         
-        if (!existingAssignment) {
-          return res.status(404).json({ 
-            error: 'Robot not found', 
-            message: 'Please register the robot first using the /api/robots/register endpoint'
-          });
-        }
-        
-        // Create a new camera data entry for this robot
-        demoCameraData[serialNumber] = {
-          enabled: enabled !== undefined ? enabled : false,
-          streamUrl: enabled ? 'https://example.com/robot-stream-default.jpg' : '',
-          resolution: {
-            width: 1280,
-            height: 720
-          },
-          rotation: 0,
-          nightVision: false,
-          timestamp: new Date().toISOString()
-        };
-      } else {
-        // Update the existing camera data
-        const cameraData = demoCameraData[serialNumber];
-        
-        if (enabled !== undefined) {
-          cameraData.enabled = enabled;
-          
-          // Update the stream URL based on the enabled state
-          if (enabled && !cameraData.streamUrl) {
-            // Set appropriate stream URL based on robot serial number
-            if (serialNumber === 'L382502104988is') {
-              // Local robot
-              cameraData.streamUrl = 'http://192.168.4.32:8080/stream';
-            } else if (serialNumber === 'L382502104987ir') {
-              // Public accessible robot
-              cameraData.streamUrl = 'http://47.180.91.99:8080/stream';
-              console.log('Using public IP camera stream for robot:', serialNumber);
-            } else if (serialNumber === 'AX923701583RT') {
-              // AxBot 5000 Pro - new robot with high resolution camera
-              cameraData.streamUrl = 'http://axbot-demo.example.com/stream/AX923701583RT';
-              cameraData.resolution = {
-                width: 1920,
-                height: 1080
-              };
-              console.log('Using high resolution camera stream for AxBot 5000 Pro:', serialNumber);
-            } else {
-              cameraData.streamUrl = 'https://example.com/robot-stream-default.jpg';
-            }
-          } else if (!enabled) {
-            cameraData.streamUrl = '';
+        // If we're using ngrok, try some alternative endpoints
+        if (targetUrl.includes('ngrok-free.app')) {
+          try {
+            // Try the RGB cameras compressed format specifically
+            const altUrl = 'http://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed';
+            console.log(`Trying alternative endpoint: ${altUrl}`);
+            
+            const response = await axios.get(altUrl, {
+              responseType: 'stream',
+              timeout: 8000,
+              headers: {
+                'Accept': 'image/jpeg, */*',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache'
+              }
+            });
+            
+            // Set headers
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Cache-Control', 'no-cache');
+            
+            console.log(`Successfully connected to alternative endpoint`);
+            return response.data.pipe(res);
+          } catch (altError) {
+            console.error(`Alternative endpoint failed: ${(altError as Error).message}`);
           }
         }
         
-        cameraData.timestamp = new Date().toISOString();
+        // If all else fails, return the default image
+        console.log('Returning default image after all streaming attempts failed');
+        res.setHeader('Content-Type', 'image/jpeg');
+        return createReadStream(DEFAULT_CAMERA_IMAGE_PATH).pipe(res);
       }
-      
-      res.json(demoCameraData[serialNumber]);
     } catch (error) {
-      console.error('Error updating robot camera:', error);
-      res.status(500).json({ error: 'Failed to update robot camera' });
+      console.error('Unhandled error in camera stream proxy:', error);
+      res.status(500).send('Camera stream error');
+    }
+  });
+  
+  // Get camera info API
+  app.get('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      console.log('Camera data requested for robot:', serialNumber);
+      
+      // Get the camera data for this robot
+      const camera = demoCameraData[serialNumber];
+      
+      if (camera) {
+        res.json(camera);
+      } else {
+        res.status(404).json({ error: 'Camera not found for this robot' });
+      }
+    } catch (error) {
+      console.error('Error getting camera data:', error);
+      res.status(500).json({ error: 'Failed to get camera data' });
+    }
+  });
+  
+  // Update camera settings API
+  app.post('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const updates = req.body;
+      
+      console.log(`Camera settings update for robot ${serialNumber}:`, updates);
+      
+      // Get the current camera data
+      const camera = demoCameraData[serialNumber];
+      
+      if (!camera) {
+        // Create a new camera data entry for this robot
+        demoCameraData[serialNumber] = {
+          enabled: true,
+          streamUrl: `https://8f50-47-180-91-99.ngrok-free.app/robot-camera/${serialNumber}`,
+          resolution: { width: 1280, height: 720 },
+          rotation: 0,
+          nightVision: true,
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log(`Created new camera data for robot ${serialNumber}`);
+        res.status(201).json(demoCameraData[serialNumber]);
+      } else {
+        // Update existing camera data
+        const updatedCamera = { ...camera, ...updates, timestamp: new Date().toISOString() };
+        demoCameraData[serialNumber] = updatedCamera;
+        
+        console.log(`Updated camera data for robot ${serialNumber}`);
+        res.json(updatedCamera);
+      }
+    } catch (error) {
+      console.error('Error updating camera settings:', error);
+      res.status(500).json({ error: 'Failed to update camera settings' });
     }
   });
 }
 
-// WebSocket handlers for camera operations
-export function setupCameraWebSocketHandlers(ws: WebSocket, data: any, connectedClients: WebSocket[]) {
-  // Handle get camera data request
-  if (data.type === 'get_robot_camera' && data.serialNumber) {
-    const camera = demoCameraData[data.serialNumber];
-    if (camera) {
-      ws.send(JSON.stringify({
-        type: 'camera',
-        data: camera
-      }));
-    } else {
-      sendError(ws, `No camera data for robot ${data.serialNumber}`);
-    }
-  }
-  // Handle toggle camera request
-  else if (data.type === 'toggle_robot_camera' && data.serialNumber) {
-    const camera = demoCameraData[data.serialNumber];
-    if (camera) {
-      // Toggle the camera state
-      camera.enabled = data.enabled !== undefined ? data.enabled : !camera.enabled;
-      camera.timestamp = new Date().toISOString();
+/**
+ * Process camera-related WebSocket messages
+ * This function will handle all camera-related WebSocket requests
+ */
+export function processCameraWebSocketMessage(data: any, ws: WebSocket, connectedClients: WebSocket[]) {
+  try {
+    if (data.type === 'get_robot_camera') {
+      const { serialNumber } = data;
+      console.log('Camera data requested for robot:', serialNumber);
       
-      // Update the stream URL based on the enabled state
-      if (camera.enabled && !camera.streamUrl) {
-        // Set appropriate stream URL based on robot serial number
-        if (data.serialNumber === 'L382502104988is') {
-          // Local robot
-          camera.streamUrl = 'http://192.168.4.32:8080/stream';
-        } else if (data.serialNumber === 'L382502104987ir') {
-          // Public accessible robot
-          camera.streamUrl = 'http://47.180.91.99:8080/stream';
-          console.log('Using public IP camera stream for robot via WebSocket:', data.serialNumber);
-        } else if (data.serialNumber === 'AX923701583RT') {
-          // AxBot 5000 Pro - new robot with high resolution camera
-          camera.streamUrl = 'http://axbot-demo.example.com/stream/AX923701583RT';
-          camera.resolution = {
-            width: 1920,
-            height: 1080
-          };
-          console.log('Using high resolution camera stream for AxBot 5000 Pro via WebSocket:', data.serialNumber);
-        } else {
-          camera.streamUrl = 'https://example.com/robot-stream-default.jpg';
-        }
-      } else if (!camera.enabled) {
-        camera.streamUrl = '';
+      // Get the camera data for this robot
+      const camera = demoCameraData[serialNumber];
+      
+      if (camera) {
+        ws.send(JSON.stringify({
+          type: 'camera',
+          data: camera
+        }));
+        console.log('Sent camera data for robot:', serialNumber);
+      } else {
+        sendError(ws, `Camera not found for robot ${serialNumber}`);
+      }
+    } else if (data.type === 'set_robot_camera') {
+      const { serialNumber, camera } = data;
+      console.log(`Camera settings update for robot ${serialNumber}:`, camera);
+      
+      if (!serialNumber || !camera) {
+        return sendError(ws, 'Missing serial number or camera data in request');
       }
       
-      // Send the updated camera data back
-      ws.send(JSON.stringify({
-        type: 'camera',
-        data: camera
-      }));
+      // Update the camera data
+      const updatedCamera = {
+        ...demoCameraData[serialNumber],
+        ...camera,
+        timestamp: new Date().toISOString()
+      };
       
-      // Also broadcast to all other connected clients
-      broadcastRobotUpdate(
-        connectedClients.filter(client => client !== ws), 
-        'camera', 
-        data.serialNumber, 
-        camera
-      );
-    } else {
-      sendError(ws, `No camera data for robot ${data.serialNumber}`);
+      demoCameraData[serialNumber] = updatedCamera;
+      
+      // Notify all clients about the update
+      broadcastRobotUpdate(connectedClients, 'camera', serialNumber, updatedCamera);
+      
+      console.log(`Updated camera data for robot ${serialNumber} and broadcasted to all clients`);
+    } else if (data.type === 'toggle_robot_camera') {
+      const { serialNumber, enabled } = data;
+      console.log(`Toggle camera for robot ${serialNumber} to ${enabled ? 'enabled' : 'disabled'}`);
+      
+      if (!serialNumber) {
+        return sendError(ws, 'Missing serial number in request');
+      }
+      
+      // Get the current camera data
+      const camera = demoCameraData[serialNumber];
+      
+      if (!camera) {
+        return sendError(ws, `Camera not found for robot ${serialNumber}`);
+      }
+      
+      // Update the enabled status
+      const newEnabled = enabled !== undefined ? enabled : !camera.enabled;
+      const updatedCamera = {
+        ...camera,
+        enabled: newEnabled,
+        timestamp: new Date().toISOString()
+      };
+      
+      demoCameraData[serialNumber] = updatedCamera;
+      
+      // Notify all clients about the update
+      broadcastRobotUpdate(connectedClients, 'camera', serialNumber, updatedCamera);
+      
+      console.log(`Toggled camera for robot ${serialNumber} to ${newEnabled ? 'enabled' : 'disabled'}`);
     }
+  } catch (error) {
+    console.error('Error processing camera WebSocket message:', error);
+    sendError(ws, `Failed to process camera message: ${(error as Error).message}`);
   }
 }
 
-// Helper function to send error message
 function sendError(ws: WebSocket, message: string) {
   ws.send(JSON.stringify({
     type: 'error',
-    message: message
+    message
   }));
 }
 
-// Helper function to broadcast robot updates to connected clients
 function broadcastRobotUpdate(connectedClients: WebSocket[], updateType: string, serialNumber: string, data: any) {
-  connectedClients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({
-        type: updateType,
-        data: data
-      }));
-    }
+  const message = JSON.stringify({
+    type: updateType,
+    data
   });
+  
+  for (const client of connectedClients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
 }
