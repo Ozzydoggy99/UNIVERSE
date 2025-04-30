@@ -51,6 +51,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
 import { Map } from '@/components/ui/map';
 import { LiveMjpegStream } from '@/components/LiveMjpegStream';
+import { RobotH264Stream } from '@/components/RobotH264Stream';
 
 interface RobotStatus {
   model: string;
@@ -787,12 +788,10 @@ export default function RobotDetails() {
                           <div className="border rounded-md overflow-hidden aspect-video bg-gray-900 relative">
                             {cameraDataToUse?.streamUrl ? (
                               <div className="w-full h-full flex items-center justify-center">
-                                {/* Use dedicated LiveMjpegStream component for better performance */}
-                                <LiveMjpegStream 
-                                  streamUrl={cameraDataToUse.streamUrl}
-                                  refreshInterval={500} // Refresh every 500ms for smoother video
+                                {/* Use H264 streaming for better performance and reliability */}
+                                <RobotH264Stream 
+                                  serialNumber={serialNumber}
                                   className="w-full h-full"
-                                  title="Robot Camera Feed"
                                 />
                               </div>
                             ) : (
