@@ -6,8 +6,27 @@ import https from 'https';
 
 // We only support a single physical robot
 const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
+
+// Based on documentation - Two possible connection methods
+// 1. Connect to the robot with Ethernet RJ45 port (direct connection)
+// const ROBOT_API_URL = 'http://192.168.25.25:8090';
+// const ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
+
+// 2. Connect to the AP of the robot (direct connection)
+// const ROBOT_API_URL = 'http://192.168.12.1:8090';
+// const ROBOT_WS_URL = 'ws://192.168.12.1:8090/ws/v2/topics';
+
+// 3. Connect via ngrok (remote connection for development/testing)
 const ROBOT_API_URL = 'https://8f50-47-180-91-99.ngrok-free.app';
-const ROBOT_WS_URL = 'wss://8f50-47-180-91-99.ngrok-free.app/ws';
+const ROBOT_WS_URL = 'wss://8f50-47-180-91-99.ngrok-free.app/ws/v2/topics';
+
+// Authentication note: The documentation states that requests from these IPs don't require a secret:
+// - 192.168.25.* (added since 2.7.1)
+// - 172.16.*     (added since 2.7.1)
+// Since we're connecting to 192.168.25.25, we should not need the secret
+
+// For testing with ngrok, we'll keep this option but it may not be needed
+const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
 
 // Use node rejectUnauthorized=false to bypass SSL certificate validation
 // This is only for development purposes and should be removed in production
@@ -59,8 +78,8 @@ export function initRobotWebSocket() {
       followRedirects: true,
       rejectUnauthorized: false,
       headers: {
-        // Some robots require authentication headers
-        // Add them here if needed
+        // Based on documentation, all HTTP requests must have a Secret header
+        'Secret': ROBOT_SECRET
       }
     };
     
