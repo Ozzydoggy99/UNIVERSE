@@ -9,7 +9,6 @@ import {
   toggleRobotCamera
 } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
-import { robotWebSocket, RobotUpdateEvent, RobotUpdateListener } from "@/lib/robotWebSocket";
 
 interface RobotContextType {
   robotStatus: RobotStatus | null;
@@ -122,37 +121,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
     return fetchSuccess;
   };
 
-  // WebSocket event handler
-  const handleWebSocketUpdate = (event: RobotUpdateEvent) => {
-    switch (event.type) {
-      case 'status':
-        setRobotStatus(event.data);
-        updateTimestamp();
-        break;
-      case 'position':
-        setRobotPosition(event.data);
-        updateTimestamp();
-        break;
-      case 'sensors':
-        setRobotSensorData(event.data);
-        updateTimestamp();
-        break;
-      case 'map':
-        setMapData(event.data);
-        updateTimestamp();
-        break;
-      case 'camera':
-        setCameraData(event.data);
-        updateTimestamp();
-        break;
-      case 'connection':
-        setConnectionState(event.state);
-        break;
-      case 'error':
-        console.error('Robot WebSocket error:', event.message);
-        break;
-    }
-  };
+  // We're only using REST API polling for robot data updates
   
   // Use direct REST API polling instead of WebSocket
   useEffect(() => {
@@ -209,20 +178,10 @@ export function RobotProvider({ children }: RobotProviderProps) {
     };
   }, [user]);
 
-  // Manual data refresh function
+  // Manual data refresh function - using direct REST API calls
   const refreshData = async () => {
-    if (robotWebSocket.isConnected()) {
-      // If WebSocket is connected, request updates via WebSocket
-      robotWebSocket.requestStatus();
-      robotWebSocket.requestPosition();
-      robotWebSocket.requestSensorData();
-      robotWebSocket.requestMapData();
-      robotWebSocket.requestCameraData(); // Add camera data request
-      robotWebSocket.requestTaskInfo();
-    } else {
-      // Fallback to REST API if WebSocket is not connected
-      await fetchInitialData();
-    }
+    // Always use REST API for data fetching
+    await fetchInitialData();
   };
 
   const handleSetRobotData = (
@@ -278,9 +237,10 @@ export function RobotProvider({ children }: RobotProviderProps) {
         connectionState,
         setRobotData: handleSetRobotData,
         toggleCamera: handleToggleCamera,
-        connectWebSocket: robotWebSocket.connect.bind(robotWebSocket),
-        disconnectWebSocket: robotWebSocket.disconnect.bind(robotWebSocket),
-        isConnected: robotWebSocket.isConnected.bind(robotWebSocket),
+        // Provide dummy functions that match the interface but don't use WebSocket
+        connectWebSocket: () => setConnectionState('connected'),
+        disconnectWebSocket: () => setConnectionState('disconnected'),
+        isConnected: () => connectionState === 'connected',
         refreshData
       }}
     >
