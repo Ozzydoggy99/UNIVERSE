@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ArrowLeft, Bot, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useRobot } from '@/providers/robot-provider';
-import { Map } from '@/components/ui/map-fixed';
+import { Map, MapData } from '@/components/ui/map-fixed';
 import { ConnectionStatus } from '@/components/robot/ConnectionStatus';
 import ConnectionErrorMessage from '@/components/robot/ConnectionErrorMessage';
 
@@ -71,19 +71,7 @@ export default function MapTestPage() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
-  // Define MapData type
-  interface MapData {
-    grid: any[];
-    obstacles: { x: number; y: number; z: number }[];
-    paths: {
-      points: { x: number; y: number; z: number }[];
-      status: string;
-    }[];
-    size?: [number, number];
-    resolution?: number;
-    origin?: [number, number];
-    stamp?: number;
-  }
+  // Using the MapData type imported from map-fixed.tsx
   
   // Fetch map data
   const { data: mapData, isLoading: mapLoading } = useQuery<MapData>({
@@ -110,7 +98,15 @@ export default function MapTestPage() {
     lastUpdate: new Date().toISOString()
   };
   
-  const position = robotPosition || {
+  // Make sure position data has safe default values and is non-null
+  const position = robotPosition ? {
+    x: typeof robotPosition.x === 'number' ? robotPosition.x : 0,
+    y: typeof robotPosition.y === 'number' ? robotPosition.y : 0,
+    z: typeof robotPosition.z === 'number' ? robotPosition.z : 0,
+    orientation: typeof robotPosition.orientation === 'number' ? robotPosition.orientation : 0,
+    speed: typeof robotPosition.speed === 'number' ? robotPosition.speed : 0,
+    timestamp: robotPosition.timestamp || new Date().toISOString()
+  } : {
     x: 0,
     y: 0,
     z: 0,
@@ -119,7 +115,19 @@ export default function MapTestPage() {
     timestamp: new Date().toISOString()
   };
   
-  const sensors = sensorData || {
+  // Make sure sensor data has safe defaults
+  const sensors = sensorData ? {
+    temperature: typeof sensorData.temperature === 'number' ? sensorData.temperature : 0,
+    voltage: typeof sensorData.voltage === 'number' ? sensorData.voltage : 0,
+    current: typeof sensorData.current === 'number' ? sensorData.current : 0,
+    battery: typeof sensorData.battery === 'number' ? sensorData.battery : 0,
+    power_supply_status: sensorData.power_supply_status || 'unknown',
+    charging: !!sensorData.charging,
+    connectionStatus: sensorData.connectionStatus || 'disconnected',
+    humidity: typeof sensorData.humidity === 'number' ? sensorData.humidity : 0,
+    proximity: Array.isArray(sensorData.proximity) ? sensorData.proximity : [],
+    timestamp: sensorData.timestamp || new Date().toISOString()
+  } : {
     temperature: 0,
     voltage: 0,
     current: 0,
@@ -127,14 +135,25 @@ export default function MapTestPage() {
     power_supply_status: 'unknown',
     charging: false,
     connectionStatus: 'disconnected',
+    humidity: 0,
+    proximity: [],
     timestamp: new Date().toISOString()
   };
   
-  const mapDataToUse = mapData || {
+  // Make sure map data has safe defaults
+  const mapDataToUse = mapData ? {
+    grid: mapData.grid || [],
+    obstacles: mapData.obstacles || [],
+    paths: mapData.paths || [],
+    size: mapData.size || [0, 0],
+    resolution: typeof mapData.resolution === 'number' ? mapData.resolution : 0.05,
+    origin: mapData.origin || [0, 0],
+    stamp: typeof mapData.stamp === 'number' ? mapData.stamp : 0
+  } : {
     grid: [],
     obstacles: [],
     paths: [],
-    size: [0, 0],
+    size: [0, 0] as [number, number],
     resolution: 0.05,
     origin: [0, 0],
     stamp: 0
