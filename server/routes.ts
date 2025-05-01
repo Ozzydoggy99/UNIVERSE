@@ -137,11 +137,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Robots list API endpoint
   app.get('/api/robots', async (req: Request, res: Response) => {
     try {
-      // Return a list of all robot status data from the demo data
-      const robots = Object.keys(demoRobotStatus).map(serial => ({
-        id: serial,  // Use different property name to avoid duplication
-        ...demoRobotStatus[serial]
-      }));
+      // Get the list of all robot serials
+      const robotSerials = Object.keys(demoRobotStatus);
+      
+      // Create the robots array
+      const robots = [];
+      
+      // For each robot, try to get live data if available
+      for (const serial of robotSerials) {
+        // Start with the demo data as a fallback
+        let robotData = {
+          id: serial,  // Use different property name to avoid duplication
+          ...demoRobotStatus[serial]
+        };
+        
+        // If this is our physical robot with live data, use the live data instead of mock data
+        if (serial === 'L382502104987ir') {
+          try {
+            // Fetch live status data
+            const statusResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/status`);
+            if (statusResponse.ok) {
+              const liveStatusData = await statusResponse.json();
+              
+              // Update the robot data with live status
+              robotData = {
+                ...robotData,
+                status: liveStatusData.status || robotData.status,
+                model: "Physical Robot (Live)",
+                lastUpdate: new Date().toISOString()
+              };
+              
+              // Fetch live sensor data for battery info
+              const sensorResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/sensors`);
+              if (sensorResponse.ok) {
+                const liveSensorData = await sensorResponse.json();
+                
+                // Update battery level if available
+                if (liveSensorData.battery) {
+                  robotData.battery = liveSensorData.battery;
+                }
+              }
+              
+              console.log('Using live data for robot in /api/robots endpoint:', serial);
+            }
+          } catch (err) {
+            console.error('Error fetching live robot data:', err);
+            // Continue with the demo data as fallback
+          }
+        } else if (serial === 'AX923701583RT') {
+          // Remove the AxBot 5000 Pro robot as per user request
+          continue;
+        }
+        
+        robots.push(robotData);
+      }
+      
       res.json(robots);
     } catch (error) {
       console.error('Error fetching robots:', error);

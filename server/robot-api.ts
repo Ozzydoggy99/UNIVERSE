@@ -666,15 +666,56 @@ export function registerRobotApiRoutes(app: Express) {
       }
       
       // Get the robot status from our stored data
-      const status = demoRobotStatus[serialNumber];
+      const status = { ...demoRobotStatus[serialNumber] };
       
       if (!status) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // If status.status is null or undefined, set it to 'charging' for our L382502104988is robot
-      if (serialNumber === 'L382502104988is' && (!status.status || status.status === 'active')) {
+      // If it's our public physical robot, fetch live data
+      if (serialNumber === 'L382502104987ir') {
+        try {
+          console.log('Fetching live status data for robot:', serialNumber);
+          // Fetch live status data
+          const statusResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/status`);
+          
+          if (statusResponse.ok) {
+            const liveStatusData = await statusResponse.json();
+            
+            // Update with live status data
+            status.status = liveStatusData.status || status.status;
+            status.model = "Physical Robot (Live)";
+            status.lastUpdate = new Date().toISOString();
+            
+            // Also fetch sensor data for battery info
+            try {
+              const sensorResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/sensors`);
+              if (sensorResponse.ok) {
+                const liveSensorData = await sensorResponse.json();
+                
+                // Update battery level if available
+                if (liveSensorData.battery) {
+                  status.battery = liveSensorData.battery;
+                }
+              }
+            } catch (sensorErr) {
+              console.error('Error fetching sensor data for battery info:', sensorErr);
+            }
+            
+            console.log('Using live data for robot status:', serialNumber);
+          }
+        } catch (err) {
+          console.error('Error fetching live robot status:', err);
+          // Continue with demo data as fallback
+        }
+      } 
+      // For L382502104988is robot, set status to charging if needed
+      else if (serialNumber === 'L382502104988is' && (!status.status || status.status === 'active')) {
         status.status = 'charging';
+      }
+      // If it's the AxBot 5000 Pro, we should return a 404 as per user request to remove it
+      else if (serialNumber === 'AX923701583RT') {
+        return res.status(404).json({ error: 'Robot not found' });
       }
       
       res.json(status);
@@ -738,12 +779,40 @@ export function registerRobotApiRoutes(app: Express) {
     try {
       const { serialNumber } = req.params;
       
-      // In a real implementation, we would fetch actual data from the robot
-      // For demo purposes, we'll use the demo data
-      const position = demoRobotPositions[serialNumber];
+      // Create a copy of the position data
+      const position = { ...demoRobotPositions[serialNumber] };
       
       if (!position) {
         return res.status(404).json({ error: 'Robot position not found' });
+      }
+      
+      // If it's our physical robot, fetch live position data
+      if (serialNumber === 'L382502104987ir') {
+        try {
+          console.log('Fetching live position data for robot:', serialNumber);
+          const positionResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/position`);
+          
+          if (positionResponse.ok) {
+            const livePositionData = await positionResponse.json();
+            
+            // Update with live position data
+            if (livePositionData.x !== undefined) position.x = livePositionData.x;
+            if (livePositionData.y !== undefined) position.y = livePositionData.y;
+            if (livePositionData.z !== undefined) position.z = livePositionData.z;
+            if (livePositionData.orientation !== undefined) position.orientation = livePositionData.orientation;
+            if (livePositionData.speed !== undefined) position.speed = livePositionData.speed;
+            position.timestamp = new Date().toISOString();
+            
+            console.log('Using live data for robot position:', serialNumber);
+          }
+        } catch (err) {
+          console.error('Error fetching live robot position:', err);
+          // Continue with demo data as fallback
+        }
+      }
+      // If it's the AxBot 5000 Pro, we should return a 404 as per user request to remove it
+      else if (serialNumber === 'AX923701583RT') {
+        return res.status(404).json({ error: 'Robot not found' });
       }
       
       res.json(position);
@@ -809,15 +878,41 @@ export function registerRobotApiRoutes(app: Express) {
     try {
       const { serialNumber } = req.params;
       
-      // Get the robot sensor data from our stored data
-      const sensors = demoRobotSensors[serialNumber];
+      // Create a copy of the sensors data as any to allow for additional properties
+      const sensors: any = { ...demoRobotSensors[serialNumber] };
       
       if (!sensors) {
         return res.status(404).json({ error: 'Robot sensors not found' });
       }
       
-      // For our physical robot, make sure battery value matches its charging state
-      if (serialNumber === 'L382502104988is') {
+      // If it's our physical robot, fetch live sensor data
+      if (serialNumber === 'L382502104987ir') {
+        try {
+          console.log('Fetching live sensor data for robot:', serialNumber);
+          const sensorResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/sensors`);
+          
+          if (sensorResponse.ok) {
+            const liveSensorData: any = await sensorResponse.json();
+            
+            // Update with live sensor data
+            if (liveSensorData.temperature !== undefined) sensors.temperature = liveSensorData.temperature;
+            if (liveSensorData.humidity !== undefined) sensors.humidity = liveSensorData.humidity;
+            if (liveSensorData.proximity !== undefined) sensors.proximity = liveSensorData.proximity;
+            if (liveSensorData.battery !== undefined) sensors.battery = liveSensorData.battery;
+            // Include additional sensor data if available
+            if (liveSensorData.light !== undefined) sensors.light = liveSensorData.light;
+            if (liveSensorData.noise !== undefined) sensors.noise = liveSensorData.noise;
+            sensors.timestamp = new Date().toISOString();
+            
+            console.log('Using live data for robot sensors:', serialNumber);
+          }
+        } catch (err) {
+          console.error('Error fetching live robot sensors:', err);
+          // Continue with demo data as fallback
+        }
+      }
+      // For other physical robots, handle charging
+      else if (serialNumber === 'L382502104988is') {
         // Get the status to check if robot is charging
         const status = demoRobotStatus[serialNumber];
         
@@ -825,6 +920,10 @@ export function registerRobotApiRoutes(app: Express) {
         if (status && status.status === 'charging' && sensors.battery < 95) {
           sensors.battery += 1; // Simulate charging by increasing battery level
         }
+      }
+      // If it's the AxBot 5000 Pro, we should return a 404 as per user request to remove it
+      else if (serialNumber === 'AX923701583RT') {
+        return res.status(404).json({ error: 'Robot not found' });
       }
       
       res.json(sensors);
@@ -888,12 +987,37 @@ export function registerRobotApiRoutes(app: Express) {
     try {
       const { serialNumber } = req.params;
       
-      // In a real implementation, we would fetch actual data from the robot
-      // For demo purposes, we'll use the demo data
-      const mapData = demoMapData[serialNumber];
+      // Create a copy of the map data
+      const mapData = { ...demoMapData[serialNumber] };
       
       if (!mapData) {
         return res.status(404).json({ error: 'Robot map data not found' });
+      }
+      
+      // If it's our physical robot, fetch live map data
+      if (serialNumber === 'L382502104987ir') {
+        try {
+          console.log('Fetching live map data for robot:', serialNumber);
+          const mapResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/map`);
+          
+          if (mapResponse.ok) {
+            const liveMapData = await mapResponse.json();
+            
+            // Update with live map data
+            if (liveMapData.grid !== undefined) mapData.grid = liveMapData.grid;
+            if (liveMapData.obstacles !== undefined) mapData.obstacles = liveMapData.obstacles;
+            if (liveMapData.paths !== undefined) mapData.paths = liveMapData.paths;
+            
+            console.log('Using live data for robot map:', serialNumber);
+          }
+        } catch (err) {
+          console.error('Error fetching live robot map:', err);
+          // Continue with demo data as fallback
+        }
+      }
+      // If it's the AxBot 5000 Pro, we should return a 404 as per user request to remove it
+      else if (serialNumber === 'AX923701583RT') {
+        return res.status(404).json({ error: 'Robot not found' });
       }
       
       res.json(mapData);
