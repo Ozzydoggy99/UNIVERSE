@@ -25,7 +25,7 @@ export interface RobotStatus {
   control_mode?: string;
   emergency_stop_pressed?: boolean;
   // Connection status for real-time monitoring
-  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
 
 export interface RobotPosition {
@@ -46,7 +46,7 @@ export interface RobotPosition {
   ori?: number;
   cov?: number[][];
   // Connection status for real-time monitoring
-  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
 
 export interface RobotSensorData {
@@ -88,7 +88,7 @@ export interface MapData {
   resolution?: number;
   origin?: number[];
   // Connection status for real-time monitoring
-  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
 
 export interface CameraData {
@@ -102,5 +102,5 @@ export interface CameraData {
   nightVision: boolean;
   timestamp: string;
   // Connection status for real-time monitoring
-  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
