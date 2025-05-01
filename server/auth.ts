@@ -31,6 +31,17 @@ async function comparePasswords(supplied: string, stored: string) {
     }
     const hashedBuf = Buffer.from(hashed, "hex");
     const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    
+    // Log buffer lengths to help debug
+    console.log(`Password buffer lengths - Stored: ${hashedBuf.length}, Supplied: ${suppliedBuf.length}`);
+    
+    // Handle potential length mismatch by comparing string versions if buffers are different lengths
+    if (hashedBuf.length !== suppliedBuf.length) {
+      console.log("Buffer length mismatch, comparing string versions");
+      return hashedBuf.toString("hex") === suppliedBuf.toString("hex");
+    }
+    
+    // If lengths match, use timingSafeEqual for secure comparison
     return timingSafeEqual(hashedBuf, suppliedBuf);
   } catch (error) {
     console.error("Error comparing passwords:", error);
