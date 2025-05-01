@@ -14,14 +14,12 @@ let ROBOT_WS_URL = process.env.ROBOT_WS_URL;
 
 // If environment variables are not set, use default connection options
 if (!ROBOT_API_URL || !ROBOT_WS_URL) {
-  // Since we're in the Replit environment, let's use mock data
-  // This allows us to develop and test without a physical robot connection
-  console.log('Running in Replit environment, using mock robot data');
+  // Use the configured ngrok URL for the port forwarded robot connection
+  console.log('Using ngrok tunnel for robot connection');
   
-  // Set API URL for any HTTP requests, but leave WebSocket URL empty
-  // to trigger mock data simulation
-  ROBOT_API_URL = '/api/mock-robot';
-  ROBOT_WS_URL = '';
+  // Direct connection to the robot via IP address
+  ROBOT_API_URL = 'http://47.180.91.99:8090';
+  ROBOT_WS_URL = 'ws://47.180.91.99:8090/ws/v2/topics';
   
   // Other connection options (for reference):
   // 1. Direct connection via Ethernet RJ45 port
@@ -31,10 +29,6 @@ if (!ROBOT_API_URL || !ROBOT_WS_URL) {
   // 2. Direct connection via robot AP
   // ROBOT_API_URL = 'http://192.168.12.1:8090';
   // ROBOT_WS_URL = 'ws://192.168.12.1:8090/ws/v2/topics';
-  
-  // 3. Connection via ngrok (requires proper setup on robot side)
-  // ROBOT_API_URL = 'https://df90-47-180-91-99.ngrok-free.app';
-  // ROBOT_WS_URL = 'wss://df90-47-180-91-99.ngrok-free.app/ws/v2/topics';
 }
 
 console.log(`Using robot connection: ${ROBOT_API_URL} (HTTP) and ${ROBOT_WS_URL} (WebSocket)`);
