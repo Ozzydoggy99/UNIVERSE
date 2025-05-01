@@ -3,9 +3,40 @@ import { Progress } from "@/components/ui/progress";
 import { RobotStatus } from "@/types/robot";
 import { useRobot } from "@/providers/robot-provider";
 import { Badge } from "@/components/ui/badge";
+import { AlertCircle, WifiOff, Loader2 } from "lucide-react";
 
 export function RobotStatusCard() {
-  const { robotStatus } = useRobot();
+  const { robotStatus, connectionState } = useRobot();
+
+  const getConnectionStatusDisplay = () => {
+    switch (connectionState) {
+      case 'connected':
+        return null; // Don't show anything when connected
+      case 'connecting':
+        return (
+          <div className="flex items-center space-x-2 mt-2 p-2 bg-orange-100 text-orange-800 rounded-md">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-xs">Connecting to robot...</span>
+          </div>
+        );
+      case 'disconnected':
+        return (
+          <div className="flex items-center space-x-2 mt-2 p-2 bg-gray-100 text-gray-800 rounded-md">
+            <WifiOff className="h-4 w-4" />
+            <span className="text-xs">Robot disconnected. Attempting to reconnect...</span>
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="flex items-center space-x-2 mt-2 p-2 bg-red-100 text-red-800 rounded-md">
+            <AlertCircle className="h-4 w-4" />
+            <span className="text-xs">Connection error. Check robot power and network.</span>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   const getStatusColor = (status?: string) => {
     if (!status) return "bg-muted";
@@ -72,6 +103,9 @@ export function RobotStatusCard() {
             <span className="text-muted-foreground">Uptime:</span>
             <span className="font-medium">{robotStatus?.uptime || "Unknown"}</span>
           </div>
+          
+          {/* Display connection status information */}
+          {getConnectionStatusDisplay()}
         </div>
       </CardContent>
     </Card>
