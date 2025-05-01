@@ -4,6 +4,7 @@ import { RobotStatus, RobotPosition, RobotSensorData, CameraData } from "@/types
 // API endpoint configurations
 const API_URL = import.meta.env.VITE_AXBOT_API_URL || "/api/axbot";
 const API_KEY = import.meta.env.VITE_AXBOT_API_KEY || "";
+const ROBOT_SECRET = import.meta.env.VITE_ROBOT_SECRET || "";
 
 // Proxy server URLs for direct robot connection
 const ROBOT_PROXY_URL = import.meta.env.VITE_ROBOT_PROXY_URL || "";
@@ -37,7 +38,11 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
       if (ROBOT_PROXY_URL) {
         try {
           console.log(`Trying to connect to robot via proxy at ${ROBOT_PROXY_URL}/device/info`);
-          const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/device/info`);
+          const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/device/info`, {
+            headers: {
+              'Secret': ROBOT_SECRET
+            }
+          });
           if (proxyResponse.ok) {
             const robotData = await proxyResponse.json();
             console.log('Received robot data from proxy:', robotData);
@@ -84,7 +89,11 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
       if (ROBOT_PROXY_URL) {
         try {
           console.log(`Trying to connect to robot position via proxy at ${ROBOT_PROXY_URL}/position`);
-          const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/position`);
+          const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/position`, {
+            headers: {
+              'Secret': ROBOT_SECRET
+            }
+          });
           if (proxyResponse.ok) {
             const robotData = await proxyResponse.json();
             console.log('Received robot position data from proxy:', robotData);
@@ -131,7 +140,11 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
       if (ROBOT_PROXY_URL) {
         try {
           console.log(`Trying to connect to robot sensors via proxy at ${ROBOT_PROXY_URL}/sensors`);
-          const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/sensors`);
+          const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/sensors`, {
+            headers: {
+              'Secret': ROBOT_SECRET
+            }
+          });
           if (proxyResponse.ok) {
             const robotData = await proxyResponse.json();
             console.log('Received robot sensor data from proxy:', robotData);
@@ -247,7 +260,11 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
     if (ROBOT_CAMERA_URL) {
       try {
         console.log(`Trying to connect to robot camera via proxy at ${ROBOT_CAMERA_URL}/${serialNumber}`);
-        const proxyResponse = await fetch(`${ROBOT_CAMERA_URL}/${serialNumber}`);
+        const proxyResponse = await fetch(`${ROBOT_CAMERA_URL}/${serialNumber}`, {
+          headers: {
+            'Secret': ROBOT_SECRET
+          }
+        });
         if (proxyResponse.ok) {
           console.log('Received robot camera data from proxy');
           

@@ -12,14 +12,24 @@ export async function apiRequest(
   options?: {
     method?: string;
     data?: unknown;
+    headers?: Record<string, string>;
   },
 ): Promise<Response> {
   const method = options?.method || 'GET';
   const data = options?.data;
+  const customHeaders = options?.headers || {};
+  
+  // Add Secret header to all API requests
+  // The secret is set on the server, this is a no-op on client
+  // But ensures consistent headers across client and server
+  const headers = {
+    ...customHeaders,
+    ...(data ? { "Content-Type": "application/json" } : {}),
+  };
   
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -34,8 +44,14 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    // Add Secret header for robot authentication
     const res = await fetch(queryKey[0] as string, {
       credentials: "include",
+      headers: {
+        // If the URL contains "robots" or "robot", add the Secret header
+        // This is to ensure authentication for robot API endpoints
+        ...(queryKey[0].toString().includes('robot') ? { 'Secret': import.meta.env.VITE_ROBOT_SECRET || '' } : {})
+      }
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
