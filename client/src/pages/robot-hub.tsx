@@ -74,10 +74,17 @@ export default function RobotHub() {
   };
 
   // Special function to get status for the physical robot directly
-  const { data: physicalRobotStatus } = useQuery<RobotStatus>({
+  const { data: physicalRobotStatus, isLoading: isPhysicalRobotStatusLoading } = useQuery<RobotStatus>({
     queryKey: ['/api/robots/status', physicalRobotInfo.serialNumber],
     refetchInterval: 2000, // Faster refresh rate for more responsive UI
   });
+
+  // Log robot status when available
+  React.useEffect(() => {
+    if (physicalRobotStatus) {
+      console.log('Fetched robot data for', physicalRobotInfo.serialNumber, physicalRobotStatus);
+    }
+  }, [physicalRobotStatus]);
 
   // Get physical robot position for showing real-time coordinates
   const { data: physicalRobotPosition } = useQuery<RobotPosition>({
@@ -139,8 +146,8 @@ export default function RobotHub() {
                 <Bot className={`h-5 w-5 ${physicalRobotStatus ? 'text-primary' : 'text-red-500'}`} />
                 {physicalRobotInfo.model}
               </CardTitle>
-              <Badge className={getStatusColor(physicalRobotStatus?.status)}>
-                {physicalRobotStatus?.status?.toUpperCase() || 'OFFLINE'}
+              <Badge className={getStatusColor(physicalRobotStatus ? 'online' : 'offline')}>
+                {physicalRobotStatus ? 'ONLINE' : 'OFFLINE'}
               </Badge>
             </div>
           </CardHeader>
@@ -155,7 +162,7 @@ export default function RobotHub() {
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Status</div>
                   <div className={`font-medium ${!physicalRobotStatus && 'text-red-500'}`}>
-                    {physicalRobotStatus?.mode || 'Unable to establish connection'}
+                    {physicalRobotStatus ? 'Ready' : 'Unable to establish connection'}
                   </div>
                 </div>
                 
