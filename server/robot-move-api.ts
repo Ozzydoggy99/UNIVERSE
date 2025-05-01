@@ -26,15 +26,10 @@ export function registerRobotMoveApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Invalid move data' });
       }
 
-      // Ensure required fields are present
-      if (moveData.type !== 'standard') {
-        return res.status(400).json({ error: 'Only standard movement type is supported' });
-      }
-
       console.log(`Sending move command to robot ${serialNumber}:`, moveData);
 
-      // Forward the request to the robot API
-      const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/move`, {
+      // Forward the request to the robot API according to documentation
+      const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/chassis/moves`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,6 +47,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
       }
 
       const data = await robotResponse.json();
+      console.log('Robot move response:', data);
       res.status(200).json(data);
     } catch (error) {
       console.error('Error sending move command to robot:', error);
@@ -73,12 +69,13 @@ export function registerRobotMoveApiRoutes(app: Express) {
 
       console.log(`Cancelling movement for robot ${serialNumber}`);
 
-      // Forward the cancel request to the robot API
-      const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/move/cancel`, {
-        method: 'POST',
+      // Forward the cancel request to the robot API according to documentation
+      const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/chassis/moves/current`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ state: "cancelled" }),
       });
 
       if (!robotResponse.ok) {
@@ -91,6 +88,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
       }
 
       const data = await robotResponse.json();
+      console.log('Robot cancel response:', data);
       res.status(200).json(data);
     } catch (error) {
       console.error('Error cancelling robot movement:', error);

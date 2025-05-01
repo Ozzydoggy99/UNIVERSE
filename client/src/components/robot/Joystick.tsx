@@ -70,14 +70,15 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       
       console.log(`Moving robot to: (${targetX.toFixed(3)}, ${targetY.toFixed(3)})`);
       
-      // Construct the move command payload
+      // Construct the move command payload according to API documentation
       const moveData = {
         creator: "web_interface",
-        robot_id: serialNumber,
         type: "standard",
         target_x: targetX,
         target_y: targetY,
+        target_z: 0,
         target_ori: targetOrientation,
+        target_accuracy: 0.1, // 10cm accuracy
         properties: {
           inplace_rotate: isRotating
         }
@@ -126,12 +127,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
       
-      // Construct the stop command payload
+      // Construct the stop command payload according to API docs
       const stopData = {
-        creator: "web_interface",
-        robot_id: serialNumber,
-        type: "cancel",
-        properties: {}
+        state: "cancelled"
       };
       
       // Send the command to the server
