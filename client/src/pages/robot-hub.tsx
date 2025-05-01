@@ -155,16 +155,26 @@ export default function RobotHub() {
                   <div className="text-xs text-muted-foreground mb-1">Battery</div>
                   <div className="flex items-center gap-2">
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div 
-                        className={`h-2.5 rounded-full ${
-                          physicalRobotSensor?.battery && physicalRobotSensor.battery > 60 ? 'bg-green-500' : 
-                          physicalRobotSensor?.battery && physicalRobotSensor.battery > 30 ? 'bg-yellow-500' : 
-                          'bg-red-500'
-                        }`}
-                        style={{ width: `${physicalRobotSensor?.battery || 0}%` }}
-                      ></div>
+                      {physicalRobotSensor && (
+                        <div 
+                          className={`h-2.5 rounded-full ${
+                            physicalRobotSensor.power_supply_status === 'charging' ? 'bg-purple-500' :
+                            Number(physicalRobotSensor.battery) > 60 ? 'bg-green-500' : 
+                            Number(physicalRobotSensor.battery) > 30 ? 'bg-yellow-500' : 
+                            'bg-red-500'
+                          }`}
+                          style={{ width: `${Number(physicalRobotSensor.battery) || 0}%` }}
+                        ></div>
+                      )}
                     </div>
-                    <span className="text-xs font-medium">{physicalRobotSensor?.battery || 0}%</span>
+                    <span className="text-xs font-medium">
+                      {physicalRobotSensor ? (
+                        <>
+                          {Number(physicalRobotSensor.battery || 0).toFixed(0)}%
+                          {physicalRobotSensor.power_supply_status === 'charging' && ' (Charging)'}
+                        </>
+                      ) : '0%'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -173,24 +183,35 @@ export default function RobotHub() {
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Current Position</div>
                   <div className="font-mono text-sm">
-                    X: {physicalRobotPosition?.x?.toFixed(2) || '?'}, 
-                    Y: {physicalRobotPosition?.y?.toFixed(2) || '?'}, 
-                    Z: {physicalRobotPosition?.z?.toFixed(2) || '?'}
+                    {physicalRobotPosition ? (
+                      <>
+                        X: {Number(physicalRobotPosition.x).toFixed(3)}, 
+                        Y: {Number(physicalRobotPosition.y).toFixed(3)}, 
+                        Z: {Number(physicalRobotPosition.z || 0).toFixed(3)}
+                      </>
+                    ) : 'Position data unavailable'}
                   </div>
                 </div>
                 
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Orientation</div>
                   <div className="font-mono text-sm">
-                    {physicalRobotPosition?.orientation?.toFixed(2) || '?'}°
+                    {physicalRobotPosition ? 
+                      `${(Number(physicalRobotPosition.orientation) * (180/Math.PI)).toFixed(1)}°` : 
+                      'Orientation unavailable'}
                   </div>
                 </div>
                 
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Sensors</div>
                   <div className="font-mono text-sm">
-                    Temp: {physicalRobotSensor?.temperature?.toFixed(1) || '?'}°C, 
-                    Humidity: {physicalRobotSensor?.humidity?.toFixed(1) || '?'}%
+                    {physicalRobotSensor ? (
+                      <>
+                        Temp: {Number(physicalRobotSensor.temperature || 0).toFixed(1)}°C, 
+                        Voltage: {Number(physicalRobotSensor.voltage || 0).toFixed(1)}V, 
+                        Current: {Number(physicalRobotSensor.current || 0).toFixed(2)}A
+                      </>
+                    ) : 'Sensor data unavailable'}
                   </div>
                 </div>
               </div>
