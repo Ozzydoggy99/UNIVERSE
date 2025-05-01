@@ -1,6 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { adminRequired, renderAdminPage, getAdminTemplatesList, getTemplateAssignments } from './admin-renderer';
-import { storage } from './storage';
+import { storage } from './mem-storage';
 
 // Admin-specific routes that render server-side
 export function registerAdminRoutes(app: Express) {

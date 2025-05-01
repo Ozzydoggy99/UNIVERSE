@@ -1,5 +1,5 @@
 import WebSocket from 'ws';
-import { storage } from './storage';
+import { storage } from './mem-storage';
 import { EventEmitter } from 'events';
 import { registerRobot } from './register-robot';
 import https from 'https';

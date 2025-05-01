@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { Request, Response } from 'express';
-import { storage } from './storage';
+import { storage } from './mem-storage';
 import { User } from '../shared/schema';
 import { Session } from 'express-session';
 

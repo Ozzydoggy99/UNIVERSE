@@ -1,4 +1,4 @@
-import { storage } from './storage';
+import { storage } from './mem-storage';
 import { InsertRobotTemplateAssignment } from '@shared/schema';
 
 /**

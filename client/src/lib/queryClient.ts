@@ -45,13 +45,18 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     // Add Secret header for robot authentication
-    const res = await fetch(queryKey[0] as string, {
+    const url = queryKey[0] as string;
+    const headers: Record<string, string> = {};
+    
+    // If the URL contains "robots" or "robot", add the Secret header
+    // This is to ensure authentication for robot API endpoints
+    if (url.includes('robot')) {
+      headers['Secret'] = import.meta.env.VITE_ROBOT_SECRET as string || '';
+    }
+    
+    const res = await fetch(url, {
       credentials: "include",
-      headers: {
-        // If the URL contains "robots" or "robot", add the Secret header
-        // This is to ensure authentication for robot API endpoints
-        ...(queryKey[0].toString().includes('robot') ? { 'Secret': import.meta.env.VITE_ROBOT_SECRET || '' } : {})
-      }
+      headers
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
