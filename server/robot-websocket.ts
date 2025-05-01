@@ -14,12 +14,12 @@ let ROBOT_WS_URL = process.env.ROBOT_WS_URL;
 
 // If environment variables are not set, use default connection options
 if (!ROBOT_API_URL || !ROBOT_WS_URL) {
-  // Use the configured port forwarding for robot connection
-  console.log('Using port forwarded connection to robot');
+  // Use the configured port forwarding or ngrok tunnel
+  console.log('Using ngrok tunnel connection to robot');
   
-  // Connection to the robot via port forwarding (public IP)
-  ROBOT_API_URL = 'http://47.180.91.99:8090';
-  ROBOT_WS_URL = 'ws://47.180.91.99:8090/ws/v2/topics';
+  // Connection to the robot via ngrok tunnel
+  ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
+  ROBOT_WS_URL = 'ws://8f50-47-180-91-99.ngrok-free.app/ws/v2/topics';
   
   // Other connection options (for reference only):
   // 1. Direct connection via Ethernet RJ45 port - Not accessible from Replit
