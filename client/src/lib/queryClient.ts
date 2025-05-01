@@ -62,7 +62,11 @@ export async function apiRequest(
     // This should never be reached due to the while loop, but TypeScript needs it
     throw new Error("Failed after retries");
   } catch (error) {
-    console.error(`API request failed for ${url}:`, error);
+    // Skip logging for robot API calls to reduce console noise
+    // We'll only keep logs for critical API endpoints
+    if (!url.includes('robot')) {
+      console.error(`API request failed for ${url}:`, error);
+    }
     
     // Return a fake response object to avoid breaking the app
     // The caller can check the ok property to know it failed
@@ -120,7 +124,10 @@ export const getQueryFn: <T>(options: {
       
       return await res.json();
     } catch (error) {
-      console.error(`Query function error for ${url}:`, error);
+      // Skip logging for robot endpoints to reduce console noise
+      if (!url.includes('robot')) {
+        console.error(`Query function error for ${url}:`, error);
+      }
       
       if (url.includes('robot')) {
         // Return appropriate error object based on endpoint type
@@ -147,13 +154,28 @@ export const getQueryFn: <T>(options: {
             humidity: 0,
             battery: 0,
             connectionStatus: "error",
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            charging: false,
+            power_supply_status: 'unknown'
           };
         } else if (url.includes('/map/')) {
           return {
             grid: [],
             obstacles: [],
             paths: [],
+            connectionStatus: "error"
+          };
+        } else if (url.includes('/camera/')) {
+          return { 
+            enabled: false,
+            streamUrl: '',
+            resolution: {
+              width: 0,
+              height: 0
+            },
+            rotation: 0,
+            nightVision: false,
+            timestamp: new Date().toISOString(),
             connectionStatus: "error"
           };
         } else {

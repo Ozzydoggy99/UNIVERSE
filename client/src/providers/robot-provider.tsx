@@ -76,43 +76,32 @@ export function RobotProvider({ children }: RobotProviderProps) {
       if (results[0].status === 'fulfilled' && results[0].value) {
         setRobotStatus(results[0].value);
         fetchSuccess = true;
-      } else if (results[0].status === 'rejected') {
-        console.error("Error fetching status for robot " + PUBLIC_ROBOT_SERIAL + ":", results[0].reason);
       }
       
       if (results[1].status === 'fulfilled' && results[1].value) {
         setRobotPosition(results[1].value);
-      } else if (results[1].status === 'rejected') {
-        console.warn("Could not fetch robot position:", results[1].reason);
       }
       
       if (results[2].status === 'fulfilled' && results[2].value) {
         setRobotSensorData(results[2].value);
-      } else if (results[2].status === 'rejected') {
-        console.warn("Could not fetch robot sensor data:", results[2].reason);
       }
       
       if (results[3].status === 'fulfilled' && results[3].value) {
         setMapData(results[3].value);
-      } else if (results[3].status === 'rejected') {
-        console.warn("Could not fetch robot map data:", results[3].reason);
       }
       
       if (results[4].status === 'fulfilled' && results[4].value) {
         setCameraData(results[4].value);
-      } else if (results[4].status === 'rejected') {
-        console.warn("Camera data not available:", results[4].reason);
       }
       
       // Update the connection state based on data availability
       if (fetchSuccess) {
         setConnectionState('connected');
-        console.log("Fetched robot data for", PUBLIC_ROBOT_SERIAL);
       } else {
         setConnectionState('error');
       }
     } catch (error) {
-      console.error("Error fetching robot data:", error);
+      // Only log critical errors, not expected API failures
       setConnectionState('error');
     }
     
@@ -178,9 +167,11 @@ export function RobotProvider({ children }: RobotProviderProps) {
             isConnecting = true;
           } else if (statusData.connectionStatus === 'disconnected') {
             isDisconnected = true;
+          } else if (statusData.connectionStatus === 'error') {
+            connectionFailed = true;
           }
         } else if (results[0].status === 'rejected') {
-          console.error('API request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[0].reason);
+          // Skip logging to reduce console noise
           connectionFailed = true;
         }
         
@@ -188,28 +179,28 @@ export function RobotProvider({ children }: RobotProviderProps) {
           setRobotPosition(results[1].value);
           successfulResponses++;
         } else if (results[1].status === 'rejected') {
-          console.error('API position request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[1].reason);
+          // Skip logging to reduce console noise
         }
         
         if (results[2].status === 'fulfilled' && results[2].value) {
           setRobotSensorData(results[2].value);
           successfulResponses++;
         } else if (results[2].status === 'rejected') {
-          console.error('API sensor request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[2].reason);
+          // Skip logging to reduce console noise
         }
         
         if (results[3].status === 'fulfilled' && results[3].value) {
           setMapData(results[3].value);
           successfulResponses++;
         } else if (results[3].status === 'rejected') {
-          console.error('API map request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[3].reason);
+          // Skip logging to reduce console noise
         }
         
         if (results[4].status === 'fulfilled' && results[4].value) {
           setCameraData(results[4].value);
           successfulResponses++;
         } else if (results[4].status === 'rejected') {
-          console.error('API camera request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[4].reason);
+          // Skip logging to reduce console noise
         }
         
         // Update connection state based on results and connection status
