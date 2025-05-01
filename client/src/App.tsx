@@ -23,6 +23,7 @@ import PickupDropoffPage from "@/pages/pickup-dropoff-page";
 import UnitBoxes from "@/pages/unit-boxes";
 import AIAssistantPage from "@/pages/ai-assistant";
 import RobotTasks from "@/pages/robot-tasks";
+import MapTestPage from "@/pages/map-test-page";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -358,6 +359,16 @@ function Router() {
         component={() => (
           <AppLayout>
             <RobotTasks />
+          </AppLayout>
+        )} 
+      />
+
+      {/* Map Test Page */}
+      <ProtectedRoute 
+        path="/map-test/:serialNumber?" 
+        component={() => (
+          <AppLayout>
+            <MapTestPage />
           </AppLayout>
         )} 
       />

@@ -105,7 +105,7 @@ interface MapPath {
   status: string;
 }
 
-export interface MapData {
+interface MapDataType {
   grid: any[] | string; // Can be an array of grid values or a base64 string for encoded map
   obstacles: MapPoint[];
   paths: MapPath[];
@@ -147,6 +147,9 @@ export interface RobotSensorData {
   humidity?: number;
   proximity?: number[];
 }
+
+// Rename MapDataType to MapData and export it
+export type MapData = MapDataType;
 
 interface MapProps {
   robotStatus: RobotStatus;
