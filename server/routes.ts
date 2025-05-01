@@ -7,8 +7,6 @@ import { registerRobotVideoRoutes } from './robot-video';
 import { setupVite } from './vite';
 import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
-import { registerMockAssistantRoutes } from './mock-assistant';
-
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -22,9 +20,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Setup admin routes
   registerAdminRoutes(app);
-  
-  // Register mock assistant routes for demo purposes
-  registerMockAssistantRoutes(app);
   
   // Register robot API routes
   registerRobotApiRoutes(app);

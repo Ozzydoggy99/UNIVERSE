@@ -99,103 +99,14 @@ let cameraDataLogged = false;
 /**
  * Initialize robot WebSocket connection
  */
-// Mock data timer for simulating robot updates
-let mockDataInterval: NodeJS.Timeout | null = null;
-
-/**
- * Generate mock robot data for development and demonstration
- */
-function startMockDataSimulation() {
-  console.log('Starting mock robot data simulation');
-  isConnected = true;
-  
-  // Set initial mock data
-  const initialStatusData = {
-    topic: '/wheel_state',
-    control_mode: 'manual',
-    emergency_stop_pressed: false
-  };
-  
-  const initialPositionData = {
-    topic: '/tracked_pose',
-    pos: [2.5, 3.2],
-    ori: 0.75
-  };
-  
-  const initialSensorData = {
-    topic: '/battery_state',
-    percentage: 0.85,
-    power_supply_status: 'discharging'
-  };
-  
-  // Store the initial mock data
-  robotDataCache.status.set(PHYSICAL_ROBOT_SERIAL, initialStatusData);
-  robotDataCache.position.set(PHYSICAL_ROBOT_SERIAL, initialPositionData);
-  robotDataCache.sensors.set(PHYSICAL_ROBOT_SERIAL, initialSensorData);
-  
-  // Emit initial data events
-  robotEvents.emit('status_update', PHYSICAL_ROBOT_SERIAL, initialStatusData);
-  robotEvents.emit('position_update', PHYSICAL_ROBOT_SERIAL, initialPositionData);
-  robotEvents.emit('sensor_update', PHYSICAL_ROBOT_SERIAL, initialSensorData);
-  
-  // Simulate data updates at regular intervals
-  mockDataInterval = setInterval(() => {
-    // Simulate slight position changes
-    const posData = robotDataCache.position.get(PHYSICAL_ROBOT_SERIAL) || initialPositionData;
-    const newPos = {
-      topic: '/tracked_pose',
-      pos: [
-        posData.pos[0] + (Math.random() * 0.02 - 0.01), // Small random x movement
-        posData.pos[1] + (Math.random() * 0.02 - 0.01)  // Small random y movement
-      ],
-      ori: posData.ori + (Math.random() * 0.04 - 0.02)  // Small random orientation change
-    };
-    
-    // Simulate battery discharge
-    const sensorData = robotDataCache.sensors.get(PHYSICAL_ROBOT_SERIAL) || initialSensorData;
-    const newSensorData = {
-      topic: '/battery_state',
-      percentage: Math.max(0, Math.min(1, sensorData.percentage - 0.0001)), // Slow battery drain
-      power_supply_status: sensorData.power_supply_status
-    };
-    
-    // Store updated data
-    robotDataCache.position.set(PHYSICAL_ROBOT_SERIAL, newPos);
-    robotDataCache.sensors.set(PHYSICAL_ROBOT_SERIAL, newSensorData);
-    
-    // Emit update events
-    robotEvents.emit('position_update', PHYSICAL_ROBOT_SERIAL, newPos);
-    robotEvents.emit('sensor_update', PHYSICAL_ROBOT_SERIAL, newSensorData);
-  }, 1000);
-  
-  console.log('Mock data simulation started successfully');
-}
-
-/**
- * Stop mock data simulation
- */
-function stopMockDataSimulation() {
-  if (mockDataInterval) {
-    clearInterval(mockDataInterval);
-    mockDataInterval = null;
-    console.log('Mock data simulation stopped');
-  }
-}
-
 export function initRobotWebSocket() {
   if (isConnecting) return;
   isConnecting = true;
 
-  // If WebSocket URL is empty, use mock data instead
+  // Make sure we have a WebSocket URL
   if (!ROBOT_WS_URL) {
-    console.log('WebSocket URL not defined, using mock data instead');
+    console.error('WebSocket URL not defined, cannot connect to robot');
     isConnecting = false;
-    
-    // Start mock data simulation after a short delay
-    setTimeout(() => {
-      startMockDataSimulation();
-    }, 1000);
-    
     return;
   }
   
@@ -213,9 +124,6 @@ export function initRobotWebSocket() {
     };
     
     console.log('Using Secret header for authentication');
-    
-    // Stop any existing mock data simulation
-    stopMockDataSimulation();
     
     robotWs = new WebSocket(ROBOT_WS_URL, wsOptions);
     
@@ -558,12 +466,9 @@ export function getRobotMapData(serialNumber: string) {
   
   // Transform from robot format to our API format
   return {
-    width: mapData.size?.[0] || 0,
-    height: mapData.size?.[1] || 0,
-    resolution: mapData.resolution || 0.05,
-    origin: mapData.origin || [0, 0],
-    data: mapData.data || '', // Base64 encoded map data
-    timestamp: mapData.stamp ? new Date(mapData.stamp * 1000).toISOString() : new Date().toISOString()
+    grid: mapData.data || [],
+    obstacles: [], // Not yet implemented - we'd need to extract obstacles from the map data
+    paths: [] // Not yet implemented - we'd need to get path data from a different topic
   };
 }
 
@@ -583,13 +488,13 @@ export function getRobotCameraData(serialNumber: string) {
     return null;
   }
   
-  // Return camera configuration
+  // Transform from robot format to our API format
   return {
     enabled: true,
-    streamUrl: `/api/robot-video/${serialNumber}`,
+    streamUrl: `/api/robot-video-frame/${serialNumber}`,
     resolution: {
-      width: 640,
-      height: 480
+      width: cameraData.width || 640,
+      height: cameraData.height || 480
     },
     rotation: 0,
     nightVision: false,
@@ -602,7 +507,11 @@ export function getRobotCameraData(serialNumber: string) {
  */
 export function subscribeToRobotUpdates(event: string, callback: (serialNumber: string, data: any) => void) {
   robotEvents.on(event, callback);
-  return () => robotEvents.off(event, callback);
+  
+  // Return unsubscribe function
+  return () => {
+    robotEvents.off(event, callback);
+  };
 }
 
 /**
