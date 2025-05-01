@@ -341,38 +341,73 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // First, try to get the map directly from the robot's carpad software if we have a connection
+      // Try to fetch the available map list from the robot
       if (ROBOT_API_URL) {
         try {
-          const mapUrl = `${ROBOT_API_URL}/map`;
-          console.log(`Trying to fetch map data directly from robot at ${mapUrl}`);
+          // First try to get the list of available maps
+          const mapListUrl = `${ROBOT_API_URL}/maps/`;
+          console.log(`Trying to fetch available maps from robot at ${mapListUrl}`);
           
-          const robotResponse = await fetch(mapUrl, {
+          const mapsResponse = await fetch(mapListUrl, {
             headers: {
               'Secret': process.env.ROBOT_SECRET || ''
             }
           });
           
-          if (robotResponse.ok) {
-            const robotMapData = await robotResponse.json();
-            console.log('Successfully fetched map data from robot carpad software');
+          if (mapsResponse.ok) {
+            const mapsList = await mapsResponse.json();
+            console.log('Successfully fetched maps list from robot');
             
-            // Transform into our expected format - retain the original data for editing
-            const formattedMapData = {
-              grid: robotMapData.data || [],
-              obstacles: robotMapData.obstacles || [],
-              paths: robotMapData.paths || [],
-              size: robotMapData.size || [0, 0],
-              resolution: robotMapData.resolution || 0.05,
-              origin: robotMapData.origin || [0, 0],
-              stamp: robotMapData.stamp,
-              originalData: robotMapData, // Keep the full original data for reference
-              connectionStatus: 'connected'
-            };
-            
-            return res.json(formattedMapData);
-          } else {
-            console.warn(`Failed to fetch map data from robot: ${robotResponse.status} ${robotResponse.statusText}`);
+            // If we have maps, get the first one (most recent)
+            if (mapsList && mapsList.length > 0) {
+              const mapId = mapsList[0].id;
+              const mapDetailUrl = `${ROBOT_API_URL}/maps/${mapId}`;
+              
+              console.log(`Fetching detailed map data for map ID ${mapId}`);
+              
+              const mapDetailResponse = await fetch(mapDetailUrl, {
+                headers: {
+                  'Secret': process.env.ROBOT_SECRET || ''
+                }
+              });
+              
+              if (mapDetailResponse.ok) {
+                const mapDetail = await mapDetailResponse.json();
+                
+                // Also fetch the map image
+                const mapImageUrl = `${ROBOT_API_URL}/maps/${mapId}.png`;
+                const mapImageResponse = await fetch(mapImageUrl, {
+                  headers: {
+                    'Secret': process.env.ROBOT_SECRET || ''
+                  }
+                });
+                
+                let imageData = '';
+                if (mapImageResponse.ok) {
+                  // Convert the image to base64
+                  const imageBuffer = await mapImageResponse.arrayBuffer();
+                  imageData = Buffer.from(imageBuffer).toString('base64');
+                }
+                
+                // Format the data for our client
+                const formattedMapData = {
+                  grid: imageData,
+                  obstacles: [],
+                  paths: [],
+                  size: [
+                    Math.round((mapDetail.grid_origin_x * -1) / mapDetail.grid_resolution),
+                    Math.round((mapDetail.grid_origin_y * -1) / mapDetail.grid_resolution)
+                  ],
+                  resolution: mapDetail.grid_resolution || 0.05,
+                  origin: [mapDetail.grid_origin_x, mapDetail.grid_origin_y],
+                  stamp: mapDetail.last_modified_time,
+                  originalData: mapDetail,
+                  connectionStatus: 'connected'
+                };
+                
+                return res.json(formattedMapData);
+              }
+            }
           }
         } catch (error) {
           const directError = error as Error;
@@ -381,6 +416,7 @@ export function registerRobotApiRoutes(app: Express) {
       }
       
       // Fall back to using the WebSocket cache if direct connection failed
+      // The WebSocket data comes from the /map topic which we're already subscribed to
       const mapData = getRobotMapData(serialNumber);
       
       if (mapData) {

@@ -554,6 +554,9 @@ export function getRobotMapData(serialNumber: string) {
       grid: [],
       obstacles: [],
       paths: [],
+      size: [0, 0],
+      resolution: 0.05,
+      origin: [0, 0],
       connectionStatus: 'disconnected'
     };
   }
@@ -566,15 +569,82 @@ export function getRobotMapData(serialNumber: string) {
       grid: [],
       obstacles: [],
       paths: [],
+      size: [0, 0],
+      resolution: 0.05,
+      origin: [0, 0],
       connectionStatus: 'connecting'
     };
   }
   
-  // Transform from robot format to our API format
+  // For topic '/map' the format is described in the documentation:
+  // {
+  //   "topic": "/map",
+  //   "resolution": 0.1, // the width/height of a single pixel, in meter
+  //   "size": [182, 59], // the size of the image, in pixel
+  //   "origin": [-8.1, -4.8], // The world coordinate of the lower left pixel
+  //   "data": "iVBORw0KGgoAAAANSUhEUgAAALYAAAA7BAAAAA..." // Base64 encoded PNG file
+  // }
+  
+  if (mapData.topic === '/map') {
+    console.log('Processing map data from WebSocket topic /map');
+    // Transform from robot format to our API format
+    return {
+      grid: mapData.data || [], // This is a base64 encoded PNG
+      obstacles: [], // Not in this data
+      paths: [], // Not in this data
+      size: mapData.size || [0, 0],
+      resolution: mapData.resolution || 0.05,
+      origin: mapData.origin || [0, 0],
+      connectionStatus: 'connected'
+    };
+  }
+  
+  // For topic '/slam/state' we don't have map data but we might have position quality
+  if (mapData.topic === '/slam/state') {
+    // For SLAM state, we'd need to combine with actual map data
+    // Just return basic info - this will be enhanced when combined with map data
+    const otherMapData = getTopicData(serialNumber, 'map', '/map');
+    
+    if (otherMapData && otherMapData.topic === '/map') {
+      // We have both SLAM state and map data
+      return {
+        grid: otherMapData.data || [],
+        obstacles: [],
+        paths: [],
+        size: otherMapData.size || [0, 0],
+        resolution: otherMapData.resolution || 0.05,
+        origin: otherMapData.origin || [0, 0],
+        position_quality: mapData.position_quality || 0,
+        reliable: mapData.reliable || false,
+        lidar_reliable: mapData.lidar_reliable || false,
+        connectionStatus: 'connected'
+      };
+    }
+    
+    // We only have SLAM state, no actual map data
+    return {
+      grid: [],
+      obstacles: [],
+      paths: [],
+      size: [0, 0],
+      resolution: 0.05,
+      origin: [0, 0],
+      position_quality: mapData.position_quality || 0,
+      reliable: mapData.reliable || false,
+      lidar_reliable: mapData.lidar_reliable || false,
+      connectionStatus: 'connected'
+    };
+  }
+  
+  // Generic fallback if we have some other type of map data
+  console.log(`Processing map data from topic ${mapData.topic || 'unknown'}`);
   return {
     grid: mapData.data || [],
-    obstacles: [], // Not yet implemented - we'd need to extract obstacles from the map data
-    paths: [], // Not yet implemented - we'd need to get path data from a different topic
+    obstacles: [],
+    paths: [],
+    size: mapData.size || [0, 0],
+    resolution: mapData.resolution || 0.05,
+    origin: mapData.origin || [0, 0],
     connectionStatus: 'connected'
   };
 }
