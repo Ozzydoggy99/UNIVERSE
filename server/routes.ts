@@ -7,6 +7,7 @@ import { registerRobotVideoRoutes } from './robot-video';
 import { setupVite } from './vite';
 import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
+import { registerRobotMoveApiRoutes } from './robot-move-api';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -23,6 +24,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register robot API routes
   registerRobotApiRoutes(app);
+  
+  // Register robot movement API routes
+  registerRobotMoveApiRoutes(app);
   
   // User-related endpoints
   app.get('/api/templates', async (req: Request, res: Response) => {
