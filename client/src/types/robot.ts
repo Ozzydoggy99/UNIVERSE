@@ -80,9 +80,13 @@ export interface MapPath {
 }
 
 export interface MapData {
-  grid: any[];
+  grid: any; // Can be array or base64 string depending on map format
   obstacles: MapPoint[];
   paths: MapPath[];
+  // Additional fields for maps from the physical robot
+  size?: number[];
+  resolution?: number;
+  origin?: number[];
   // Connection status for real-time monitoring
   connectionStatus?: 'connected' | 'connecting' | 'disconnected';
 }
