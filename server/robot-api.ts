@@ -1,76 +1,17 @@
 import { Express, Request, Response } from 'express';
 import { storage } from './storage';
 import { registerRobot } from './register-robot';
+import {
+  getRobotStatus,
+  getRobotPosition,
+  getRobotSensorData,
+  getRobotMapData,
+  getRobotCameraData,
+  isRobotConnected
+} from './robot-websocket';
 
 // We only support a single physical robot
 const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
-// Robot API URL
-const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
-
-// Topic endpoints for different data types
-const ROBOT_TOPIC_STATUS = '/status';
-const ROBOT_TOPIC_POSITION = '/tracked_pose'; // Position comes from tracked_pose topic
-const ROBOT_TOPIC_SENSORS = '/battery_state'; // Sensors data comes from battery_state
-const ROBOT_TOPIC_MAP = '/map'; // Map data comes from map topic
-const ROBOT_TOPIC_CAMERA = '/rgb_cameras/front/compressed'; // Camera data
-
-// Type definitions for robot data
-interface RobotStatus {
-  model: string;
-  serialNumber: string;
-  battery: number;
-  status: string;
-  mode: string;
-  lastUpdate: string;
-}
-
-interface RobotPosition {
-  x: number;
-  y: number;
-  z: number;
-  orientation: number;
-  speed: number;
-  timestamp: string;
-}
-
-interface RobotSensorData {
-  temperature: number;
-  humidity: number;
-  proximity: number[];
-  battery: number;
-  timestamp: string;
-  light?: number;
-  noise?: number;
-}
-
-interface MapPoint {
-  x: number;
-  y: number;
-  z: number;
-}
-
-interface MapPath {
-  points: MapPoint[];
-  status: string;
-}
-
-interface MapData {
-  grid: any[];
-  obstacles: MapPoint[];
-  paths: MapPath[];
-}
-
-interface CameraData {
-  enabled: boolean;
-  streamUrl: string;
-  resolution: {
-    width: number;
-    height: number;
-  };
-  rotation: number;
-  nightVision: boolean;
-  timestamp: string;
-}
 
 /**
  * Register all robot-related API routes
@@ -80,7 +21,7 @@ export function registerRobotApiRoutes(app: Express) {
   app.get('/api/robots/register-physical/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
-      const model = req.query.model as string || 'Unknown Physical Robot';
+      const model = req.query.model as string || 'Physical Robot';
       
       // Only allow our specific robot
       if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
@@ -126,48 +67,21 @@ export function registerRobotApiRoutes(app: Express) {
       const robots = [];
       
       // Only fetch data for our physical robot
-      try {
-        console.log('Fetching live status data for robot:', PHYSICAL_ROBOT_SERIAL);
-        
-        // Fetch live status data
-        const statusResponse = await fetch(`${ROBOT_API_URL}/status`);
-        
-        if (!statusResponse.ok) {
-          throw new Error(`Failed to fetch robot status: ${statusResponse.status} ${statusResponse.statusText}`);
-        }
-        
-        const liveStatusData = await statusResponse.json() as { status?: string };
-        
-        // Create status object with live data
-        const status: RobotStatus = {
-          model: "Physical Robot (Live)",
-          serialNumber: PHYSICAL_ROBOT_SERIAL,
-          battery: 0, // Will be updated with sensor data
-          status: liveStatusData.status || 'unknown',
-          mode: 'ready',
-          lastUpdate: new Date().toISOString()
-        };
-        
-        // Also fetch sensor data for battery info
-        try {
-          const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
-          if (sensorResponse.ok) {
-            const liveSensorData = await sensorResponse.json() as { battery?: number };
-            
-            // Update battery level if available
-            if (liveSensorData.battery !== undefined) {
-              status.battery = liveSensorData.battery;
-            }
-          }
-        } catch (sensorErr) {
-          console.error('Error fetching sensor data for battery info:', sensorErr);
-        }
-        
-        console.log('Using live data for robot status:', PHYSICAL_ROBOT_SERIAL);
+      const status = getRobotStatus(PHYSICAL_ROBOT_SERIAL);
+      
+      if (status) {
         robots.push(status);
-      } catch (err) {
-        console.error('Error fetching live robot status:', err);
-        return res.status(500).json({ error: 'Failed to fetch live robot status' });
+      } else {
+        // If we don't have any data yet, check if the robot is connected
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
+        }
+        
+        // Return an empty array if no robots are found
+        return res.json([]);
       }
       
       res.json(robots);
@@ -196,48 +110,22 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      try {
-        console.log('Fetching live status data for robot:', serialNumber);
-        // Fetch live status data
-        const statusResponse = await fetch(`${ROBOT_API_URL}/status`);
-        
-        if (!statusResponse.ok) {
-          throw new Error(`Failed to fetch robot status: ${statusResponse.status} ${statusResponse.statusText}`);
-        }
-        
-        const liveStatusData = await statusResponse.json() as { status?: string };
-        
-        // Create status object with live data
-        const status: RobotStatus = {
-          model: "Physical Robot (Live)",
-          serialNumber,
-          battery: 0, // Will be updated with sensor data
-          status: liveStatusData.status || 'unknown',
-          mode: liveStatusData.mode || 'ready',
-          lastUpdate: new Date().toISOString()
-        };
-        
-        // Also fetch sensor data for battery info
-        try {
-          const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
-          if (sensorResponse.ok) {
-            const liveSensorData = await sensorResponse.json() as { battery?: number };
-            
-            // Update battery level if available
-            if (liveSensorData.battery !== undefined) {
-              status.battery = liveSensorData.battery;
-            }
-          }
-        } catch (sensorErr) {
-          console.error('Error fetching sensor data for battery info:', sensorErr);
-          return res.status(500).json({ error: 'Failed to fetch robot sensor data' });
-        }
-        
-        console.log('Using live data for robot status:', serialNumber);
+      // Get status from WebSocket cache
+      const status = getRobotStatus(serialNumber);
+      
+      if (status) {
         res.json(status);
-      } catch (err) {
-        console.error('Error fetching live robot status:', err);
-        return res.status(500).json({ error: 'Failed to fetch live robot status' });
+      } else {
+        // If we don't have any data yet, check if the robot is connected
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
+        }
+        
+        // Return a 404 if the robot is not found
+        return res.status(404).json({ error: 'Robot status not available' });
       }
     } catch (error) {
       console.error('Error fetching robot status:', error);
@@ -270,45 +158,24 @@ export function registerRobotApiRoutes(app: Express) {
         });
       }
       
-      // Instead of updating demo data, we would send the command to the physical robot here
+      // We're not actually implementing this right now since it would 
+      // require commands to the robot, which we don't have documentation for
       console.log('Would send status update to physical robot:', statusUpdate);
       
-      // For now, just return a success response with the current status
-      try {
-        const statusResponse = await fetch(`${ROBOT_API_URL}/status`);
-        
-        if (!statusResponse.ok) {
-          throw new Error(`Failed to fetch robot status: ${statusResponse.status} ${statusResponse.statusText}`);
-        }
-        
-        const liveStatusData = await statusResponse.json() as { status?: string };
-        
-        const status: RobotStatus = {
-          model: "Physical Robot (Live)",
-          serialNumber,
-          battery: 0,
-          status: liveStatusData.status || 'unknown',
-          mode: statusUpdate.mode || 'ready',
-          lastUpdate: new Date().toISOString()
-        };
-        
-        // Get battery from sensor data
-        try {
-          const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
-          if (sensorResponse.ok) {
-            const liveSensorData = await sensorResponse.json() as { battery?: number };
-            if (liveSensorData.battery !== undefined) {
-              status.battery = liveSensorData.battery;
-            }
-          }
-        } catch (sensorErr) {
-          console.error('Error fetching sensor data for battery info:', sensorErr);
-        }
-        
+      // Return current status
+      const status = getRobotStatus(serialNumber);
+      
+      if (status) {
         res.json(status);
-      } catch (err) {
-        console.error('Error fetching live robot status after update:', err);
-        return res.status(500).json({ error: 'Failed to update robot status' });
+      } else {
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
+        }
+        
+        return res.status(404).json({ error: 'Robot status not available' });
       }
     } catch (error) {
       console.error('Error updating robot status:', error);
@@ -326,32 +193,22 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Fetch live position data
-      try {
-        console.log('Fetching live position data for robot:', serialNumber);
-        const positionResponse = await fetch(`${ROBOT_API_URL}/position`);
-        
-        if (!positionResponse.ok) {
-          throw new Error(`Failed to fetch robot position: ${positionResponse.status} ${positionResponse.statusText}`);
+      // Get position from WebSocket cache
+      const position = getRobotPosition(serialNumber);
+      
+      if (position) {
+        res.json(position);
+      } else {
+        // If we don't have any data yet, check if the robot is connected
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
         }
         
-        const livePositionData = await positionResponse.json();
-        
-        // Create a position object with live data
-        const position: RobotPosition = {
-          x: livePositionData.x || 0,
-          y: livePositionData.y || 0,
-          z: livePositionData.z || 0,
-          orientation: livePositionData.orientation || 0,
-          speed: livePositionData.speed || 0,
-          timestamp: livePositionData.timestamp || new Date().toISOString()
-        };
-        
-        console.log('Using live data for robot position:', serialNumber);
-        res.json(position);
-      } catch (err) {
-        console.error('Error fetching live robot position:', err);
-        return res.status(500).json({ error: 'Failed to fetch live robot position' });
+        // Return a 404 if the robot is not found
+        return res.status(404).json({ error: 'Robot position not available' });
       }
     } catch (error) {
       console.error('Error fetching robot position:', error);
@@ -359,15 +216,11 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
 
-  // Update a robot's position (only for our physical robot)
+  // Update a robot's position (only for demo purposes)
   app.post('/api/robots/position/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
       const positionUpdate = req.body;
-      
-      if (!positionUpdate || typeof positionUpdate !== 'object') {
-        return res.status(400).json({ error: 'Position update data is required' });
-      }
       
       // Only support our physical robot
       if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
@@ -384,33 +237,24 @@ export function registerRobotApiRoutes(app: Express) {
         });
       }
       
-      // Instead of updating demo data, we would send the command to the physical robot here
+      // We're not actually implementing this right now since it would 
+      // require commands to the robot, which we don't have documentation for
       console.log('Would send position update to physical robot:', positionUpdate);
       
-      // For now, just return the latest position
-      try {
-        const positionResponse = await fetch(`${ROBOT_API_URL}/position`);
-        
-        if (!positionResponse.ok) {
-          throw new Error(`Failed to fetch robot position: ${positionResponse.status} ${positionResponse.statusText}`);
+      // Get current position from WebSocket cache
+      const position = getRobotPosition(serialNumber);
+      
+      if (position) {
+        res.json(position);
+      } else {
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
         }
         
-        const livePositionData = await positionResponse.json();
-        
-        // Return live position data
-        const position: RobotPosition = {
-          x: livePositionData.x || 0,
-          y: livePositionData.y || 0,
-          z: livePositionData.z || 0,
-          orientation: livePositionData.orientation || 0,
-          speed: livePositionData.speed || 0,
-          timestamp: new Date().toISOString()
-        };
-        
-        res.json(position);
-      } catch (err) {
-        console.error('Error fetching live robot position after update:', err);
-        return res.status(500).json({ error: 'Failed to update robot position' });
+        return res.status(404).json({ error: 'Robot position not available' });
       }
     } catch (error) {
       console.error('Error updating robot position:', error);
@@ -418,7 +262,7 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
 
-  // Get a specific robot sensor data by serial number
+  // Get sensor data for a specific robot
   app.get('/api/robots/sensors/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
@@ -428,51 +272,33 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Fetch live sensor data
-      try {
-        console.log('Fetching live sensor data for robot:', serialNumber);
-        const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
-        
-        if (!sensorResponse.ok) {
-          throw new Error(`Failed to fetch robot sensors: ${sensorResponse.status} ${sensorResponse.statusText}`);
+      // Get sensor data from WebSocket cache
+      const sensorData = getRobotSensorData(serialNumber);
+      
+      if (sensorData) {
+        res.json(sensorData);
+      } else {
+        // If we don't have any data yet, check if the robot is connected
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
         }
         
-        const liveSensorData = await sensorResponse.json();
-        
-        // Create sensor data object with live data
-        const sensors: any = {
-          temperature: liveSensorData.temperature || 0,
-          humidity: liveSensorData.humidity || 0,
-          proximity: liveSensorData.proximity || [0, 0, 0, 0],
-          battery: liveSensorData.battery || 0,
-          timestamp: liveSensorData.timestamp || new Date().toISOString()
-        };
-        
-        // Include additional sensor data if available
-        if (liveSensorData.light !== undefined) sensors.light = liveSensorData.light;
-        if (liveSensorData.noise !== undefined) sensors.noise = liveSensorData.noise;
-        
-        console.log('Using live data for robot sensors:', serialNumber);
-        res.json(sensors);
-      } catch (err) {
-        console.error('Error fetching live robot sensors:', err);
-        return res.status(500).json({ error: 'Failed to fetch live robot sensors' });
+        // Return a 404 if the robot is not found
+        return res.status(404).json({ error: 'Robot sensor data not available' });
       }
     } catch (error) {
-      console.error('Error fetching robot sensors:', error);
-      res.status(500).json({ error: 'Failed to fetch robot sensors' });
+      console.error('Error fetching robot sensor data:', error);
+      res.status(500).json({ error: 'Failed to fetch robot sensor data' });
     }
   });
 
-  // Update a robot's sensor data
+  // Update sensor data for a specific robot (only for demo purposes)
   app.post('/api/robots/sensors/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
-      const sensorUpdate = req.body;
-      
-      if (!sensorUpdate || typeof sensorUpdate !== 'object') {
-        return res.status(400).json({ error: 'Sensor update data is required' });
-      }
       
       // Only support our physical robot
       if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
@@ -489,44 +315,28 @@ export function registerRobotApiRoutes(app: Express) {
         });
       }
       
-      // Instead of updating demo data, we would send the command to the physical robot here
-      console.log('Would send sensor update to physical robot:', sensorUpdate);
+      // Get current sensor data from WebSocket cache
+      const sensorData = getRobotSensorData(serialNumber);
       
-      // For now, just return the latest sensor data
-      try {
-        const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
-        
-        if (!sensorResponse.ok) {
-          throw new Error(`Failed to fetch robot sensors: ${sensorResponse.status} ${sensorResponse.statusText}`);
+      if (sensorData) {
+        res.json(sensorData);
+      } else {
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
         }
         
-        const liveSensorData = await sensorResponse.json();
-        
-        // Create sensor data object with live data
-        const sensors: any = {
-          temperature: liveSensorData.temperature || 0,
-          humidity: liveSensorData.humidity || 0,
-          proximity: liveSensorData.proximity || [0, 0, 0, 0],
-          battery: liveSensorData.battery || 0,
-          timestamp: new Date().toISOString()
-        };
-        
-        // Include additional sensor data if available
-        if (liveSensorData.light !== undefined) sensors.light = liveSensorData.light;
-        if (liveSensorData.noise !== undefined) sensors.noise = liveSensorData.noise;
-        
-        res.json(sensors);
-      } catch (err) {
-        console.error('Error fetching live robot sensors after update:', err);
-        return res.status(500).json({ error: 'Failed to update robot sensors' });
+        return res.status(404).json({ error: 'Robot sensor data not available' });
       }
     } catch (error) {
-      console.error('Error updating robot sensors:', error);
-      res.status(500).json({ error: 'Failed to update robot sensors' });
+      console.error('Error updating robot sensor data:', error);
+      res.status(500).json({ error: 'Failed to update robot sensor data' });
     }
   });
 
-  // Get a specific robot map data by serial number
+  // Get map data for a specific robot
   app.get('/api/robots/map/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
@@ -536,29 +346,22 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Fetch live map data
-      try {
-        console.log('Fetching live map data for robot:', serialNumber);
-        const mapResponse = await fetch(`${ROBOT_API_URL}/map`);
-        
-        if (!mapResponse.ok) {
-          throw new Error(`Failed to fetch robot map: ${mapResponse.status} ${mapResponse.statusText}`);
+      // Get map data from WebSocket cache
+      const mapData = getRobotMapData(serialNumber);
+      
+      if (mapData) {
+        res.json(mapData);
+      } else {
+        // If we don't have any data yet, check if the robot is connected
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
         }
         
-        const liveMapData = await mapResponse.json();
-        
-        // Create map data object with live data
-        const mapData: MapData = {
-          grid: liveMapData.grid || [],
-          obstacles: liveMapData.obstacles || [],
-          paths: liveMapData.paths || []
-        };
-        
-        console.log('Using live data for robot map:', serialNumber);
-        res.json(mapData);
-      } catch (err) {
-        console.error('Error fetching live robot map:', err);
-        return res.status(500).json({ error: 'Failed to fetch live robot map' });
+        // Return a 404 if the robot is not found
+        return res.status(404).json({ error: 'Robot map data not available' });
       }
     } catch (error) {
       console.error('Error fetching robot map data:', error);
@@ -576,31 +379,33 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Create camera data with live information
-      const cameraData: CameraData = {
-        enabled: true,
-        streamUrl: `https://8f50-47-180-91-99.ngrok-free.app/robot-camera/${serialNumber}`,
-        resolution: {
-          width: 1280,
-          height: 720
-        },
-        rotation: 0,
-        nightVision: true,
-        timestamp: new Date().toISOString()
-      };
+      // Get camera data from WebSocket cache
+      const cameraData = getRobotCameraData(serialNumber);
       
-      res.json(cameraData);
+      if (cameraData) {
+        res.json(cameraData);
+      } else {
+        // If we don't have any data yet, check if the robot is connected
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
+        }
+        
+        // Return a 404 if the robot is not found
+        return res.status(404).json({ error: 'Robot camera data not available' });
+      }
     } catch (error) {
       console.error('Error fetching robot camera data:', error);
       res.status(500).json({ error: 'Failed to fetch robot camera data' });
     }
   });
 
-  // Toggle camera state (enable/disable)
+  // Update camera settings for a specific robot
   app.post('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
-      const { enabled } = req.body;
       
       // Only support our physical robot
       if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
@@ -617,52 +422,42 @@ export function registerRobotApiRoutes(app: Express) {
         });
       }
       
-      // Instead of updating demo data, we would send the command to the physical robot here
-      console.log('Would toggle camera for physical robot:', enabled);
+      // Get current camera data from WebSocket cache
+      const cameraData = getRobotCameraData(serialNumber);
       
-      // Return updated camera data
-      const cameraData: CameraData = {
-        enabled: enabled !== undefined ? enabled : true,
-        streamUrl: enabled ? `https://8f50-47-180-91-99.ngrok-free.app/robot-camera/${serialNumber}` : '',
-        resolution: {
-          width: 1280,
-          height: 720
-        },
-        rotation: 0,
-        nightVision: true,
-        timestamp: new Date().toISOString()
-      };
-      
-      res.json(cameraData);
+      if (cameraData) {
+        res.json(cameraData);
+      } else {
+        if (!isRobotConnected()) {
+          return res.status(503).json({ 
+            error: 'Robot not connected', 
+            message: 'The robot is not currently connected. Please check the connection.'
+          });
+        }
+        
+        return res.status(404).json({ error: 'Robot camera data not available' });
+      }
     } catch (error) {
-      console.error('Error updating robot camera:', error);
-      res.status(500).json({ error: 'Failed to update robot camera' });
+      console.error('Error updating robot camera settings:', error);
+      res.status(500).json({ error: 'Failed to update robot camera settings' });
     }
   });
 
-  // Get all robot template assignments
+  // Get all robot-template assignments
   app.get('/api/robot-assignments', async (req: Request, res: Response) => {
     try {
-      // Add cache control headers to prevent caching
-      res.set('Cache-Control', 'no-store, max-age=0');
-      res.set('Pragma', 'no-cache');
-      res.set('Expires', '0');
-      
-      // Get all robot template assignments from storage
       const assignments = await storage.getAllRobotTemplateAssignments();
       res.json(assignments);
     } catch (error) {
-      console.error('Error fetching robot assignments:', error);
-      res.status(500).json({ error: 'Failed to fetch robot assignments' });
+      console.error('Error fetching robot template assignments:', error);
+      res.status(500).json({ error: 'Failed to fetch robot template assignments' });
     }
   });
 
-  // Get robot by serial number
+  // Get a robot-template assignment by serial number
   app.get('/api/robot-assignments/by-serial/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
-      
-      // Find the robot assignment by serial number
       const assignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
       
       if (!assignment) {
@@ -671,12 +466,12 @@ export function registerRobotApiRoutes(app: Express) {
       
       res.json(assignment);
     } catch (error) {
-      console.error('Error fetching robot assignment:', error);
-      res.status(500).json({ error: 'Failed to fetch robot assignment' });
+      console.error('Error fetching robot template assignment:', error);
+      res.status(500).json({ error: 'Failed to fetch robot template assignment' });
     }
   });
 
-  // Register a physical robot and assign it to a template
+  // Register a robot and assign it to a template
   app.post('/api/robot-assignments/register', async (req: Request, res: Response) => {
     try {
       const { serialNumber, model, templateId } = req.body;
@@ -685,22 +480,17 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Serial number and model are required' });
       }
       
-      // Only support our physical robot
-      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
-        return res.status(404).json({ error: 'Robot not supported' });
-      }
-      
-      // Register the robot with the template
+      // Register the robot
       const result = await registerRobot(serialNumber, model, templateId);
       
       res.status(201).json(result);
     } catch (error) {
-      console.error('Error registering robot with template:', error);
-      res.status(500).json({ error: 'Failed to register robot with template' });
+      console.error('Error registering robot:', error);
+      res.status(500).json({ error: 'Failed to register robot' });
     }
   });
 
-  // Get robot's current task
+  // Get the current task for a robot
   app.get('/api/robots/task/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
@@ -710,73 +500,71 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // For now, we don't have task data from the robot API
-      // In a real implementation, we would fetch from the robot API
-      const task = "Monitoring environment";
+      // Check if robot is registered
+      const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
       
-      res.json({ task });
+      if (!existingAssignment) {
+        return res.status(404).json({ 
+          error: 'Robot not found', 
+          message: 'Please register the robot first using the /api/robots/register endpoint'
+        });
+      }
+      
+      // In a real implementation, we would fetch the current task from a task queue
+      // For now, return a placeholder response
+      res.json({
+        taskId: null,
+        status: 'idle',
+        message: 'No active task'
+      });
     } catch (error) {
       console.error('Error fetching robot task:', error);
       res.status(500).json({ error: 'Failed to fetch robot task' });
     }
   });
 
-  // Update a robot assignment
+  // Update a robot-template assignment
   app.put('/api/robot-assignments/:id', async (req: Request, res: Response) => {
     try {
-      // Add cache control headers to prevent caching
-      res.set('Cache-Control', 'no-store, max-age=0');
-      res.set('Pragma', 'no-cache');
-      res.set('Expires', '0');
+      const { id } = req.params;
+      const { templateId } = req.body;
       
-      const id = parseInt(req.params.id);
-      const updates = req.body;
+      if (!templateId) {
+        return res.status(400).json({ error: 'Template ID is required' });
+      }
       
-      // Get the assignment first to check if it exists
-      const existingAssignment = await storage.getRobotTemplateAssignment(id);
+      // Update the assignment
+      const updated = await storage.updateRobotTemplateAssignment(parseInt(id, 10), {
+        templateId: parseInt(templateId, 10)
+      });
       
-      if (!existingAssignment) {
+      if (!updated) {
         return res.status(404).json({ error: 'Robot assignment not found' });
       }
       
-      // Update the assignment in storage
-      const updatedAssignment = await storage.updateRobotTemplateAssignment(id, updates);
-      
-      if (!updatedAssignment) {
-        return res.status(500).json({ error: 'Failed to update robot assignment' });
-      }
-      
-      // Return the updated assignment
-      res.json(updatedAssignment);
+      res.json(updated);
     } catch (error) {
-      console.error('Error updating robot assignment:', error);
-      res.status(500).json({ error: 'Failed to update robot assignment' });
+      console.error('Error updating robot template assignment:', error);
+      res.status(500).json({ error: 'Failed to update robot template assignment' });
     }
   });
 
-  // Delete a robot assignment
+  // Delete a robot-template assignment
   app.delete('/api/robot-assignments/:id', async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const { id } = req.params;
       
-      // Get the assignment first to check if it exists
-      const assignment = await storage.getRobotTemplateAssignment(id);
+      // Delete the assignment
+      const success = await storage.deleteRobotTemplateAssignment(parseInt(id, 10));
       
-      if (!assignment) {
+      if (!success) {
         return res.status(404).json({ error: 'Robot assignment not found' });
       }
       
-      // Delete the assignment from storage
-      const success = await storage.deleteRobotTemplateAssignment(id);
-      
-      if (!success) {
-        return res.status(500).json({ error: 'Failed to delete robot assignment' });
-      }
-      
-      res.status(204).end();
+      res.status(204).send();
     } catch (error) {
-      console.error('Error deleting robot assignment:', error);
-      res.status(500).json({ error: 'Failed to delete robot assignment' });
+      console.error('Error deleting robot template assignment:', error);
+      res.status(500).json({ error: 'Failed to delete robot template assignment' });
     }
   });
 }
