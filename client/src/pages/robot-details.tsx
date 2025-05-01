@@ -464,13 +464,13 @@ export default function RobotDetails() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="flex items-center gap-1 text-sm">
-                    {status.status?.toLowerCase() === 'charging' ? (
+                    {finalStatus.status?.toLowerCase() === 'charging' ? (
                       <BatteryCharging className="h-4 w-4 text-purple-500" />
-                    ) : sensors.battery >= 90 ? (
+                    ) : finalSensors.battery >= 90 ? (
                       <BatteryFull className="h-4 w-4 text-green-500" />
-                    ) : sensors.battery >= 50 ? (
+                    ) : finalSensors.battery >= 50 ? (
                       <BatteryMedium className="h-4 w-4 text-green-500" />
-                    ) : sensors.battery >= 20 ? (
+                    ) : finalSensors.battery >= 20 ? (
                       <BatteryLow className="h-4 w-4 text-amber-500" />
                     ) : (
                       <BatteryWarning className="h-4 w-4 text-red-500" />
@@ -478,13 +478,13 @@ export default function RobotDetails() {
                     Battery
                   </span>
                   <span className="font-medium flex items-center gap-1">
-                    {sensors.battery}%
-                    {status.status?.toLowerCase() === 'charging' ? (
+                    {finalSensors.battery}%
+                    {finalStatus.status?.toLowerCase() === 'charging' ? (
                       <span className="inline-flex items-center">
                         <span className="inline-block w-3.5 h-3.5 rounded-full bg-purple-500 animate-pulse"></span>
                         <span className="ml-1 text-xs text-purple-500">Charging</span>
                       </span>
-                    ) : status.status?.toLowerCase() === 'working' || status.status?.toLowerCase() === 'active' ? (
+                    ) : finalStatus.status?.toLowerCase() === 'working' || finalStatus.status?.toLowerCase() === 'active' ? (
                       <span className="inline-flex items-center">
                         <span className="inline-block w-3.5 h-3.5 rounded-full bg-blue-500 animate-pulse"></span>
                         <span className="ml-1 text-xs text-blue-500">In-Use</span>
@@ -500,13 +500,13 @@ export default function RobotDetails() {
                 <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
                   <div 
                     className={`h-full transition-all ${
-                      status.status?.toLowerCase() === 'charging' ? "bg-purple-500" :
-                      status.status?.toLowerCase() === 'working' || status.status?.toLowerCase() === 'active' ? "bg-blue-500" :
-                      sensors.battery >= 50 ? "bg-green-500" : 
-                      sensors.battery >= 20 ? "bg-amber-500" : 
+                      finalStatus.status?.toLowerCase() === 'charging' ? "bg-purple-500" :
+                      finalStatus.status?.toLowerCase() === 'working' || finalStatus.status?.toLowerCase() === 'active' ? "bg-blue-500" :
+                      finalSensors.battery >= 50 ? "bg-green-500" : 
+                      finalSensors.battery >= 20 ? "bg-amber-500" : 
                       "bg-red-500"
                     }`}
-                    style={{ width: `${sensors.battery}%` }}
+                    style={{ width: `${finalSensors.battery}%` }}
                   ></div>
                 </div>
               </div>
@@ -519,15 +519,15 @@ export default function RobotDetails() {
                 </h3>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Coordinates:</span>
-                  <span className="font-mono">({position.x}, {position.y}, {position.z})</span>
+                  <span className="font-mono">({finalPosition.x}, {finalPosition.y}, {finalPosition.z})</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Orientation:</span>
-                  <span>{position.orientation}°</span>
+                  <span>{finalPosition.orientation}°</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Speed:</span>
-                  <span>{position.speed} m/s</span>
+                  <span>{finalPosition.speed} m/s</span>
                 </div>
               </div>
             </CardContent>
@@ -547,7 +547,7 @@ export default function RobotDetails() {
                   <Thermometer className="h-4 w-4 text-red-500" />
                   Temperature
                 </span>
-                <span className="font-medium">{sensors.temperature}°C</span>
+                <span className="font-medium">{finalSensors.temperature}°C</span>
               </div>
               
               <div className="flex justify-between items-center">
@@ -555,7 +555,7 @@ export default function RobotDetails() {
                   <Droplets className="h-4 w-4 text-blue-500" />
                   Humidity
                 </span>
-                <span className="font-medium">{sensors.humidity}%</span>
+                <span className="font-medium">{finalSensors.humidity}%</span>
               </div>
               
               <div className="flex justify-between items-center">
@@ -563,14 +563,14 @@ export default function RobotDetails() {
                   <Signal className="h-4 w-4 text-amber-500" />
                   Proximity
                 </span>
-                <span className="font-medium">{formatProximity(sensors.proximity)}</span>
+                <span className="font-medium">{formatProximity(finalSensors.proximity)}</span>
               </div>
               
               <Separator />
               
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Last Sensor Update:</span>
-                <span>{formatTimeSince(sensors.timestamp)}</span>
+                <span>{formatTimeSince(finalSensors.timestamp)}</span>
               </div>
               
               {/* WebSocket Connection Status */}
@@ -667,10 +667,10 @@ export default function RobotDetails() {
                     <div className="h-full relative border rounded-md p-1 bg-gray-50">
                       {/* Map Component */}
                       <Map 
-                        robotStatus={status} 
-                        robotPosition={position} 
-                        sensorData={sensors} 
-                        mapData={mapDataToUse} 
+                        robotStatus={finalStatus} 
+                        robotPosition={finalPosition} 
+                        sensorData={finalSensors} 
+                        mapData={finalMapData} 
                       />
                       
                       {/* Map Legend */}
@@ -739,15 +739,15 @@ export default function RobotDetails() {
                         </h3>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-muted-foreground">
-                            {cameraDataToUse?.enabled ? 'Camera Active' : 'Camera Inactive'}
+                            {finalCameraData?.enabled ? 'Camera Active' : 'Camera Inactive'}
                           </span>
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => toggleCamera(!cameraDataToUse?.enabled)}
+                            onClick={() => toggleCamera(!finalCameraData?.enabled)}
                             className="flex items-center gap-1"
                           >
-                            {cameraDataToUse?.enabled ? (
+                            {finalCameraData?.enabled ? (
                               <>
                                 <EyeOff className="h-4 w-4" />
                                 Disable
@@ -762,10 +762,10 @@ export default function RobotDetails() {
                         </div>
                       </div>
                       
-                      {cameraDataToUse?.enabled ? (
+                      {finalCameraData?.enabled ? (
                         <div className="space-y-4">
                           <div className="border rounded-md overflow-hidden aspect-video bg-gray-900 relative">
-                            {cameraDataToUse?.streamUrl ? (
+                            {finalCameraData?.streamUrl ? (
                               <div className="w-full h-full flex items-center justify-center">
                                 {/* Use H264 streaming for better performance and reliability */}
                                 <RobotH264Stream 
@@ -793,16 +793,16 @@ export default function RobotDetails() {
                               <CardContent className="space-y-2 py-2">
                                 <div className="flex justify-between text-sm">
                                   <span className="text-muted-foreground">Resolution:</span>
-                                  <span>{cameraDataToUse?.resolution?.width || 0} x {cameraDataToUse?.resolution?.height || 0}</span>
+                                  <span>{finalCameraData?.resolution?.width || 0} x {finalCameraData?.resolution?.height || 0}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                   <span className="text-muted-foreground">Rotation:</span>
-                                  <span>{cameraDataToUse?.rotation || 0}°</span>
+                                  <span>{finalCameraData?.rotation || 0}°</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                   <span className="text-muted-foreground">Night Vision:</span>
-                                  <Badge variant={cameraDataToUse?.nightVision ? "default" : "outline"}>
-                                    {cameraDataToUse?.nightVision ? "Enabled" : "Disabled"}
+                                  <Badge variant={finalCameraData?.nightVision ? "default" : "outline"}>
+                                    {finalCameraData?.nightVision ? "Enabled" : "Disabled"}
                                   </Badge>
                                 </div>
                               </CardContent>
@@ -818,7 +818,7 @@ export default function RobotDetails() {
                                     variant="outline" 
                                     size="sm" 
                                     className="flex items-center gap-1 w-full"
-                                    disabled={!cameraDataToUse?.streamUrl}
+                                    disabled={!finalCameraData?.streamUrl}
                                   >
                                     <PlayCircle className="h-4 w-4" />
                                     Start Recording
@@ -827,7 +827,7 @@ export default function RobotDetails() {
                                     variant="outline" 
                                     size="sm" 
                                     className="flex items-center gap-1 w-full"
-                                    disabled={!cameraDataToUse?.streamUrl}
+                                    disabled={!finalCameraData?.streamUrl}
                                   >
                                     <PauseCircle className="h-4 w-4" />
                                     Snapshot
@@ -838,7 +838,7 @@ export default function RobotDetails() {
                           </div>
                           
                           <div className="text-xs text-muted-foreground text-right">
-                            Last updated: {cameraDataToUse?.timestamp ? formatTimeSince(cameraDataToUse.timestamp) : 'N/A'}
+                            Last updated: {finalCameraData?.timestamp ? formatTimeSince(finalCameraData.timestamp) : 'N/A'}
                           </div>
                         </div>
                       ) : (
