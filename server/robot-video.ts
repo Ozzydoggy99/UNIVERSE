@@ -45,9 +45,10 @@ export async function getVideoFrame(serialNumber: string): Promise<Buffer | null
     return null;
   }
   
-  // The streamUrl should be from the ngrok proxy server which is converting 
-  // the robot camera feed to H.264
-  const h264Url = `${cameraData.streamUrl}/h264-frame`;
+  // Format the URL according to the robot's expected topic format
+  // The URL should point to a topic that provides H264 video frames
+  // For example: /rgb_cameras/front/video
+  const h264Url = `${cameraData.streamUrl}/topic/rgb_cameras/front/video`;
   
   // For debugging
   console.log(`Fetching H.264 frame from: ${h264Url}`);
