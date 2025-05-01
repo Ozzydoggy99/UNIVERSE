@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, StopCircle, RotateCcw, RotateCw } from 'lucide-react';
+import { StopCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface JoystickProps {
@@ -11,40 +11,77 @@ interface JoystickProps {
 
 export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
   const { toast } = useToast();
-  const [activeDirection, setActiveDirection] = useState<string | null>(null);
+  const joystickRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [speed, setSpeed] = useState<number>(0.2); // default speed in m/s
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [joystickPosition, setJoystickPosition] = useState({ x: 0, y: 0 });
+  const [normalizedPosition, setNormalizedPosition] = useState({ x: 0, y: 0 });
   const [isSendingCommand, setIsSendingCommand] = useState(false);
+  const moveIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Clean up any timers when component unmounts
   useEffect(() => {
     return () => {
-      if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
+      if (moveIntervalRef.current) {
+        clearInterval(moveIntervalRef.current);
       }
     };
   }, []);
 
-  // Handle sending move commands to the robot
-  const sendMoveCommand = async (type: string, x: number = 0, y: number = 0, orientation: number | null = null) => {
-    if (disabled || !serialNumber) return;
+  // Fix the movement API endpoint
+  const sendMoveCommand = async (xDir: number, yDir: number, isRotating: boolean = false) => {
+    if (disabled || !serialNumber || (xDir === 0 && yDir === 0)) return;
     
     setIsSendingCommand(true);
     
     try {
+      // Get the robot's current position first
+      const positionResponse = await fetch(`/api/robots/position/${serialNumber}`);
+      if (!positionResponse.ok) {
+        throw new Error(`Failed to get robot position: ${positionResponse.statusText}`);
+      }
+      
+      const position = await positionResponse.json();
+      const currentX = position.x || 0;
+      const currentY = position.y || 0;
+      const currentOrientation = position.orientation || 0;
+      
+      // Calculate new target position based on joystick position and speed
+      let targetX = currentX;
+      let targetY = currentY;
+      let targetOrientation = null;
+      
+      const distance = speed; // How far to move in meters
+      
+      if (isRotating) {
+        // If it's a rotation movement
+        targetOrientation = currentOrientation + (xDir * Math.PI/4); // Rotate based on x direction
+      } else {
+        // For regular movement
+        targetX = currentX + Math.cos(currentOrientation) * yDir * distance;
+        targetY = currentY + Math.sin(currentOrientation) * yDir * distance;
+        
+        // Add strafing movement (left/right)
+        targetX += Math.cos(currentOrientation - Math.PI/2) * xDir * distance;
+        targetY += Math.sin(currentOrientation - Math.PI/2) * xDir * distance;
+      }
+      
+      console.log(`Moving robot to: (${targetX.toFixed(3)}, ${targetY.toFixed(3)})`);
+      
       // Construct the move command payload
       const moveData = {
         creator: "web_interface",
+        robot_id: serialNumber,
         type: "standard",
-        target_x: x,
-        target_y: y,
-        target_ori: orientation,
+        target_x: targetX,
+        target_y: targetY,
+        target_ori: targetOrientation,
         properties: {
-          inplace_rotate: type.includes('rotate')
+          inplace_rotate: isRotating
         }
       };
-      
-      console.log('Sending move command:', moveData);
       
       // Send the command to the server
       const response = await fetch(`/api/robots/move/${serialNumber}`, {
@@ -61,16 +98,11 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       
       const result = await response.json();
       console.log('Move command result:', result);
-      
-      toast({
-        title: 'Move command sent',
-        description: `The robot is moving ${type}`,
-      });
     } catch (error) {
       console.error('Error sending move command:', error);
       toast({
         title: 'Error',
-        description: 'Failed to send move command',
+        description: `Failed to send move command: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: 'destructive',
       });
     } finally {
@@ -78,232 +110,247 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     }
   };
 
-  // Calculate target positions based on current position and direction
-  const handleMove = (direction: string) => {
-    if (disabled) return;
+  const handleStopMovement = async () => {
+    if (disabled || !serialNumber) return;
+    setIsSendingCommand(true);
     
-    setActiveDirection(direction);
-    
-    // Get the robot's current position first
-    fetch(`/api/robots/position/${serialNumber}`)
-      .then(res => res.json())
-      .then(position => {
-        const currentX = position.x || 0;
-        const currentY = position.y || 0;
-        const currentOrientation = position.orientation || 0;
-        
-        // Calculate new target position based on direction and speed
-        let targetX = currentX;
-        let targetY = currentY;
-        let targetOrientation = null;
-        
-        const distance = speed; // How far to move in meters
-        
-        switch (direction) {
-          case 'forward':
-            targetX = currentX + Math.cos(currentOrientation) * distance;
-            targetY = currentY + Math.sin(currentOrientation) * distance;
-            break;
-          case 'backward':
-            targetX = currentX - Math.cos(currentOrientation) * distance;
-            targetY = currentY - Math.sin(currentOrientation) * distance;
-            break;
-          case 'left':
-            targetX = currentX + Math.cos(currentOrientation - Math.PI/2) * distance;
-            targetY = currentY + Math.sin(currentOrientation - Math.PI/2) * distance;
-            break;
-          case 'right':
-            targetX = currentX + Math.cos(currentOrientation + Math.PI/2) * distance;
-            targetY = currentY + Math.sin(currentOrientation + Math.PI/2) * distance;
-            break;
-          case 'rotate-left':
-            targetOrientation = currentOrientation - Math.PI/4; // Rotate 45 degrees left
-            targetX = currentX;
-            targetY = currentY;
-            break;
-          case 'rotate-right':
-            targetOrientation = currentOrientation + Math.PI/4; // Rotate 45 degrees right
-            targetX = currentX;
-            targetY = currentY;
-            break;
-          case 'stop':
-            // For stop, we send the current position to halt movement
-            break;
-          default:
-            return;
-        }
-        
-        // Send the move command with the calculated target
-        sendMoveCommand(direction, targetX, targetY, targetOrientation);
-      })
-      .catch(error => {
-        console.error('Error getting robot position:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to get robot position',
-          variant: 'destructive',
-        });
+    try {
+      // For stop, we get the current position and send it as the target to halt movement
+      const positionResponse = await fetch(`/api/robots/position/${serialNumber}`);
+      if (!positionResponse.ok) {
+        throw new Error(`Failed to get robot position: ${positionResponse.statusText}`);
+      }
+      
+      const position = await positionResponse.json();
+      const currentX = position.x || 0;
+      const currentY = position.y || 0;
+      const currentOrientation = position.orientation || 0;
+      
+      // Construct the stop command payload
+      const stopData = {
+        creator: "web_interface",
+        robot_id: serialNumber,
+        type: "cancel",
+        properties: {}
+      };
+      
+      // Send the command to the server
+      const response = await fetch(`/api/robots/move/${serialNumber}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(stopData),
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to send stop command: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('Stop command result:', result);
+      
+      toast({
+        title: 'Movement stopped',
+        description: 'Robot has been commanded to stop all movement',
+      });
+    } catch (error) {
+      console.error('Error sending stop command:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to stop movement: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingCommand(false);
+    }
   };
 
-  // Handle mouse/touch events
-  const handleMouseDown = (direction: string) => {
+  // Handle joystick mouse/touch events
+  const handleJoystickStart = (clientX: number, clientY: number) => {
     if (disabled) return;
     
-    handleMove(direction);
+    setIsDragging(true);
+    updateJoystickPosition(clientX, clientY);
     
-    // Set up a timer for continuous movement if button is held
-    longPressTimer.current = setTimeout(() => {
-      // Continuous movement logic could be added here
-      // For safety, we'll just trigger one movement per press for now
-    }, 300);
+    // Start sending movement commands at regular intervals while joystick is active
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current);
+    }
+    
+    moveIntervalRef.current = setInterval(() => {
+      if (normalizedPosition.x !== 0 || normalizedPosition.y !== 0) {
+        sendMoveCommand(normalizedPosition.x, -normalizedPosition.y);
+      }
+    }, 300); // Send movement commands every 300ms
   };
 
-  const handleMouseUp = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    setActiveDirection(null);
+  const handleJoystickMove = (clientX: number, clientY: number) => {
+    if (!isDragging) return;
+    updateJoystickPosition(clientX, clientY);
   };
+
+  const handleJoystickEnd = () => {
+    setIsDragging(false);
+    resetJoystickPosition();
+    
+    // Stop sending movement commands
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current);
+      moveIntervalRef.current = null;
+    }
+  };
+
+  const updateJoystickPosition = (clientX: number, clientY: number) => {
+    if (!joystickRef.current || !handleRef.current || !containerRef.current) return;
+    
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const joystickRect = joystickRef.current.getBoundingClientRect();
+    
+    const centerX = joystickRect.left + joystickRect.width / 2;
+    const centerY = joystickRect.top + joystickRect.height / 2;
+    
+    // Calculate the offset from the center
+    let offsetX = clientX - centerX;
+    let offsetY = clientY - centerY;
+    
+    // Calculate the distance from center
+    const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    const radius = joystickRect.width / 2 - handleRef.current.offsetWidth / 2;
+    
+    // If the handle is being dragged outside the joystick's radius, limit it
+    if (distance > radius) {
+      const angle = Math.atan2(offsetY, offsetX);
+      offsetX = Math.cos(angle) * radius;
+      offsetY = Math.sin(angle) * radius;
+    }
+    
+    // Update the handle position
+    setJoystickPosition({ x: offsetX, y: offsetY });
+    
+    // Calculate normalized position (-1 to 1 range)
+    const normalizedX = offsetX / radius;
+    const normalizedY = offsetY / radius;
+    setNormalizedPosition({ x: normalizedX, y: normalizedY });
+  };
+
+  const resetJoystickPosition = () => {
+    setJoystickPosition({ x: 0, y: 0 });
+    setNormalizedPosition({ x: 0, y: 0 });
+  };
+
+  // Set up mouse event handlers
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => handleJoystickMove(e.clientX, e.clientY);
+    const handleMouseUp = () => handleJoystickEnd();
+    
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  // Set up touch event handlers
+  useEffect(() => {
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+    
+    const handleTouchEnd = () => handleJoystickEnd();
+    
+    if (isDragging) {
+      document.addEventListener('touchmove', handleTouchMove);
+      document.addEventListener('touchend', handleTouchEnd);
+    }
+    
+    return () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isDragging]);
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Robot Control</CardTitle>
-        <CardDescription>
-          Use the joystick to move the robot manually
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="font-medium">Speed:</div>
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSpeed(Math.max(0.1, speed - 0.1))}
-                disabled={disabled || speed <= 0.1}
-              >
-                -
-              </Button>
-              <span className="w-16 text-center">{speed.toFixed(1)} m/s</span>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSpeed(Math.min(1.0, speed + 0.1))}
-                disabled={disabled || speed >= 1.0}
-              >
-                +
-              </Button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-2 w-full max-w-[300px] mx-auto">
-            {/* Top row - rotate left, forward, rotate right */}
-            <Button
-              variant={activeDirection === 'rotate-left' ? 'default' : 'outline'}
-              size="icon"
-              className="h-14 w-14"
-              onMouseDown={() => handleMouseDown('rotate-left')}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={() => handleMouseDown('rotate-left')}
-              onTouchEnd={handleMouseUp}
-              disabled={disabled || isSendingCommand}
-            >
-              <RotateCcw className="h-6 w-6" />
-            </Button>
-            <Button
-              variant={activeDirection === 'forward' ? 'default' : 'outline'}
-              size="icon"
-              className="h-14 w-14"
-              onMouseDown={() => handleMouseDown('forward')}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={() => handleMouseDown('forward')}
-              onTouchEnd={handleMouseUp}
-              disabled={disabled || isSendingCommand}
-            >
-              <ArrowUp className="h-6 w-6" />
-            </Button>
-            <Button
-              variant={activeDirection === 'rotate-right' ? 'default' : 'outline'}
-              size="icon"
-              className="h-14 w-14"
-              onMouseDown={() => handleMouseDown('rotate-right')}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={() => handleMouseDown('rotate-right')}
-              onTouchEnd={handleMouseUp}
-              disabled={disabled || isSendingCommand}
-            >
-              <RotateCw className="h-6 w-6" />
-            </Button>
-            
-            {/* Middle row - left, stop, right */}
-            <Button
-              variant={activeDirection === 'left' ? 'default' : 'outline'}
-              size="icon"
-              className="h-14 w-14"
-              onMouseDown={() => handleMouseDown('left')}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={() => handleMouseDown('left')}
-              onTouchEnd={handleMouseUp}
-              disabled={disabled || isSendingCommand}
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <Button
-              variant="destructive"
-              size="icon"
-              className="h-14 w-14"
-              onClick={() => handleMove('stop')}
-              disabled={disabled || isSendingCommand}
-            >
-              <StopCircle className="h-6 w-6" />
-            </Button>
-            <Button
-              variant={activeDirection === 'right' ? 'default' : 'outline'}
-              size="icon"
-              className="h-14 w-14"
-              onMouseDown={() => handleMouseDown('right')}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={() => handleMouseDown('right')}
-              onTouchEnd={handleMouseUp}
-              disabled={disabled || isSendingCommand}
-            >
-              <ArrowRight className="h-6 w-6" />
-            </Button>
-            
-            {/* Bottom row - backward */}
-            <div></div>
-            <Button
-              variant={activeDirection === 'backward' ? 'default' : 'outline'}
-              size="icon"
-              className="h-14 w-14"
-              onMouseDown={() => handleMouseDown('backward')}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={() => handleMouseDown('backward')}
-              onTouchEnd={handleMouseUp}
-              disabled={disabled || isSendingCommand}
-            >
-              <ArrowDown className="h-6 w-6" />
-            </Button>
-            <div></div>
-          </div>
-          
-          {isSendingCommand && (
-            <div className="text-center text-sm text-muted-foreground mt-2">
-              Sending command...
-            </div>
-          )}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="font-medium">Speed:</div>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setSpeed(Math.max(0.1, speed - 0.1))}
+            disabled={disabled || speed <= 0.1}
+          >
+            -
+          </Button>
+          <span className="w-16 text-center">{speed.toFixed(1)} m/s</span>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setSpeed(Math.min(1.0, speed + 0.1))}
+            disabled={disabled || speed >= 1.0}
+          >
+            +
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      
+      <div className="flex flex-col items-center" ref={containerRef}>
+        {/* Joystick container */}
+        <div 
+          ref={joystickRef}
+          className="w-48 h-48 rounded-full bg-secondary border-4 border-muted-foreground/20 relative"
+          onMouseDown={(e) => handleJoystickStart(e.clientX, e.clientY)}
+          onTouchStart={(e) => {
+            if (e.touches.length > 0) {
+              handleJoystickStart(e.touches[0].clientX, e.touches[0].clientY);
+            }
+          }}
+        >
+          {/* Joystick handle */}
+          <div
+            ref={handleRef}
+            className="w-12 h-12 rounded-full bg-primary absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing"
+            style={{
+              left: `calc(50% + ${joystickPosition.x}px)`,
+              top: `calc(50% + ${joystickPosition.y}px)`,
+              transition: isDragging ? 'none' : 'all 0.2s ease-out'
+            }}
+          />
+          
+          {/* Crosshair guides */}
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-muted-foreground/20"></div>
+          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-muted-foreground/20"></div>
+        </div>
+        
+        {/* Stop button */}
+        <Button
+          variant="destructive"
+          size="icon"
+          className="h-12 w-12 mt-4"
+          onClick={handleStopMovement}
+          disabled={disabled || isSendingCommand}
+        >
+          <StopCircle className="h-6 w-6" />
+        </Button>
+        
+        {isSendingCommand && (
+          <div className="text-center text-sm text-muted-foreground mt-2">
+            Sending command...
+          </div>
+        )}
+        
+        {/* Debug values */}
+        <div className="text-xs text-muted-foreground mt-2">
+          <div>X: {normalizedPosition.x.toFixed(2)}, Y: {normalizedPosition.y.toFixed(2)}</div>
+        </div>
+      </div>
+    </div>
   );
 }

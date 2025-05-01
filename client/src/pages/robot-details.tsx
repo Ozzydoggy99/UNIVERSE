@@ -536,17 +536,7 @@ export default function RobotDetails() {
                 </div>
               </div>
 
-              {/* Manual Control */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium flex items-center gap-1">
-                  <RotateCw className="h-4 w-4 text-purple-500" />
-                  Manual Control
-                </h3>
-                <Joystick 
-                  serialNumber={serialNumber || ''} 
-                  disabled={connectionState !== 'connected'} 
-                />
-              </div>
+              {/* Manual Control moved to a separate card */}
             </CardContent>
           </Card>
 
@@ -638,6 +628,22 @@ export default function RobotDetails() {
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Manual Control Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <RotateCw className="h-5 w-5 text-primary" />
+                Manual Control
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Joystick 
+                serialNumber={serialNumber || ''} 
+                disabled={connectionState !== 'connected'} 
+              />
             </CardContent>
           </Card>
         </div>
