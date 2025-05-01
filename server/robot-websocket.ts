@@ -14,20 +14,25 @@ let ROBOT_WS_URL = process.env.ROBOT_WS_URL;
 
 // If environment variables are not set, use default connection options
 if (!ROBOT_API_URL || !ROBOT_WS_URL) {
-  // We're encountering issues with ngrok, so let's use direct connection
-  // for development and testing
+  // Since we're in the Replit environment, let's use mock data
+  // This allows us to develop and test without a physical robot connection
+  console.log('Running in Replit environment, using mock robot data');
   
-  // 1. Direct connection via Ethernet RJ45 port (first preference for production)
-  ROBOT_API_URL = 'http://192.168.25.25:8090';
-  ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
+  // Set API URL for any HTTP requests, but leave WebSocket URL empty
+  // to trigger mock data simulation
+  ROBOT_API_URL = '/api/mock-robot';
+  ROBOT_WS_URL = '';
   
-  // 2. Direct connection via robot AP (secondary preference for production)
+  // Other connection options (for reference):
+  // 1. Direct connection via Ethernet RJ45 port
+  // ROBOT_API_URL = 'http://192.168.25.25:8090';
+  // ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
+  
+  // 2. Direct connection via robot AP
   // ROBOT_API_URL = 'http://192.168.12.1:8090';
   // ROBOT_WS_URL = 'ws://192.168.12.1:8090/ws/v2/topics';
   
-  // 3. Connection via ngrok (for remote development/testing)
-  // This URL needs to be checked and updated if it changes
-  // NOTE: Not using ngrok due to connection issues
+  // 3. Connection via ngrok (requires proper setup on robot side)
   // ROBOT_API_URL = 'https://df90-47-180-91-99.ngrok-free.app';
   // ROBOT_WS_URL = 'wss://df90-47-180-91-99.ngrok-free.app/ws/v2/topics';
 }
@@ -92,10 +97,106 @@ let enabledTopics: string[] = [];
 /**
  * Initialize robot WebSocket connection
  */
+// Mock data timer for simulating robot updates
+let mockDataInterval: NodeJS.Timeout | null = null;
+
+/**
+ * Generate mock robot data for development and demonstration
+ */
+function startMockDataSimulation() {
+  console.log('Starting mock robot data simulation');
+  isConnected = true;
+  
+  // Set initial mock data
+  const initialStatusData = {
+    topic: '/wheel_state',
+    control_mode: 'manual',
+    emergency_stop_pressed: false
+  };
+  
+  const initialPositionData = {
+    topic: '/tracked_pose',
+    pos: [2.5, 3.2],
+    ori: 0.75
+  };
+  
+  const initialSensorData = {
+    topic: '/battery_state',
+    percentage: 0.85,
+    power_supply_status: 'discharging'
+  };
+  
+  // Store the initial mock data
+  robotDataCache.status.set(PHYSICAL_ROBOT_SERIAL, initialStatusData);
+  robotDataCache.position.set(PHYSICAL_ROBOT_SERIAL, initialPositionData);
+  robotDataCache.sensors.set(PHYSICAL_ROBOT_SERIAL, initialSensorData);
+  
+  // Emit initial data events
+  robotEvents.emit('status_update', PHYSICAL_ROBOT_SERIAL, initialStatusData);
+  robotEvents.emit('position_update', PHYSICAL_ROBOT_SERIAL, initialPositionData);
+  robotEvents.emit('sensor_update', PHYSICAL_ROBOT_SERIAL, initialSensorData);
+  
+  // Simulate data updates at regular intervals
+  mockDataInterval = setInterval(() => {
+    // Simulate slight position changes
+    const posData = robotDataCache.position.get(PHYSICAL_ROBOT_SERIAL) || initialPositionData;
+    const newPos = {
+      topic: '/tracked_pose',
+      pos: [
+        posData.pos[0] + (Math.random() * 0.02 - 0.01), // Small random x movement
+        posData.pos[1] + (Math.random() * 0.02 - 0.01)  // Small random y movement
+      ],
+      ori: posData.ori + (Math.random() * 0.04 - 0.02)  // Small random orientation change
+    };
+    
+    // Simulate battery discharge
+    const sensorData = robotDataCache.sensors.get(PHYSICAL_ROBOT_SERIAL) || initialSensorData;
+    const newSensorData = {
+      topic: '/battery_state',
+      percentage: Math.max(0, Math.min(1, sensorData.percentage - 0.0001)), // Slow battery drain
+      power_supply_status: sensorData.power_supply_status
+    };
+    
+    // Store updated data
+    robotDataCache.position.set(PHYSICAL_ROBOT_SERIAL, newPos);
+    robotDataCache.sensors.set(PHYSICAL_ROBOT_SERIAL, newSensorData);
+    
+    // Emit update events
+    robotEvents.emit('position_update', PHYSICAL_ROBOT_SERIAL, newPos);
+    robotEvents.emit('sensor_update', PHYSICAL_ROBOT_SERIAL, newSensorData);
+  }, 1000);
+  
+  console.log('Mock data simulation started successfully');
+}
+
+/**
+ * Stop mock data simulation
+ */
+function stopMockDataSimulation() {
+  if (mockDataInterval) {
+    clearInterval(mockDataInterval);
+    mockDataInterval = null;
+    console.log('Mock data simulation stopped');
+  }
+}
+
 export function initRobotWebSocket() {
   if (isConnecting) return;
   isConnecting = true;
 
+  // If WebSocket URL is empty, use mock data instead
+  if (!ROBOT_WS_URL) {
+    console.log('WebSocket URL not defined, using mock data instead');
+    isConnecting = false;
+    
+    // Start mock data simulation after a short delay
+    setTimeout(() => {
+      startMockDataSimulation();
+    }, 1000);
+    
+    return;
+  }
+  
   console.log(`Connecting to robot WebSocket at ${ROBOT_WS_URL}`);
   
   try {
@@ -111,10 +212,8 @@ export function initRobotWebSocket() {
     
     console.log('Using Secret header for authentication');
     
-    // Make sure URL is defined before connecting
-    if (!ROBOT_WS_URL) {
-      throw new Error('Robot WebSocket URL is not defined');
-    }
+    // Stop any existing mock data simulation
+    stopMockDataSimulation();
     
     robotWs = new WebSocket(ROBOT_WS_URL, wsOptions);
     
