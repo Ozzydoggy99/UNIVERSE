@@ -4,10 +4,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiRequest } from '@/lib/queryClient';
-import { AlertCircle, Save, Edit, MapPin, Layers, Trash } from 'lucide-react';
+import { 
+  AlertCircle, Save, Edit, MapPin, Layers, Trash, Copy, Plus, 
+  Cloud, Upload, Download, Undo, Maximize, LocateFixed, 
+  Zap, Compass, ZoomIn, ZoomOut, Navigation, ChevronLeft, ChevronRight,
+  Check, Battery, Map as MapIcon, Move
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { queryClient } from '@/lib/queryClient';
+import { Card } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Simple map visualization component for pages that don't have full robot data
 export function MapVisualization({ className = "" }: { className?: string }) {
