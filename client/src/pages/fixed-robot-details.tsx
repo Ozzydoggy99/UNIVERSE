@@ -38,6 +38,7 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
 import { Map } from '@/components/ui/map';
+import { ConnectionStatus } from '@/components/robot/ConnectionStatus';
 
 interface RobotStatus {
   model: string;
@@ -259,6 +260,9 @@ export default function RobotDetails() {
         <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Robot Hub
       </Button>
+      
+      {/* Add ConnectionStatus component */}
+      <ConnectionStatus />
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="md:w-1/3 space-y-6">
