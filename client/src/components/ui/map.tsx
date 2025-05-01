@@ -144,6 +144,66 @@ export function Map({ robotStatus, robotPosition, sensorData, mapData }: MapProp
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Check if we have any map data
+    const hasObstacles = mapData.obstacles && mapData.obstacles.length > 0;
+    const hasPaths = mapData.paths && mapData.paths.length > 0;
+    const hasMapData = hasObstacles || hasPaths;
+
+    // If we don't have map data, draw a simple grid and the robot's position
+    if (!hasMapData) {
+      // Draw a simple grid
+      ctx.strokeStyle = '#eee';
+      ctx.lineWidth = 0.5;
+      const gridSize = 20;
+      
+      for (let x = 0; x <= canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      
+      for (let y = 0; y <= canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+      
+      // Draw robot at center of canvas
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      
+      // Draw robot
+      ctx.fillStyle = '#4caf50';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 10, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw orientation line
+      const angle = (robotPosition.orientation * Math.PI) / 180;
+      const orientationLength = 20;
+      
+      ctx.strokeStyle = '#4caf50';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(
+        centerX + Math.cos(angle) * orientationLength,
+        centerY - Math.sin(angle) * orientationLength
+      );
+      ctx.stroke();
+      
+      // Draw "No Map Data" message
+      ctx.fillStyle = '#666';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('No map data available', canvas.width / 2, canvas.height - 20);
+      
+      return;
+    }
+    
+    // We have map data, proceed with normal drawing
     // Calculate scaling factor to fit map data into the canvas
     const points = [
       robotPosition,

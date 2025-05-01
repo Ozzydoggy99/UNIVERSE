@@ -140,6 +140,10 @@ export function RobotProvider({ children }: RobotProviderProps) {
     // PUBLIC_ROBOT_SERIAL is our known physical robot
     const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
     
+    // Track consecutive errors to help with reconnection logic
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
+    
     // Set up a polling interval to fetch data regularly
     const refreshInterval = setInterval(async () => {
       try {
@@ -158,11 +162,14 @@ export function RobotProvider({ children }: RobotProviderProps) {
         let isDisconnected = false;
         let connectionFailed = false;
         
+        // Count how many successful responses we get
+        let successfulResponses = 0;
+        
         // Check each promise result and also look at the connectionStatus property
         if (results[0].status === 'fulfilled' && results[0].value) {
           const statusData = results[0].value;
           setRobotStatus(statusData);
-          hasSuccessfulData = true;
+          successfulResponses++;
           
           // Use the connectionStatus from the response to determine overall state
           if (statusData.connectionStatus === 'connected') {
@@ -173,39 +180,44 @@ export function RobotProvider({ children }: RobotProviderProps) {
             isDisconnected = true;
           }
         } else if (results[0].status === 'rejected') {
-          console.error('Error fetching status for robot', PUBLIC_ROBOT_SERIAL, ':', results[0].reason);
+          console.error('API request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[0].reason);
           connectionFailed = true;
         }
         
         if (results[1].status === 'fulfilled' && results[1].value) {
           setRobotPosition(results[1].value);
-          hasSuccessfulData = true;
+          successfulResponses++;
         } else if (results[1].status === 'rejected') {
-          console.error('Error fetching position for robot', PUBLIC_ROBOT_SERIAL, ':', results[1].reason);
+          console.error('API position request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[1].reason);
         }
         
         if (results[2].status === 'fulfilled' && results[2].value) {
           setRobotSensorData(results[2].value);
-          hasSuccessfulData = true;
+          successfulResponses++;
         } else if (results[2].status === 'rejected') {
-          console.error('Error fetching sensor data for robot', PUBLIC_ROBOT_SERIAL, ':', results[2].reason);
+          console.error('API sensor request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[2].reason);
         }
         
         if (results[3].status === 'fulfilled' && results[3].value) {
           setMapData(results[3].value);
-          hasSuccessfulData = true;
+          successfulResponses++;
         } else if (results[3].status === 'rejected') {
-          console.error('Error fetching map data for robot', PUBLIC_ROBOT_SERIAL, ':', results[3].reason);
+          console.error('API map request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[3].reason);
         }
         
         if (results[4].status === 'fulfilled' && results[4].value) {
           setCameraData(results[4].value);
-          hasSuccessfulData = true;
+          successfulResponses++;
         } else if (results[4].status === 'rejected') {
-          console.error('Error fetching camera data for robot', PUBLIC_ROBOT_SERIAL, ':', results[4].reason);
+          console.error('API camera request error for robot', PUBLIC_ROBOT_SERIAL, ':', results[4].reason);
         }
         
         // Update connection state based on results and connection status
+        if (successfulResponses > 0) {
+          hasSuccessfulData = true;
+          consecutiveErrors = 0; // Reset error counter on any successful response
+        }
+        
         if (hasSuccessfulData && !isDisconnected) {
           setConnectionState('connected');
         } else if (isConnecting) {
@@ -213,14 +225,27 @@ export function RobotProvider({ children }: RobotProviderProps) {
         } else if (isDisconnected) {
           setConnectionState('disconnected');
         } else if (connectionFailed) {
-          setConnectionState('error');
+          consecutiveErrors++;
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            setConnectionState('error');
+          } else {
+            // If we're having some intermittent errors, show connecting instead of error
+            // to indicate we're trying to reconnect
+            setConnectionState('connecting');
+          }
         }
         
         // Always update timestamp when we try to fetch data
         updateTimestamp();
       } catch (error) {
         console.error('Error fetching robot data:', error);
-        setConnectionState('error');
+        consecutiveErrors++;
+        
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          setConnectionState('error');
+        } else {
+          setConnectionState('connecting');
+        }
         
         // Even if there's an error, try again on the next interval
       }

@@ -39,6 +39,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
 import { Map } from '@/components/ui/map';
 import { ConnectionStatus } from '@/components/robot/ConnectionStatus';
+import ConnectionErrorMessage from '@/components/robot/ConnectionErrorMessage';
 
 interface RobotStatus {
   model: string;
@@ -290,8 +291,9 @@ export default function RobotDetails() {
         Back to Robot Hub
       </Button>
       
-      {/* Add ConnectionStatus component */}
+      {/* Add connection components */}
       <ConnectionStatus />
+      <ConnectionErrorMessage />
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="md:w-1/3 space-y-6">
