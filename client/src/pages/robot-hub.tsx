@@ -192,7 +192,7 @@ export default function RobotHub() {
                       {physicalRobotSensor && (
                         <div 
                           className={`h-2.5 rounded-full ${
-                            physicalRobotSensor.power_supply_status === 'charging' ? 'bg-purple-500' :
+                            (physicalRobotSensor.charging || physicalRobotSensor.power_supply_status === 'charging') ? 'bg-purple-500' :
                             Number(physicalRobotSensor.battery) > 60 ? 'bg-green-500' : 
                             Number(physicalRobotSensor.battery) > 30 ? 'bg-yellow-500' : 
                             'bg-red-500'
@@ -205,7 +205,7 @@ export default function RobotHub() {
                       {physicalRobotSensor ? (
                         <>
                           {Number(physicalRobotSensor.battery || 0).toFixed(0)}%
-                          {physicalRobotSensor.power_supply_status === 'charging' && ' (Charging)'}
+                          {(physicalRobotSensor.charging || physicalRobotSensor.power_supply_status === 'charging') && ' (Charging)'}
                         </>
                       ) : '0%'}
                     </span>
