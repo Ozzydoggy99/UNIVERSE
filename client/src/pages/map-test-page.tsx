@@ -140,14 +140,14 @@ export default function MapTestPage() {
     timestamp: new Date().toISOString()
   };
   
-  // Make sure map data has safe defaults
-  const mapDataToUse = mapData ? {
+  // Make sure map data has safe defaults and proper typing
+  const mapDataToUse: MapData = mapData ? {
     grid: mapData.grid || [],
     obstacles: mapData.obstacles || [],
     paths: mapData.paths || [],
-    size: mapData.size || [0, 0],
+    size: (mapData.size || [0, 0]) as [number, number],
     resolution: typeof mapData.resolution === 'number' ? mapData.resolution : 0.05,
-    origin: mapData.origin || [0, 0],
+    origin: (mapData.origin || [0, 0]) as [number, number],
     stamp: typeof mapData.stamp === 'number' ? mapData.stamp : 0
   } : {
     grid: [],
@@ -155,7 +155,7 @@ export default function MapTestPage() {
     paths: [],
     size: [0, 0] as [number, number],
     resolution: 0.05,
-    origin: [0, 0],
+    origin: [0, 0] as [number, number],
     stamp: 0
   };
 
