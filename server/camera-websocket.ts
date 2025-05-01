@@ -1,5 +1,8 @@
 import WebSocket from 'ws';
-import { demoCameraData } from './robot-api';
+
+// Only support our single physical robot
+const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
+const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
 
 /**
  * Process camera-related WebSocket messages
@@ -8,98 +11,94 @@ import { demoCameraData } from './robot-api';
 export function processCameraWebSocketMessage(data: any, ws: WebSocket, connectedClients: WebSocket[]) {
   if (data.type === 'get_robot_camera' && data.serialNumber) {
     console.log('Camera data requested for robot:', data.serialNumber);
-    const camera = demoCameraData[data.serialNumber];
-    if (camera) {
+    
+    // Only support our physical robot
+    if (data.serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      sendError(ws, `Camera not available for robot ${data.serialNumber}`);
+      return;
+    }
+    
+    // Create camera data with live information
+    const cameraData = {
+      enabled: true,
+      streamUrl: `${ROBOT_API_URL}/robot-camera/${data.serialNumber}`,
+      resolution: {
+        width: 1280,
+        height: 720
+      },
+      rotation: 0,
+      nightVision: true,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Send data back to the client
+    if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
         type: 'camera',
-        data: camera
+        data: cameraData
       }));
       console.log('Sent camera data for robot:', data.serialNumber);
-    } else {
-      // If no camera data exists for this robot, create a default entry
-      const newCameraData = {
-        enabled: false,
-        streamUrl: '',
-        resolution: {
-          width: 1280,
-          height: 720
-        },
-        rotation: 0,
-        nightVision: false,
-        timestamp: new Date().toISOString()
-      };
-      
-      // Save the new camera data
-      demoCameraData[data.serialNumber] = newCameraData;
-      
-      // Send the new camera data
-      ws.send(JSON.stringify({
-        type: 'camera',
-        data: newCameraData
-      }));
-      console.log('Created and sent new camera data for robot:', data.serialNumber);
     }
+    
+    // Also broadcast to all connected clients
+    broadcastRobotUpdate(connectedClients, 'camera', data.serialNumber, cameraData);
   }
   else if (data.type === 'toggle_robot_camera' && data.serialNumber) {
     console.log('Toggle camera requested for robot:', data.serialNumber, 'enabled:', data.enabled);
-    const camera = demoCameraData[data.serialNumber];
-    if (camera) {
-      camera.enabled = data.enabled !== undefined ? data.enabled : !camera.enabled;
-      camera.timestamp = new Date().toISOString();
-      
-      // Update stream URL based on enabled state
-      if (camera.enabled && !camera.streamUrl) {
-        // Set appropriate stream URL based on robot serial number
-        if (data.serialNumber === 'L382502104988is') {
-          // Local robot
-          camera.streamUrl = 'http://192.168.4.32:8080';
-          
-          // Send message to enable video topic
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'enable_topic',
-              topic: '/rgb_cameras/front/video'
-            }));
-            console.log('Enabling front camera video topic for local robot');
-          }
-        } else if (data.serialNumber === 'L382502104987ir') {
-          // Public accessible robot
-          camera.streamUrl = 'https://8f50-47-180-91-99.ngrok-free.app';
-          
-          // Send message to enable video topic
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'enable_topic',
-              topic: '/rgb_cameras/front/video'
-            }));
-            console.log('Enabling front camera video topic for public robot:', data.serialNumber);
-          }
-        } else if (data.serialNumber === 'AX923701583RT') {
-          // AxBot 5000 Pro robot is removed as per user request
-          camera.streamUrl = '';
-        } else {
-          camera.streamUrl = 'https://example.com/robot-stream-' + data.serialNumber + '.jpg';
-        }
-      } else if (!camera.enabled) {
-        camera.streamUrl = '';
-      }
-      
-      // Send updated camera data back
+    
+    // Only support our physical robot
+    if (data.serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      sendError(ws, `Camera not available for robot ${data.serialNumber}`);
+      return;
+    }
+    
+    // Create camera data with the updated state
+    const cameraData = {
+      enabled: data.enabled !== undefined ? data.enabled : true,
+      streamUrl: data.enabled === false ? '' : `${ROBOT_API_URL}/robot-camera/${data.serialNumber}`,
+      resolution: {
+        width: 1280,
+        height: 720
+      },
+      rotation: 0,
+      nightVision: true,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Here you would actually send a command to the robot to enable/disable the camera
+    // For now, we just pretend we did and return the updated state
+    
+    // Send updated camera data back to the client
+    if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
         type: 'camera',
-        data: camera
+        data: cameraData
       }));
-      console.log('Toggled camera for robot:', data.serialNumber, 'to:', camera.enabled);
-      
-      // Broadcast to all other connected clients if we have them
-      broadcastRobotUpdate(
-        connectedClients.filter(client => client !== ws),
-        'camera',
-        data.serialNumber,
-        camera
-      );
-    } else {
-      sendError(ws, `No camera data for robot ${data.serialNumber}`);
+      console.log('Toggled camera for robot:', data.serialNumber, 'to:', cameraData.enabled);
+    }
+    
+    // Also broadcast to all other connected clients
+    broadcastRobotUpdate(
+      connectedClients.filter(client => client !== ws),
+      'camera',
+      data.serialNumber,
+      cameraData
+    );
+    
+    // If camera is enabled, try to enable the video topic on the robot
+    if (cameraData.enabled) {
+      try {
+        // Send message to enable video topic
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'enable_topic',
+            topic: '/rgb_cameras/front/video'
+          }));
+          console.log('Enabling front camera video topic for robot:', data.serialNumber);
+        }
+      } catch (error) {
+        console.error('Error enabling camera topic:', error);
+      }
     }
   }
 }

@@ -1,6 +1,5 @@
 import { Express, Request, Response } from 'express';
 import { storage } from './storage';
-import { demoCameraData } from './robot-api';
 import { WebSocket } from 'ws';
 import axios from 'axios';
 import { createReadStream } from 'fs';
@@ -14,6 +13,10 @@ const __dirname = dirname(__filename);
 // Stream buffer to use as fallback when a camera is offline or unreachable
 const DEFAULT_CAMERA_IMAGE_PATH = join(__dirname, '../attached_assets/IMG_1576.jpeg');
 
+// Only support our single physical robot
+const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
+const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
+
 // Register camera API routes
 export function registerCameraApiRoutes(app: Express) {
   // Camera stream proxy endpoint to handle CORS issues
@@ -24,10 +27,8 @@ export function registerCameraApiRoutes(app: Express) {
       
       console.log(`Camera stream request for ${serialNumber}${endpoint ? ` with specific endpoint: ${endpoint}` : ''}`);
       
-      // Get the robot camera data to find the stream URL
-      const camera = demoCameraData[serialNumber];
-      
-      if (!camera || !camera.enabled || !camera.streamUrl) {
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
         // If the camera is not available, return a default image
         console.log('Camera not available or not enabled, returning default image');
         res.setHeader('Content-Type', 'image/jpeg');
@@ -35,12 +36,11 @@ export function registerCameraApiRoutes(app: Express) {
       }
       
       // Build target URL based on parameters
-      let targetUrl = camera.streamUrl;
+      let targetUrl = `${ROBOT_API_URL}/robot-camera/${serialNumber}`;
       
       // If a specific endpoint was requested, use it instead of the default URL
       if (endpoint && typeof endpoint === 'string') {
-        const ngrokBase = 'http://8f50-47-180-91-99.ngrok-free.app';
-        targetUrl = `${ngrokBase}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+        targetUrl = `${ROBOT_API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
         console.log(`Using custom endpoint for camera feed: ${targetUrl}`);
         
         // Handle RGB cameras directly, based on the documentation
@@ -53,7 +53,7 @@ export function registerCameraApiRoutes(app: Express) {
               const enableMsg = JSON.stringify({ "enable_topic": endpoint.replace(/^\//, '') });
               console.log(`Enabling camera topic with: ${enableMsg}`);
               
-              await axios.post(ngrokBase, enableMsg, {
+              await axios.post(ROBOT_API_URL, enableMsg, {
                 headers: { 'Content-Type': 'application/json' },
                 timeout: 3000
               });
@@ -103,17 +103,16 @@ export function registerCameraApiRoutes(app: Express) {
             console.log(`Enabling topic '${topicName}' via WebSocket`);
             
             // Send WebSocket message to enable the topic
-            const wsUrl = 'http://8f50-47-180-91-99.ngrok-free.app';
             const enableMsg = JSON.stringify({ "enable_topic": topicName });
             
-            await axios.post(wsUrl, enableMsg, {
+            await axios.post(ROBOT_API_URL, enableMsg, {
               headers: { 'Content-Type': 'application/json' },
               timeout: 3000
             });
             
             // Now try to access the stream
             console.log(`Topic '${topicName}' enabled. Now attempting to access the stream...`);
-            const streamUrl = `http://8f50-47-180-91-99.ngrok-free.app/${topicName}`;
+            const streamUrl = `${ROBOT_API_URL}/${topicName}`;
             
             const response = await axios.get(streamUrl, {
               responseType: 'stream',
@@ -168,7 +167,7 @@ export function registerCameraApiRoutes(app: Express) {
         console.error(`Error streaming camera: ${(streamError as Error).message}`);
         
         // If our URL is from ngrok or we have no specific endpoint yet but it's the rgb camera stream
-        if (targetUrl.includes('ngrok-free.app') || (!endpoint && serialNumber === 'L382502104987ir')) {
+        if (targetUrl.includes('ngrok-free.app') || (!endpoint && serialNumber === PHYSICAL_ROBOT_SERIAL)) {
           // The CameraHandler component now passes a simple path like '/rgb_cameras/front/compressed'
           // We need to properly enable the topic first, then try to get the stream
           
@@ -181,7 +180,7 @@ export function registerCameraApiRoutes(app: Express) {
               const enableMsg = JSON.stringify({ "enable_topic": "rgb_cameras/front/compressed" });
               console.log(`Approach 1: Enabling camera topic first: ${enableMsg}`);
               
-              await axios.post('http://8f50-47-180-91-99.ngrok-free.app', enableMsg, {
+              await axios.post(ROBOT_API_URL, enableMsg, {
                 headers: { 'Content-Type': 'application/json' },
                 timeout: 3000
               });
@@ -194,7 +193,7 @@ export function registerCameraApiRoutes(app: Express) {
             await new Promise(resolve => setTimeout(resolve, 500));
             
             // Try the RGB cameras compressed format specifically
-            const rgbUrl = 'http://8f50-47-180-91-99.ngrok-free.app/rgb_cameras/front/compressed';
+            const rgbUrl = `${ROBOT_API_URL}/rgb_cameras/front/compressed`;
             console.log(`Trying RGB camera endpoint: ${rgbUrl}`);
             
             const response = await axios.get(rgbUrl, {
@@ -222,7 +221,7 @@ export function registerCameraApiRoutes(app: Express) {
             
             // Approach 2: Try with the topic prefix
             try {
-              const topicUrl = 'http://8f50-47-180-91-99.ngrok-free.app/topic/rgb_cameras/front/compressed';
+              const topicUrl = `${ROBOT_API_URL}/topic/rgb_cameras/front/compressed`;
               console.log(`Approach 2: Trying with topic/ prefix: ${topicUrl}`);
               
               const response = await axios.get(topicUrl, {
@@ -251,7 +250,7 @@ export function registerCameraApiRoutes(app: Express) {
                 // Try sending a structured message to get a jpeg snapshot from the camera
                 console.log('Approach 3: Trying to get snapshot via WebSocket-style request');
                 
-                const snapshotResponse = await axios.post('http://8f50-47-180-91-99.ngrok-free.app', 
+                const snapshotResponse = await axios.post(ROBOT_API_URL, 
                   JSON.stringify({ "get_jpeg_snapshot": "rgb_cameras/front" }),
                   {
                     headers: { 'Content-Type': 'application/json' },
@@ -296,14 +295,27 @@ export function registerCameraApiRoutes(app: Express) {
       const { serialNumber } = req.params;
       console.log('Camera data requested for robot:', serialNumber);
       
-      // Get the camera data for this robot
-      const camera = demoCameraData[serialNumber];
-      
-      if (camera) {
-        res.json(camera);
-      } else {
-        res.status(404).json({ error: 'Camera not found for this robot' });
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot camera not found' });
       }
+      
+      // Get robot template assignment
+      const robotAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      
+      // Send live camera data
+      console.log('Sent camera data for robot:', serialNumber);
+      res.json({
+        enabled: true,
+        streamUrl: `${ROBOT_API_URL}/robot-camera/${serialNumber}`,
+        resolution: {
+          width: 1280,
+          height: 720
+        },
+        rotation: 0,
+        nightVision: true,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error('Error getting camera data:', error);
       res.status(500).json({ error: 'Failed to get camera data' });
@@ -314,37 +326,40 @@ export function registerCameraApiRoutes(app: Express) {
   app.post('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
-      const updates = req.body;
+      const { enabled, nightVision, rotation } = req.body;
       
-      console.log(`Camera settings update for robot ${serialNumber}:`, updates);
+      console.log(`Camera update for ${serialNumber}:`, req.body);
       
-      // Get the current camera data
-      const camera = demoCameraData[serialNumber];
-      
-      if (!camera) {
-        // Create a new camera data entry for this robot
-        demoCameraData[serialNumber] = {
-          enabled: true,
-          streamUrl: `https://8f50-47-180-91-99.ngrok-free.app/robot-camera/${serialNumber}`,
-          resolution: { width: 1280, height: 720 },
-          rotation: 0,
-          nightVision: true,
-          timestamp: new Date().toISOString()
-        };
-        
-        console.log(`Created new camera data for robot ${serialNumber}`);
-        res.status(201).json(demoCameraData[serialNumber]);
-      } else {
-        // Update existing camera data
-        const updatedCamera = { ...camera, ...updates, timestamp: new Date().toISOString() };
-        demoCameraData[serialNumber] = updatedCamera;
-        
-        console.log(`Updated camera data for robot ${serialNumber}`);
-        res.json(updatedCamera);
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot camera not found' });
       }
+      
+      // Get robot template assignment
+      const robotAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      
+      if (!robotAssignment) {
+        return res.status(404).json({ error: 'Robot not registered' });
+      }
+      
+      // Here you would send the settings to the physical robot
+      // For now, we just return the updated camera data
+      
+      // Return updated camera data
+      res.json({
+        enabled: enabled !== undefined ? enabled : true,
+        streamUrl: enabled === false ? '' : `${ROBOT_API_URL}/robot-camera/${serialNumber}`,
+        resolution: {
+          width: 1280,
+          height: 720
+        },
+        rotation: rotation !== undefined ? rotation : 0,
+        nightVision: nightVision !== undefined ? nightVision : true,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
-      console.error('Error updating camera settings:', error);
-      res.status(500).json({ error: 'Failed to update camera settings' });
+      console.error('Error updating camera:', error);
+      res.status(500).json({ error: 'Failed to update camera' });
     }
   });
 }
@@ -354,94 +369,93 @@ export function registerCameraApiRoutes(app: Express) {
  * This function will handle all camera-related WebSocket requests
  */
 export function processCameraWebSocketMessage(data: any, ws: WebSocket, connectedClients: WebSocket[]) {
-  try {
-    if (data.type === 'get_robot_camera') {
-      const { serialNumber } = data;
-      console.log('Camera data requested for robot:', serialNumber);
-      
-      // Get the camera data for this robot
-      const camera = demoCameraData[serialNumber];
-      
-      if (camera) {
-        ws.send(JSON.stringify({
-          type: 'camera',
-          data: camera
-        }));
-        console.log('Sent camera data for robot:', serialNumber);
-      } else {
-        sendError(ws, `Camera not found for robot ${serialNumber}`);
-      }
-    } else if (data.type === 'set_robot_camera') {
-      const { serialNumber, camera } = data;
-      console.log(`Camera settings update for robot ${serialNumber}:`, camera);
-      
-      if (!serialNumber || !camera) {
-        return sendError(ws, 'Missing serial number or camera data in request');
-      }
-      
-      // Update the camera data
-      const updatedCamera = {
-        ...demoCameraData[serialNumber],
-        ...camera,
-        timestamp: new Date().toISOString()
-      };
-      
-      demoCameraData[serialNumber] = updatedCamera;
-      
-      // Notify all clients about the update
-      broadcastRobotUpdate(connectedClients, 'camera', serialNumber, updatedCamera);
-      
-      console.log(`Updated camera data for robot ${serialNumber} and broadcasted to all clients`);
-    } else if (data.type === 'toggle_robot_camera') {
-      const { serialNumber, enabled } = data;
-      console.log(`Toggle camera for robot ${serialNumber} to ${enabled ? 'enabled' : 'disabled'}`);
-      
-      if (!serialNumber) {
-        return sendError(ws, 'Missing serial number in request');
-      }
-      
-      // Get the current camera data
-      const camera = demoCameraData[serialNumber];
-      
-      if (!camera) {
-        return sendError(ws, `Camera not found for robot ${serialNumber}`);
-      }
-      
-      // Update the enabled status
-      const newEnabled = enabled !== undefined ? enabled : !camera.enabled;
-      const updatedCamera = {
-        ...camera,
-        enabled: newEnabled,
-        timestamp: new Date().toISOString()
-      };
-      
-      demoCameraData[serialNumber] = updatedCamera;
-      
-      // Notify all clients about the update
-      broadcastRobotUpdate(connectedClients, 'camera', serialNumber, updatedCamera);
-      
-      console.log(`Toggled camera for robot ${serialNumber} to ${newEnabled ? 'enabled' : 'disabled'}`);
+  console.log('Camera data requested for robot:', data.serialNumber);
+  
+  if (data.type === 'get_robot_camera') {
+    // Only support our physical robot
+    if (data.serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      sendError(ws, `Camera not available for robot ${data.serialNumber}`);
+      return;
     }
-  } catch (error) {
-    console.error('Error processing camera WebSocket message:', error);
-    sendError(ws, `Failed to process camera message: ${(error as Error).message}`);
+    
+    // Send back the camera data
+    const cameraData = {
+      enabled: true,
+      streamUrl: `${ROBOT_API_URL}/robot-camera/${data.serialNumber}`,
+      resolution: {
+        width: 1280,
+        height: 720
+      },
+      rotation: 0,
+      nightVision: true,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Send data back to the client
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'camera',
+        data: cameraData
+      }));
+      console.log('Sent camera data for robot:', data.serialNumber);
+    }
+    
+    // Also broadcast to all connected clients
+    broadcastRobotUpdate(connectedClients, 'camera', data.serialNumber, cameraData);
+  }
+  else if (data.type === 'toggle_robot_camera') {
+    // Only support our physical robot
+    if (data.serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      sendError(ws, `Camera not available for robot ${data.serialNumber}`);
+      return;
+    }
+    
+    // Here you would send the camera toggle command to the physical robot
+    // For now, we just send back the updated camera data
+    
+    // Send updated camera data
+    const cameraData = {
+      enabled: data.enabled !== undefined ? data.enabled : true,
+      streamUrl: data.enabled === false ? '' : `${ROBOT_API_URL}/robot-camera/${data.serialNumber}`,
+      resolution: {
+        width: 1280,
+        height: 720
+      },
+      rotation: 0,
+      nightVision: true,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Send data back to the client
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'camera',
+        data: cameraData
+      }));
+      console.log('Sent updated camera data for robot:', data.serialNumber);
+    }
+    
+    // Also broadcast to all connected clients
+    broadcastRobotUpdate(connectedClients, 'camera', data.serialNumber, cameraData);
   }
 }
 
 function sendError(ws: WebSocket, message: string) {
-  ws.send(JSON.stringify({
-    type: 'error',
-    message
-  }));
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: message
+    }));
+  }
 }
 
-function broadcastRobotUpdate(connectedClients: WebSocket[], updateType: string, serialNumber: string, data: any) {
+function broadcastRobotUpdate(clients: WebSocket[], updateType: string, serialNumber: string, data: any) {
   const message = JSON.stringify({
     type: updateType,
-    data
+    data: data
   });
   
-  for (const client of connectedClients) {
+  for (const client of clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);
     }

@@ -2,224 +2,9 @@ import { Express, Request, Response } from 'express';
 import { storage } from './storage';
 import { registerRobot } from './register-robot';
 
-// Keep track of registered robots
-const registeredRobots = new Set<string>();
-
-// Initialize demo status for physical robot if it doesn't exist
-function ensurePhysicalRobotData() {
-  // First robot (original)
-  const PHYSICAL_ROBOT_SERIAL = 'L382502104988is';
-  
-  // Add demo status for the first physical robot if it doesn't exist
-  if (!demoRobotStatus[PHYSICAL_ROBOT_SERIAL]) {
-    console.log(`Initializing data for physical robot ${PHYSICAL_ROBOT_SERIAL}`);
-    
-    demoRobotStatus[PHYSICAL_ROBOT_SERIAL] = {
-      model: "Physical Robot",
-      serialNumber: PHYSICAL_ROBOT_SERIAL,
-      battery: 99,
-      status: 'charging',
-      mode: 'ready',
-      lastUpdate: new Date().toISOString()
-    };
-    
-    demoRobotPositions[PHYSICAL_ROBOT_SERIAL] = {
-      x: 120,
-      y: 85,
-      z: 0,
-      orientation: 90,
-      speed: 0,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoRobotSensors[PHYSICAL_ROBOT_SERIAL] = {
-      temperature: 23.5,
-      humidity: 48,
-      proximity: [1.2, 2.5, 3.2, 1.8],
-      battery: 99,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoMapData[PHYSICAL_ROBOT_SERIAL] = {
-      grid: [],
-      obstacles: [
-        { x: 50, y: 50, z: 0 },
-        { x: 100, y: 120, z: 0 },
-        { x: 200, y: 80, z: 0 }
-      ],
-      paths: [
-        {
-          points: [
-            { x: 50, y: 50, z: 0 },
-            { x: 75, y: 75, z: 0 },
-            { x: 100, y: 100, z: 0 },
-            { x: 120, y: 85, z: 0 }
-          ],
-          status: 'active'
-        }
-      ]
-    };
-    
-    demoCameraData[PHYSICAL_ROBOT_SERIAL] = {
-      enabled: true,
-      streamUrl: 'http://192.168.4.32:8080/stream',
-      resolution: {
-        width: 1280,
-        height: 720
-      },
-      rotation: 0,
-      nightVision: true,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoTasks[PHYSICAL_ROBOT_SERIAL] = 'Charging at station';
-    
-    // Add to registered robots set
-    registeredRobots.add(PHYSICAL_ROBOT_SERIAL);
-  }
-  
-  // Second robot (with public IP access)
-  const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
-  
-  // Add data for the second physical robot with public IP access
-  if (!demoRobotStatus[PUBLIC_ROBOT_SERIAL]) {
-    console.log(`Initializing data for public-accessible robot ${PUBLIC_ROBOT_SERIAL}`);
-    
-    demoRobotStatus[PUBLIC_ROBOT_SERIAL] = {
-      model: "Physical Robot (Public)",
-      serialNumber: PUBLIC_ROBOT_SERIAL,
-      battery: 95,
-      status: 'charging',
-      mode: 'ready',
-      lastUpdate: new Date().toISOString()
-    };
-    
-    demoRobotPositions[PUBLIC_ROBOT_SERIAL] = {
-      x: 150,
-      y: 95,
-      z: 0,
-      orientation: 180,
-      speed: 0,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoRobotSensors[PUBLIC_ROBOT_SERIAL] = {
-      temperature: 24.2,
-      humidity: 45,
-      proximity: [1.5, 2.8, 3.0, 1.7],
-      battery: 95,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoMapData[PUBLIC_ROBOT_SERIAL] = {
-      grid: [],
-      obstacles: [
-        { x: 60, y: 60, z: 0 },
-        { x: 120, y: 110, z: 0 },
-        { x: 180, y: 70, z: 0 }
-      ],
-      paths: [
-        {
-          points: [
-            { x: 60, y: 60, z: 0 },
-            { x: 90, y: 80, z: 0 },
-            { x: 120, y: 90, z: 0 },
-            { x: 150, y: 95, z: 0 }
-          ],
-          status: 'active'
-        }
-      ]
-    };
-    
-    demoCameraData[PUBLIC_ROBOT_SERIAL] = {
-      enabled: true,
-      streamUrl: `https://8f50-47-180-91-99.ngrok-free.app/robot-camera/${PUBLIC_ROBOT_SERIAL}`,
-      resolution: {
-        width: 1280,
-        height: 720
-      },
-      rotation: 0,
-      nightVision: true,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoTasks[PUBLIC_ROBOT_SERIAL] = 'Charging at station';
-    
-    // Add to registered robots set
-    registeredRobots.add(PUBLIC_ROBOT_SERIAL);
-  }
-  
-  // Third robot - completely new robot being added
-  const NEW_ROBOT_SERIAL = 'AX923701583RT';
-  
-  // Add data for the new physical robot
-  if (!demoRobotStatus[NEW_ROBOT_SERIAL]) {
-    console.log(`Initializing data for new robot ${NEW_ROBOT_SERIAL}`);
-    
-    demoRobotStatus[NEW_ROBOT_SERIAL] = {
-      model: "AxBot 5000 Pro",
-      serialNumber: NEW_ROBOT_SERIAL,
-      battery: 87,
-      status: 'active',
-      mode: 'navigation',
-      lastUpdate: new Date().toISOString()
-    };
-    
-    demoRobotPositions[NEW_ROBOT_SERIAL] = {
-      x: 210,
-      y: 135,
-      z: 0,
-      orientation: 45,
-      speed: 0.3,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoRobotSensors[NEW_ROBOT_SERIAL] = {
-      temperature: 26.1,
-      humidity: 52,
-      proximity: [2.1, 3.2, 4.5, 2.8],
-      battery: 87,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoMapData[NEW_ROBOT_SERIAL] = {
-      grid: [],
-      obstacles: [
-        { x: 75, y: 90, z: 0 },
-        { x: 140, y: 130, z: 0 },
-        { x: 190, y: 110, z: 0 }
-      ],
-      paths: [
-        {
-          points: [
-            { x: 80, y: 80, z: 0 },
-            { x: 120, y: 110, z: 0 },
-            { x: 160, y: 120, z: 0 },
-            { x: 210, y: 135, z: 0 }
-          ],
-          status: 'active'
-        }
-      ]
-    };
-    
-    demoCameraData[NEW_ROBOT_SERIAL] = {
-      enabled: true,
-      streamUrl: `http://axbot-demo.example.com/stream/${NEW_ROBOT_SERIAL}`,
-      resolution: {
-        width: 1920,
-        height: 1080
-      },
-      rotation: 0,
-      nightVision: true,
-      timestamp: new Date().toISOString()
-    };
-    
-    demoTasks[NEW_ROBOT_SERIAL] = 'Navigating to delivery zone';
-    
-    // Add to registered robots set
-    registeredRobots.add(NEW_ROBOT_SERIAL);
-  }
-}
+// We only support a single physical robot
+const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
+const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
 
 // Type definitions for robot data
 interface RobotStatus {
@@ -246,6 +31,8 @@ interface RobotSensorData {
   proximity: number[];
   battery: number;
   timestamp: string;
+  light?: number;
+  noise?: number;
 }
 
 interface MapPoint {
@@ -277,301 +64,31 @@ interface CameraData {
   timestamp: string;
 }
 
-// Demo mode for robot data when no real robot connection is available
-export const demoRobotStatus: Record<string, RobotStatus> = {
-  'AX-2000-1': {
-    model: 'AxBot 2000',
-    serialNumber: 'AX-2000-1',
-    battery: 78,
-    status: 'active',
-    mode: 'autonomous',
-    lastUpdate: new Date().toISOString()
-  },
-  'AX-2000-2': {
-    model: 'AxBot 2000',
-    serialNumber: 'AX-2000-2',
-    battery: 45,
-    status: 'idle',
-    mode: 'manual',
-    lastUpdate: new Date().toISOString()
-  },
-  'AX-2000-3': {
-    model: 'AxBot 3000',
-    serialNumber: 'AX-2000-3',
-    battery: 92,
-    status: 'charging',
-    mode: 'sleep',
-    lastUpdate: new Date().toISOString()
-  },
-  // Add the new AxBot 5000 Pro robot
-  'AX923701583RT': {
-    model: 'AxBot 5000 Pro',
-    serialNumber: 'AX923701583RT',
-    battery: 87,
-    status: 'active',
-    mode: 'navigation',
-    lastUpdate: new Date().toISOString()
-  }
-};
-
-export const demoRobotPositions: Record<string, RobotPosition> = {
-  'AX-2000-1': {
-    x: 120,
-    y: 80,
-    z: 0,
-    orientation: 90,
-    speed: 1.2,
-    timestamp: new Date().toISOString()
-  },
-  'AX-2000-2': {
-    x: 85,
-    y: 45,
-    z: 0,
-    orientation: 180,
-    speed: 0,
-    timestamp: new Date().toISOString()
-  },
-  'AX-2000-3': {
-    x: 220,
-    y: 160,
-    z: 0,
-    orientation: 270,
-    speed: 0,
-    timestamp: new Date().toISOString()
-  },
-  // Add the new AxBot 5000 Pro robot position
-  'AX923701583RT': {
-    x: 210,
-    y: 135,
-    z: 0,
-    orientation: 45,
-    speed: 0.3,
-    timestamp: new Date().toISOString()
-  }
-};
-
-export const demoRobotSensors: Record<string, RobotSensorData> = {
-  'AX-2000-1': {
-    temperature: 23.5,
-    humidity: 48,
-    proximity: [0.5, 1.2, 2.5, 1.8],
-    battery: 78,
-    timestamp: new Date().toISOString()
-  },
-  'AX-2000-2': {
-    temperature: 24.2,
-    humidity: 51,
-    proximity: [1.5, 2.1, 3.5, 0.8],
-    battery: 45,
-    timestamp: new Date().toISOString()
-  },
-  'AX-2000-3': {
-    temperature: 22.8,
-    humidity: 47,
-    proximity: [5.5, 4.2, 3.5, 4.8],
-    battery: 92,
-    timestamp: new Date().toISOString()
-  },
-  // Add the new AxBot 5000 Pro robot sensors
-  'AX923701583RT': {
-    temperature: 26.1,
-    humidity: 52,
-    proximity: [2.1, 3.2, 4.5, 2.8],
-    battery: 87,
-    timestamp: new Date().toISOString()
-  }
-};
-
-export const demoMapData: Record<string, MapData> = {
-  'AX-2000-1': {
-    grid: [],
-    obstacles: [
-      { x: 50, y: 50, z: 0 },
-      { x: 100, y: 120, z: 0 },
-      { x: 200, y: 80, z: 0 }
-    ],
-    paths: [
-      {
-        points: [
-          { x: 50, y: 50, z: 0 },
-          { x: 75, y: 75, z: 0 },
-          { x: 100, y: 100, z: 0 },
-          { x: 120, y: 80, z: 0 }
-        ],
-        status: 'active'
-      }
-    ]
-  },
-  'AX-2000-2': {
-    grid: [],
-    obstacles: [
-      { x: 30, y: 30, z: 0 },
-      { x: 80, y: 85, z: 0 },
-      { x: 150, y: 40, z: 0 }
-    ],
-    paths: [
-      {
-        points: [
-          { x: 30, y: 30, z: 0 },
-          { x: 60, y: 45, z: 0 },
-          { x: 85, y: 45, z: 0 }
-        ],
-        status: 'complete'
-      }
-    ]
-  },
-  'AX-2000-3': {
-    grid: [],
-    obstacles: [
-      { x: 200, y: 100, z: 0 },
-      { x: 180, y: 150, z: 0 },
-      { x: 240, y: 180, z: 0 }
-    ],
-    paths: [
-      {
-        points: [
-          { x: 180, y: 150, z: 0 },
-          { x: 200, y: 155, z: 0 },
-          { x: 220, y: 160, z: 0 }
-        ],
-        status: 'charging'
-      }
-    ]
-  },
-  // Add the new AxBot 5000 Pro robot map data
-  'AX923701583RT': {
-    grid: [],
-    obstacles: [
-      { x: 75, y: 90, z: 0 },
-      { x: 140, y: 130, z: 0 },
-      { x: 190, y: 110, z: 0 }
-    ],
-    paths: [
-      {
-        points: [
-          { x: 80, y: 80, z: 0 },
-          { x: 120, y: 110, z: 0 },
-          { x: 160, y: 120, z: 0 },
-          { x: 210, y: 135, z: 0 }
-        ],
-        status: 'active'
-      }
-    ]
-  }
-};
-
-export const demoCameraData: Record<string, CameraData> = {
-  'L382502104988is': { // Our physical robot
-    enabled: true,
-    streamUrl: 'http://192.168.4.32:8080/stream',
-    resolution: {
-      width: 1280,
-      height: 720
-    },
-    rotation: 0,
-    nightVision: true,
-    timestamp: new Date().toISOString()
-  },
-  'AX-2000-1': {
-    enabled: true,
-    streamUrl: 'https://example.com/robot-stream-ax2000-1.jpg',
-    resolution: {
-      width: 1280,
-      height: 720
-    },
-    rotation: 0,
-    nightVision: false,
-    timestamp: new Date().toISOString()
-  },
-  'AX-2000-2': {
-    enabled: false,
-    streamUrl: '',
-    resolution: {
-      width: 1280,
-      height: 720
-    },
-    rotation: 0,
-    nightVision: true,
-    timestamp: new Date().toISOString()
-  },
-  'AX-2000-3': {
-    enabled: true,
-    streamUrl: 'https://example.com/robot-stream-ax2000-3.jpg',
-    resolution: {
-      width: 1920,
-      height: 1080
-    },
-    rotation: 90,
-    nightVision: true,
-    timestamp: new Date().toISOString()
-  },
-  // Add the AxBot 5000 Pro camera data with the live stream from our proxy
-  'AX923701583RT': {
-    enabled: true,
-    streamUrl: 'https://8f50-47-180-91-99.ngrok-free.app/robot-camera/L382502104987ir',
-    resolution: {
-      width: 1920,
-      height: 1080
-    },
-    rotation: 0,
-    nightVision: true,
-    timestamp: new Date().toISOString()
-  }
-};
-
-export const demoTasks: Record<string, string> = {
-  'AX-2000-1': 'Delivering packages to zone A',
-  'AX-2000-2': 'Awaiting instructions',
-  'AX-2000-3': 'Charging at station 3',
-  // Add the AxBot 5000 Pro task
-  'AX923701583RT': 'Navigating to delivery zone'
-};
-
+/**
+ * Register all robot-related API routes
+ */
 export function registerRobotApiRoutes(app: Express) {
-  // Make sure our physical robot data is initialized
-  ensurePhysicalRobotData();
-  // Register a specific robot by serial number (helper endpoint for physical robots)
+  // Register a physical robot for remote communication
   app.get('/api/robots/register-physical/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
+      const model = req.query.model as string || 'Unknown Physical Robot';
       
-      // Add to demo status if it doesn't exist
-      if (!demoRobotStatus[serialNumber]) {
-        demoRobotStatus[serialNumber] = {
-          model: "Physical Robot",
-          serialNumber: serialNumber,
-          battery: 100,
-          status: 'online',
-          mode: 'ready',
-          lastUpdate: new Date().toISOString()
-        };
+      // Only allow our specific robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not supported' });
       }
       
-      // Check if this robot already has an assignment
-      const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
-      if (existingAssignment) {
-        return res.json(existingAssignment);
-      }
-      
-      // Create a new assignment
-      const assignment = await storage.createRobotTemplateAssignment({
-        name: `Robot ${serialNumber}`,
-        serialNumber: serialNumber,
-        templateId: 1,
-        location: 'Main Floor',
-        robotModel: 'Physical Robot',
-        isActive: true
-      });
-      
-      console.log(`Created assignment for physical robot ${serialNumber}`);
-      res.json(assignment);
+      // Attempt to register the robot
+      const result = await registerRobot(serialNumber, model);
+      res.json(result);
     } catch (error) {
-      console.error(`Error registering physical robot ${req.params.serialNumber}:`, error);
+      console.error('Error registering physical robot:', error);
       res.status(500).json({ error: 'Failed to register physical robot' });
     }
   });
-  
-  // Register a new robot or update existing robot
+
+  // Register a robot and optionally assign it to a template
   app.post('/api/robots/register', async (req: Request, res: Response) => {
     try {
       const { serialNumber, model, templateId } = req.body;
@@ -580,71 +97,72 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Serial number and model are required' });
       }
       
+      // Only allow our specific robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not supported' });
+      }
+      
+      // Register the robot with the template
       const result = await registerRobot(serialNumber, model, templateId);
       
-      // Add this robot to our tracking set
-      registeredRobots.add(serialNumber);
-      
-      // Store initial robot data
-      if (!demoRobotStatus[serialNumber]) {
-        demoRobotStatus[serialNumber] = {
-          model: model,
-          serialNumber: serialNumber,
-          battery: 100,
-          status: 'registered',
-          mode: 'manual',
-          lastUpdate: new Date().toISOString()
-        };
-      }
-      
-      if (!demoRobotPositions[serialNumber]) {
-        demoRobotPositions[serialNumber] = {
-          x: 0,
-          y: 0,
-          z: 0,
-          orientation: 0,
-          speed: 0,
-          timestamp: new Date().toISOString()
-        };
-      }
-      
-      if (!demoRobotSensors[serialNumber]) {
-        demoRobotSensors[serialNumber] = {
-          temperature: 22,
-          humidity: 50,
-          proximity: [100, 100, 100, 100],
-          battery: 100,
-          timestamp: new Date().toISOString()
-        };
-      }
-      
-      if (!demoTasks[serialNumber]) {
-        demoTasks[serialNumber] = 'Awaiting instructions';
-      }
-      
-      console.log(`Registered new robot ${serialNumber} with model ${model}`);
       res.status(201).json(result);
     } catch (error) {
       console.error('Error registering robot:', error);
       res.status(500).json({ error: 'Failed to register robot' });
     }
   });
-  
-  // Get all robots statuses
+
+  // Get all robot statuses
   app.get('/api/robots/statuses', async (req: Request, res: Response) => {
     try {
-      // Make sure all physical robots have the latest data
-      ensurePhysicalRobotData();
+      const robots = [];
       
-      // Update timestamps to show live data for both existing robots
-      // Update our AxBot 5000 Pro to use the same robot's live data
-      if (demoRobotStatus['AX923701583RT']) {
-        // Just update timestamp and keep other properties - we'll use the websocket for live data
-        demoRobotStatus['AX923701583RT'].lastUpdate = new Date().toISOString();
+      // Only fetch data for our physical robot
+      try {
+        console.log('Fetching live status data for robot:', PHYSICAL_ROBOT_SERIAL);
+        
+        // Fetch live status data
+        const statusResponse = await fetch(`${ROBOT_API_URL}/status`);
+        
+        if (!statusResponse.ok) {
+          throw new Error(`Failed to fetch robot status: ${statusResponse.status} ${statusResponse.statusText}`);
+        }
+        
+        const liveStatusData = await statusResponse.json() as { status?: string };
+        
+        // Create status object with live data
+        const status: RobotStatus = {
+          model: "Physical Robot (Live)",
+          serialNumber: PHYSICAL_ROBOT_SERIAL,
+          battery: 0, // Will be updated with sensor data
+          status: liveStatusData.status || 'unknown',
+          mode: 'ready',
+          lastUpdate: new Date().toISOString()
+        };
+        
+        // Also fetch sensor data for battery info
+        try {
+          const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
+          if (sensorResponse.ok) {
+            const liveSensorData = await sensorResponse.json() as { battery?: number };
+            
+            // Update battery level if available
+            if (liveSensorData.battery !== undefined) {
+              status.battery = liveSensorData.battery;
+            }
+          }
+        } catch (sensorErr) {
+          console.error('Error fetching sensor data for battery info:', sensorErr);
+        }
+        
+        console.log('Using live data for robot status:', PHYSICAL_ROBOT_SERIAL);
+        robots.push(status);
+      } catch (err) {
+        console.error('Error fetching live robot status:', err);
+        return res.status(500).json({ error: 'Failed to fetch live robot status' });
       }
       
-      // Return the robot statuses with real-time updates
-      res.json(demoRobotStatus);
+      res.json(robots);
     } catch (error) {
       console.error('Error fetching robot statuses:', error);
       res.status(500).json({ error: 'Failed to fetch robot statuses' });
@@ -665,109 +183,125 @@ export function registerRobotApiRoutes(app: Express) {
         console.log(`Found robot assignment for ${serialNumber}: ${robotAssignment.name}`);
       }
       
-      // Get the robot status from our stored data
-      const status = { ...demoRobotStatus[serialNumber] };
-      
-      if (!status) {
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // If it's our public physical robot, fetch live data
-      if (serialNumber === 'L382502104987ir') {
-        try {
-          console.log('Fetching live status data for robot:', serialNumber);
-          // Fetch live status data
-          const statusResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/status`);
-          
-          if (statusResponse.ok) {
-            const liveStatusData = await statusResponse.json();
-            
-            // Update with live status data
-            status.status = liveStatusData.status || status.status;
-            status.model = "Physical Robot (Live)";
-            status.lastUpdate = new Date().toISOString();
-            
-            // Also fetch sensor data for battery info
-            try {
-              const sensorResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/sensors`);
-              if (sensorResponse.ok) {
-                const liveSensorData = await sensorResponse.json();
-                
-                // Update battery level if available
-                if (liveSensorData.battery) {
-                  status.battery = liveSensorData.battery;
-                }
-              }
-            } catch (sensorErr) {
-              console.error('Error fetching sensor data for battery info:', sensorErr);
-            }
-            
-            console.log('Using live data for robot status:', serialNumber);
-          }
-        } catch (err) {
-          console.error('Error fetching live robot status:', err);
-          // Continue with demo data as fallback
+      try {
+        console.log('Fetching live status data for robot:', serialNumber);
+        // Fetch live status data
+        const statusResponse = await fetch(`${ROBOT_API_URL}/status`);
+        
+        if (!statusResponse.ok) {
+          throw new Error(`Failed to fetch robot status: ${statusResponse.status} ${statusResponse.statusText}`);
         }
-      } 
-      // For L382502104988is robot, set status to charging if needed
-      else if (serialNumber === 'L382502104988is' && (!status.status || status.status === 'active')) {
-        status.status = 'charging';
+        
+        const liveStatusData = await statusResponse.json() as { status?: string };
+        
+        // Create status object with live data
+        const status: RobotStatus = {
+          model: "Physical Robot (Live)",
+          serialNumber,
+          battery: 0, // Will be updated with sensor data
+          status: liveStatusData.status || 'unknown',
+          mode: liveStatusData.mode || 'ready',
+          lastUpdate: new Date().toISOString()
+        };
+        
+        // Also fetch sensor data for battery info
+        try {
+          const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
+          if (sensorResponse.ok) {
+            const liveSensorData = await sensorResponse.json() as { battery?: number };
+            
+            // Update battery level if available
+            if (liveSensorData.battery !== undefined) {
+              status.battery = liveSensorData.battery;
+            }
+          }
+        } catch (sensorErr) {
+          console.error('Error fetching sensor data for battery info:', sensorErr);
+          return res.status(500).json({ error: 'Failed to fetch robot sensor data' });
+        }
+        
+        console.log('Using live data for robot status:', serialNumber);
+        res.json(status);
+      } catch (err) {
+        console.error('Error fetching live robot status:', err);
+        return res.status(500).json({ error: 'Failed to fetch live robot status' });
       }
-      // If it's the AxBot 5000 Pro, we should return a 404 as per user request to remove it
-      else if (serialNumber === 'AX923701583RT') {
-        return res.status(404).json({ error: 'Robot not found' });
-      }
-      
-      res.json(status);
     } catch (error) {
       console.error('Error fetching robot status:', error);
       res.status(500).json({ error: 'Failed to fetch robot status' });
     }
   });
-  
-  // Update a robot's status
+
+  // Update a robot's status (only for our physical robot)
   app.post('/api/robots/status/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
       const statusUpdate = req.body;
       
-      if (!statusUpdate) {
+      if (!statusUpdate || typeof statusUpdate !== 'object') {
         return res.status(400).json({ error: 'Status update data is required' });
       }
       
-      // Check if the robot exists in our demo data
-      if (!demoRobotStatus[serialNumber]) {
-        // This is a new robot, let's make sure it's registered
-        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
-        
-        if (!existingAssignment) {
-          return res.status(404).json({ 
-            error: 'Robot not found', 
-            message: 'Please register the robot first using the /api/robots/register endpoint'
-          });
-        }
-        
-        // Create a new status entry for this robot
-        demoRobotStatus[serialNumber] = {
-          model: existingAssignment.robotModel || 'Unknown Model',
-          serialNumber,
-          battery: statusUpdate.battery || 100,
-          status: statusUpdate.status || 'active',
-          mode: statusUpdate.mode || 'manual',
-          lastUpdate: new Date().toISOString()
-        };
-      } else {
-        // Update the existing status with new data
-        const currentStatus = demoRobotStatus[serialNumber];
-        
-        // Update only the provided fields
-        if (statusUpdate.battery !== undefined) currentStatus.battery = statusUpdate.battery;
-        if (statusUpdate.status !== undefined) currentStatus.status = statusUpdate.status;
-        if (statusUpdate.mode !== undefined) currentStatus.mode = statusUpdate.mode;
-        currentStatus.lastUpdate = new Date().toISOString();
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
       }
       
-      res.json(demoRobotStatus[serialNumber]);
+      // Check if robot is registered
+      const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      
+      if (!existingAssignment) {
+        return res.status(404).json({ 
+          error: 'Robot not found', 
+          message: 'Please register the robot first using the /api/robots/register endpoint'
+        });
+      }
+      
+      // Instead of updating demo data, we would send the command to the physical robot here
+      console.log('Would send status update to physical robot:', statusUpdate);
+      
+      // For now, just return a success response with the current status
+      try {
+        const statusResponse = await fetch(`${ROBOT_API_URL}/status`);
+        
+        if (!statusResponse.ok) {
+          throw new Error(`Failed to fetch robot status: ${statusResponse.status} ${statusResponse.statusText}`);
+        }
+        
+        const liveStatusData = await statusResponse.json() as { status?: string };
+        
+        const status: RobotStatus = {
+          model: "Physical Robot (Live)",
+          serialNumber,
+          battery: 0,
+          status: liveStatusData.status || 'unknown',
+          mode: statusUpdate.mode || 'ready',
+          lastUpdate: new Date().toISOString()
+        };
+        
+        // Get battery from sensor data
+        try {
+          const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
+          if (sensorResponse.ok) {
+            const liveSensorData = await sensorResponse.json() as { battery?: number };
+            if (liveSensorData.battery !== undefined) {
+              status.battery = liveSensorData.battery;
+            }
+          }
+        } catch (sensorErr) {
+          console.error('Error fetching sensor data for battery info:', sensorErr);
+        }
+        
+        res.json(status);
+      } catch (err) {
+        console.error('Error fetching live robot status after update:', err);
+        return res.status(500).json({ error: 'Failed to update robot status' });
+      }
     } catch (error) {
       console.error('Error updating robot status:', error);
       res.status(500).json({ error: 'Failed to update robot status' });
@@ -779,50 +313,45 @@ export function registerRobotApiRoutes(app: Express) {
     try {
       const { serialNumber } = req.params;
       
-      // Create a copy of the position data
-      const position = { ...demoRobotPositions[serialNumber] };
-      
-      if (!position) {
-        return res.status(404).json({ error: 'Robot position not found' });
-      }
-      
-      // If it's our physical robot, fetch live position data
-      if (serialNumber === 'L382502104987ir') {
-        try {
-          console.log('Fetching live position data for robot:', serialNumber);
-          const positionResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/position`);
-          
-          if (positionResponse.ok) {
-            const livePositionData = await positionResponse.json();
-            
-            // Update with live position data
-            if (livePositionData.x !== undefined) position.x = livePositionData.x;
-            if (livePositionData.y !== undefined) position.y = livePositionData.y;
-            if (livePositionData.z !== undefined) position.z = livePositionData.z;
-            if (livePositionData.orientation !== undefined) position.orientation = livePositionData.orientation;
-            if (livePositionData.speed !== undefined) position.speed = livePositionData.speed;
-            position.timestamp = new Date().toISOString();
-            
-            console.log('Using live data for robot position:', serialNumber);
-          }
-        } catch (err) {
-          console.error('Error fetching live robot position:', err);
-          // Continue with demo data as fallback
-        }
-      }
-      // If it's the AxBot 5000 Pro, we should return a 404 as per user request to remove it
-      else if (serialNumber === 'AX923701583RT') {
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      res.json(position);
+      // Fetch live position data
+      try {
+        console.log('Fetching live position data for robot:', serialNumber);
+        const positionResponse = await fetch(`${ROBOT_API_URL}/position`);
+        
+        if (!positionResponse.ok) {
+          throw new Error(`Failed to fetch robot position: ${positionResponse.status} ${positionResponse.statusText}`);
+        }
+        
+        const livePositionData = await positionResponse.json();
+        
+        // Create a position object with live data
+        const position: RobotPosition = {
+          x: livePositionData.x || 0,
+          y: livePositionData.y || 0,
+          z: livePositionData.z || 0,
+          orientation: livePositionData.orientation || 0,
+          speed: livePositionData.speed || 0,
+          timestamp: livePositionData.timestamp || new Date().toISOString()
+        };
+        
+        console.log('Using live data for robot position:', serialNumber);
+        res.json(position);
+      } catch (err) {
+        console.error('Error fetching live robot position:', err);
+        return res.status(500).json({ error: 'Failed to fetch live robot position' });
+      }
     } catch (error) {
       console.error('Error fetching robot position:', error);
       res.status(500).json({ error: 'Failed to fetch robot position' });
     }
   });
-  
-  // Update a robot's position
+
+  // Update a robot's position (only for our physical robot)
   app.post('/api/robots/position/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
@@ -832,41 +361,49 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Position update data is required' });
       }
       
-      // Check if the robot exists in our position data
-      if (!demoRobotPositions[serialNumber]) {
-        // Check if robot is registered
-        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
-        
-        if (!existingAssignment) {
-          return res.status(404).json({ 
-            error: 'Robot not found', 
-            message: 'Please register the robot first using the /api/robots/register endpoint'
-          });
-        }
-        
-        // Create a new position entry for this robot
-        demoRobotPositions[serialNumber] = {
-          x: positionUpdate.x !== undefined ? positionUpdate.x : 0,
-          y: positionUpdate.y !== undefined ? positionUpdate.y : 0,
-          z: positionUpdate.z !== undefined ? positionUpdate.z : 0,
-          orientation: positionUpdate.orientation !== undefined ? positionUpdate.orientation : 0,
-          speed: positionUpdate.speed !== undefined ? positionUpdate.speed : 0,
-          timestamp: new Date().toISOString()
-        };
-      } else {
-        // Update the existing position with new data
-        const currentPosition = demoRobotPositions[serialNumber];
-        
-        // Update only the provided fields
-        if (positionUpdate.x !== undefined) currentPosition.x = positionUpdate.x;
-        if (positionUpdate.y !== undefined) currentPosition.y = positionUpdate.y;
-        if (positionUpdate.z !== undefined) currentPosition.z = positionUpdate.z;
-        if (positionUpdate.orientation !== undefined) currentPosition.orientation = positionUpdate.orientation;
-        if (positionUpdate.speed !== undefined) currentPosition.speed = positionUpdate.speed;
-        currentPosition.timestamp = new Date().toISOString();
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
       }
       
-      res.json(demoRobotPositions[serialNumber]);
+      // Check if robot is registered
+      const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      
+      if (!existingAssignment) {
+        return res.status(404).json({ 
+          error: 'Robot not found', 
+          message: 'Please register the robot first using the /api/robots/register endpoint'
+        });
+      }
+      
+      // Instead of updating demo data, we would send the command to the physical robot here
+      console.log('Would send position update to physical robot:', positionUpdate);
+      
+      // For now, just return the latest position
+      try {
+        const positionResponse = await fetch(`${ROBOT_API_URL}/position`);
+        
+        if (!positionResponse.ok) {
+          throw new Error(`Failed to fetch robot position: ${positionResponse.status} ${positionResponse.statusText}`);
+        }
+        
+        const livePositionData = await positionResponse.json();
+        
+        // Return live position data
+        const position: RobotPosition = {
+          x: livePositionData.x || 0,
+          y: livePositionData.y || 0,
+          z: livePositionData.z || 0,
+          orientation: livePositionData.orientation || 0,
+          speed: livePositionData.speed || 0,
+          timestamp: new Date().toISOString()
+        };
+        
+        res.json(position);
+      } catch (err) {
+        console.error('Error fetching live robot position after update:', err);
+        return res.status(500).json({ error: 'Failed to update robot position' });
+      }
     } catch (error) {
       console.error('Error updating robot position:', error);
       res.status(500).json({ error: 'Failed to update robot position' });
@@ -878,61 +415,47 @@ export function registerRobotApiRoutes(app: Express) {
     try {
       const { serialNumber } = req.params;
       
-      // Create a copy of the sensors data as any to allow for additional properties
-      const sensors: any = { ...demoRobotSensors[serialNumber] };
-      
-      if (!sensors) {
-        return res.status(404).json({ error: 'Robot sensors not found' });
-      }
-      
-      // If it's our physical robot, fetch live sensor data
-      if (serialNumber === 'L382502104987ir') {
-        try {
-          console.log('Fetching live sensor data for robot:', serialNumber);
-          const sensorResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/sensors`);
-          
-          if (sensorResponse.ok) {
-            const liveSensorData: any = await sensorResponse.json();
-            
-            // Update with live sensor data
-            if (liveSensorData.temperature !== undefined) sensors.temperature = liveSensorData.temperature;
-            if (liveSensorData.humidity !== undefined) sensors.humidity = liveSensorData.humidity;
-            if (liveSensorData.proximity !== undefined) sensors.proximity = liveSensorData.proximity;
-            if (liveSensorData.battery !== undefined) sensors.battery = liveSensorData.battery;
-            // Include additional sensor data if available
-            if (liveSensorData.light !== undefined) sensors.light = liveSensorData.light;
-            if (liveSensorData.noise !== undefined) sensors.noise = liveSensorData.noise;
-            sensors.timestamp = new Date().toISOString();
-            
-            console.log('Using live data for robot sensors:', serialNumber);
-          }
-        } catch (err) {
-          console.error('Error fetching live robot sensors:', err);
-          // Continue with demo data as fallback
-        }
-      }
-      // For other physical robots, handle charging
-      else if (serialNumber === 'L382502104988is') {
-        // Get the status to check if robot is charging
-        const status = demoRobotStatus[serialNumber];
-        
-        // If robot is charging and battery is below 95%, increase it slightly
-        if (status && status.status === 'charging' && sensors.battery < 95) {
-          sensors.battery += 1; // Simulate charging by increasing battery level
-        }
-      }
-      // If it's the AxBot 5000 Pro, we should return a 404 as per user request to remove it
-      else if (serialNumber === 'AX923701583RT') {
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      res.json(sensors);
+      // Fetch live sensor data
+      try {
+        console.log('Fetching live sensor data for robot:', serialNumber);
+        const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
+        
+        if (!sensorResponse.ok) {
+          throw new Error(`Failed to fetch robot sensors: ${sensorResponse.status} ${sensorResponse.statusText}`);
+        }
+        
+        const liveSensorData = await sensorResponse.json();
+        
+        // Create sensor data object with live data
+        const sensors: any = {
+          temperature: liveSensorData.temperature || 0,
+          humidity: liveSensorData.humidity || 0,
+          proximity: liveSensorData.proximity || [0, 0, 0, 0],
+          battery: liveSensorData.battery || 0,
+          timestamp: liveSensorData.timestamp || new Date().toISOString()
+        };
+        
+        // Include additional sensor data if available
+        if (liveSensorData.light !== undefined) sensors.light = liveSensorData.light;
+        if (liveSensorData.noise !== undefined) sensors.noise = liveSensorData.noise;
+        
+        console.log('Using live data for robot sensors:', serialNumber);
+        res.json(sensors);
+      } catch (err) {
+        console.error('Error fetching live robot sensors:', err);
+        return res.status(500).json({ error: 'Failed to fetch live robot sensors' });
+      }
     } catch (error) {
       console.error('Error fetching robot sensors:', error);
       res.status(500).json({ error: 'Failed to fetch robot sensors' });
     }
   });
-  
+
   // Update a robot's sensor data
   app.post('/api/robots/sensors/:serialNumber', async (req: Request, res: Response) => {
     try {
@@ -943,39 +466,52 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Sensor update data is required' });
       }
       
-      // Check if the robot exists in our sensor data
-      if (!demoRobotSensors[serialNumber]) {
-        // Check if robot is registered
-        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
-        
-        if (!existingAssignment) {
-          return res.status(404).json({ 
-            error: 'Robot not found', 
-            message: 'Please register the robot first using the /api/robots/register endpoint'
-          });
-        }
-        
-        // Create a new sensor entry for this robot
-        demoRobotSensors[serialNumber] = {
-          temperature: sensorUpdate.temperature !== undefined ? sensorUpdate.temperature : 22,
-          humidity: sensorUpdate.humidity !== undefined ? sensorUpdate.humidity : 50,
-          proximity: sensorUpdate.proximity !== undefined ? sensorUpdate.proximity : [100, 100, 100, 100],
-          battery: sensorUpdate.battery !== undefined ? sensorUpdate.battery : 100,
-          timestamp: new Date().toISOString()
-        };
-      } else {
-        // Update the existing sensor data with new data
-        const currentSensors = demoRobotSensors[serialNumber];
-        
-        // Update only the provided fields
-        if (sensorUpdate.temperature !== undefined) currentSensors.temperature = sensorUpdate.temperature;
-        if (sensorUpdate.humidity !== undefined) currentSensors.humidity = sensorUpdate.humidity;
-        if (sensorUpdate.proximity !== undefined) currentSensors.proximity = sensorUpdate.proximity;
-        if (sensorUpdate.battery !== undefined) currentSensors.battery = sensorUpdate.battery;
-        currentSensors.timestamp = new Date().toISOString();
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
       }
       
-      res.json(demoRobotSensors[serialNumber]);
+      // Check if robot is registered
+      const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      
+      if (!existingAssignment) {
+        return res.status(404).json({ 
+          error: 'Robot not found', 
+          message: 'Please register the robot first using the /api/robots/register endpoint'
+        });
+      }
+      
+      // Instead of updating demo data, we would send the command to the physical robot here
+      console.log('Would send sensor update to physical robot:', sensorUpdate);
+      
+      // For now, just return the latest sensor data
+      try {
+        const sensorResponse = await fetch(`${ROBOT_API_URL}/sensors`);
+        
+        if (!sensorResponse.ok) {
+          throw new Error(`Failed to fetch robot sensors: ${sensorResponse.status} ${sensorResponse.statusText}`);
+        }
+        
+        const liveSensorData = await sensorResponse.json();
+        
+        // Create sensor data object with live data
+        const sensors: any = {
+          temperature: liveSensorData.temperature || 0,
+          humidity: liveSensorData.humidity || 0,
+          proximity: liveSensorData.proximity || [0, 0, 0, 0],
+          battery: liveSensorData.battery || 0,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Include additional sensor data if available
+        if (liveSensorData.light !== undefined) sensors.light = liveSensorData.light;
+        if (liveSensorData.noise !== undefined) sensors.noise = liveSensorData.noise;
+        
+        res.json(sensors);
+      } catch (err) {
+        console.error('Error fetching live robot sensors after update:', err);
+        return res.status(500).json({ error: 'Failed to update robot sensors' });
+      }
     } catch (error) {
       console.error('Error updating robot sensors:', error);
       res.status(500).json({ error: 'Failed to update robot sensors' });
@@ -987,57 +523,63 @@ export function registerRobotApiRoutes(app: Express) {
     try {
       const { serialNumber } = req.params;
       
-      // Create a copy of the map data
-      const mapData = { ...demoMapData[serialNumber] };
-      
-      if (!mapData) {
-        return res.status(404).json({ error: 'Robot map data not found' });
-      }
-      
-      // If it's our physical robot, fetch live map data
-      if (serialNumber === 'L382502104987ir') {
-        try {
-          console.log('Fetching live map data for robot:', serialNumber);
-          const mapResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/map`);
-          
-          if (mapResponse.ok) {
-            const liveMapData = await mapResponse.json();
-            
-            // Update with live map data
-            if (liveMapData.grid !== undefined) mapData.grid = liveMapData.grid;
-            if (liveMapData.obstacles !== undefined) mapData.obstacles = liveMapData.obstacles;
-            if (liveMapData.paths !== undefined) mapData.paths = liveMapData.paths;
-            
-            console.log('Using live data for robot map:', serialNumber);
-          }
-        } catch (err) {
-          console.error('Error fetching live robot map:', err);
-          // Continue with demo data as fallback
-        }
-      }
-      // If it's the AxBot 5000 Pro, we should return a 404 as per user request to remove it
-      else if (serialNumber === 'AX923701583RT') {
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      res.json(mapData);
+      // Fetch live map data
+      try {
+        console.log('Fetching live map data for robot:', serialNumber);
+        const mapResponse = await fetch(`${ROBOT_API_URL}/map`);
+        
+        if (!mapResponse.ok) {
+          throw new Error(`Failed to fetch robot map: ${mapResponse.status} ${mapResponse.statusText}`);
+        }
+        
+        const liveMapData = await mapResponse.json();
+        
+        // Create map data object with live data
+        const mapData: MapData = {
+          grid: liveMapData.grid || [],
+          obstacles: liveMapData.obstacles || [],
+          paths: liveMapData.paths || []
+        };
+        
+        console.log('Using live data for robot map:', serialNumber);
+        res.json(mapData);
+      } catch (err) {
+        console.error('Error fetching live robot map:', err);
+        return res.status(500).json({ error: 'Failed to fetch live robot map' });
+      }
     } catch (error) {
       console.error('Error fetching robot map data:', error);
       res.status(500).json({ error: 'Failed to fetch robot map data' });
     }
   });
-  
+
   // Get camera data for a specific robot
   app.get('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
       
-      // Get camera data for the robot
-      const cameraData = demoCameraData[serialNumber];
-      
-      if (!cameraData) {
-        return res.status(404).json({ error: 'Robot camera data not found' });
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
       }
+      
+      // Create camera data with live information
+      const cameraData: CameraData = {
+        enabled: true,
+        streamUrl: `https://8f50-47-180-91-99.ngrok-free.app/robot-camera/${serialNumber}`,
+        resolution: {
+          width: 1280,
+          height: 720
+        },
+        rotation: 0,
+        nightVision: true,
+        timestamp: new Date().toISOString()
+      };
       
       res.json(cameraData);
     } catch (error) {
@@ -1045,56 +587,45 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to fetch robot camera data' });
     }
   });
-  
+
   // Toggle camera state (enable/disable)
   app.post('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
       const { enabled } = req.body;
       
-      // Check if the robot exists in our data
-      if (!demoCameraData[serialNumber]) {
-        // Check if robot is registered
-        const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
-        
-        if (!existingAssignment) {
-          return res.status(404).json({ 
-            error: 'Robot not found', 
-            message: 'Please register the robot first using the /api/robots/register endpoint'
-          });
-        }
-        
-        // Create a new camera data entry for this robot
-        demoCameraData[serialNumber] = {
-          enabled: enabled !== undefined ? enabled : false,
-          streamUrl: enabled ? 'https://example.com/robot-stream-default.jpg' : '',
-          resolution: {
-            width: 1280,
-            height: 720
-          },
-          rotation: 0,
-          nightVision: false,
-          timestamp: new Date().toISOString()
-        };
-      } else {
-        // Update the existing camera data
-        const cameraData = demoCameraData[serialNumber];
-        
-        if (enabled !== undefined) {
-          cameraData.enabled = enabled;
-          
-          // Update the stream URL based on the enabled state
-          if (enabled && !cameraData.streamUrl) {
-            cameraData.streamUrl = 'https://example.com/robot-stream-default.jpg';
-          } else if (!enabled) {
-            cameraData.streamUrl = '';
-          }
-        }
-        
-        cameraData.timestamp = new Date().toISOString();
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
       }
       
-      res.json(demoCameraData[serialNumber]);
+      // Check if robot is registered
+      const existingAssignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      
+      if (!existingAssignment) {
+        return res.status(404).json({ 
+          error: 'Robot not found', 
+          message: 'Please register the robot first using the /api/robots/register endpoint'
+        });
+      }
+      
+      // Instead of updating demo data, we would send the command to the physical robot here
+      console.log('Would toggle camera for physical robot:', enabled);
+      
+      // Return updated camera data
+      const cameraData: CameraData = {
+        enabled: enabled !== undefined ? enabled : true,
+        streamUrl: enabled ? `https://8f50-47-180-91-99.ngrok-free.app/robot-camera/${serialNumber}` : '',
+        resolution: {
+          width: 1280,
+          height: 720
+        },
+        rotation: 0,
+        nightVision: true,
+        timestamp: new Date().toISOString()
+      };
+      
+      res.json(cameraData);
     } catch (error) {
       console.error('Error updating robot camera:', error);
       res.status(500).json({ error: 'Failed to update robot camera' });
@@ -1117,7 +648,7 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to fetch robot assignments' });
     }
   });
-  
+
   // Get robot by serial number
   app.get('/api/robot-assignments/by-serial/:serialNumber', async (req: Request, res: Response) => {
     try {
@@ -1146,6 +677,11 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Serial number and model are required' });
       }
       
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not supported' });
+      }
+      
       // Register the robot with the template
       const result = await registerRobot(serialNumber, model, templateId);
       
@@ -1155,19 +691,20 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to register robot with template' });
     }
   });
-  
+
   // Get robot's current task
   app.get('/api/robots/task/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
       
-      // In a real implementation, we would fetch actual task data from the robot
-      // For demo purposes, we'll use the demo data
-      const task = demoTasks[serialNumber];
-      
-      if (!task) {
-        return res.status(404).json({ error: 'Robot task not found' });
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
       }
+      
+      // For now, we don't have task data from the robot API
+      // In a real implementation, we would fetch from the robot API
+      const task = "Monitoring environment";
       
       res.json({ task });
     } catch (error) {
@@ -1175,7 +712,7 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to fetch robot task' });
     }
   });
-  
+
   // Update a robot assignment
   app.put('/api/robot-assignments/:id', async (req: Request, res: Response) => {
     try {
@@ -1208,13 +745,13 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to update robot assignment' });
     }
   });
-  
+
   // Delete a robot assignment
   app.delete('/api/robot-assignments/:id', async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       
-      // Get the assignment first to retrieve the serial number
+      // Get the assignment first to check if it exists
       const assignment = await storage.getRobotTemplateAssignment(id);
       
       if (!assignment) {
@@ -1226,30 +763,6 @@ export function registerRobotApiRoutes(app: Express) {
       
       if (!success) {
         return res.status(500).json({ error: 'Failed to delete robot assignment' });
-      }
-      
-      // Also clean up the robot data from our demo data
-      const serialNumber = assignment.serialNumber;
-      if (serialNumber) {
-        // Remove from demo status if it exists
-        if (demoRobotStatus[serialNumber]) {
-          delete demoRobotStatus[serialNumber];
-        }
-        
-        // Remove from position data if it exists
-        if (demoRobotPositions[serialNumber]) {
-          delete demoRobotPositions[serialNumber];
-        }
-        
-        // Remove from sensor data if it exists
-        if (demoRobotSensors[serialNumber]) {
-          delete demoRobotSensors[serialNumber];
-        }
-        
-        // Remove from task data if it exists
-        if (demoTasks[serialNumber]) {
-          delete demoTasks[serialNumber];
-        }
       }
       
       res.status(204).end();

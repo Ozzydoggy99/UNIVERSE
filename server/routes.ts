@@ -3,15 +3,7 @@ import { z } from 'zod';
 import WebSocket, { WebSocketServer } from 'ws';
 import { createServer, Server } from 'http';
 import fetch from 'node-fetch';
-import { 
-  demoRobotStatus, 
-  demoRobotPositions, 
-  demoRobotSensors, 
-  demoMapData, 
-  demoTasks,
-  demoCameraData,
-  registerRobotApiRoutes 
-} from './robot-api';
+import { registerRobotApiRoutes } from './robot-api';
 import { registerCameraApiRoutes } from './camera-api';
 import { registerRobotVideoRoutes, getVideoFrame } from './robot-video';
 import { processCameraWebSocketMessage } from './camera-websocket';
@@ -28,6 +20,17 @@ import { registerMockAssistantRoutes } from './mock-assistant';
 import { registerRobot } from './register-robot';
 import { storage } from './storage';
 import { setupAuth } from './auth';
+import axios from 'axios';
+
+// Only support our physical robot
+const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
+const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
+
+// Global storage for in-memory robot state data (only used when robot is unreachable)
+const robotStatusCache = new Map();
+const robotPositionCache = new Map();
+const robotSensorCache = new Map();
+const robotTaskCache = new Map();
 
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -49,26 +52,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register mock assistant routes
   registerMockAssistantRoutes(app);
   
-  // Templates API endpoints
+  // Register robot video routes
+  const httpServer = createServer(app);
+  registerRobotVideoRoutes(app, httpServer);
+  
+  // Set up WebSocket server for real-time updates
+  setupWebSockets(httpServer);
+  
+  // Template routes
   app.get('/api/templates', async (req: Request, res: Response) => {
     try {
-      // Add cache control headers to prevent caching
-      res.set('Cache-Control', 'no-store, max-age=0');
-      res.set('Pragma', 'no-cache');
-      res.set('Expires', '0');
-      
       const templates = await storage.getAllTemplates();
       res.json(templates);
     } catch (error) {
       console.error('Error fetching templates:', error);
-      res.status(500).json({ error: 'Failed to fetch templates' });
+      res.status(500).json({ error: formatError(error) });
     }
   });
-  
+
   app.get('/api/templates/:id', async (req: Request, res: Response) => {
     try {
-      const templateId = parseInt(req.params.id);
-      const template = await storage.getTemplate(templateId);
+      const id = parseInt(req.params.id);
+      const template = await storage.getTemplateById(id);
       
       if (!template) {
         return res.status(404).json({ error: 'Template not found' });
@@ -77,132 +82,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(template);
     } catch (error) {
       console.error('Error fetching template:', error);
-      res.status(500).json({ error: 'Failed to fetch template' });
+      res.status(500).json({ error: formatError(error) });
     }
   });
-  
+
   app.post('/api/templates', async (req: Request, res: Response) => {
     try {
-      const template = await storage.createTemplate(req.body);
-      res.status(201).json(template);
+      // Validate request body
+      const schema = z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        config: z.record(z.any())
+      });
+      
+      const validatedData = schema.parse(req.body);
+      const newTemplate = await storage.createTemplate(validatedData);
+      
+      res.status(201).json(newTemplate);
     } catch (error) {
       console.error('Error creating template:', error);
-      res.status(500).json({ error: 'Failed to create template' });
+      res.status(400).json({ error: formatError(error) });
     }
   });
-  
+
   app.put('/api/templates/:id', async (req: Request, res: Response) => {
     try {
-      const templateId = parseInt(req.params.id);
-      const updatedTemplate = await storage.updateTemplate(templateId, req.body);
+      const id = parseInt(req.params.id);
       
-      if (!updatedTemplate) {
+      // Validate request body
+      const schema = z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        config: z.record(z.any())
+      });
+      
+      const validatedData = schema.parse(req.body);
+      const updated = await storage.updateTemplate(id, validatedData);
+      
+      if (!updated) {
         return res.status(404).json({ error: 'Template not found' });
       }
       
-      res.json(updatedTemplate);
+      res.json(updated);
     } catch (error) {
       console.error('Error updating template:', error);
-      res.status(500).json({ error: 'Failed to update template' });
+      res.status(400).json({ error: formatError(error) });
     }
   });
-  
+
   app.delete('/api/templates/:id', async (req: Request, res: Response) => {
     try {
-      const templateId = parseInt(req.params.id);
-      const success = await storage.deleteTemplate(templateId);
-      
-      if (!success) {
-        return res.status(404).json({ error: 'Template not found' });
-      }
-      
+      const id = parseInt(req.params.id);
+      await storage.deleteTemplate(id);
       res.status(204).end();
     } catch (error) {
       console.error('Error deleting template:', error);
-      res.status(500).json({ error: 'Failed to delete template' });
+      res.status(500).json({ error: formatError(error) });
     }
   });
-  
-  // User API endpoints
+
+  // User routes
   app.get('/api/users', async (req: Request, res: Response) => {
     try {
       const users = await storage.getAllUsers();
-      res.json(Array.from(users.values()));
+      res.json(users);
     } catch (error) {
       console.error('Error fetching users:', error);
-      res.status(500).json({ error: 'Failed to fetch users' });
+      res.status(500).json({ error: formatError(error) });
     }
   });
-  
-  // Robots list API endpoint
+
+  // Robot routes
   app.get('/api/robots', async (req: Request, res: Response) => {
     try {
-      // Get the list of all robot serials
-      const robotSerials = Object.keys(demoRobotStatus);
+      // Get physical robot data
+      const serialNumber = PHYSICAL_ROBOT_SERIAL;
+      let robotData = null;
       
-      // Create the robots array
-      const robots = [];
-      
-      // For each robot, try to get live data if available
-      for (const serial of robotSerials) {
-        // Start with the demo data as a fallback
-        let robotData = {
-          id: serial,  // Use different property name to avoid duplication
-          ...demoRobotStatus[serial]
-        };
-        
-        // If this is our physical robot with live data, use the live data instead of mock data
-        if (serial === 'L382502104987ir') {
-          try {
-            // Fetch live status data
-            const statusResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/status`);
-            if (statusResponse.ok) {
-              const liveStatusData = await statusResponse.json() as { status?: string };
-              
-              // Update the robot data with live status
-              robotData = {
-                ...robotData,
-                status: liveStatusData.status || robotData.status,
-                model: "Physical Robot (Live)",
-                lastUpdate: new Date().toISOString()
-              };
-              
-              // Fetch live sensor data for battery info
-              const sensorResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/sensors`);
-              if (sensorResponse.ok) {
-                const liveSensorData = await sensorResponse.json() as { battery?: number };
-                
-                // Update battery level if available
-                if (liveSensorData && liveSensorData.battery !== undefined) {
-                  robotData.battery = liveSensorData.battery;
-                }
-              }
-              
-              console.log('Using live data for robot in /api/robots endpoint:', serial);
-            }
-          } catch (err) {
-            console.error('Error fetching live robot data:', err);
-            // Continue with the demo data as fallback
+      try {
+        // Try to get live data from the robot
+        const response = await axios.get(`${ROBOT_API_URL}/robot-info/${serialNumber}`, {
+          timeout: 2000,
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
           }
-        } else if (serial === 'AX923701583RT') {
-          // Remove the AxBot 5000 Pro robot as per user request
-          continue;
-        }
+        });
         
-        robots.push(robotData);
+        if (response.status === 200) {
+          robotData = response.data;
+        }
+      } catch (robotError) {
+        console.error(`Could not fetch live robot data: ${robotError}`);
+        
+        // Fall back to cached data if we have it
+        if (robotStatusCache.has(serialNumber)) {
+          robotData = {
+            status: robotStatusCache.get(serialNumber),
+            position: robotPositionCache.get(serialNumber) || null,
+            sensors: robotSensorCache.get(serialNumber) || null
+          };
+        }
       }
       
-      res.json(robots);
+      // If we don't have robot data, create a default entry
+      if (!robotData) {
+        robotData = {
+          serialNumber,
+          status: {
+            model: 'AxBot 5000',
+            serialNumber,
+            battery: 0,
+            status: 'offline',
+            mode: 'standby',
+            lastUpdate: new Date().toISOString()
+          }
+        };
+      }
+      
+      // Get robot assignment data
+      const assignment = await storage.getRobotTemplateAssignmentBySerial(serialNumber);
+      
+      // Combine the data
+      const result = {
+        serialNumber,
+        ...robotData,
+        assignment: assignment || null
+      };
+      
+      // For now, we only support our one physical robot
+      res.json([result]);
     } catch (error) {
       console.error('Error fetching robots:', error);
-      res.status(500).json({ error: 'Failed to fetch robots' });
+      res.status(500).json({ error: formatError(error) });
     }
   });
-  
+
   app.get('/api/users/:id', async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.params.id);
-      const user = await storage.getUser(userId);
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
       
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
@@ -211,651 +230,789 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch (error) {
       console.error('Error fetching user:', error);
-      res.status(500).json({ error: 'Failed to fetch user' });
+      res.status(500).json({ error: formatError(error) });
     }
   });
-  
-  // Update user's template
+
   app.put('/api/users/:id/template', async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.params.id);
       const { templateId } = req.body;
-      const user = await storage.getUser(userId);
       
-      if (!user) {
+      // Update the user's template assignment
+      const updated = await storage.updateUserTemplate(userId, templateId ? parseInt(templateId) : null);
+      
+      if (!updated) {
         return res.status(404).json({ error: 'User not found' });
       }
       
-      // If templateId is null, remove the template assignment
-      if (templateId === null) {
-        const updatedUser = await storage.updateUser(userId, { templateId: null });
-        return res.json(updatedUser);
-      }
-      
-      // Otherwise, verify the template exists and assign it
-      const parsedTemplateId = parseInt(templateId);
-      const template = await storage.getTemplate(parsedTemplateId);
-      
-      if (!template) {
-        return res.status(404).json({ error: 'Template not found' });
-      }
-      
-      const updatedUser = await storage.updateUser(userId, { templateId: parsedTemplateId });
-      res.json(updatedUser);
+      res.json(updated);
     } catch (error) {
       console.error('Error updating user template:', error);
-      res.status(500).json({ error: 'Failed to update user template' });
+      res.status(500).json({ error: formatError(error) });
     }
   });
-  
-  // Create HTTP server
-  const httpServer = createServer(app);
-  
-  // Register robot video streaming HTTP routes
-  registerRobotVideoRoutes(app, httpServer);
-  
-  // Set up WebSocket handling
-  setupWebSockets(httpServer);
-  
-  // We don't need additional upgrade handlers as we've consolidated them in setupWebSockets
-  
-  // Return the HTTP server
+
   return httpServer;
 }
 
-// Setup WebSockets
 function setupWebSockets(httpServer: Server) {
-  // Create WebSocket servers in noServer mode
-  const robotWss = new WebSocketServer({ noServer: true });
-  const clientWss = new WebSocketServer({ noServer: true });
-  const cameraWss = new WebSocketServer({ noServer: true });
+  // Create WebSocket server
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/api/ws'
+  });
   
-  // Keep track of connected clients for broadcasting
+  // Create a separate WebSocket server for camera streams
+  const cameraWss = new WebSocketServer({
+    server: httpServer,
+    path: '/api/ws/camera'
+  });
+  
+  console.log('WebSocket servers initialized');
+  
+  // Store connected clients
   const connectedClients: WebSocket[] = [];
+  const cameraClients: WebSocket[] = [];
   
-  // Handle upgrade events
-  httpServer.on('upgrade', (request, socket, head) => {
-    const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
+  // Main WebSocket server for general robot communication
+  wss.on('connection', (ws) => {
+    console.log('Client connected to main WebSocket');
+    connectedClients.push(ws);
     
-    // Log all WebSocket upgrade requests
-    console.log(`WebSocket upgrade request for path: ${pathname}`);
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received WebSocket message:', data.type);
+        
+        // Handle different message types
+        switch (data.type) {
+          case 'get_robot_status':
+            await handleRobotStatusWebSocket(data, ws);
+            break;
+          case 'get_robot_position':
+            await handleRobotPositionWebSocket(data, ws);
+            break;
+          case 'get_robot_sensors':
+            await handleRobotSensorWebSocket(data, ws);
+            break;
+          case 'get_robot_map':
+            await handleRobotMapWebSocket(data, ws);
+            break;
+          case 'register_physical_robot':
+            await handleRegisterPhysicalRobot(data, ws, connectedClients);
+            break;
+          case 'update_robot_status':
+            await handleUpdateRobotStatus(data, ws, connectedClients);
+            break;
+          case 'update_robot_position':
+            await handleUpdateRobotPosition(data, ws, connectedClients);
+            break;
+          case 'update_robot_sensors':
+            await handleUpdateRobotSensors(data, ws, connectedClients);
+            break;
+          case 'get_robot_task':
+            await handleGetRobotTask(data, ws);
+            break;
+          case 'robot_control':
+            await handleRobotControl(data, ws);
+            break;
+          default:
+            sendError(ws, `Unknown message type: ${data.type}`);
+        }
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error);
+        sendError(ws, `Error: ${formatError(error)}`);
+      }
+    });
     
-    // Additional debugging for video streaming WebSocket connections
-    if (pathname.startsWith('/api/robot-video/')) {
-      const serialNumber = pathname.split('/').pop();
-      console.log(`📹 VIDEO: WebSocket connection request for robot ${serialNumber} camera stream`);
-      console.log(`VIDEO: Request URL: ${request.url}`);
-      console.log(`VIDEO: Headers:`, request.headers);
-    } else {
-      console.log(`Request URL: ${request.url}, Full path: ${request.headers.host}${pathname}`);
+    ws.on('close', () => {
+      console.log('Client disconnected from main WebSocket');
+      const index = connectedClients.indexOf(ws);
+      if (index !== -1) {
+        connectedClients.splice(index, 1);
+      }
+    });
+    
+    // Send initial welcome message
+    ws.send(JSON.stringify({
+      type: 'connected',
+      message: 'Connected to robot management system',
+      timestamp: new Date().toISOString()
+    }));
+  });
+  
+  // Camera WebSocket server for video streaming
+  cameraWss.on('connection', (ws) => {
+    console.log('Client connected to camera WebSocket');
+    cameraClients.push(ws);
+    
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received camera WebSocket message:', data.type);
+        
+        // Process camera messages in the dedicated handler
+        processCameraWebSocketMessage(data, ws, cameraClients);
+      } catch (error) {
+        console.error('Error handling camera WebSocket message:', error);
+        sendError(ws, `Error: ${formatError(error)}`);
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('Client disconnected from camera WebSocket');
+      const index = cameraClients.indexOf(ws);
+      if (index !== -1) {
+        cameraClients.splice(index, 1);
+      }
+    });
+    
+    // Send initial welcome message
+    ws.send(JSON.stringify({
+      type: 'connected',
+      message: 'Connected to robot camera system',
+      timestamp: new Date().toISOString()
+    }));
+  });
+  
+  console.log('WebSocket setup complete');
+}
+
+// WebSocket handler functions
+async function handleRobotStatusWebSocket(data: any, ws: WebSocket) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    // Only support our physical robot
+    if (data.serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot ${data.serialNumber} is not registered`);
     }
     
-    // Handle video WebSocket path - must be checked first before other paths
-    if (pathname.startsWith('/api/robot-video/')) {
-      console.log('Robot video WebSocket connection request received');
+    // Try to get real-time status from robot
+    try {
+      const response = await axios.get(`${ROBOT_API_URL}/status`, {
+        timeout: 2000,
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
       
-      // Extract the robot serial number from the URL
-      const serialNumber = pathname.split('/').pop();
-      if (!serialNumber) {
-        console.error('Missing robot serial number in video WebSocket path');
-        socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
-        socket.destroy();
+      if (response.status === 200 && response.data) {
+        // Format the status data
+        const status = {
+          model: 'AxBot 5000',
+          serialNumber: data.serialNumber,
+          battery: response.data.battery || 0,
+          status: response.data.status || 'unknown',
+          mode: response.data.mode || 'standby',
+          lastUpdate: new Date().toISOString()
+        };
+        
+        // Cache the status
+        robotStatusCache.set(data.serialNumber, status);
+        
+        // Send the status
+        ws.send(JSON.stringify({
+          type: 'robot_status',
+          serialNumber: data.serialNumber,
+          data: status
+        }));
+        
         return;
       }
-      
-      // Handle with the videoWss server
-      const videoWss = new WebSocketServer({ noServer: true });
-      videoWss.handleUpgrade(request, socket, head, (ws) => {
-        console.log(`Robot video WebSocket connection established for ${serialNumber}`);
-        
-        // Start streaming video data
-        let isActive = true;
-        let frameCount = 0;
-        let errorCount = 0;
-        
-        const intervalId = setInterval(async () => {
-          // Check if connection is still active
-          if (!isActive || ws.readyState !== WebSocket.OPEN) {
-            console.log(`Stopping video stream for ${serialNumber} (inactive connection)`);
-            clearInterval(intervalId);
-            return;
-          }
-          
-          // Track error count, if too many consecutive errors, back off
-          if (errorCount > 5) {
-            console.warn(`Too many errors for ${serialNumber} video stream, pausing for recovery`);
-            setTimeout(() => {
-              if (isActive && ws.readyState === WebSocket.OPEN) {
-                console.log(`Resuming video stream for ${serialNumber} after error pause`);
-                errorCount = 0;
-              }
-            }, 5000);
-            return;
-          }
-          
-          try {
-            // Use our optimized getVideoFrame function
-            const buffer = await getVideoFrame(serialNumber);
-            
-            if (buffer && ws.readyState === WebSocket.OPEN) {
-              ws.send(buffer);
-              frameCount++;
-              errorCount = 0; // Reset error count on success
-              
-              // Log frame rate periodically
-              if (frameCount % 100 === 0) {
-                console.log(`Sent ${frameCount} frames to ${serialNumber}`);
-              }
-            }
-          } catch (error) {
-            errorCount++;
-            console.error(`Error streaming video for ${serialNumber}:`, error);
-            
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ error: 'Failed to retrieve video frame' }));
-            }
-          }
-        }, 50); // ~20fps to reduce bandwidth and processor load
-        
-        // Clean up on close
-        ws.on('close', () => {
-          console.log(`Robot video WebSocket for ${serialNumber} closed`);
-          isActive = false;
-          clearInterval(intervalId);
-        });
-        
-        ws.on('error', (err) => {
-          console.error(`Robot video WebSocket error for ${serialNumber}:`, err);
-          isActive = false;
-          clearInterval(intervalId);
-        });
-      });
-      return;
+    } catch (robotError) {
+      console.error(`Error getting robot status: ${robotError}`);
     }
     
-    // Handle specific WebSocket connections as client connections
-    // Avoid root path which can conflict with Vite's HMR WebSocket
-    if (pathname === '/api/ws/camera') {
-      // Handle camera WebSocket requests
-      cameraWss.handleUpgrade(request, socket, head, (ws) => {
-        console.log('Camera WebSocket connection established');
-        
-        // Add to connected clients list for broadcasting
-        connectedClients.push(ws);
-        
-        // Handle client messages
-        ws.on('message', (message) => {
-          try {
-            const data = JSON.parse(message.toString());
-            console.log('Received camera message:', data);
-            
-            // First, try using the camera WebSocket handler
-            if (data.type === 'get_robot_camera' || data.type === 'toggle_robot_camera') {
-              processCameraWebSocketMessage(data, ws, connectedClients);
-            }
-            // Handle other robot data types as well
-            else if (data.type === 'get_robot_status' && data.serialNumber) {
-              handleRobotStatusRequest(ws, data.serialNumber);
-            }
-            else if (data.type === 'get_robot_position' && data.serialNumber) {
-              handleRobotPositionRequest(ws, data.serialNumber);
-            }
-            else if (data.type === 'get_robot_sensors' && data.serialNumber) {
-              handleRobotSensorRequest(ws, data.serialNumber);
-            }
-            else if (data.type === 'get_robot_map' && data.serialNumber) {
-              handleRobotMapRequest(ws, data.serialNumber);
-            }
-          } catch (error) {
-            console.error('Error processing camera WebSocket message:', error);
-            sendError(ws, 'Error processing message');
-          }
-        });
-        
-        // Handle disconnection
-        ws.on('close', () => {
-          console.log('Camera WebSocket connection closed');
-          // Remove from connected clients
-          const index = connectedClients.indexOf(ws);
-          if (index !== -1) {
-            connectedClients.splice(index, 1);
-          }
-        });
-        
-        // Handle errors
-        ws.on('error', (error) => {
-          console.error('Camera WebSocket error:', error);
-        });
-      });
-      return;
+    // If we couldn't get live data, use cached data
+    if (robotStatusCache.has(data.serialNumber)) {
+      const status = robotStatusCache.get(data.serialNumber);
+      
+      ws.send(JSON.stringify({
+        type: 'robot_status',
+        serialNumber: data.serialNumber,
+        data: status
+      }));
+    } else {
+      // Create a default status
+      const defaultStatus = {
+        model: 'AxBot 5000',
+        serialNumber: data.serialNumber,
+        battery: 0,
+        status: 'offline',
+        mode: 'standby',
+        lastUpdate: new Date().toISOString()
+      };
+      
+      // Cache the status
+      robotStatusCache.set(data.serialNumber, defaultStatus);
+      
+      // Send the status
+      ws.send(JSON.stringify({
+        type: 'robot_status',
+        serialNumber: data.serialNumber,
+        data: defaultStatus
+      }));
     }
-    else if (pathname === '/ws' || pathname === '/socket' || pathname === '/api/ws') {
-      console.log('Redirecting root WebSocket connection to client handler');
-      clientWss.handleUpgrade(request, socket, head, (ws) => {
-        console.log('Client WebSocket connection established via root path');
-        
-        // Add to connected clients list for broadcasting
-        connectedClients.push(ws);
-        
-        // Send initial data to the client
-        ws.send(JSON.stringify({
-          type: 'connection_established',
-          message: 'Connected to robot monitoring system',
-          timestamp: new Date().toISOString()
-        }));
-        
-        // Handle client messages
-        ws.on('message', (message) => {
-          try {
-            const data = JSON.parse(message.toString());
-            console.log('Received client message:', data);
-            
-            // Handle different request types
-            if (data.type === 'get_robot_status' && data.serialNumber) {
-              const status = demoRobotStatus[data.serialNumber];
-              if (status) {
-                ws.send(JSON.stringify({
-                  type: 'status',
-                  data: status
-                }));
-              } else {
-                sendError(ws, `No status data for robot ${data.serialNumber}`);
-              }
-            }
-            else if (data.type === 'get_robot_position' && data.serialNumber) {
-              const position = demoRobotPositions[data.serialNumber];
-              if (position) {
-                ws.send(JSON.stringify({
-                  type: 'position',
-                  data: position
-                }));
-              } else {
-                sendError(ws, `No position data for robot ${data.serialNumber}`);
-              }
-            }
-            else if (data.type === 'get_robot_sensors' && data.serialNumber) {
-              const sensors = demoRobotSensors[data.serialNumber];
-              if (sensors) {
-                ws.send(JSON.stringify({
-                  type: 'sensors',
-                  data: sensors
-                }));
-              } else {
-                sendError(ws, `No sensor data for robot ${data.serialNumber}`);
-              }
-            }
-            else if (data.type === 'get_robot_map' && data.serialNumber) {
-              const map = demoMapData[data.serialNumber];
-              if (map) {
-                ws.send(JSON.stringify({
-                  type: 'map',
-                  data: map
-                }));
-              } else {
-                sendError(ws, `No map data for robot ${data.serialNumber}`);
-              }
-            }
-          } catch (error) {
-            console.error('Error processing client WebSocket message:', error);
-            sendError(ws, 'Error processing message');
-          }
-        });
-        
-        // Handle disconnection
-        ws.on('close', () => {
-          console.log('Client WebSocket connection closed');
-          // Remove from connected clients
-          const index = connectedClients.indexOf(ws);
-          if (index !== -1) {
-            connectedClients.splice(index, 1);
-          }
-        });
-        
-        // Handle errors
-        ws.on('error', (error) => {
-          console.error('Client WebSocket error:', error);
-        });
-      });
-      return;
+  } catch (error) {
+    console.error('Error handling robot status request:', error);
+    sendError(ws, `Error getting robot status: ${formatError(error)}`);
+  }
+}
+
+async function handleRobotPositionWebSocket(data: any, ws: WebSocket) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    // Only support our physical robot
+    if (data.serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot ${data.serialNumber} is not registered`);
     }
     
-    // The video websocket handling is already done above, no need for a duplicate handler here
-    
-    if (pathname === '/api/ws/robot') {
-      robotWss.handleUpgrade(request, socket, head, (ws) => {
-        console.log('Robot WebSocket connection established');
-        
-        // Store robot information
-        let robotSerial: string | null = null;
-        let robotModel: string | null = null;
-        let isRegistered = false;
-        
-        ws.on('message', (message) => {
-          try {
-            const data = JSON.parse(message.toString());
-            console.log('Received robot message:', data);
-            
-            // Handle message types
-            if (data.type === 'register') {
-              // Handle robot registration
-              if (!data.serialNumber || !data.model) {
-                sendError(ws, 'Serial number and model are required');
-                return;
-              }
-              
-              robotSerial = data.serialNumber;
-              robotModel = data.model;
-              isRegistered = true;
-              
-              // Add the robot to demoRobotStatus if it doesn't exist
-              if (robotSerial && !demoRobotStatus[robotSerial]) {
-                demoRobotStatus[robotSerial] = {
-                  model: robotModel || 'Physical Robot',
-                  serialNumber: robotSerial,
-                  battery: 100,
-                  status: 'online',
-                  mode: 'ready',
-                  lastUpdate: new Date().toISOString()
-                };
-                
-                console.log(`Added robot to demoRobotStatus: ${robotSerial}`);
-                
-                // Also create a new assignment manually in memory
-                const newAssignment = {
-                  id: Date.now(),
-                  name: `Robot ${robotSerial}`,
-                  description: `Physical robot (${robotModel || 'Unknown Model'})`,
-                  serialNumber: robotSerial,
-                  templateId: 1,
-                  location: 'Main Floor'
-                };
-                
-                // Add this assignment directly to the database
-                storage.createRobotTemplateAssignment(newAssignment)
-                  .then(assignment => {
-                    console.log(`Created robot assignment for ${robotSerial} in database:`, assignment);
-                  })
-                  .catch(err => {
-                    console.error(`Error creating robot assignment for ${robotSerial}:`, err);
-                  });
-              }
-              
-              // Try direct API call as a backup method
-              console.log(`Attempting to register robot ${robotSerial} via direct API call...`);
-              fetch('http://localhost:5000/api/robots/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  serialNumber: robotSerial,
-                  model: robotModel || 'Physical Robot',
-                  templateId: 1
-                })
-              })
-              .then(response => {
-                if (response.ok) {
-                  return response.json();
-                } else {
-                  throw new Error(`HTTP error: ${response.status}`);
-                }
-              })
-              .then(data => {
-                console.log(`Created robot assignment for ${robotSerial} via API:`, data);
-              })
-              .catch(error => {
-                console.error(`Failed to create robot assignment for ${robotSerial} via API:`, error);
-              });
-              
-              ws.send(JSON.stringify({
-                type: 'registered',
-                serialNumber: robotSerial,
-                message: 'Robot registered successfully'
-              }));
-              
-              console.log(`Robot registered: ${robotSerial} (${robotModel})`);
-            } 
-            else if (data.type === 'status_update') {
-              // Update robot status
-              if (!isRegistered || !robotSerial) {
-                sendError(ws, 'Robot must be registered first');
-                return;
-              }
-              
-              if (data.status) {
-                // Update status in demo data
-                const statusData = {
-                  ...data.status,
-                  serialNumber: robotSerial,
-                  model: robotModel || 'Unknown',
-                  lastUpdate: new Date().toISOString()
-                };
-                demoRobotStatus[robotSerial] = statusData;
-                
-                // Send confirmation to robot
-                ws.send(JSON.stringify({
-                  type: 'status_updated',
-                  timestamp: new Date().toISOString()
-                }));
-                
-                // Broadcast to all connected clients
-                broadcastRobotUpdate(connectedClients, 'robot_status_update', robotSerial, statusData);
-              }
-            }
-            else if (data.type === 'position_update') {
-              // Update robot position
-              if (!isRegistered || !robotSerial) {
-                sendError(ws, 'Robot must be registered first');
-                return;
-              }
-              
-              if (data.position) {
-                // Update position in demo data
-                const positionData = {
-                  ...data.position,
-                  timestamp: new Date().toISOString()
-                };
-                demoRobotPositions[robotSerial] = positionData;
-                
-                // Send confirmation to robot
-                ws.send(JSON.stringify({
-                  type: 'position_updated',
-                  timestamp: new Date().toISOString()
-                }));
-                
-                // Broadcast to all connected clients
-                broadcastRobotUpdate(connectedClients, 'robot_position_update', robotSerial, positionData);
-              }
-            }
-            else if (data.type === 'sensor_update') {
-              // Update robot sensors
-              if (!isRegistered || !robotSerial) {
-                sendError(ws, 'Robot must be registered first');
-                return;
-              }
-              
-              if (data.sensors) {
-                // Update sensors in demo data
-                const sensorData = {
-                  ...data.sensors,
-                  timestamp: new Date().toISOString()
-                };
-                demoRobotSensors[robotSerial] = sensorData;
-                
-                // Send confirmation to robot
-                ws.send(JSON.stringify({
-                  type: 'sensors_updated',
-                  timestamp: new Date().toISOString()
-                }));
-                
-                // Broadcast to all connected clients
-                broadcastRobotUpdate(connectedClients, 'robot_sensors_update', robotSerial, sensorData);
-              }
-            }
-            else if (data.type === 'get_task') {
-              // Get task information
-              if (!isRegistered || !robotSerial) {
-                sendError(ws, 'Robot must be registered first');
-                return;
-              }
-              
-              const task = demoTasks[robotSerial] || null;
-              
-              ws.send(JSON.stringify({
-                type: 'task_info',
-                task: task,
-                timestamp: new Date().toISOString()
-              }));
-            }
-          } catch (error) {
-            console.error('Error processing WebSocket message:', error);
-            sendError(ws, 'Error processing message');
-          }
-        });
-        
-        ws.on('close', () => {
-          console.log('Robot WebSocket connection closed');
-        });
-        
-        ws.on('error', (error) => {
-          console.error('Robot WebSocket error:', error);
-        });
-      });
-    } 
-    else if (pathname === '/api/ws/client') {
-      clientWss.handleUpgrade(request, socket, head, (ws) => {
-        console.log('Client WebSocket connection established');
-        
-        // Add to connected clients list
-        connectedClients.push(ws);
-        
-        // Send initial data to the client
-        ws.send(JSON.stringify({
-          type: 'connection_established',
-          message: 'Connected to robot monitoring system',
-          timestamp: new Date().toISOString()
-        }));
-        
-        // Handle client messages
-        ws.on('message', (message) => {
-          try {
-            const data = JSON.parse(message.toString());
-            console.log('Received client message:', data);
-            
-            // Handle different request types
-            if (data.type === 'get_robot_status' && data.serialNumber) {
-              const status = demoRobotStatus[data.serialNumber];
-              if (status) {
-                ws.send(JSON.stringify({
-                  type: 'status',
-                  data: status
-                }));
-              } else {
-                sendError(ws, `No status data for robot ${data.serialNumber}`);
-              }
-            }
-            else if (data.type === 'get_robot_position' && data.serialNumber) {
-              const position = demoRobotPositions[data.serialNumber];
-              if (position) {
-                ws.send(JSON.stringify({
-                  type: 'position',
-                  data: position
-                }));
-              } else {
-                sendError(ws, `No position data for robot ${data.serialNumber}`);
-              }
-            }
-            else if (data.type === 'get_robot_sensors' && data.serialNumber) {
-              const sensors = demoRobotSensors[data.serialNumber];
-              if (sensors) {
-                ws.send(JSON.stringify({
-                  type: 'sensors',
-                  data: sensors
-                }));
-              } else {
-                sendError(ws, `No sensor data for robot ${data.serialNumber}`);
-              }
-            }
-            else if (data.type === 'get_robot_map' && data.serialNumber) {
-              const map = demoMapData[data.serialNumber];
-              if (map) {
-                ws.send(JSON.stringify({
-                  type: 'map',
-                  data: map
-                }));
-              } else {
-                sendError(ws, `No map data for robot ${data.serialNumber}`);
-              }
-            }
-          } catch (error) {
-            console.error('Error processing client WebSocket message:', error);
-            sendError(ws, 'Error processing message');
-          }
-        });
-        
-        // Handle disconnection
-        ws.on('close', () => {
-          console.log('Client WebSocket connection closed');
-          // Remove from connected clients
-          const index = connectedClients.indexOf(ws);
-          if (index !== -1) {
-            connectedClients.splice(index, 1);
-          }
-        });
-        
-        // Handle errors
-        ws.on('error', (error) => {
-          console.error('Client WebSocket error:', error);
-        });
-      });
-    }
-    // Skip root path in Replit environment since it's used by Vite
-    else if (pathname === '/') {
-      console.log('Skipping root path in Replit environment to avoid conflicts with Vite');
-      
-      // Just acknowledge the connection then close it properly
-      socket.write(
-        'HTTP/1.1 101 Switching Protocols\r\n' +
-        'Upgrade: websocket\r\n' +
-        'Connection: Upgrade\r\n' +
-        '\r\n'
-      );
-      
-      // Don't destroy the socket immediately to avoid errors
-      setTimeout(() => {
-        if (!socket.destroyed) {
-          socket.end();
+    // Try to get real-time position from robot
+    try {
+      const response = await axios.get(`${ROBOT_API_URL}/position`, {
+        timeout: 2000,
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
         }
-      }, 100);
+      });
+      
+      if (response.status === 200 && response.data) {
+        // Format the position data
+        const position = {
+          x: response.data.x || 0,
+          y: response.data.y || 0,
+          z: response.data.z || 0,
+          orientation: response.data.orientation || 0,
+          speed: response.data.speed || 0,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Cache the position
+        robotPositionCache.set(data.serialNumber, position);
+        
+        // Send the position
+        ws.send(JSON.stringify({
+          type: 'robot_position',
+          serialNumber: data.serialNumber,
+          data: position
+        }));
+        
+        return;
+      }
+    } catch (robotError) {
+      console.error(`Error getting robot position: ${robotError}`);
     }
-    else {
-      // Not a recognized WebSocket endpoint
-      console.log(`Rejecting WebSocket connection to unhandled path: ${pathname}`);
-      socket.destroy();
+    
+    // If we couldn't get live data, use cached data
+    if (robotPositionCache.has(data.serialNumber)) {
+      const position = robotPositionCache.get(data.serialNumber);
+      
+      ws.send(JSON.stringify({
+        type: 'robot_position',
+        serialNumber: data.serialNumber,
+        data: position
+      }));
+    } else {
+      // Create a default position
+      const defaultPosition = {
+        x: 0,
+        y: 0,
+        z: 0,
+        orientation: 0,
+        speed: 0,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Cache the position
+      robotPositionCache.set(data.serialNumber, defaultPosition);
+      
+      // Send the position
+      ws.send(JSON.stringify({
+        type: 'robot_position',
+        serialNumber: data.serialNumber,
+        data: defaultPosition
+      }));
     }
-  });
+  } catch (error) {
+    console.error('Error handling robot position request:', error);
+    sendError(ws, `Error getting robot position: ${formatError(error)}`);
+  }
 }
 
-// Helper functions for WebSocket handling below
+async function handleRobotSensorWebSocket(data: any, ws: WebSocket) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    // Only support our physical robot
+    if (data.serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot ${data.serialNumber} is not registered`);
+    }
+    
+    // Try to get real-time sensor data from robot
+    try {
+      const response = await axios.get(`${ROBOT_API_URL}/sensors`, {
+        timeout: 2000,
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      if (response.status === 200 && response.data) {
+        // Format the sensor data
+        const sensors = {
+          temperature: response.data.temperature || 0,
+          humidity: response.data.humidity || 0,
+          proximity: response.data.proximity || [0, 0, 0, 0],
+          battery: response.data.battery || 0,
+          light: response.data.light || 0,
+          noise: response.data.noise || 0,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Cache the sensors
+        robotSensorCache.set(data.serialNumber, sensors);
+        
+        // Send the sensors
+        ws.send(JSON.stringify({
+          type: 'robot_sensors',
+          serialNumber: data.serialNumber,
+          data: sensors
+        }));
+        
+        return;
+      }
+    } catch (robotError) {
+      console.error(`Error getting robot sensors: ${robotError}`);
+    }
+    
+    // If we couldn't get live data, use cached data
+    if (robotSensorCache.has(data.serialNumber)) {
+      const sensors = robotSensorCache.get(data.serialNumber);
+      
+      ws.send(JSON.stringify({
+        type: 'robot_sensors',
+        serialNumber: data.serialNumber,
+        data: sensors
+      }));
+    } else {
+      // Create default sensor data
+      const defaultSensors = {
+        temperature: 20,
+        humidity: 50,
+        proximity: [0, 0, 0, 0],
+        battery: 0,
+        light: 500,
+        noise: 0,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Cache the sensors
+      robotSensorCache.set(data.serialNumber, defaultSensors);
+      
+      // Send the sensors
+      ws.send(JSON.stringify({
+        type: 'robot_sensors',
+        serialNumber: data.serialNumber,
+        data: defaultSensors
+      }));
+    }
+  } catch (error) {
+    console.error('Error handling robot sensor request:', error);
+    sendError(ws, `Error getting robot sensors: ${formatError(error)}`);
+  }
+}
 
-// Helper to send error messages
+async function handleRobotMapWebSocket(data: any, ws: WebSocket) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    // Only support our physical robot
+    if (data.serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot ${data.serialNumber} is not registered`);
+    }
+    
+    // For map data, we would typically get this from a robot's mapping system
+    // Here we send a basic map structure that could be populated with real data
+    const mapData = {
+      grid: [],
+      obstacles: [],
+      paths: [{
+        points: [
+          { x: 0, y: 0, z: 0 },
+          { x: 1, y: 1, z: 0 },
+          { x: 2, y: 0, z: 0 }
+        ],
+        status: 'completed'
+      }]
+    };
+    
+    // Send the map data
+    ws.send(JSON.stringify({
+      type: 'robot_map',
+      serialNumber: data.serialNumber,
+      data: mapData
+    }));
+  } catch (error) {
+    console.error('Error handling robot map request:', error);
+    sendError(ws, `Error getting robot map: ${formatError(error)}`);
+  }
+}
+
+async function handleRegisterPhysicalRobot(data: any, ws: WebSocket, connectedClients: WebSocket[]) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    const robotSerial = data.serialNumber;
+    
+    // Validate this is our real physical robot
+    if (robotSerial !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot serial ${robotSerial} is not allowed. Only ${PHYSICAL_ROBOT_SERIAL} is supported.`);
+    }
+    
+    console.log(`Registering physical robot: ${robotSerial}`);
+    
+    // Get model from data or use default
+    const model = data.model || 'AxBot 5000';
+    
+    // Create status data
+    const statusData = {
+      model,
+      serialNumber: robotSerial,
+      battery: data.battery || 0,
+      status: data.status || 'online',
+      mode: data.mode || 'ready',
+      lastUpdate: new Date().toISOString()
+    };
+    
+    // Cache the status
+    robotStatusCache.set(robotSerial, statusData);
+    
+    // Register with the database if needed
+    try {
+      // Try to get existing registration
+      const assignment = await storage.getRobotTemplateAssignmentBySerial(robotSerial);
+      
+      // If not registered yet, register it
+      if (!assignment) {
+        await registerRobot(robotSerial, model);
+        console.log(`Robot ${robotSerial} registered successfully`);
+      } else {
+        console.log(`Robot ${robotSerial} already registered`);
+      }
+    } catch (dbError) {
+      console.error(`Error registering robot in database: ${dbError}`);
+    }
+    
+    // Confirm registration
+    ws.send(JSON.stringify({
+      type: 'robot_registered',
+      serialNumber: robotSerial,
+      status: statusData
+    }));
+    
+    // Broadcast to all clients
+    broadcastRobotUpdate(
+      connectedClients.filter(client => client !== ws),
+      'status_update',
+      robotSerial,
+      statusData
+    );
+    
+    console.log(`Robot ${robotSerial} registration complete`);
+  } catch (error) {
+    console.error('Error registering physical robot:', error);
+    sendError(ws, `Error registering robot: ${formatError(error)}`);
+  }
+}
+
+async function handleUpdateRobotStatus(data: any, ws: WebSocket, connectedClients: WebSocket[]) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    const robotSerial = data.serialNumber;
+    
+    // Validate this is our real physical robot
+    if (robotSerial !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot serial ${robotSerial} is not allowed. Only ${PHYSICAL_ROBOT_SERIAL} is supported.`);
+    }
+    
+    console.log(`Updating robot status: ${robotSerial}`);
+    
+    // Update status data
+    const statusData = {
+      model: data.model || 'AxBot 5000',
+      serialNumber: robotSerial,
+      battery: data.battery != null ? data.battery : (robotStatusCache.get(robotSerial)?.battery || 0),
+      status: data.status || (robotStatusCache.get(robotSerial)?.status || 'unknown'),
+      mode: data.mode || (robotStatusCache.get(robotSerial)?.mode || 'standby'),
+      lastUpdate: new Date().toISOString()
+    };
+    
+    // Cache the status
+    robotStatusCache.set(robotSerial, statusData);
+    
+    // Confirm update
+    ws.send(JSON.stringify({
+      type: 'status_updated',
+      serialNumber: robotSerial,
+      status: statusData
+    }));
+    
+    // Broadcast to all clients
+    broadcastRobotUpdate(
+      connectedClients.filter(client => client !== ws),
+      'status_update',
+      robotSerial,
+      statusData
+    );
+    
+    console.log(`Robot ${robotSerial} status updated`);
+  } catch (error) {
+    console.error('Error updating robot status:', error);
+    sendError(ws, `Error updating status: ${formatError(error)}`);
+  }
+}
+
+async function handleUpdateRobotPosition(data: any, ws: WebSocket, connectedClients: WebSocket[]) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    const robotSerial = data.serialNumber;
+    
+    // Validate this is our real physical robot
+    if (robotSerial !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot serial ${robotSerial} is not allowed. Only ${PHYSICAL_ROBOT_SERIAL} is supported.`);
+    }
+    
+    console.log(`Updating robot position: ${robotSerial}`);
+    
+    // Update position data
+    const positionData = {
+      x: data.x != null ? data.x : (robotPositionCache.get(robotSerial)?.x || 0),
+      y: data.y != null ? data.y : (robotPositionCache.get(robotSerial)?.y || 0),
+      z: data.z != null ? data.z : (robotPositionCache.get(robotSerial)?.z || 0),
+      orientation: data.orientation != null ? data.orientation : (robotPositionCache.get(robotSerial)?.orientation || 0),
+      speed: data.speed != null ? data.speed : (robotPositionCache.get(robotSerial)?.speed || 0),
+      timestamp: new Date().toISOString()
+    };
+    
+    // Cache the position
+    robotPositionCache.set(robotSerial, positionData);
+    
+    // Confirm update
+    ws.send(JSON.stringify({
+      type: 'position_updated',
+      serialNumber: robotSerial,
+      position: positionData
+    }));
+    
+    // Broadcast to all clients
+    broadcastRobotUpdate(
+      connectedClients.filter(client => client !== ws),
+      'position_update',
+      robotSerial,
+      positionData
+    );
+    
+    console.log(`Robot ${robotSerial} position updated`);
+  } catch (error) {
+    console.error('Error updating robot position:', error);
+    sendError(ws, `Error updating position: ${formatError(error)}`);
+  }
+}
+
+async function handleUpdateRobotSensors(data: any, ws: WebSocket, connectedClients: WebSocket[]) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    const robotSerial = data.serialNumber;
+    
+    // Validate this is our real physical robot
+    if (robotSerial !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot serial ${robotSerial} is not allowed. Only ${PHYSICAL_ROBOT_SERIAL} is supported.`);
+    }
+    
+    console.log(`Updating robot sensors: ${robotSerial}`);
+    
+    // Update sensor data
+    const sensorData = {
+      temperature: data.temperature != null ? data.temperature : (robotSensorCache.get(robotSerial)?.temperature || 20),
+      humidity: data.humidity != null ? data.humidity : (robotSensorCache.get(robotSerial)?.humidity || 50),
+      proximity: data.proximity || (robotSensorCache.get(robotSerial)?.proximity || [0, 0, 0, 0]),
+      battery: data.battery != null ? data.battery : (robotSensorCache.get(robotSerial)?.battery || 0),
+      light: data.light != null ? data.light : (robotSensorCache.get(robotSerial)?.light || 500),
+      noise: data.noise != null ? data.noise : (robotSensorCache.get(robotSerial)?.noise || 0),
+      timestamp: new Date().toISOString()
+    };
+    
+    // Cache the sensors
+    robotSensorCache.set(robotSerial, sensorData);
+    
+    // Confirm update
+    ws.send(JSON.stringify({
+      type: 'sensors_updated',
+      serialNumber: robotSerial,
+      sensors: sensorData
+    }));
+    
+    // Broadcast to all clients
+    broadcastRobotUpdate(
+      connectedClients.filter(client => client !== ws),
+      'sensors_update',
+      robotSerial,
+      sensorData
+    );
+    
+    console.log(`Robot ${robotSerial} sensors updated`);
+  } catch (error) {
+    console.error('Error updating robot sensors:', error);
+    sendError(ws, `Error updating sensors: ${formatError(error)}`);
+  }
+}
+
+async function handleGetRobotTask(data: any, ws: WebSocket) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  try {
+    const robotSerial = data.serialNumber;
+    
+    // Validate this is our real physical robot
+    if (robotSerial !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot serial ${robotSerial} is not allowed. Only ${PHYSICAL_ROBOT_SERIAL} is supported.`);
+    }
+    
+    console.log(`Getting tasks for robot: ${robotSerial}`);
+    
+    // Get cached task data or null
+    const task = robotTaskCache.get(robotSerial) || null;
+    
+    // Send the task data
+    ws.send(JSON.stringify({
+      type: 'robot_task',
+      serialNumber: robotSerial,
+      task
+    }));
+    
+    console.log(`Sent task data for robot ${robotSerial}`);
+  } catch (error) {
+    console.error('Error getting robot task:', error);
+    sendError(ws, `Error getting task: ${formatError(error)}`);
+  }
+}
+
+async function handleRobotControl(data: any, ws: WebSocket) {
+  if (!data.serialNumber) {
+    return sendError(ws, 'Serial number is required');
+  }
+  
+  if (!data.command) {
+    return sendError(ws, 'Command is required');
+  }
+  
+  try {
+    const robotSerial = data.serialNumber;
+    const command = data.command;
+    
+    // Validate this is our real physical robot
+    if (robotSerial !== PHYSICAL_ROBOT_SERIAL) {
+      return sendError(ws, `Robot serial ${robotSerial} is not allowed. Only ${PHYSICAL_ROBOT_SERIAL} is supported.`);
+    }
+    
+    console.log(`Sending control command to robot ${robotSerial}: ${command}`);
+    
+    // Here, we would typically send a command to the robot through the robot's API
+    let result = {
+      success: false,
+      message: 'Command not processed'
+    };
+    
+    // Try to send the command to the robot
+    try {
+      const response = await axios.post(`${ROBOT_API_URL}/control`, {
+        command,
+        params: data.params || {}
+      }, {
+        timeout: 3000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.status === 200) {
+        result = {
+          success: true,
+          message: 'Command processed successfully',
+          ...response.data
+        };
+      }
+    } catch (robotError) {
+      console.error(`Error sending command to robot: ${robotError}`);
+      result = {
+        success: false,
+        message: `Failed to send command: ${formatError(robotError)}`
+      };
+    }
+    
+    // Send the command result
+    ws.send(JSON.stringify({
+      type: 'robot_control_result',
+      serialNumber: robotSerial,
+      command,
+      result
+    }));
+    
+    console.log(`Control command result for ${robotSerial}: ${result.success ? 'success' : 'failure'}`);
+  } catch (error) {
+    console.error('Error processing robot control command:', error);
+    sendError(ws, `Error processing command: ${formatError(error)}`);
+  }
+}
+
+// WebSocket helper functions
 function sendError(ws: WebSocket, message: string) {
-  ws.send(JSON.stringify({
-    type: 'error',
-    message,
-    timestamp: new Date().toISOString()
-  }));
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: message,
+      timestamp: new Date().toISOString()
+    }));
+  }
 }
 
-// Broadcast robot updates to all connected clients
-function broadcastRobotUpdate(connectedClients: WebSocket[], updateType: string, serialNumber: string, data: any) {
+function broadcastRobotUpdate(clients: WebSocket[], updateType: string, serialNumber: string, data: any) {
   const message = JSON.stringify({
-    type: updateType,
+    type: `robot_${updateType}`,
     serialNumber,
     data,
     timestamp: new Date().toISOString()
   });
   
-  // Send to all connected clients
-  for (const client of connectedClients) {
+  for (const client of clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);
     }

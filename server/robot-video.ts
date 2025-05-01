@@ -1,7 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { Server } from 'http';
 import fetch from 'node-fetch';
-import { demoCameraData } from './robot-api';
 
 /**
  * Register routes for accessing H.264 robot video streams
@@ -38,9 +37,8 @@ export function registerRobotVideoRoutes(app: Express, httpServer: Server) {
  * Gets a single frame of H.264 video data from the robot
  */
 export async function getVideoFrame(serialNumber: string): Promise<Buffer | null> {
-  const cameraData = demoCameraData[serialNumber];
-  
-  if (!cameraData || !cameraData.enabled || !cameraData.streamUrl) {
+  // Only support our physical robot
+  if (serialNumber !== 'L382502104987ir') {
     console.error(`Camera not available for robot ${serialNumber}`);
     return null;
   }
@@ -48,7 +46,8 @@ export async function getVideoFrame(serialNumber: string): Promise<Buffer | null
   // Format the URL according to the robot's expected topic format
   // The URL should point to a topic that provides H264 video frames
   // This matches the format expected by the robot's ROS topic system
-  const h264Url = `${cameraData.streamUrl}/topic/rgb_cameras/front/video`;
+  const baseUrl = 'http://8f50-47-180-91-99.ngrok-free.app';
+  const h264Url = `${baseUrl}/topic/rgb_cameras/front/video`;
   
   // For debugging
   console.log(`Fetching H.264 frame from: ${h264Url}`);
