@@ -52,15 +52,31 @@ export function processCameraWebSocketMessage(data: any, ws: WebSocket, connecte
         // Set appropriate stream URL based on robot serial number
         if (data.serialNumber === 'L382502104988is') {
           // Local robot
-          camera.streamUrl = 'http://192.168.4.32:8080/stream';
+          camera.streamUrl = 'http://192.168.4.32:8080';
+          
+          // Send message to enable video topic
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'enable_topic',
+              topic: '/rgb_cameras/front/video'
+            }));
+            console.log('Enabling front camera video topic for local robot');
+          }
         } else if (data.serialNumber === 'L382502104987ir') {
           // Public accessible robot
-          camera.streamUrl = 'http://47.180.91.99:8080/stream';
-          console.log('Using public IP camera stream for robot via WebSocket:', data.serialNumber);
+          camera.streamUrl = 'https://8f50-47-180-91-99.ngrok-free.app';
+          
+          // Send message to enable video topic
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'enable_topic',
+              topic: '/rgb_cameras/front/video'
+            }));
+            console.log('Enabling front camera video topic for public robot:', data.serialNumber);
+          }
         } else if (data.serialNumber === 'AX923701583RT') {
-          // New AxBot 5000 Pro robot
-          camera.streamUrl = 'http://axbot-demo.example.com/stream/AX923701583RT';
-          console.log('Using AxBot 5000 Pro camera stream via WebSocket:', data.serialNumber);
+          // AxBot 5000 Pro robot is removed as per user request
+          camera.streamUrl = '';
         } else {
           camera.streamUrl = 'https://example.com/robot-stream-' + data.serialNumber + '.jpg';
         }

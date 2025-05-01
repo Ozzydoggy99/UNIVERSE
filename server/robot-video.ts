@@ -47,7 +47,7 @@ export async function getVideoFrame(serialNumber: string): Promise<Buffer | null
   
   // Format the URL according to the robot's expected topic format
   // The URL should point to a topic that provides H264 video frames
-  // For example: /rgb_cameras/front/video
+  // This matches the format expected by the robot's ROS topic system
   const h264Url = `${cameraData.streamUrl}/topic/rgb_cameras/front/video`;
   
   // For debugging
