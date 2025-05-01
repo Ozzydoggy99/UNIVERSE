@@ -499,111 +499,111 @@ export function Map({
       // Draw paths
       paths.forEach((path, pathIndex) => {
         if (path.points.length > 0) {
-        // Choose color based on path status
-        let pathColor = '#3f51b5';  // Default blue
-        if (path.status === 'completed') {
-          pathColor = '#4caf50';  // Green for completed
-        } else if (path.status === 'error') {
-          pathColor = '#f44336';  // Red for error
-        } else if (path.status === 'in-progress') {
-          pathColor = '#ff9800';  // Orange for in-progress
-        }
-        
-        ctx.strokeStyle = pathColor;
-        ctx.lineWidth = 2;
-        
-        ctx.beginPath();
-        const firstPoint = path.points[0];
-        const startX = transformX(firstPoint.x);
-        const startY = transformY(firstPoint.y);
-        ctx.moveTo(startX, startY);
-        
-        // Draw path lines
-        for (let i = 1; i < path.points.length; i++) {
-          const point = path.points[i];
-          const x = transformX(point.x);
-          const y = transformY(point.y);
-          ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        
-        // Draw points for each path
-        path.points.forEach((point, pointIndex) => {
-          const x = transformX(point.x);
-          const y = transformY(point.y);
-          
-          // Start point is larger
-          const radius = pointIndex === 0 ? 6 : 4;
-          
-          // Fill and stroke for each point
-          ctx.fillStyle = pathColor;
-          ctx.beginPath();
-          ctx.arc(x, y, radius, 0, Math.PI * 2);
-          ctx.fill();
-          
-          // If editing, highlight the current point
-          if (isEditing && currentPoint && 
-              point.x === currentPoint.x && 
-              point.y === currentPoint.y && 
-              point.z === currentPoint.z) {
-            ctx.strokeStyle = pathColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
-            ctx.stroke();
+          // Choose color based on path status
+          let pathColor = '#3f51b5';  // Default blue
+          if (path.status === 'completed') {
+            pathColor = '#4caf50';  // Green for completed
+          } else if (path.status === 'error') {
+            pathColor = '#f44336';  // Red for error
+          } else if (path.status === 'in-progress') {
+            pathColor = '#ff9800';  // Orange for in-progress
           }
-        });
-      }
-    });
-    
-    // Draw robot position
-    const robotX = transformX(robotPosition.x);
-    const robotY = transformY(robotPosition.y);
-    
-    // Draw a circle for the robot
-    ctx.fillStyle = '#4caf50';
-    ctx.beginPath();
-    ctx.arc(robotX, robotY, 10, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Draw orientation line
-    const angle = (robotPosition.orientation * Math.PI) / 180;
-    const orientationLength = 20;
-    
-    ctx.strokeStyle = '#4caf50';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(robotX, robotY);
-    ctx.lineTo(
-      robotX + Math.cos(angle) * orientationLength,
-      robotY - Math.sin(angle) * orientationLength
-    );
-    ctx.stroke();
-    
-    // Draw scale information
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    
-    // Add some labels for the map if available
-    if (mapData.size && mapData.resolution && mapData.origin) {
-      const [width, height] = mapData.size;
-      const resolution = mapData.resolution;
-      const [originX, originY] = mapData.origin;
-      
-      if (ctx) {
-        ctx.fillStyle = '#000';
-      if (ctx) {
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'left';
         
-        // Only show these when debugging or if explicitly requested
-        if (false) {
-          ctx.fillText(`Resolution: ${resolution.toFixed(3)}m/px`, 10, 20);
-          ctx.fillText(`Size: ${width}x${height} px (${(width * resolution).toFixed(1)}x${(height * resolution).toFixed(1)}m)`, 10, 40);
-          ctx.fillText(`Origin: ${originX.toFixed(2)}, ${originY.toFixed(2)}`, 10, 60);
+          ctx.strokeStyle = pathColor;
+          ctx.lineWidth = 2;
+          
+          ctx.beginPath();
+          const firstPoint = path.points[0];
+          const startX = transformX(firstPoint.x);
+          const startY = transformY(firstPoint.y);
+          ctx.moveTo(startX, startY);
+          
+          // Draw path lines
+          for (let i = 1; i < path.points.length; i++) {
+            const point = path.points[i];
+            const x = transformX(point.x);
+            const y = transformY(point.y);
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        
+          // Draw points for each path
+          path.points.forEach((point, pointIndex) => {
+            const x = transformX(point.x);
+            const y = transformY(point.y);
+            
+            // Start point is larger
+            const radius = pointIndex === 0 ? 6 : 4;
+            
+            // Fill and stroke for each point
+            ctx.fillStyle = pathColor;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // If editing, highlight the current point
+            if (isEditing && currentPoint && 
+                point.x === currentPoint.x && 
+                point.y === currentPoint.y && 
+                point.z === currentPoint.z) {
+              ctx.strokeStyle = pathColor;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          });
+        }
+      });
+    
+      // Draw robot position
+      const robotX = transformX(robotPosition.x);
+      const robotY = transformY(robotPosition.y);
+      
+      // Draw a circle for the robot
+      ctx.fillStyle = '#4caf50';
+      ctx.beginPath();
+      ctx.arc(robotX, robotY, 10, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw orientation line
+      const angle = (robotPosition.orientation * Math.PI) / 180;
+      const orientationLength = 20;
+      
+      ctx.strokeStyle = '#4caf50';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(robotX, robotY);
+      ctx.lineTo(
+        robotX + Math.cos(angle) * orientationLength,
+        robotY - Math.sin(angle) * orientationLength
+      );
+      ctx.stroke();
+      
+      // Draw scale information
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+    
+      // Add some labels for the map if available
+      if (mapData.size && mapData.resolution && mapData.origin) {
+        const [width, height] = mapData.size;
+        const resolution = mapData.resolution;
+        const [originX, originY] = mapData.origin;
+        
+        if (ctx) {
+          ctx.fillStyle = '#000';
+          ctx.font = '12px Arial';
+          ctx.textAlign = 'left';
+          
+          // Only show these when debugging or if explicitly requested
+          if (false) {
+            ctx.fillText(`Resolution: ${resolution.toFixed(3)}m/px`, 10, 20);
+            ctx.fillText(`Size: ${width}x${height} px (${(width * resolution).toFixed(1)}x${(height * resolution).toFixed(1)}m)`, 10, 40);
+            ctx.fillText(`Origin: ${originX.toFixed(2)}, ${originY.toFixed(2)}`, 10, 60);
+          }
         }
       }
-    }
+    } // End of drawRobotAndPaths
     
   }, [
     localObstacles, 
