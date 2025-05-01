@@ -7,18 +7,43 @@ import https from 'https';
 // We only support a single physical robot
 const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
 
-// Based on documentation - Two possible connection methods
-// 1. Connect to the robot with Ethernet RJ45 port (direct connection)
-// const ROBOT_API_URL = 'http://192.168.25.25:8090';
-// const ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
+// Robot connection configuration
+// Connection URLs can be set via environment variables to allow dynamic updates
+let ROBOT_API_URL = process.env.ROBOT_API_URL;
+let ROBOT_WS_URL = process.env.ROBOT_WS_URL;
 
-// 2. Connect to the AP of the robot (direct connection)
-// const ROBOT_API_URL = 'http://192.168.12.1:8090';
-// const ROBOT_WS_URL = 'ws://192.168.12.1:8090/ws/v2/topics';
+// If environment variables are not set, use default connection options
+if (!ROBOT_API_URL || !ROBOT_WS_URL) {
+  // Try to determine if we're in a local network that can directly connect to the robot
+  // For now, we'll default to the ngrok URL
+  
+  // 1. Direct connection via Ethernet RJ45 port (first preference for production)
+  // ROBOT_API_URL = 'http://192.168.25.25:8090';
+  // ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
+  
+  // 2. Direct connection via robot AP (secondary preference for production)
+  // ROBOT_API_URL = 'http://192.168.12.1:8090';
+  // ROBOT_WS_URL = 'ws://192.168.12.1:8090/ws/v2/topics';
+  
+  // 3. Connection via ngrok (for remote development/testing)
+  // This URL needs to be checked and updated if it changes
+  ROBOT_API_URL = 'https://8f50-47-180-91-99.ngrok-free.app';
+  ROBOT_WS_URL = 'wss://8f50-47-180-91-99.ngrok-free.app/ws/v2/topics';
+}
 
-// 3. Connect via ngrok (remote connection for development/testing)
-const ROBOT_API_URL = 'https://8f50-47-180-91-99.ngrok-free.app';
-const ROBOT_WS_URL = 'wss://8f50-47-180-91-99.ngrok-free.app/ws/v2/topics';
+console.log(`Using robot connection: ${ROBOT_API_URL} (HTTP) and ${ROBOT_WS_URL} (WebSocket)`);
+
+// Allow updating the connection URLs at runtime
+export function updateRobotConnectionURLs(apiUrl: string, wsUrl: string) {
+  ROBOT_API_URL = apiUrl;
+  ROBOT_WS_URL = wsUrl;
+  console.log(`Updated robot connection: ${ROBOT_API_URL} (HTTP) and ${ROBOT_WS_URL} (WebSocket)`);
+  
+  // Disconnect current connection to force reconnect with new URLs
+  if (robotWs) {
+    robotWs.terminate();
+  }
+}
 
 // Authentication note: The documentation states that requests from these IPs don't require a secret:
 // - 192.168.25.* (added since 2.7.1)
