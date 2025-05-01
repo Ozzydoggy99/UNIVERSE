@@ -211,9 +211,12 @@ export default function RobotDetails() {
   
   const sensors = sensorData || {
     temperature: 0,
-    humidity: 0,
-    proximity: [],
+    voltage: 0,
+    current: 0,
     battery: 0,
+    power_supply_status: 'unknown',
+    charging: false,
+    connectionStatus: 'disconnected',
     timestamp: new Date().toISOString()
   };
   
@@ -235,7 +238,7 @@ export default function RobotDetails() {
   };
 
   // Format sensor proximity data
-  const formatProximity = (proximity: number[]) => {
+  const formatProximity = (proximity: number[] | undefined) => {
     if (!proximity || proximity.length === 0) return 'No data';
     return `${proximity.map(p => p.toFixed(1)).join('m, ')}m`;
   };
@@ -245,6 +248,7 @@ export default function RobotDetails() {
     switch (status?.toLowerCase()) {
       case 'active':
       case 'running':
+      case 'online':
         return 'bg-green-500';
       case 'idle':
         return 'bg-blue-500';
@@ -256,6 +260,26 @@ export default function RobotDetails() {
         return 'bg-purple-500';
       default:
         return 'bg-gray-500';
+    }
+  };
+  
+  // Get battery status text and color
+  const getBatteryStatus = () => {
+    if (sensors.charging) {
+      return {
+        text: 'Charging',
+        color: 'text-purple-500'
+      };
+    } else if (sensors.power_supply_status === 'discharging') {
+      return {
+        text: 'In-Use',
+        color: 'text-blue-500'
+      };
+    } else {
+      return {
+        text: 'Not Charging',
+        color: 'text-gray-500'
+      };
     }
   };
 
@@ -319,6 +343,22 @@ export default function RobotDetails() {
                   <span className="font-medium">{sensors.battery}%</span>
                 </div>
                 <Progress value={sensors.battery} className="h-2" />
+                <div className="flex justify-between items-center mt-1 text-xs">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className={getBatteryStatus().color}>{getBatteryStatus().text}</span>
+                </div>
+                {sensors.voltage && (
+                  <div className="flex justify-between items-center mt-1 text-xs">
+                    <span className="text-muted-foreground">Voltage:</span>
+                    <span>{sensors.voltage}V</span>
+                  </div>
+                )}
+                {sensors.current && (
+                  <div className="flex justify-between items-center mt-1 text-xs">
+                    <span className="text-muted-foreground">Current:</span>
+                    <span>{sensors.current}A</span>
+                  </div>
+                )}
               </div>
 
               {/* Location */}
