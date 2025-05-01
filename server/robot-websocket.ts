@@ -14,19 +14,19 @@ let ROBOT_WS_URL = process.env.ROBOT_WS_URL;
 
 // If environment variables are not set, use default connection options
 if (!ROBOT_API_URL || !ROBOT_WS_URL) {
-  // Use the configured ngrok URL for the port forwarded robot connection
-  console.log('Using ngrok tunnel for robot connection');
+  // Use the configured port forwarding for robot connection
+  console.log('Using port forwarded connection to robot');
   
-  // Direct connection to the robot via IP address
+  // Connection to the robot via port forwarding (public IP)
   ROBOT_API_URL = 'http://47.180.91.99:8090';
   ROBOT_WS_URL = 'ws://47.180.91.99:8090/ws/v2/topics';
   
-  // Other connection options (for reference):
-  // 1. Direct connection via Ethernet RJ45 port
+  // Other connection options (for reference only):
+  // 1. Direct connection via Ethernet RJ45 port - Not accessible from Replit
   // ROBOT_API_URL = 'http://192.168.25.25:8090';
   // ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
   
-  // 2. Direct connection via robot AP
+  // 2. Direct connection via robot AP - Not accessible from Replit
   // ROBOT_API_URL = 'http://192.168.12.1:8090';
   // ROBOT_WS_URL = 'ws://192.168.12.1:8090/ws/v2/topics';
 }
@@ -161,12 +161,13 @@ export function initRobotWebSocket() {
     });
     
     // Add a timeout to detect stalled connections
+    // Port forwarded connections may take longer to establish
     setTimeout(() => {
       if (robotWs && robotWs.readyState !== WebSocket.OPEN) {
         console.log('WebSocket connection timed out, forcing close');
         robotWs.terminate();
       }
-    }, 10000);
+    }, 15000); // Increased timeout for port forwarded connection
   } catch (error) {
     console.error('Failed to connect to robot WebSocket:', error);
     isConnecting = false;
