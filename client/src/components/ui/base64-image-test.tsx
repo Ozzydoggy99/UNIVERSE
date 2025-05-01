@@ -19,6 +19,9 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
   
   // Convert base64 data to image when map data changes
   useEffect(() => {
+    // Log the full map data to see exactly what we're getting
+    console.log('Raw map data received:', mapData);
+    
     if (mapData?.grid && typeof mapData.grid === 'string' && mapData.grid.startsWith('iVBOR')) {
       console.log('Got base64 map data, length:', mapData.grid.length);
       console.log('Base64 data starts with:', mapData.grid.substring(0, 50));
@@ -29,8 +32,20 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
         hasGrid: !!(mapData?.grid),
         gridType: mapData?.grid ? typeof mapData.grid : 'undefined',
         isString: mapData?.grid ? typeof mapData.grid === 'string' : false,
-        startsWithCorrectly: mapData?.grid && typeof mapData.grid === 'string' ? mapData.grid.startsWith('iVBOR') : false
+        startsWithCorrectly: mapData?.grid && typeof mapData.grid === 'string' ? mapData.grid.startsWith('iVBOR') : false,
+        keysInMapData: mapData ? Object.keys(mapData) : []
       });
+      
+      // Check if we have a grid property with a shortened value (maybe the API is truncating it)
+      if (mapData && 'grid' in mapData) {
+        console.log('Grid property exists but may be in wrong format:', 
+          typeof mapData.grid === 'string' 
+            ? `String of length ${mapData.grid.length}` 
+            : Array.isArray(mapData.grid)
+              ? `Array of length ${mapData.grid.length}`
+              : typeof mapData.grid);
+      }
+      
       setImageData(null);
     }
   }, [mapData]);
