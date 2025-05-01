@@ -524,51 +524,51 @@ export function Map({
       }
     });
     
-    // Draw robot position
-    const robotX = transformX(robotPosition.x);
-    const robotY = transformY(robotPosition.y);
-    
-    // Draw a circle for the robot
-    ctx.fillStyle = '#4caf50';
-    ctx.beginPath();
-    ctx.arc(robotX, robotY, 10, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Draw orientation line
-    const angle = (robotPosition.orientation * Math.PI) / 180;
-    const orientationLength = 20;
-    
-    ctx.strokeStyle = '#4caf50';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(robotX, robotY);
-    ctx.lineTo(
-      robotX + Math.cos(angle) * orientationLength,
-      robotY - Math.sin(angle) * orientationLength
-    );
-    ctx.stroke();
+    // Draw robot position if robotPosition data is available
+    if (robotPosition && robotPosition.x !== undefined && robotPosition.y !== undefined && robotPosition.orientation !== undefined) {
+      const robotX = transformX(robotPosition.x);
+      const robotY = transformY(robotPosition.y);
+      
+      // Draw a circle for the robot
+      ctx.fillStyle = '#4caf50';
+      ctx.beginPath();
+      ctx.arc(robotX, robotY, 10, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw orientation line
+      const angle = (robotPosition.orientation * Math.PI) / 180;
+      const orientationLength = 20;
+      
+      ctx.strokeStyle = '#4caf50';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(robotX, robotY);
+      ctx.lineTo(
+        robotX + Math.cos(angle) * orientationLength,
+        robotY - Math.sin(angle) * orientationLength
+      );
+      ctx.stroke();
+    }
     
     // Draw scale information
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
     
     // Add some labels for the map if available
-    if (mapData.size && mapData.resolution && mapData.origin) {
+    if (ctx && mapData.size && mapData.resolution && mapData.origin) {
       const [width, height] = mapData.size;
       const resolution = mapData.resolution;
       const [originX, originY] = mapData.origin;
       
-      if (ctx) {
-        ctx.fillStyle = '#000';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'left';
-        
-        // Only show these when debugging or if explicitly requested
-        if (false) {
-          ctx.fillText(`Resolution: ${resolution.toFixed(3)}m/px`, 10, 20);
-          ctx.fillText(`Size: ${width}x${height} px (${(width * resolution).toFixed(1)}x${(height * resolution).toFixed(1)}m)`, 10, 40);
-          ctx.fillText(`Origin: ${originX.toFixed(2)}, ${originY.toFixed(2)}`, 10, 60);
-        }
+      ctx.fillStyle = '#000';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'left';
+      
+      // Only show these when debugging or if explicitly requested
+      if (false) {
+        ctx.fillText(`Resolution: ${resolution.toFixed(3)}m/px`, 10, 20);
+        ctx.fillText(`Size: ${width}x${height} px (${(width * resolution).toFixed(1)}x${(height * resolution).toFixed(1)}m)`, 10, 40);
+        ctx.fillText(`Origin: ${originX.toFixed(2)}, ${originY.toFixed(2)}`, 10, 60);
       }
     }
     
@@ -628,14 +628,16 @@ export function Map({
       queryClient.setQueryData([`/api/robots/map/${robotStatus.serialNumber || ''}`], updatedMap);
       
       // Also send the update to the server
-      apiRequest('PUT', `/api/robots/map/${robotStatus.serialNumber}`, updatedMap)
-        .then(() => {
-          console.log('Map updated on server');
-          setHasLocalChanges(false);
-        })
-        .catch(err => {
-          console.error('Failed to update map on server', err);
-        });
+      if (robotStatus.serialNumber) {
+        apiRequest('PUT', `/api/robots/map/${robotStatus.serialNumber}`, updatedMap)
+          .then(() => {
+            console.log('Map updated on server');
+            setHasLocalChanges(false);
+          })
+          .catch(err => {
+            console.error('Failed to update map on server', err);
+          });
+      }
     }
   };
   
