@@ -67,8 +67,17 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
       }
       
       // Fall back to the regular API
-      const response = await apiRequest(`/api/robots/status/${serialNumber}`);
-      return await response.json();
+      try {
+        const response = await apiRequest(`/api/robots/status/${serialNumber}`);
+        if (!response.ok) {
+          console.warn(`/api/robots/status/${serialNumber} returned ${response.status}`);
+          throw new Error(`Failed to get robot status: ${response.statusText}`);
+        }
+        return await response.json();
+      } catch (apiError) {
+        console.error(`API request error for robot ${serialNumber}:`, apiError);
+        throw apiError;
+      }
     } catch (error) {
       console.error(`Error fetching status for robot ${serialNumber}:`, error);
       throw error;
@@ -118,8 +127,17 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
       }
       
       // Fall back to the regular API
-      const response = await apiRequest(`/api/robots/position/${serialNumber}`);
-      return await response.json();
+      try {
+        const response = await apiRequest(`/api/robots/position/${serialNumber}`);
+        if (!response.ok) {
+          console.warn(`/api/robots/position/${serialNumber} returned ${response.status}`);
+          throw new Error(`Failed to get robot position: ${response.statusText}`);
+        }
+        return await response.json();
+      } catch (apiError) {
+        console.error(`API position request error for robot ${serialNumber}:`, apiError);
+        throw apiError;
+      }
     } catch (error) {
       console.error(`Error fetching position for robot ${serialNumber}:`, error);
       throw error;
@@ -167,8 +185,17 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
       }
       
       // Fall back to the regular API
-      const response = await apiRequest(`/api/robots/sensors/${serialNumber}`);
-      return await response.json();
+      try {
+        const response = await apiRequest(`/api/robots/sensors/${serialNumber}`);
+        if (!response.ok) {
+          console.warn(`/api/robots/sensors/${serialNumber} returned ${response.status}`);
+          throw new Error(`Failed to get robot sensor data: ${response.statusText}`);
+        }
+        return await response.json();
+      } catch (apiError) {
+        console.error(`API sensor request error for robot ${serialNumber}:`, apiError);
+        throw apiError;
+      }
     } catch (error) {
       console.error(`Error fetching sensor data for robot ${serialNumber}:`, error);
       throw error;
@@ -240,8 +267,17 @@ export async function getMapData(serialNumber?: string) {
   // If serial number is provided, fetch that specific robot's map data
   if (serialNumber) {
     try {
-      const response = await apiRequest(`/api/robots/map/${serialNumber}`);
-      return await response.json();
+      try {
+        const response = await apiRequest(`/api/robots/map/${serialNumber}`);
+        if (!response.ok) {
+          console.warn(`/api/robots/map/${serialNumber} returned ${response.status}`);
+          throw new Error(`Failed to get robot map data: ${response.statusText}`);
+        }
+        return await response.json();
+      } catch (apiError) {
+        console.error(`API map request error for robot ${serialNumber}:`, apiError);
+        throw apiError;
+      }
     } catch (error) {
       console.error(`Error fetching map data for robot ${serialNumber}:`, error);
       throw error;
@@ -287,8 +323,17 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
     }
     
     // Fall back to the regular API
-    const response = await apiRequest(`/api/robots/camera/${serialNumber}`);
-    return await response.json();
+    try {
+      const response = await apiRequest(`/api/robots/camera/${serialNumber}`);
+      if (!response.ok) {
+        console.warn(`/api/robots/camera/${serialNumber} returned ${response.status}`);
+        throw new Error(`Failed to get robot camera data: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (apiError) {
+      console.error(`API camera request error for robot ${serialNumber}:`, apiError);
+      throw apiError;
+    }
   } catch (error) {
     console.error(`Error fetching camera data for robot ${serialNumber}:`, error);
     throw error;

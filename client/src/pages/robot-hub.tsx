@@ -180,8 +180,8 @@ export default function RobotHub() {
                 
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Status</div>
-                  <div className={`font-medium ${!physicalRobotStatus && 'text-red-500'}`}>
-                    {physicalRobotStatus ? 'Ready' : 'Unable to establish connection'}
+                  <div className={`font-medium ${!isRobotOnline && 'text-red-500'}`}>
+                    {isRobotOnline ? 'Ready' : 'Unable to establish connection'}
                   </div>
                 </div>
                 
@@ -253,8 +253,8 @@ export default function RobotHub() {
           </CardContent>
           <CardFooter className="border-t pt-3 flex justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <span className={`flex h-2 w-2 rounded-full ${physicalRobotStatus ? 'bg-green-500' : 'bg-red-500'}`}></span>
-              <span>{physicalRobotStatus ? 'Live Data Connected' : 'Connection Failed'}</span>
+              <span className={`flex h-2 w-2 rounded-full ${isRobotOnline ? 'bg-green-500' : 'bg-red-500'}`}></span>
+              <span>{isRobotOnline ? 'Live Data Connected' : 'Connection Failed'}</span>
             </div>
             <div className="flex items-center gap-1">
               <Map className="h-3 w-3" />
