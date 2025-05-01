@@ -9,7 +9,7 @@ import {
   Cloud, Upload, Download, Undo, Maximize, LocateFixed, 
   Zap, Compass, ZoomIn, ZoomOut, Navigation, ChevronLeft, ChevronRight,
   Check, Battery, Map as MapIcon, Move, ArrowRight, ChevronsRight,
-  LayoutList, Settings, PanelRight, PanelLeft, Hand, ChevronDown
+  LayoutList, Settings, PanelRight, PanelLeft, Hand, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -677,225 +677,291 @@ export function Map({
     setCurrentPoint(null);
   };
   
+  // State for mobile layout controls
+  const [showLeftPanel, setShowLeftPanel] = useState(true);
+  const [showTopToolbar, setShowTopToolbar] = useState(true);
+  const [isMobileView, setIsMobileView] = useState(false);
+
+  // Detect mobile view on component mount and window resize
+  useEffect(() => {
+    const checkMobileView = () => {
+      setIsMobileView(window.innerWidth < 768);
+      
+      // Auto-hide panels on small screens
+      if (window.innerWidth < 768) {
+        setShowLeftPanel(false);
+        setShowRightPanel(false);
+        setShowTopToolbar(false);
+      } else {
+        setShowLeftPanel(true);
+        setShowRightPanel(true);
+        setShowTopToolbar(true);
+      }
+    };
+
+    // Check initially
+    checkMobileView();
+
+    // Add resize listener
+    window.addEventListener('resize', checkMobileView);
+    
+    // Clean up
+    return () => window.removeEventListener('resize', checkMobileView);
+  }, [setShowRightPanel]);
+
   return (
     <div className="relative w-full h-full flex flex-col bg-[#e9f7ef]">
       {/* Top toolbar with business/area selection and actions */}
-      <div className="flex items-center p-2 bg-white border-b">
-        <div className="flex items-center space-x-1 mr-4">
-          <div className="flex items-center">
-            <span className="text-sm font-medium mr-2">Business:</span>
-            <Select defaultValue="richtech">
-              <SelectTrigger className="w-[180px] h-8">
-                <SelectValue placeholder="Select business" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="richtech">Richtech</SelectItem>
-                <SelectItem value="other">Other Business</SelectItem>
-              </SelectContent>
-            </Select>
+      {showTopToolbar && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center p-2 bg-white border-b">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+            <div className="flex items-center w-full sm:w-auto">
+              <span className="text-sm font-medium mr-2 whitespace-nowrap">Business:</span>
+              <Select defaultValue="richtech">
+                <SelectTrigger className="w-full sm:w-[180px] h-8">
+                  <SelectValue placeholder="Select business" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="richtech">Richtech</SelectItem>
+                  <SelectItem value="other">Other Business</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center w-full sm:w-auto">
+              <span className="text-sm font-medium mr-2 whitespace-nowrap">Area:</span>
+              <Select defaultValue="basement">
+                <SelectTrigger className="w-full sm:w-[180px] h-8">
+                  <SelectValue placeholder="Select area" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basement">Basement new</SelectItem>
+                  <SelectItem value="main">Main Floor</SelectItem>
+                  <SelectItem value="secondary">Secondary Floor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
-          <div className="flex items-center ml-4">
-            <span className="text-sm font-medium mr-2">Area:</span>
-            <Select defaultValue="basement">
-              <SelectTrigger className="w-[180px] h-8 flex">
-                <SelectValue placeholder="Select area" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="basement">Basement new</SelectItem>
-                <SelectItem value="main">Main Floor</SelectItem>
-                <SelectItem value="secondary">Secondary Floor</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex-1 hidden sm:block" />
+          
+          {/* Map action buttons - scrollable on mobile */}
+          <div className="flex space-x-1 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto mt-2 sm:mt-0">
+            <Button size="sm" variant="secondary" className="shrink-0">
+              <Copy className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Copy</span>
+            </Button>
+            <Button size="sm" variant="secondary" className="shrink-0">
+              <Plus className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Create</span>
+            </Button>
+            <Button size="sm" variant="secondary" className="shrink-0">
+              <Cloud className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Cloud Sync</span>
+            </Button>
+            <Button size="sm" variant="secondary" className="shrink-0">
+              <Upload className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Upload</span>
+            </Button>
+            <Button size="sm" variant="secondary" className="shrink-0">
+              <Trash className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Delete</span>
+            </Button>
+            <Button size="sm" variant="secondary" className="shrink-0">
+              <Download className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Export</span>
+            </Button>
+            <Button size="sm" variant="secondary" className="shrink-0">
+              <Upload className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Import</span>
+            </Button>
           </div>
         </div>
-        
-        <div className="flex-1" />
-        
-        {/* Map action buttons */}
-        <div className="flex space-x-1">
-          <Button size="sm" variant="secondary">
-            <Copy className="h-4 w-4 mr-1" /> Copy
-          </Button>
-          <Button size="sm" variant="secondary">
-            <Plus className="h-4 w-4 mr-1" /> Create
-          </Button>
-          <Button size="sm" variant="secondary">
-            <Cloud className="h-4 w-4 mr-1" /> Cloud Sync
-          </Button>
-          <Button size="sm" variant="secondary">
-            <Upload className="h-4 w-4 mr-1" /> Continue Upload
-          </Button>
-          <Button size="sm" variant="secondary">
-            <Trash className="h-4 w-4 mr-1" /> Delete
-          </Button>
-          <Button size="sm" variant="secondary">
-            <Download className="h-4 w-4 mr-1" /> Export
-          </Button>
-          <Button size="sm" variant="secondary">
-            <Upload className="h-4 w-4 mr-1" /> Import
-          </Button>
-        </div>
-      </div>
+      )}
+      
+      {/* Toggle toolbar button when hidden */}
+      {!showTopToolbar && (
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="absolute top-2 left-[50%] z-10 h-8 w-8 -translate-x-1/2"
+          onClick={() => setShowTopToolbar(true)}
+        >
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      )}
       
       {/* Main content area with left tools, canvas, and right sidebar */}
       <div className="flex-1 flex">
-        {/* Left side tools panel */}
-        <div className="bg-white p-2 border-r flex flex-col space-y-4 items-center">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-md">
-                  <Maximize className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Full Screen
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <Separator className="my-1" />
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant={!isEditing ? "ghost" : "secondary"}
-                  size="icon" 
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="rounded-md"
-                >
-                  <Undo className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Undo
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="rounded-md"
-                  onClick={() => startEditing('obstacles')}
-                >
-                  <Move className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Absorb
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant={isEditing && editMode === 'obstacles' ? "secondary" : "ghost"}
-                  size="icon" 
-                  className="rounded-md"
-                  onClick={() => startEditing('obstacles')}
-                >
-                  <Edit className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Edit
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-md">
-                  <Compass className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Angle
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-md">
-                  <Zap className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Charging Pile
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant={isEditing && editMode === 'paths' ? "secondary" : "ghost"}
-                  size="icon" 
-                  className="rounded-md"
-                  onClick={() => startEditing('paths')}
-                >
-                  <LocateFixed className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Current Location
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <Separator className="my-1" />
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-md">
-                  <MapPin className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Add Point
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-md">
-                  <Layers className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Add Path
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-md">
-                  <Trash className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Delete
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+        {/* Left side tools panel - collapsible on mobile */}
+        {showLeftPanel && (
+          <div className="bg-white p-2 border-r flex flex-col space-y-4 items-center">
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-md sm:hidden mb-2"
+                    onClick={() => setShowLeftPanel(false)}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Hide Tools
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-md">
+                    <Maximize className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Full Screen
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <Separator className="my-1" />
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={!isEditing ? "ghost" : "secondary"}
+                    size="icon" 
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="rounded-md"
+                  >
+                    <Undo className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Undo
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-md"
+                    onClick={() => startEditing('obstacles')}
+                  >
+                    <Move className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Absorb
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={isEditing && editMode === 'obstacles' ? "secondary" : "ghost"}
+                    size="icon" 
+                    className="rounded-md"
+                    onClick={() => startEditing('obstacles')}
+                  >
+                    <Edit className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Edit
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-md">
+                    <Compass className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Angle
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-md">
+                    <Zap className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Charging Pile
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={isEditing && editMode === 'paths' ? "secondary" : "ghost"}
+                    size="icon" 
+                    className="rounded-md"
+                    onClick={() => startEditing('paths')}
+                  >
+                    <LocateFixed className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Current Location
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <Separator className="my-1" />
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-md">
+                    <MapPin className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Add Point
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-md">
+                    <Layers className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Add Path
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider delayDuration={700}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-md">
+                    <Trash className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Delete
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
         
         {/* Main map canvas */}
         <div className="flex-1 relative overflow-hidden">
@@ -906,6 +972,44 @@ export function Map({
             className="w-full h-full bg-[#e9f7ef]"
             onClick={handleCanvasClick}
           />
+          
+          {/* Mobile floating controls */}
+          {isMobileView && (
+            <div className="absolute top-2 left-2 z-20 flex space-x-2">
+              {!showLeftPanel && (
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="bg-white h-8 w-8 shadow-md"
+                  onClick={() => setShowLeftPanel(true)}
+                >
+                  <PanelRight className="h-4 w-4" />
+                </Button>
+              )}
+              
+              {!showTopToolbar && (
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="bg-white h-8 w-8 shadow-md"
+                  onClick={() => setShowTopToolbar(true)}
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              )}
+              
+              {showTopToolbar && (
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="bg-white h-8 w-8 shadow-md"
+                  onClick={() => setShowTopToolbar(false)}
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
           
           {/* Zoom controls */}
           <div className="absolute bottom-4 left-4 flex flex-col bg-white rounded-md shadow">
@@ -940,7 +1044,7 @@ export function Map({
           )}
           
           {editable && (
-            <div className="absolute top-2 right-2 flex flex-col space-y-2">
+            <div className="absolute bottom-4 right-4 md:top-2 md:right-2 md:bottom-auto flex flex-col space-y-2">
               {!isEditing ? (
                 <>
                   <TooltipProvider>
@@ -949,9 +1053,10 @@ export function Map({
                         <Button 
                           size="sm" 
                           variant="outline" 
+                          className="bg-white"
                           onClick={() => startEditing('obstacles')}
                         >
-                          <MapPin className="h-4 w-4 mr-1" /> Edit Obstacles
+                          <MapPin className="h-4 w-4 mr-1" /> <span className={isMobileView ? "hidden" : ""}>Edit Obstacles</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -966,9 +1071,10 @@ export function Map({
                         <Button 
                           size="sm" 
                           variant="outline" 
+                          className="bg-white"
                           onClick={() => startEditing('paths')}
                         >
-                          <Layers className="h-4 w-4 mr-1" /> Edit Paths
+                          <Layers className="h-4 w-4 mr-1" /> <span className={isMobileView ? "hidden" : ""}>Edit Paths</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -979,7 +1085,7 @@ export function Map({
                 </>
               ) : (
                 <>
-                  <Badge variant="outline" className="mb-2">
+                  <Badge variant="outline" className="mb-2 bg-white">
                     Editing {editMode === 'obstacles' ? 'Obstacles' : 'Paths'}
                   </Badge>
                   
@@ -987,41 +1093,46 @@ export function Map({
                     <Button 
                       size="sm" 
                       variant="outline" 
+                      className="bg-white"
                       onClick={createNewPath}
                     >
-                      <Layers className="h-4 w-4 mr-1" /> New Path
+                      <Layers className="h-4 w-4 mr-1" /> <span className={isMobileView ? "hidden" : "New Path"}>New</span>
                     </Button>
                   )}
                   
                   <Button 
                     size="sm" 
                     variant="outline"
+                    className="bg-white"
                     onClick={deleteLastPoint}
                   >
-                    <Trash className="h-4 w-4 mr-1" /> Delete Last
+                    <Trash className="h-4 w-4 mr-1" /> <span className={isMobileView ? "hidden" : "Delete Last"}>Delete</span>
                   </Button>
                   
                   <Button 
                     size="sm" 
                     variant={hasLocalChanges ? "default" : "outline"}
+                    className={!hasLocalChanges ? "bg-white" : ""}
                     onClick={saveMapChanges}
                     disabled={!hasLocalChanges}
                   >
-                    <Save className="h-4 w-4 mr-1" /> Save
+                    <Save className="h-4 w-4 mr-1" /> <span className={isMobileView ? "hidden" : "Save"}>Save</span>
                   </Button>
                   
                   <Button 
                     size="sm" 
                     variant="outline" 
+                    className="bg-white"
                     onClick={resetMap}
                     disabled={!hasLocalChanges}
                   >
-                    <AlertCircle className="h-4 w-4 mr-1" /> Reset
+                    <AlertCircle className="h-4 w-4 mr-1" /> <span className={isMobileView ? "hidden" : "Reset"}>Reset</span>
                   </Button>
                   
                   <Button 
                     size="sm" 
                     variant="outline" 
+                    className="bg-white"
                     onClick={endEditing}
                   >
                     Done
@@ -1034,8 +1145,8 @@ export function Map({
         
         {/* Right sidebar with steps/locations */}
         {showRightPanel && (
-          <div className="w-64 bg-white border-l overflow-auto">
-            <div className="p-2 border-b flex justify-between items-center">
+          <div className={`bg-white border-l overflow-auto ${isMobileView ? 'fixed inset-0 z-50 w-full h-full' : 'w-64'}`}>
+            <div className="p-2 border-b flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="font-medium">Locations & Steps</h3>
               <Button 
                 variant="ghost" 
@@ -1048,7 +1159,7 @@ export function Map({
             </div>
             
             <Tabs defaultValue="locations" className="w-full">
-              <TabsList className="w-full grid grid-cols-2">
+              <TabsList className="w-full grid grid-cols-2 sticky top-[41px] z-10">
                 <TabsTrigger value="locations">Locations</TabsTrigger>
                 <TabsTrigger value="steps">Steps</TabsTrigger>
               </TabsList>
@@ -1163,7 +1274,7 @@ export function Map({
         )}
         
         {/* Toggle button for right panel when hidden */}
-        {!showRightPanel && (
+        {!showRightPanel && !isMobileView && (
           <Button 
             variant="outline" 
             size="icon" 
@@ -1171,6 +1282,18 @@ export function Map({
             onClick={() => setShowRightPanel(true)}
           >
             <PanelLeft className="h-4 w-4" />
+          </Button>
+        )}
+        
+        {/* Mobile floating action button for right panel */}
+        {!showRightPanel && isMobileView && (
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="absolute bottom-20 right-4 z-10 h-10 w-10 rounded-full bg-white shadow-md"
+            onClick={() => setShowRightPanel(true)}
+          >
+            <LayoutList className="h-5 w-5" />
           </Button>
         )}
       </div>
