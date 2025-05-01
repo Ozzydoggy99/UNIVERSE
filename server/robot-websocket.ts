@@ -277,6 +277,7 @@ function handleReconnect() {
   const maxReconnectAttempts = 10;
   if (reconnectAttempts >= maxReconnectAttempts) {
     console.log(`Maximum reconnection attempts (${maxReconnectAttempts}) reached, waiting longer...`);
+    
     reconnectTimeout = setTimeout(() => {
       reconnectAttempts = 0;
       initRobotWebSocket();
