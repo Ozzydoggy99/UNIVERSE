@@ -464,7 +464,9 @@ export default function RobotDetails() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="flex items-center gap-1 text-sm">
-                    {finalStatus.status?.toLowerCase() === 'charging' ? (
+                    {finalStatus.status?.toLowerCase() === 'charging' || 
+                     finalSensors?.charging === true || 
+                     finalSensors?.power_supply_status === 'charging' ? (
                       <BatteryCharging className="h-4 w-4 text-purple-500" />
                     ) : finalSensors.battery >= 90 ? (
                       <BatteryFull className="h-4 w-4 text-green-500" />
@@ -479,7 +481,9 @@ export default function RobotDetails() {
                   </span>
                   <span className="font-medium flex items-center gap-1">
                     {finalSensors.battery}%
-                    {finalStatus.status?.toLowerCase() === 'charging' ? (
+                    {finalStatus.status?.toLowerCase() === 'charging' || 
+                     finalSensors?.charging === true || 
+                     finalSensors?.power_supply_status === 'charging' ? (
                       <span className="inline-flex items-center">
                         <span className="inline-block w-3.5 h-3.5 rounded-full bg-purple-500 animate-pulse"></span>
                         <span className="ml-1 text-xs text-purple-500">Charging</span>
@@ -500,7 +504,9 @@ export default function RobotDetails() {
                 <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
                   <div 
                     className={`h-full transition-all ${
-                      finalStatus.status?.toLowerCase() === 'charging' ? "bg-purple-500" :
+                      finalStatus.status?.toLowerCase() === 'charging' || 
+                      finalSensors?.charging === true || 
+                      finalSensors?.power_supply_status === 'charging' ? "bg-purple-500" :
                       finalStatus.status?.toLowerCase() === 'working' || finalStatus.status?.toLowerCase() === 'active' ? "bg-blue-500" :
                       finalSensors.battery >= 50 ? "bg-green-500" : 
                       finalSensors.battery >= 20 ? "bg-amber-500" : 

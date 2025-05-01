@@ -65,7 +65,7 @@ export interface RobotSensorData {
   charging?: boolean;
   percentage?: number;
   // Connection status for real-time monitoring
-  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
 
 export interface MapPoint {
