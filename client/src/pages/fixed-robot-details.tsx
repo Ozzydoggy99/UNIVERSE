@@ -266,15 +266,8 @@ export default function RobotDetails() {
   
   // Get battery status text and color
   const getBatteryStatus = () => {
-    // Force "Charging" state to show you what the robot is on the charger
-    return {
-      text: 'Charging',
-      color: 'text-purple-500'
-    };
-    
-    // The code below is temporarily disabled to force charging state
-    /*
-    if (sensors.charging) {
+    // Check multiple indicators to determine if charging
+    if (sensors.charging || sensors.power_supply_status === 'charging') {
       return {
         text: 'Charging',
         color: 'text-purple-500'
@@ -290,7 +283,6 @@ export default function RobotDetails() {
         color: 'text-gray-500'
       };
     }
-    */
   };
 
   return (
