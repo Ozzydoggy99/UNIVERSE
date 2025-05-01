@@ -30,9 +30,6 @@ export default function RobotHub() {
     enabled: !!robotAssignments,
   });
 
-  // Determine if we're still loading data
-  const isLoading = assignmentsLoading || templatesLoading || statusesLoading;
-  
   // Navigate to unassigned robots page
   const handleViewUnassignedClick = () => {
     navigate('/unassigned-robots');
@@ -77,20 +74,29 @@ export default function RobotHub() {
   const { data: physicalRobotPosition } = useQuery<RobotPosition>({
     queryKey: ['/api/robots/position', physicalRobotInfo.serialNumber],
     refetchInterval: 2000, // Faster refresh rate
+    refetchOnWindowFocus: true,
+    staleTime: 1000,
+    gcTime: 3000, // This is the replacement for cacheTime in v5
   });
 
   // Get physical robot sensor data for complete information
   const { data: physicalRobotSensor } = useQuery<RobotSensor>({
     queryKey: ['/api/robots/sensors', physicalRobotInfo.serialNumber],
     refetchInterval: 2000, // Faster refresh rate
+    refetchOnWindowFocus: true,
+    staleTime: 1000,
+    gcTime: 3000, // This is the replacement for cacheTime in v5
   });
   
   // Special function to get status for the physical robot directly
-  const { data: physicalRobotStatus, isLoading: isPhysicalRobotStatusLoading } = useQuery<RobotStatus>({
+  const { data: physicalRobotStatus } = useQuery<RobotStatus>({
     queryKey: ['/api/robots/status', physicalRobotInfo.serialNumber],
     refetchInterval: 2000, // Faster refresh rate for more responsive UI
     retry: 3,
     retryDelay: 1000,
+    refetchOnWindowFocus: true,
+    staleTime: 1000,
+    gcTime: 3000, // This is the replacement for cacheTime in v5
   });
   
   // We'll use any successful data fetch to determine if the robot is online
@@ -98,33 +104,6 @@ export default function RobotHub() {
     !!physicalRobotStatus || 
     !!physicalRobotPosition || 
     !!physicalRobotSensor;
-    
-  // Log robot status changes
-  React.useEffect(() => {
-    if (isRobotOnline) {
-      console.log('Robot connection status: ONLINE');
-      if (physicalRobotStatus) {
-        console.log('Robot status data:', physicalRobotStatus);
-      }
-      if (physicalRobotPosition) {
-        console.log('Robot position data:', physicalRobotPosition);
-      }
-      if (physicalRobotSensor) {
-        console.log('Robot sensor data:', physicalRobotSensor);
-      }
-    } else {
-      console.log('Robot connection status: OFFLINE');
-    }
-  }, [isRobotOnline, physicalRobotStatus, physicalRobotPosition, physicalRobotSensor]);
-
-  // If we're still loading data, show a loading indicator
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto p-6">
@@ -266,7 +245,41 @@ export default function RobotHub() {
 
       <h2 className="text-xl font-semibold mb-4">Assigned Robots</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Array.isArray(robotAssignments) && robotAssignments.length > 0 ? (
+        {assignmentsLoading ? (
+          // Show skeleton loading cards for the assigned robots section
+          Array.from({ length: 3 }).map((_, index) => (
+            <Card key={index} className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start animate-pulse">
+                  <div className="h-6 w-1/2 bg-gray-200 rounded"></div>
+                  <div className="h-5 w-20 bg-gray-200 rounded-full"></div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 animate-pulse">
+                  <div className="flex justify-between py-1">
+                    <div className="h-4 w-1/3 bg-gray-200 rounded"></div>
+                    <div className="h-4 w-1/3 bg-gray-200 rounded"></div>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <div className="h-4 w-1/3 bg-gray-200 rounded"></div>
+                    <div className="h-4 w-1/3 bg-gray-200 rounded"></div>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <div className="h-4 w-1/3 bg-gray-200 rounded"></div>
+                    <div className="h-4 w-1/3 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="border-t pt-4">
+                <div className="w-full flex justify-between animate-pulse">
+                  <div className="h-3 w-20 bg-gray-200 rounded"></div>
+                  <div className="h-3 w-20 bg-gray-200 rounded"></div>
+                </div>
+              </CardFooter>
+            </Card>
+          ))
+        ) : Array.isArray(robotAssignments) && robotAssignments.length > 0 ? (
           robotAssignments.map((robot: RobotTemplateAssignment) => {
             // Get the template name
             const template = Array.isArray(templates) 
