@@ -293,7 +293,9 @@ export function Map({
     // Check if we have any map data
     const hasObstacles = obstacles.length > 0;
     const hasPaths = paths.length > 0;
-    const hasGridData = mapData.grid && mapData.grid.length > 0;
+    const hasGridData = mapData.grid && 
+      ((typeof mapData.grid === 'string' && mapData.grid.length > 0) || 
+       (Array.isArray(mapData.grid) && mapData.grid.length > 0));
     const hasMapData = hasObstacles || hasPaths || hasGridData;
   
     // Draw map background
@@ -364,20 +366,55 @@ export function Map({
     // We have map data, calculate transformations
     const { transformX, transformY, scale } = calculateTransforms(canvas, mapData, robotPosition);
     
-    // Draw the grid as a heatmap if we have grid data
-    if (hasGridData && mapData.size && mapData.resolution && mapData.origin) {
-      const [width, height] = mapData.size;
-      const resolution = mapData.resolution;
-      
-      // Create a custom colormap for the grid data
-      const colormap = (value: number) => {
-        if (value < 0) return 'rgba(255, 0, 0, 0.5)';  // Red for negative values (occupied)
-        if (value > 0) return 'rgba(0, 255, 0, 0.2)';  // Green for positive values (free)
-        return 'rgba(200, 200, 200, 0.1)';             // Gray for unknown
-      };
-      
-      // Draw the grid cells
-      if (mapData.grid) {
+    // Process the map data
+    if (hasGridData) {
+      // Check if the grid data is a base64 encoded image (from physical robot)
+      if (typeof mapData.grid === 'string' && mapData.grid.startsWith('iVBOR')) {
+        console.log('Rendering base64 encoded PNG map from physical robot');
+        
+        // Create an image element to load the base64 data
+        const img = new Image();
+        img.onload = () => {
+          if (!ctx) return;
+          
+          // Once the image is loaded, draw it on the canvas
+          // Center the image and scale it to fit
+          const imgWidth = img.width;
+          const imgHeight = img.height;
+          
+          // Calculate the scale to fit the image in the canvas
+          // while maintaining aspect ratio
+          const scaleX = canvas.width / imgWidth;
+          const scaleY = canvas.height / imgHeight;
+          const imageScale = Math.min(scaleX, scaleY) * 0.9; // 90% to add some margin
+          
+          // Calculate centered position
+          const x = (canvas.width - imgWidth * imageScale) / 2;
+          const y = (canvas.height - imgHeight * imageScale) / 2;
+          
+          // Draw the image
+          ctx.drawImage(img, x, y, imgWidth * imageScale, imgHeight * imageScale);
+          
+          // Draw the robot position, obstacles, and paths on top
+          // The drawMap function will handle those
+        };
+        
+        // Set the source of the image to the base64 data
+        img.src = `data:image/png;base64,${mapData.grid}`;
+      } 
+      // Handle numeric grid data (traditional array)
+      else if (Array.isArray(mapData.grid) && mapData.size && mapData.resolution && mapData.origin) {
+        const [width, height] = mapData.size;
+        const resolution = mapData.resolution;
+        
+        // Create a custom colormap for the grid data
+        const colormap = (value: number) => {
+          if (value < 0) return 'rgba(255, 0, 0, 0.5)';  // Red for negative values (occupied)
+          if (value > 0) return 'rgba(0, 255, 0, 0.2)';  // Green for positive values (free)
+          return 'rgba(200, 200, 200, 0.1)';             // Gray for unknown
+        };
+        
+        // Draw the grid cells
         for (let i = 0; i < width; i++) {
           for (let j = 0; j < height; j++) {
             const idx = j * width + i;
@@ -586,7 +623,7 @@ export function Map({
       onMapUpdate(updatedMap);
       
       // Update the query client cache
-      queryClient.setQueryData(['/api/robots/map', robotStatus.serialNumber], updatedMap);
+      queryClient.setQueryData(['/api/robots/map', robotStatus.serialNumber || ''], updatedMap);
       
       // Also send the update to the server
       apiRequest('PUT', `/api/robots/map/${robotStatus.serialNumber}`, updatedMap)
