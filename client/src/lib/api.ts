@@ -267,25 +267,48 @@ export async function getMapData(serialNumber?: string) {
   // If serial number is provided, fetch that specific robot's map data
   if (serialNumber) {
     try {
-      try {
-        const response = await apiRequest(`/api/robots/map/${serialNumber}`);
-        if (!response.ok) {
-          console.warn(`/api/robots/map/${serialNumber} returned ${response.status}`);
-          throw new Error(`Failed to get robot map data: ${response.statusText}`);
-        }
-        return await response.json();
-      } catch (apiError) {
-        console.error(`API map request error for robot ${serialNumber}:`, apiError);
-        throw apiError;
-      }
+      // Add the Secret header which is required for robot API endpoints
+      const headers = {
+        'Secret': ROBOT_SECRET
+      };
+      
+      const response = await apiRequest(`/api/robots/map/${serialNumber}`, { headers });
+      const data = await response.json();
+      
+      // Add connection status to the returned data
+      return {
+        ...data,
+        connectionStatus: 'connected'
+      };
     } catch (error) {
       console.error(`Error fetching map data for robot ${serialNumber}:`, error);
-      throw error;
+      
+      // Return a minimal map with connectionStatus 'error' instead of throwing
+      return {
+        grid: [],
+        obstacles: [],
+        paths: [],
+        connectionStatus: 'error'
+      };
     }
   } else {
     // Use the general API endpoint
-    const response = await apiRequest(`${API_URL}/map`);
-    return response.json();
+    try {
+      const response = await apiRequest(`${API_URL}/map`);
+      const data = await response.json();
+      return {
+        ...data,
+        connectionStatus: 'connected'
+      };
+    } catch (error) {
+      console.error('Error fetching general map data:', error);
+      return {
+        grid: [],
+        obstacles: [],
+        paths: [],
+        connectionStatus: 'error'
+      };
+    }
   }
 }
 

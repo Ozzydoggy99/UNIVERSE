@@ -19,23 +19,32 @@ export async function apiRequest(
   const data = options?.data;
   const customHeaders = options?.headers || {};
   
-  // Add Secret header to all API requests
-  // The secret is set on the server, this is a no-op on client
-  // But ensures consistent headers across client and server
+  // Add Secret header to all API requests when it involves robots
+  // The secret is needed for robot authentication
   const headers = {
     ...customHeaders,
     ...(data ? { "Content-Type": "application/json" } : {}),
   };
   
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  // If the URL contains "robot", add the Secret header
+  if (url.includes('robot')) {
+    headers['Secret'] = import.meta.env.VITE_ROBOT_SECRET || '';
+  }
+  
+  try {
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
 
-  await throwIfResNotOk(res);
-  return res;
+    await throwIfResNotOk(res);
+    return res;
+  } catch (error) {
+    console.error(`API request failed for ${url}:`, error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

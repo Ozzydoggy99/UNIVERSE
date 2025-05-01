@@ -106,7 +106,7 @@ interface MapPath {
 }
 
 export interface MapData {
-  grid: any[];
+  grid: any[] | string; // Can be an array of grid values or a base64 string for encoded map
   obstacles: MapPoint[];
   paths: MapPath[];
   size?: [number, number];
