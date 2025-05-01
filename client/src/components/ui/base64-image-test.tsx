@@ -6,14 +6,19 @@ import { useQuery } from '@tanstack/react-query';
 import { MapData } from './map-fixed';
 import { MapPin, Navigation } from 'lucide-react';
 
-// Interface for robot position data
+// Interface for robot position data based on actual server data structure
 interface RobotPosition {
   x: number;
   y: number;
-  z: number;
+  z?: number;
   orientation: number;
-  speed: number;
-  timestamp: string;
+  speed?: number;
+  timestamp?: string;
+  // Additional fields from the logs
+  pos?: [number, number]; // From the logs: pos: [0.005, 0.0075]
+  ori?: number;           // From the logs: ori: 1.57
+  cov?: [[number, number], [number, number]];
+  topic?: string;
 }
 
 // Enhanced component to render base64 image map with robot position overlay
@@ -148,16 +153,37 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
         
         if (response.ok) {
           const data = await response.json();
-          console.log('Robot position data:', data);
+          console.log('Robot position data from server:', data);
           
-          if (data && typeof data.x === 'number' && typeof data.y === 'number') {
-            // Calculate pixel coordinates for debugging
-            const pixels = convertPositionToPixels(data.x, data.y);
-            console.log('Converted to pixel coordinates:', pixels);
+          // Process the position data based on the actual structure seen in the logs
+          if (data) {
+            // Handle both formats: either direct x,y or pos array [x,y]
+            const processedData: RobotPosition = data;
             
-            setRobotPosition(data);
+            // If we have pos array but not x,y, convert pos array to x,y
+            if (data.pos && data.pos.length === 2 && !data.x) {
+              processedData.x = data.pos[0];
+              processedData.y = data.pos[1];
+            }
+            
+            // If we have ori but not orientation, use ori value
+            if (data.ori !== undefined && !data.orientation) {
+              processedData.orientation = data.ori;
+            }
+            
+            console.log('Processed position data:', processedData);
+            
+            // Now calculate pixel coordinates if we have valid x,y data
+            if (typeof processedData.x === 'number' && typeof processedData.y === 'number') {
+              const pixels = convertPositionToPixels(processedData.x, processedData.y);
+              console.log('Converted to pixel coordinates:', pixels);
+              
+              setRobotPosition(processedData);
+            } else {
+              console.warn('Still no valid x,y coordinates in processed data:', processedData);
+            }
           } else {
-            console.warn('Invalid position data structure:', data);
+            console.warn('No position data received');
           }
         } else {
           console.error('Failed to fetch position data:', response.status);
