@@ -4,7 +4,15 @@ import { registerRobot } from './register-robot';
 
 // We only support a single physical robot
 const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
+// Robot API URL
 const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
+
+// Topic endpoints for different data types
+const ROBOT_TOPIC_STATUS = '/status';
+const ROBOT_TOPIC_POSITION = '/tracked_pose'; // Position comes from tracked_pose topic
+const ROBOT_TOPIC_SENSORS = '/battery_state'; // Sensors data comes from battery_state
+const ROBOT_TOPIC_MAP = '/map'; // Map data comes from map topic
+const ROBOT_TOPIC_CAMERA = '/rgb_cameras/front/compressed'; // Camera data
 
 // Type definitions for robot data
 interface RobotStatus {
