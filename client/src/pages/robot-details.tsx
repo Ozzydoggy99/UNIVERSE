@@ -345,13 +345,11 @@ export default function RobotDetails() {
   const createDefaultMapData = () => ({
     grid: [],
     obstacles: [],
-    paths: [{
-      points: [
-        { x: 10, y: 10, z: 0 },
-        { x: 20, y: 20, z: 0 }
-      ],
-      status: 'planned'
-    }]
+    paths: [],
+    size: [0, 0],
+    resolution: 0.05,
+    origin: [0, 0],
+    connectionStatus: 'unknown'
   });
   
   const createDefaultCameraData = () => ({
@@ -676,7 +674,13 @@ export default function RobotDetails() {
                         robotStatus={finalStatus} 
                         robotPosition={finalPosition} 
                         sensorData={finalSensors} 
-                        mapData={finalMapData} 
+                        mapData={finalMapData}
+                        editable={true}
+                        onMapUpdate={(updatedMap) => {
+                          console.log('Map updated', updatedMap);
+                          // In a real implementation, we might want to refresh the data here
+                          refreshData();
+                        }}
                       />
                       
                       {/* Map Legend */}
