@@ -639,9 +639,9 @@ export function Map({
     
       // Add some labels for the map if available
       if (mapData.size && mapData.resolution && mapData.origin) {
-        const [width, height] = mapData.size;
-        const resolution = mapData.resolution;
-        const [originX, originY] = mapData.origin;
+        const [width, height] = mapData.size || [0, 0];
+        const resolution = mapData.resolution || 0.05;
+        const [originX, originY] = mapData.origin || [0, 0];
         
         if (ctx) {
           ctx.fillStyle = '#000';
@@ -649,10 +649,21 @@ export function Map({
           ctx.textAlign = 'left';
           
           // Only show these when debugging or if explicitly requested
-          if (false) {
-            ctx.fillText(`Resolution: ${resolution.toFixed(3)}m/px`, 10, 20);
-            ctx.fillText(`Size: ${width}x${height} px (${(width * resolution).toFixed(1)}x${(height * resolution).toFixed(1)}m)`, 10, 40);
-            ctx.fillText(`Origin: ${originX.toFixed(2)}, ${originY.toFixed(2)}`, 10, 60);
+          const showDebugInfo = false; // Set to true to enable debug info
+          if (showDebugInfo && ctx) {
+            // Add debug information - ensure we have values that can be converted to strings
+            const resStr = typeof resolution === 'number' ? resolution.toFixed(3) : '0.000';
+            const wStr = typeof width === 'number' ? width.toString() : '0';
+            const hStr = typeof height === 'number' ? height.toString() : '0';
+            const wxStr = typeof width === 'number' && typeof resolution === 'number' ? (width * resolution).toFixed(1) : '0.0';
+            const hyStr = typeof height === 'number' && typeof resolution === 'number' ? (height * resolution).toFixed(1) : '0.0';
+            const oxStr = typeof originX === 'number' ? originX.toFixed(2) : '0.00';
+            const oyStr = typeof originY === 'number' ? originY.toFixed(2) : '0.00';
+            
+            // These are now safe since we checked ctx is not null
+            ctx.fillText(`Resolution: ${resStr}m/px`, 10, 20);
+            ctx.fillText(`Size: ${wStr}x${hStr} px (${wxStr}x${hyStr}m)`, 10, 40);
+            ctx.fillText(`Origin: ${oxStr}, ${oyStr}`, 10, 60);
           }
         }
       }
