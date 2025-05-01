@@ -22,21 +22,27 @@ export function ConnectionStatus() {
             {connectionState === 'connecting' && (
               <>
                 <Loader2 className="h-5 w-5 text-orange-500 animate-spin" />
-                <span className="font-medium">Connecting to robot...</span>
+                <span className="font-medium">Connecting to robot... This may take a moment.</span>
               </>
             )}
             
             {connectionState === 'disconnected' && (
               <>
                 <WifiOff className="h-5 w-5 text-gray-500" />
-                <span className="font-medium">Robot disconnected. Automatic reconnection in progress.</span>
+                <span className="font-medium">Robot temporarily disconnected. Automatic reconnection in progress...</span>
               </>
             )}
             
             {connectionState === 'error' && (
               <>
                 <AlertCircle className="h-5 w-5 text-red-500" />
-                <span className="font-medium">Connection error. The robot may be offline or unreachable.</span>
+                <span className="font-medium">
+                  Connection error. The robot may be offline or temporarily unreachable.
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    We'll continue trying to reconnect automatically.
+                  </span>
+                </span>
               </>
             )}
           </div>

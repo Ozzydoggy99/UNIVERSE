@@ -134,15 +134,15 @@ export function RobotProvider({ children }: RobotProviderProps) {
     // Set connection state to connecting
     setConnectionState('connecting');
     
-    // Use a shorter interval (800ms) for more responsive updates
-    const pollingInterval = 800;
+    // Use a slightly longer interval (1200ms) to reduce error frequency
+    const pollingInterval = 1200;
     
     // PUBLIC_ROBOT_SERIAL is our known physical robot
     const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
     
     // Track consecutive errors to help with reconnection logic
     let consecutiveErrors = 0;
-    const MAX_CONSECUTIVE_ERRORS = 5;
+    const MAX_CONSECUTIVE_ERRORS = 10; // Increased to be more tolerant of network blips
     
     // Set up a polling interval to fetch data regularly
     const refreshInterval = setInterval(async () => {
@@ -213,9 +213,13 @@ export function RobotProvider({ children }: RobotProviderProps) {
         }
         
         // Update connection state based on results and connection status
+        // Consider the connection successful if we got any data at all
         if (successfulResponses > 0) {
           hasSuccessfulData = true;
           consecutiveErrors = 0; // Reset error counter on any successful response
+          
+          // Even partial data is better than no data - if we have any response,
+          // we'll keep the previous data for other categories
         }
         
         if (hasSuccessfulData && !isDisconnected) {
