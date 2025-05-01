@@ -2,7 +2,8 @@ import WebSocket from 'ws';
 
 // Only support our single physical robot
 const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
-const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
+const ROBOT_API_URL = 'http://47.180.91.99:8090';
+const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
 
 /**
  * Process camera-related WebSocket messages
