@@ -154,66 +154,58 @@ export function RobotProvider({ children }: RobotProviderProps) {
     }
   };
   
-  // Connect to WebSocket when user is authenticated
+  // Use direct REST API polling instead of WebSocket
   useEffect(() => {
     if (!user) return;
     
-    // First fetch data via REST
+    // Initially fetch data via REST
     fetchInitialData();
     
-    // Then subscribe to WebSocket events
-    const unsubscribe = robotWebSocket.subscribe(handleWebSocketUpdate);
+    // Set connection state to connecting
+    setConnectionState('connecting');
     
-    // Establish connection
-    robotWebSocket.connect();
+    // Use a shorter interval (800ms) for more responsive updates
+    const pollingInterval = 800;
     
-    // Request initial data via WebSocket
-    setTimeout(() => {
-      if (robotWebSocket.isConnected()) {
-        robotWebSocket.requestStatus();
-        robotWebSocket.requestPosition();
-        robotWebSocket.requestSensorData();
-        robotWebSocket.requestMapData();
-        robotWebSocket.requestTaskInfo();
-        robotWebSocket.requestCameraData(); // Add camera data request
-      }
-    }, 1000); // Small delay to ensure connection is established
+    // PUBLIC_ROBOT_SERIAL is our known physical robot
+    const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
     
-    // Set up automatic refresh every 1 second for more frequent updates
-    const refreshInterval = setInterval(() => {
-      if (robotWebSocket.isConnected()) {
-        console.log('Auto-refreshing robot data (1s interval)');
-        // Update timestamp on server response instead of here
-        robotWebSocket.requestStatus();
-        robotWebSocket.requestPosition();
-        robotWebSocket.requestSensorData();
-        robotWebSocket.requestMapData();
-        robotWebSocket.requestCameraData();
-        robotWebSocket.requestTaskInfo();
-      } else {
-        // Auto-reconnect if the connection was dropped
-        console.warn('WebSocket disconnected - attempting to reconnect...');
-        robotWebSocket.connect();
+    // Set up a polling interval to fetch data regularly
+    const refreshInterval = setInterval(async () => {
+      try {
+        // Fetch all robot data in parallel for efficiency
+        const [status, position, sensors, mapInfo, cameraInfo] = await Promise.all([
+          getRobotStatus(PUBLIC_ROBOT_SERIAL),
+          getRobotPosition(PUBLIC_ROBOT_SERIAL),
+          getRobotSensorData(PUBLIC_ROBOT_SERIAL),
+          getMapData(PUBLIC_ROBOT_SERIAL),
+          getRobotCameraData(PUBLIC_ROBOT_SERIAL)
+        ]);
         
-        // After a short delay, attempt to request data again
-        setTimeout(() => {
-          if (robotWebSocket.isConnected()) {
-            robotWebSocket.requestStatus();
-            robotWebSocket.requestPosition();
-            robotWebSocket.requestSensorData();
-            robotWebSocket.requestMapData();
-            robotWebSocket.requestCameraData();
-            robotWebSocket.requestTaskInfo();
-          }
-        }, 500);
+        // Update state with fetched data
+        if (status) setRobotStatus(status);
+        if (position) setRobotPosition(position);
+        if (sensors) setRobotSensorData(sensors);
+        if (mapInfo) setMapData(mapInfo);
+        if (cameraInfo) setCameraData(cameraInfo);
+        
+        // Mark connection as successful
+        setConnectionState('connected');
+        
+        // Update the last updated timestamp
+        updateTimestamp();
+      } catch (error) {
+        console.error('Error fetching robot data:', error);
+        setConnectionState('error');
+        
+        // Even if there's an error, try again on the next interval
       }
-    }, 1000);
+    }, pollingInterval);
     
-    // Clean up subscription and interval on unmount
+    // Clean up interval on unmount
     return () => {
-      unsubscribe();
-      robotWebSocket.disconnect();
       clearInterval(refreshInterval);
+      setConnectionState('disconnected');
     };
   }, [user]);
 

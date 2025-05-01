@@ -73,19 +73,19 @@ export default function RobotHub() {
   // Special function to get status for the physical robot directly
   const { data: physicalRobotStatus } = useQuery<RobotStatus>({
     queryKey: ['/api/robots/status', physicalRobotInfo.serialNumber],
-    refetchInterval: 5000, // Refresh more frequently
+    refetchInterval: 2000, // Faster refresh rate for more responsive UI
   });
 
   // Get physical robot position for showing real-time coordinates
   const { data: physicalRobotPosition } = useQuery<RobotPosition>({
     queryKey: ['/api/robots/position', physicalRobotInfo.serialNumber],
-    refetchInterval: 5000,
+    refetchInterval: 2000, // Faster refresh rate
   });
 
   // Get physical robot sensor data for complete information
   const { data: physicalRobotSensor } = useQuery<RobotSensor>({
     queryKey: ['/api/robots/sensors', physicalRobotInfo.serialNumber],
-    refetchInterval: 5000,
+    refetchInterval: 2000, // Faster refresh rate
   });
 
   // If we're still loading data, show a loading indicator
