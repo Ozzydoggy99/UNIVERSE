@@ -4,8 +4,9 @@ import axios from 'axios';
 // Only support our physical robot
 const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
 
-// URL for our robot proxy server - using HTTP instead of HTTPS to avoid SSL protocol issues
-const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
+// URL for our robot proxy server - using direct IP
+const ROBOT_API_URL = 'http://47.180.91.99:8090';
+const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
 
 // Helper function to fetch live data from the proxy server
 async function fetchLiveData(endpoint: string) {
@@ -15,7 +16,8 @@ async function fetchLiveData(endpoint: string) {
       timeout: 3000,
       headers: {
         'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'no-cache',
+        'Secret': ROBOT_SECRET
       }
     });
     
