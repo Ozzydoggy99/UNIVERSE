@@ -204,7 +204,7 @@ export function Map({
   
   // Calculate scaling and transformations
   const calculateTransforms = useCallback((canvas: HTMLCanvasElement, mapData: MapData, robotPosition: RobotPosition) => {
-    // If we have size and resolution, use that for proper scaling
+    // If we have size and resolution, use that for proper scaling based on actual map data
     if (mapData.size && mapData.resolution && mapData.origin) {
       const [width, height] = mapData.size;
       const resolution = mapData.resolution;
@@ -214,24 +214,60 @@ export function Map({
       const worldWidth = width * resolution;
       const worldHeight = height * resolution;
       
-      // Calculate scaling factors to fit the map in the canvas
-      const scaleX = canvas.width / worldWidth;
-      const scaleY = canvas.height / worldHeight;
-      const scale = Math.min(scaleX, scaleY) * 0.9; // 90% to add some margin
+      // Add padding to avoid edges
+      const padding = 20; // pixels
+      
+      // Calculate scaling factors to fit the map in the canvas with padding
+      const scaleX = (canvas.width - padding*2) / worldWidth;
+      const scaleY = (canvas.height - padding*2) / worldHeight;
+      const scale = Math.min(scaleX, scaleY); // Use smaller scale to maintain aspect ratio
+      
+      // Calculate the position to center the map in the canvas
+      const offsetX = (canvas.width - worldWidth * scale) / 2;
+      const offsetY = (canvas.height - worldHeight * scale) / 2;
       
       // Calculate transformations using the map's origin and resolution
+      // Robot coordinate system (x, y) -> Canvas coordinate system (canvasX, canvasY)
+      // In the robot coordinate system, +x is right and +y is up
+      // In the canvas, +x is right and +y is down, so we need to flip y
       return {
-        transformX: (x: number) => (x - originX) * scale + canvas.width / 2 - (worldWidth * scale) / 2,
-        transformY: (y: number) => canvas.height - ((y - originY) * scale + canvas.height / 2 - (worldHeight * scale) / 2),
-        inverseTransformX: (canvasX: number) => (canvasX - canvas.width / 2 + (worldWidth * scale) / 2) / scale + originX,
-        inverseTransformY: (canvasY: number) => (canvas.height - canvasY - canvas.height / 2 + (worldHeight * scale) / 2) / scale + originY,
+        // From world (robot) coordinates to canvas coordinates
+        transformX: (x: number) => {
+          // Convert from robot coordinate to pixels
+          // First adjust for origin offset
+          const relX = x - originX;
+          // Then scale and translate to center in canvas
+          return offsetX + relX * scale;
+        },
+        transformY: (y: number) => {
+          // Convert from robot coordinate to pixels
+          // First adjust for origin offset 
+          const relY = y - originY;
+          // Then flip y-axis (robot +y is up, canvas +y is down),
+          // scale, and translate to center in canvas
+          return canvas.height - (offsetY + relY * scale);
+        },
+        // From canvas coordinates to world (robot) coordinates
+        inverseTransformX: (canvasX: number) => {
+          // Reverse the transform - first remove offset
+          const relX = (canvasX - offsetX) / scale;
+          // Then add back origin offset
+          return relX + originX;
+        },
+        inverseTransformY: (canvasY: number) => {
+          // Reverse the transform - first flip y and remove offset
+          const relY = (canvas.height - canvasY - offsetY) / scale;
+          // Then add back origin offset
+          return relY + originY;
+        },
         scale
       };
     }
     
     // Fallback to calculating based on points if we don't have map metadata
     const points = [
-      robotPosition,
+      // Convert robotPosition to MapPoint format
+      { x: robotPosition.x, y: robotPosition.y, z: 0 },
       ...(mapData.obstacles || []),
       ...(mapData.paths || []).flatMap(path => path.points || [])
     ];
@@ -240,13 +276,14 @@ export function Map({
       // Not enough points, center on robot position
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
-      const scale = 1;
+      const scale = 20; // Scale up a bit for visibility
       
       return {
-        transformX: (x: number) => centerX + (x - robotPosition.x) * 20,
-        transformY: (y: number) => centerY - (y - robotPosition.y) * 20,
-        inverseTransformX: (canvasX: number) => robotPosition.x + (canvasX - centerX) / 20,
-        inverseTransformY: (canvasY: number) => robotPosition.y - (canvasY - centerY) / 20,
+        // Center the robot and scale nearby points
+        transformX: (x: number) => centerX + (x - robotPosition.x) * scale,
+        transformY: (y: number) => centerY - (y - robotPosition.y) * scale, // Flip y-axis
+        inverseTransformX: (canvasX: number) => robotPosition.x + (canvasX - centerX) / scale,
+        inverseTransformY: (canvasY: number) => robotPosition.y - (canvasY - centerY) / scale, // Flip y-axis
         scale
       };
     }
@@ -384,9 +421,10 @@ export function Map({
           ctx.fillStyle = '#e9f7ef';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           
-          // Get map dimensions
-          const [width, height] = mapData.size;
-          const resolution = mapData.resolution;
+          // Get map dimensions and metadata
+          const [width, height] = mapData.size || [0, 0];
+          const resolution = mapData.resolution || 0.05;
+          const [originX, originY] = mapData.origin || [0, 0];
           
           // Calculate world size in meters
           const worldWidth = width * resolution;
@@ -402,22 +440,37 @@ export function Map({
           const x = (canvas.width - worldWidth * imageScale) / 2;
           const y = (canvas.height - worldHeight * imageScale) / 2;
           
-          // Draw the image - we need to flip it to match the coordinate system
+          console.log(`Map dimensions: ${width}x${height} pixels, ${worldWidth.toFixed(2)}x${worldHeight.toFixed(2)} meters`);
+          console.log(`Map origin: (${originX.toFixed(2)}, ${originY.toFixed(2)})`);
+          console.log(`Map resolution: ${resolution.toFixed(5)} meters/pixel`);
+          console.log(`Canvas size: ${canvas.width}x${canvas.height} pixels`);
+          console.log(`Image scale: ${imageScale.toFixed(3)}`);
+          console.log(`Image position: (${x.toFixed(0)}, ${y.toFixed(0)})`);
+          
+          // Use a different approach to render the map correctly
           ctx.save();
           
-          // Translate to get the origin at the bottom left
-          ctx.translate(x, y + worldHeight * imageScale); 
+          // Adjust the image to account for the map origin
+          // In robot coordinate system, origin is at bottom-left
+          // For canvas, we need to translate and flip the Y-axis
           
-          // Flip the y-axis
-          ctx.scale(1, -1); 
+          // First translate to position where the map should be drawn,
+          // accounting for the scaling and centering
+          ctx.translate(x, y);
+          
+          // Then we flip the Y axis so the map is oriented correctly
+          // with bottom-left origin instead of top-left
+          ctx.scale(1, -1);
+          
+          // Adjust the position to account for the flip
+          ctx.translate(0, -worldHeight * imageScale);
           
           // Draw the image
           ctx.drawImage(img, 0, 0, worldWidth * imageScale, worldHeight * imageScale);
           
           ctx.restore();
           
-          // Draw the robot, obstacles, and paths on top
-          // These will be handled by the code below
+          // After drawing the map, overlay the robot position and paths
           drawRobotAndPaths();
         };
         
@@ -661,7 +714,10 @@ export function Map({
       queryClient.setQueryData(['/api/robots/map', robotStatus.serialNumber], updatedMap);
       
       // Also send the update to the server
-      apiRequest('PUT', `/api/robots/map/${robotStatus.serialNumber}`, updatedMap)
+      apiRequest(`/api/robots/map/${robotStatus.serialNumber}`, {
+        method: 'PUT',
+        data: updatedMap
+      })
         .then(() => {
           console.log('Map updated on server');
           setHasLocalChanges(false);
