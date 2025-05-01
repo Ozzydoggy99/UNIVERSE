@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Bot, Map, Bluetooth, Cpu } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { RobotTemplateAssignment } from '@shared/schema';
-import { RobotStatus } from '@/types/robot';
+import { RobotStatus, RobotPosition, RobotSensorData as RobotSensor, MapData, CameraData } from '@/types/robot';
 
 export default function RobotHub() {
   const { user } = useAuth();
@@ -86,13 +86,13 @@ export default function RobotHub() {
   });
 
   // Get physical robot position for showing real-time coordinates
-  const { data: physicalRobotPosition } = useQuery({
+  const { data: physicalRobotPosition } = useQuery<RobotPosition>({
     queryKey: ['/api/robots/position', physicalRobotInfo.serialNumber],
     refetchInterval: 5000,
   });
 
   // Get physical robot sensor data for complete information
-  const { data: physicalRobotSensor } = useQuery({
+  const { data: physicalRobotSensor } = useQuery<RobotSensor>({
     queryKey: ['/api/robots/sensors', physicalRobotInfo.serialNumber],
     refetchInterval: 5000,
   });

@@ -18,30 +18,48 @@ export interface RobotStatus {
   operationalStatus?: string;
   uptime?: string;
   messages?: { timestamp: string; text: string }[];
+  // Physical robot specific fields
+  error?: string;
+  slam_state?: string;
+  slam_quality?: number;
+  control_mode?: string;
+  emergency_stop_pressed?: boolean;
 }
 
 export interface RobotPosition {
   x: number;
   y: number;
-  z: number;
+  z?: number;
   orientation: number;
-  speed: number;
-  timestamp: string;
+  speed?: number;
+  timestamp?: string;
   // Additional fields for proxy connection
   currentTask?: string;
   destination?: { x: number; y: number; z: number };
   distanceToTarget?: number;
+  // Physical robot specific fields
+  footprint?: any[];
+  covariance?: number[][];
+  pos?: number[];
+  ori?: number;
+  cov?: number[][];
 }
 
 export interface RobotSensorData {
   temperature: number;
-  humidity: number;
-  proximity: number | number[];
+  humidity?: number;
+  proximity?: number | number[];
   battery: number;
-  timestamp: string;
+  timestamp?: string;
   // Additional fields for the proxy
   light?: number;
   noise?: number;
+  // Physical robot specific fields
+  voltage?: number;
+  current?: number;
+  power_supply_status?: string;
+  charging?: boolean;
+  percentage?: number;
 }
 
 export interface MapPoint {
