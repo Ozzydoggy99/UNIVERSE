@@ -342,12 +342,39 @@ export function getRobotStatus(serialNumber: string) {
     return null;
   }
   
+  // If we're not connected to the robot, return a special status
+  if (!isRobotConnected()) {
+    return {
+      model: "AxBot Physical Robot (Live)",
+      serialNumber,
+      battery: 0,
+      status: 'offline',
+      mode: 'disconnected',
+      error: 'Connection to robot lost. Please check network connectivity.',
+      slam_state: 'unknown',
+      slam_quality: 0,
+      lastUpdate: new Date().toISOString(),
+      connectionStatus: 'disconnected'
+    };
+  }
+  
   const statusData = robotDataCache.status.get(serialNumber);
   const slamState = getTopicData(serialNumber, 'map', '/slam/state');
   
   if (!statusData) {
-    // We don't have status data yet
-    return null;
+    // We don't have status data yet, but we are connected to the robot
+    return {
+      model: "AxBot Physical Robot (Live)",
+      serialNumber,
+      battery: getBatteryLevel(serialNumber) || 0,
+      status: 'connecting',
+      mode: 'initializing',
+      error: 'Waiting for robot data...',
+      slam_state: 'unknown',
+      slam_quality: 0,
+      lastUpdate: new Date().toISOString(),
+      connectionStatus: 'connecting'
+    };
   }
   
   // Transform from robot format to our API format
@@ -360,7 +387,8 @@ export function getRobotStatus(serialNumber: string) {
     error: statusData.error_msg || '',
     slam_state: slamState?.state || 'unknown',
     slam_quality: slamState?.position_quality || 0,
-    lastUpdate: new Date().toISOString()
+    lastUpdate: new Date().toISOString(),
+    connectionStatus: 'connected'
   };
 }
 
@@ -373,12 +401,37 @@ export function getRobotPosition(serialNumber: string) {
     return null;
   }
   
+  // If we're not connected to the robot, return a disconnected status
+  if (!isRobotConnected()) {
+    return {
+      x: 0,
+      y: 0,
+      z: 0,
+      orientation: 0,
+      speed: 0,
+      footprint: [],
+      covariance: [[0,0],[0,0]],
+      timestamp: new Date().toISOString(),
+      connectionStatus: 'disconnected'
+    };
+  }
+  
   const positionData = robotDataCache.position.get(serialNumber);
   const footprintData = getTopicData(serialNumber, 'position', '/robot/footprint');
   
   if (!positionData) {
-    // We don't have position data yet
-    return null;
+    // We don't have position data yet, but we are connected
+    return {
+      x: 0,
+      y: 0,
+      z: 0,
+      orientation: 0,
+      speed: 0,
+      footprint: [],
+      covariance: [[0,0],[0,0]],
+      timestamp: new Date().toISOString(),
+      connectionStatus: 'connecting'
+    };
   }
   
   // Transform from robot format to our API format
@@ -390,7 +443,8 @@ export function getRobotPosition(serialNumber: string) {
     speed: 0, // Speed not provided in /tracked_pose
     footprint: footprintData?.footprint || [],
     covariance: positionData.cov || [[0,0],[0,0]],
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    connectionStatus: 'connected'
   };
 }
 
@@ -430,11 +484,34 @@ export function getRobotSensorData(serialNumber: string) {
     return null;
   }
   
+  // If we're not connected to the robot, return a disconnected status
+  if (!isRobotConnected()) {
+    return {
+      temperature: 0,
+      voltage: 0,
+      current: 0,
+      battery: 0,
+      power_supply_status: 'unknown',
+      timestamp: new Date().toISOString(),
+      charging: false,
+      connectionStatus: 'disconnected'
+    };
+  }
+  
   const sensorData = robotDataCache.sensors.get(serialNumber);
   
   if (!sensorData) {
-    // We don't have sensor data yet
-    return null;
+    // We don't have sensor data yet, but we are connected
+    return {
+      temperature: 0,
+      voltage: 0,
+      current: 0,
+      battery: 0,
+      power_supply_status: 'unknown',
+      timestamp: new Date().toISOString(),
+      charging: false,
+      connectionStatus: 'connecting'
+    };
   }
   
   // Transform from robot format to our API format
@@ -445,7 +522,8 @@ export function getRobotSensorData(serialNumber: string) {
     battery: Math.round((sensorData.percentage || 0) * 100),
     power_supply_status: sensorData.power_supply_status || 'unknown',
     timestamp: new Date().toISOString(),
-    charging: sensorData.power_supply_status === 'charging'
+    charging: sensorData.power_supply_status === 'charging',
+    connectionStatus: 'connected'
   };
 }
 
@@ -458,18 +536,34 @@ export function getRobotMapData(serialNumber: string) {
     return null;
   }
   
+  // If we're not connected to the robot, return a disconnected status
+  if (!isRobotConnected()) {
+    return {
+      grid: [],
+      obstacles: [],
+      paths: [],
+      connectionStatus: 'disconnected'
+    };
+  }
+  
   const mapData = robotDataCache.map.get(serialNumber);
   
   if (!mapData) {
-    // We don't have map data yet
-    return null;
+    // We don't have map data yet, but we are connected
+    return {
+      grid: [],
+      obstacles: [],
+      paths: [],
+      connectionStatus: 'connecting'
+    };
   }
   
   // Transform from robot format to our API format
   return {
     grid: mapData.data || [],
     obstacles: [], // Not yet implemented - we'd need to extract obstacles from the map data
-    paths: [] // Not yet implemented - we'd need to get path data from a different topic
+    paths: [], // Not yet implemented - we'd need to get path data from a different topic
+    connectionStatus: 'connected'
   };
 }
 
@@ -482,11 +576,38 @@ export function getRobotCameraData(serialNumber: string) {
     return null;
   }
   
+  // If we're not connected to the robot, return a disconnected status
+  if (!isRobotConnected()) {
+    return {
+      enabled: false,
+      streamUrl: `/api/robot-video-frame/${serialNumber}`,
+      resolution: {
+        width: 640,
+        height: 480
+      },
+      rotation: 0,
+      nightVision: false,
+      timestamp: new Date().toISOString(),
+      connectionStatus: 'disconnected'
+    };
+  }
+  
   const cameraData = robotDataCache.camera.get(serialNumber);
   
   if (!cameraData) {
-    // We don't have camera data yet
-    return null;
+    // We don't have camera data yet, but we are connected
+    return {
+      enabled: false,
+      streamUrl: `/api/robot-video-frame/${serialNumber}`,
+      resolution: {
+        width: 640,
+        height: 480
+      },
+      rotation: 0,
+      nightVision: false,
+      timestamp: new Date().toISOString(),
+      connectionStatus: 'connecting'
+    };
   }
   
   // Transform from robot format to our API format
@@ -499,7 +620,8 @@ export function getRobotCameraData(serialNumber: string) {
     },
     rotation: 0,
     nightVision: false,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    connectionStatus: 'connected'
   };
 }
 

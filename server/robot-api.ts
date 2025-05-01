@@ -110,22 +110,19 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Get status from WebSocket cache
+      // Get status from WebSocket cache - the updated function now always returns a status
+      // with connectionStatus property that can be 'connected', 'connecting', or 'disconnected'
       const status = getRobotStatus(serialNumber);
       
       if (status) {
+        // Always return the status - it will contain connection state information
         res.json(status);
       } else {
-        // If we don't have any data yet, check if the robot is connected
-        if (!isRobotConnected()) {
-          return res.status(503).json({ 
-            error: 'Robot not connected', 
-            message: 'The robot is not currently connected. Please check the connection.'
-          });
-        }
-        
-        // Return a 404 if the robot is not found
-        return res.status(404).json({ error: 'Robot status not available' });
+        // This should never happen now, but keeping as a fallback
+        return res.status(503).json({ 
+          error: 'Robot not available', 
+          message: 'The robot is not available. Please check the system configuration.'
+        });
       }
     } catch (error) {
       console.error('Error fetching robot status:', error);
@@ -193,22 +190,19 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Get position from WebSocket cache
+      // Get position from WebSocket cache - the updated function now always returns a position object
+      // with connectionStatus property that can be 'connected', 'connecting', or 'disconnected'
       const position = getRobotPosition(serialNumber);
       
       if (position) {
+        // Always return the position - it will contain connection state information
         res.json(position);
       } else {
-        // If we don't have any data yet, check if the robot is connected
-        if (!isRobotConnected()) {
-          return res.status(503).json({ 
-            error: 'Robot not connected', 
-            message: 'The robot is not currently connected. Please check the connection.'
-          });
-        }
-        
-        // Return a 404 if the robot is not found
-        return res.status(404).json({ error: 'Robot position not available' });
+        // This should never happen now, but keeping as a fallback
+        return res.status(503).json({ 
+          error: 'Robot not available', 
+          message: 'The robot is not available. Please check the system configuration.'
+        });
       }
     } catch (error) {
       console.error('Error fetching robot position:', error);
@@ -272,22 +266,19 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Get sensor data from WebSocket cache
+      // Get sensor data from WebSocket cache - the updated function now always returns a data object
+      // with connectionStatus property that can be 'connected', 'connecting', or 'disconnected'
       const sensorData = getRobotSensorData(serialNumber);
       
       if (sensorData) {
+        // Always return the sensor data - it will contain connection state information
         res.json(sensorData);
       } else {
-        // If we don't have any data yet, check if the robot is connected
-        if (!isRobotConnected()) {
-          return res.status(503).json({ 
-            error: 'Robot not connected', 
-            message: 'The robot is not currently connected. Please check the connection.'
-          });
-        }
-        
-        // Return a 404 if the robot is not found
-        return res.status(404).json({ error: 'Robot sensor data not available' });
+        // This should never happen now, but keeping as a fallback
+        return res.status(503).json({ 
+          error: 'Robot not available', 
+          message: 'The robot is not available. Please check the system configuration.'
+        });
       }
     } catch (error) {
       console.error('Error fetching robot sensor data:', error);
