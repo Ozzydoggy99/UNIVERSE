@@ -60,10 +60,15 @@ interface RobotPosition {
 
 interface RobotSensorData {
   temperature: number;
-  humidity: number;
-  proximity: number[];
+  voltage?: number;
+  current?: number;
   battery: number;
+  power_supply_status?: string;
   timestamp: string;
+  charging?: boolean;
+  connectionStatus?: string;
+  humidity?: number;
+  proximity?: number[];
 }
 
 export default function RobotDetails() {
