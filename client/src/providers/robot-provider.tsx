@@ -60,60 +60,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
     // Use our publicly accessible robot serial number for direct data access
     const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
     
-    // Create default data if there's an error
-    const createDefaultRobotStatus = () => ({
-      model: 'AxBot 5000',
-      serialNumber: PUBLIC_ROBOT_SERIAL,
-      battery: 80,
-      status: 'online',
-      mode: 'ready',
-      lastUpdate: new Date().toISOString()
-    });
-    
-    const createDefaultPosition = () => ({
-      x: 150,
-      y: 95,
-      z: 0,
-      orientation: 180,
-      speed: 0,
-      timestamp: new Date().toISOString()
-    });
-    
-    const createDefaultSensorData = () => ({
-      temperature: 22,
-      humidity: 45,
-      proximity: [20, 30, 25, 15],
-      battery: 80,
-      light: 500,
-      noise: 30,
-      timestamp: new Date().toISOString()
-    });
-    
-    const createDefaultMapData = () => ({
-      grid: [],
-      obstacles: [],
-      paths: [{
-        points: [
-          { x: 0, y: 0, z: 0 },
-          { x: 1, y: 1, z: 0 },
-          { x: 2, y: 0, z: 0 }
-        ],
-        status: 'completed'
-      }]
-    });
-    
-    const createDefaultCameraData = () => ({
-      enabled: true,
-      streamUrl: `${window.location.protocol}//${window.location.host}/api/camera-stream/${PUBLIC_ROBOT_SERIAL}`,
-      resolution: {
-        width: 1280,
-        height: 720
-      },
-      rotation: 0,
-      nightVision: true,
-      timestamp: new Date().toISOString()
-    });
-    
+    // Only use real data from the robot, no mock or fallback data
     let status = null;
     let position = null;
     let sensorData = null;
@@ -121,7 +68,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
     let camera = null;
     let fetchSuccess = false;
     
-    // First try to access the public robot
+    // Try to access the physical robot
     try {
       // Get status
       try {
@@ -129,7 +76,6 @@ export function RobotProvider({ children }: RobotProviderProps) {
         fetchSuccess = true;
       } catch (statusError) {
         console.warn("Could not fetch robot status:", statusError);
-        status = createDefaultRobotStatus();
       }
       
       // Get position
@@ -137,7 +83,6 @@ export function RobotProvider({ children }: RobotProviderProps) {
         position = await getRobotPosition(PUBLIC_ROBOT_SERIAL);
       } catch (positionError) {
         console.warn("Could not fetch robot position:", positionError);
-        position = createDefaultPosition();
       }
       
       // Get sensor data
@@ -145,7 +90,6 @@ export function RobotProvider({ children }: RobotProviderProps) {
         sensorData = await getRobotSensorData(PUBLIC_ROBOT_SERIAL);
       } catch (sensorError) {
         console.warn("Could not fetch robot sensor data:", sensorError);
-        sensorData = createDefaultSensorData();
       }
       
       // Get map data
@@ -153,7 +97,6 @@ export function RobotProvider({ children }: RobotProviderProps) {
         map = await getMapData(PUBLIC_ROBOT_SERIAL);
       } catch (mapError) {
         console.warn("Could not fetch robot map data:", mapError);
-        map = createDefaultMapData();
       }
       
       // Also fetch camera data
@@ -161,19 +104,11 @@ export function RobotProvider({ children }: RobotProviderProps) {
         camera = await getRobotCameraData(PUBLIC_ROBOT_SERIAL);
       } catch (cameraError) {
         console.warn("Camera data not available:", cameraError);
-        camera = createDefaultCameraData();
       }
       
       console.log("Fetched robot data for", PUBLIC_ROBOT_SERIAL);
     } catch (error) {
       console.error("Error fetching robot data:", error);
-      
-      // Use defaults if we couldn't get any real data
-      status = status || createDefaultRobotStatus();
-      position = position || createDefaultPosition();
-      sensorData = sensorData || createDefaultSensorData();
-      map = map || createDefaultMapData();
-      camera = camera || createDefaultCameraData();
     }
     
     // Set all the data we managed to get or create
@@ -318,65 +253,13 @@ export function RobotProvider({ children }: RobotProviderProps) {
     // Use our publicly accessible robot serial number for direct access
     const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
     
-    // Create fallback camera data
-    const createFallbackCameraData = (enabled: boolean) => ({
-      enabled: enabled,
-      streamUrl: enabled ? 
-        `${window.location.protocol}//${window.location.host}/api/camera-stream/${PUBLIC_ROBOT_SERIAL}` : 
-        '',
-      resolution: {
-        width: 1280,
-        height: 720
-      },
-      rotation: 0,
-      nightVision: true,
-      timestamp: new Date().toISOString()
-    });
-    
     try {
-      // First try the public robot
-      try {
-        const response = await toggleRobotCamera(PUBLIC_ROBOT_SERIAL, enabled);
-        setCameraData(response);
-        
-        // If we're enabling the camera, also update the status to reflect this
-        if (robotStatus && enabled !== (robotStatus.cameraEnabled || false)) {
-          setRobotStatus({
-            ...robotStatus,
-            cameraEnabled: enabled
-          });
-        }
-        
-        updateTimestamp();
-        console.log(`Successfully toggled robot camera to: ${enabled ? 'enabled' : 'disabled'}`);
-        return; // Exit early if successful
-      } catch (error) {
-        console.warn("Could not toggle robot camera via API:", error);
-        
-        // Create fallback data to ensure UI still works
-        const fallbackCameraData = createFallbackCameraData(enabled);
-        setCameraData(fallbackCameraData);
-        
-        // Update the status to reflect camera state
-        if (robotStatus) {
-          setRobotStatus({
-            ...robotStatus,
-            cameraEnabled: enabled
-          });
-        }
-        
-        updateTimestamp();
-        console.log(`Using fallback camera data to set camera to: ${enabled ? 'enabled' : 'disabled'}`);
-      }
-    } catch (error) {
-      console.error("Error toggling camera:", error);
+      // Try to use the real robot API
+      const response = await toggleRobotCamera(PUBLIC_ROBOT_SERIAL, enabled);
+      setCameraData(response);
       
-      // Even if everything fails, ensure the UI gets updated
-      const fallbackCameraData = createFallbackCameraData(enabled);
-      setCameraData(fallbackCameraData);
-      
-      // Update the status to reflect camera state
-      if (robotStatus) {
+      // If we're enabling the camera, also update the status to reflect this
+      if (robotStatus && enabled !== (robotStatus.cameraEnabled || false)) {
         setRobotStatus({
           ...robotStatus,
           cameraEnabled: enabled
@@ -384,6 +267,10 @@ export function RobotProvider({ children }: RobotProviderProps) {
       }
       
       updateTimestamp();
+      console.log(`Successfully toggled robot camera to: ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error("Error toggling camera:", error);
+      // No fallback data - only use real robot data
     }
   };
 

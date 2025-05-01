@@ -73,15 +73,29 @@ export default function RobotDetails() {
   
   const [activeTab, setActiveTab] = useState('map');
 
+  // Define types for our data
+  interface RobotAssignment {
+    id: number;
+    serialNumber: string;
+    name: string;
+    templateId: number | null;
+  }
+  
+  interface RobotTemplate {
+    id: number;
+    name: string;
+    description: string;
+  }
+  
   // Fetch robot template assignment
-  const { data: assignment, isLoading: assignmentLoading } = useQuery({
+  const { data: assignment, isLoading: assignmentLoading } = useQuery<RobotAssignment>({
     queryKey: ['/api/robot-assignments/by-serial', serialNumber],
     enabled: !!serialNumber,
     refetchInterval: 60000, // Refresh every minute
   });
 
   // Fetch template
-  const { data: template, isLoading: templateLoading } = useQuery({
+  const { data: template, isLoading: templateLoading } = useQuery<RobotTemplate>({
     queryKey: ['/api/templates', assignment?.templateId],
     enabled: !!assignment?.templateId,
   });
@@ -116,8 +130,18 @@ export default function RobotDetails() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
+  // Define MapData type
+  interface MapData {
+    grid: any[];
+    obstacles: { x: number; y: number; z: number }[];
+    paths: {
+      points: { x: number; y: number; z: number }[];
+      status: string;
+    }[];
+  }
+  
   // Fetch map data
-  const { data: mapData, isLoading: mapLoading } = useQuery({
+  const { data: mapData, isLoading: mapLoading } = useQuery<MapData>({
     queryKey: ['/api/robots/map', serialNumber],
     enabled: !!serialNumber,
     refetchInterval: 15000, // Refresh every 15 seconds
@@ -160,58 +184,38 @@ export default function RobotDetails() {
     );
   }
 
-  // Use mock data for development if needed
-  const mockStatus: RobotStatus = {
-    model: 'AxBot 2000',
-    serialNumber: serialNumber || 'AX-2000-1',
-    battery: 78,
-    status: 'active',
-    mode: 'autonomous',
+  // Only use real data from the robot
+  const status = robotStatus || {
+    model: 'Unknown',
+    serialNumber: serialNumber || 'Unknown',
+    battery: 0,
+    status: 'unknown',
+    mode: 'unknown',
     lastUpdate: new Date().toISOString()
   };
-
-  const mockPosition: RobotPosition = {
-    x: 120,
-    y: 80,
+  
+  const position = robotPosition || {
+    x: 0,
+    y: 0,
     z: 0,
-    orientation: 90,
-    speed: 1.2,
+    orientation: 0,
+    speed: 0,
     timestamp: new Date().toISOString()
   };
-
-  const mockSensorData: RobotSensorData = {
-    temperature: 23.5,
-    humidity: 48,
-    proximity: [0.5, 1.2, 2.5, 1.8],
-    battery: 78,
+  
+  const sensors = sensorData || {
+    temperature: 0,
+    humidity: 0,
+    proximity: [],
+    battery: 0,
     timestamp: new Date().toISOString()
   };
-
-  const mockMapData = {
+  
+  const mapDataToUse = mapData || {
     grid: [],
-    obstacles: [
-      { x: 50, y: 50, z: 0 },
-      { x: 100, y: 120, z: 0 },
-      { x: 200, y: 80, z: 0 }
-    ],
-    paths: [
-      {
-        points: [
-          { x: 50, y: 50, z: 0 },
-          { x: 75, y: 75, z: 0 },
-          { x: 100, y: 100, z: 0 },
-          { x: 120, y: 80, z: 0 }
-        ],
-        status: 'active'
-      }
-    ]
+    obstacles: [],
+    paths: []
   };
-
-  // Use actual data if available, otherwise use mock data
-  const status = robotStatus || mockStatus;
-  const position = robotPosition || mockPosition;
-  const sensors = sensorData || mockSensorData;
-  const mapDataToUse = mapData || mockMapData;
 
   // Format time difference
   const formatTimeSince = (timestamp: string) => {
