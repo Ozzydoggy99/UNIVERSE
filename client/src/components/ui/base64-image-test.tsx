@@ -43,6 +43,35 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
     refetchInterval: 1000, // Refresh every second for real-time tracking
   });
   
+  // Function to convert robot position to pixel coordinates on the map
+  const convertPositionToPixels = (x: number, y: number): { pixelX: number, pixelY: number } => {
+    try {
+      // The map origin is at the bottom left of the image, but in the DOM, (0,0) is at the top left
+      // So we need to flip the Y coordinate
+      
+      // Check if we have all the required data
+      if (!mapMetadata.resolution || !mapMetadata.origin || !mapMetadata.size) {
+        console.warn('Missing map metadata for conversion:', mapMetadata);
+        return { pixelX: 0, pixelY: 0 };
+      }
+      
+      // Calculate pixels from physical coordinates
+      // Step 1: Adjust for map origin offset
+      const adjustedX = x - mapMetadata.origin[0];
+      const adjustedY = y - mapMetadata.origin[1];
+      
+      // Step 2: Convert to pixel coordinates using resolution
+      // Note: we need to invert the Y axis since image coordinates have (0,0) at top-left
+      const pixelX = adjustedX / mapMetadata.resolution;
+      const pixelY = mapMetadata.size[1] - (adjustedY / mapMetadata.resolution);
+      
+      return { pixelX, pixelY };
+    } catch (error) {
+      console.error('Error converting position to pixels:', error);
+      return { pixelX: 0, pixelY: 0 };
+    }
+  };
+  
   // Update robot position when position data changes
   useEffect(() => {
     if (positionData) {
@@ -64,6 +93,12 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
         if (response.ok) {
           const data = await response.json();
           
+          // Log all data for debugging
+          console.log('Full map data from server:', {
+            ...data,
+            grid: data.grid ? `${data.grid.substring(0, 20)}... (${data.grid.length} chars)` : null
+          });
+          
           // Check for valid base64 data
           if (data?.grid && typeof data.grid === 'string' && data.grid.startsWith('iVBOR')) {
             console.log('Got base64 map data directly, length:', data.grid.length);
@@ -71,6 +106,12 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
             
             // Also save the map metadata for positioning
             if (data.resolution && data.origin && data.size) {
+              console.log('Map metadata received:', {
+                resolution: data.resolution,
+                origin: data.origin,
+                size: data.size
+              });
+              
               setMapMetadata({
                 resolution: data.resolution, 
                 origin: data.origin as [number, number],
@@ -107,7 +148,19 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
         
         if (response.ok) {
           const data = await response.json();
-          setRobotPosition(data);
+          console.log('Robot position data:', data);
+          
+          if (data && typeof data.x === 'number' && typeof data.y === 'number') {
+            // Calculate pixel coordinates for debugging
+            const pixels = convertPositionToPixels(data.x, data.y);
+            console.log('Converted to pixel coordinates:', pixels);
+            
+            setRobotPosition(data);
+          } else {
+            console.warn('Invalid position data structure:', data);
+          }
+        } else {
+          console.error('Failed to fetch position data:', response.status);
         }
       } catch (error) {
         console.error('Error getting robot position:', error);
@@ -135,26 +188,8 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
     setImageError('Failed to load image from base64 data');
   };
 
-  // Function to convert robot position to pixel coordinates on the map
-  const convertPositionToPixels = (x: number, y: number): { pixelX: number, pixelY: number } => {
-    // The map origin is at the bottom left of the image, but in the DOM, (0,0) is at the top left
-    // So we need to flip the Y coordinate
-    
-    // Calculate pixels from physical coordinates
-    // Step 1: Adjust for map origin offset
-    const adjustedX = x - mapMetadata.origin[0];
-    const adjustedY = y - mapMetadata.origin[1];
-    
-    // Step 2: Convert to pixel coordinates using resolution
-    // Note: we need to invert the Y axis since image coordinates have (0,0) at top-left
-    const pixelX = adjustedX / mapMetadata.resolution;
-    const pixelY = mapMetadata.size[1] - (adjustedY / mapMetadata.resolution);
-    
-    return { pixelX, pixelY };
-  };
-  
-  // Calculate robot marker position
-  const robotMarkerPosition = robotPosition ? 
+  // Calculate robot marker position with safety checks
+  const robotMarkerPosition = robotPosition && robotPosition.x !== undefined ? 
     convertPositionToPixels(robotPosition.x, robotPosition.y) : 
     { pixelX: 0, pixelY: 0 };
 
@@ -163,7 +198,7 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
       <CardHeader>
         <CardTitle>Robot Map with Real-time Position</CardTitle>
         <CardDescription>
-          {robotPosition && (
+          {robotPosition && robotPosition.x !== undefined && (
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="outline" className="bg-green-50">
                 Robot Position: X: {robotPosition.x.toFixed(4)}, Y: {robotPosition.y.toFixed(4)}
@@ -212,14 +247,14 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
               />
               
               {/* Robot position marker */}
-              {robotPosition && (
+              {robotPosition && robotPosition.x !== undefined && (
                 <div 
                   className="absolute pointer-events-none"
                   style={{
                     // Position the robot marker - adjust as needed based on the marker's size
                     left: `calc(${robotMarkerPosition.pixelX}px - 10px)`,
                     top: `calc(${robotMarkerPosition.pixelY}px - 10px)`,
-                    transform: `rotate(${robotPosition.orientation}rad)`,
+                    transform: `rotate(${robotPosition.orientation || 0}rad)`,
                     transition: 'all 0.5s ease-out',
                   }}
                 >
