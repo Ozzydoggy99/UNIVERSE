@@ -50,6 +50,7 @@ export default function RobotHub() {
     switch (status.toLowerCase()) {
       case 'active':
       case 'running':
+      case 'online':
         return 'bg-green-500';
       case 'idle':
         return 'bg-blue-500';
@@ -59,6 +60,8 @@ export default function RobotHub() {
         return 'bg-amber-500';
       case 'charging':
         return 'bg-purple-500';
+      case 'offline':
+        return 'bg-red-500';
       default:
         return 'bg-gray-500';
     }
