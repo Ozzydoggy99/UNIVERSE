@@ -106,7 +106,7 @@ interface MapPath {
 }
 
 export interface MapData {
-  grid: any[];
+  grid: any[] | string; // Can be an array of grid values or a base64 string for encoded map
   obstacles: MapPoint[];
   paths: MapPath[];
   size?: [number, number];
@@ -293,7 +293,9 @@ export function Map({
     // Check if we have any map data
     const hasObstacles = obstacles.length > 0;
     const hasPaths = paths.length > 0;
-    const hasGridData = mapData.grid && mapData.grid.length > 0;
+    const hasGridData = mapData.grid && 
+      ((typeof mapData.grid === 'string' && mapData.grid.length > 0) || 
+       (Array.isArray(mapData.grid) && mapData.grid.length > 0));
     const hasMapData = hasObstacles || hasPaths || hasGridData;
   
     // Draw map background
@@ -364,20 +366,77 @@ export function Map({
     // We have map data, calculate transformations
     const { transformX, transformY, scale } = calculateTransforms(canvas, mapData, robotPosition);
     
-    // Draw the grid as a heatmap if we have grid data
+    // Draw the grid based on the type of data we have
     if (hasGridData && mapData.size && mapData.resolution && mapData.origin) {
-      const [width, height] = mapData.size;
-      const resolution = mapData.resolution;
-      
-      // Create a custom colormap for the grid data
-      const colormap = (value: number) => {
-        if (value < 0) return 'rgba(255, 0, 0, 0.5)';  // Red for negative values (occupied)
-        if (value > 0) return 'rgba(0, 255, 0, 0.2)';  // Green for positive values (free)
-        return 'rgba(200, 200, 200, 0.1)';             // Gray for unknown
-      };
-      
-      // Draw the grid cells
-      if (mapData.grid) {
+      // Check if the grid data is a base64 encoded image from the physical robot
+      if (typeof mapData.grid === 'string' && mapData.grid.startsWith('iVBOR')) {
+        console.log('Rendering base64 encoded PNG map from physical robot');
+        
+        // Create an image element to load the base64 data
+        const img = new Image();
+        img.onload = () => {
+          if (!ctx || !canvasRef.current) return;
+          
+          // Once the image is loaded, draw it on the canvas
+          const canvas = canvasRef.current;
+          
+          // Clear the background
+          ctx.fillStyle = '#e9f7ef';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Get map dimensions
+          const [width, height] = mapData.size;
+          const resolution = mapData.resolution;
+          
+          // Calculate world size in meters
+          const worldWidth = width * resolution;
+          const worldHeight = height * resolution;
+          
+          // Calculate the scale to fit the image in the canvas
+          // while maintaining aspect ratio
+          const scaleX = canvas.width / worldWidth;
+          const scaleY = canvas.height / worldHeight;
+          const imageScale = Math.min(scaleX, scaleY) * 0.9; // 90% to add margin
+          
+          // Calculate centered position
+          const x = (canvas.width - worldWidth * imageScale) / 2;
+          const y = (canvas.height - worldHeight * imageScale) / 2;
+          
+          // Draw the image - we need to flip it to match the coordinate system
+          ctx.save();
+          
+          // Translate to get the origin at the bottom left
+          ctx.translate(x, y + worldHeight * imageScale); 
+          
+          // Flip the y-axis
+          ctx.scale(1, -1); 
+          
+          // Draw the image
+          ctx.drawImage(img, 0, 0, worldWidth * imageScale, worldHeight * imageScale);
+          
+          ctx.restore();
+          
+          // Draw the robot, obstacles, and paths on top
+          // These will be handled by the code below
+          drawRobotAndPaths();
+        };
+        
+        // Set the source of the image to the base64 data
+        img.src = `data:image/png;base64,${mapData.grid}`;
+      } 
+      // Draw numeric grid data (traditional array)
+      else if (Array.isArray(mapData.grid)) {
+        const [width, height] = mapData.size;
+        const resolution = mapData.resolution;
+        
+        // Create a custom colormap for the grid data
+        const colormap = (value: number) => {
+          if (value < 0) return 'rgba(255, 0, 0, 0.5)';  // Red for negative values (occupied)
+          if (value > 0) return 'rgba(0, 255, 0, 0.2)';  // Green for positive values (free)
+          return 'rgba(200, 200, 200, 0.1)';             // Gray for unknown
+        };
+        
+        // Draw the grid cells
         for (let i = 0; i < width; i++) {
           for (let j = 0; j < height; j++) {
             const idx = j * width + i;
@@ -401,35 +460,45 @@ export function Map({
             }
           }
         }
+        
+        // Draw robot and paths immediately since we don't need to wait for image loading
+        drawRobotAndPaths();
       }
+    } else {
+      // No grid data, just draw robot and paths immediately
+      drawRobotAndPaths();
     }
     
-    // Draw obstacles
-    ctx.fillStyle = '#f44336';
-    obstacles.forEach(obstacle => {
-      const x = transformX(obstacle.x);
-      const y = transformY(obstacle.y);
-      
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // If editing, highlight the current point
-      if (isEditing && currentPoint && 
-          obstacle.x === currentPoint.x && 
-          obstacle.y === currentPoint.y && 
-          obstacle.z === currentPoint.z) {
-        ctx.strokeStyle = '#f44336';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x, y, 8, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    });
+    // Helper function to draw robot and paths - extracted to avoid code duplication
+    function drawRobotAndPaths() {
+      if (!ctx) return;
     
-    // Draw paths
-    paths.forEach((path, pathIndex) => {
-      if (path.points.length > 0) {
+      // Draw obstacles
+      ctx.fillStyle = '#f44336';
+      obstacles.forEach(obstacle => {
+        const x = transformX(obstacle.x);
+        const y = transformY(obstacle.y);
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // If editing, highlight the current point
+        if (isEditing && currentPoint && 
+            obstacle.x === currentPoint.x && 
+            obstacle.y === currentPoint.y && 
+            obstacle.z === currentPoint.z) {
+          ctx.strokeStyle = '#f44336';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(x, y, 8, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      });
+    
+      // Draw paths
+      paths.forEach((path, pathIndex) => {
+        if (path.points.length > 0) {
         // Choose color based on path status
         let pathColor = '#3f51b5';  // Default blue
         if (path.status === 'completed') {
