@@ -1,15 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
 import { MapData } from './map-fixed';
+import { MapPin, Navigation } from 'lucide-react';
 
-// Simple component to test rendering a base64 image from the robot's map data
+// Interface for robot position data
+interface RobotPosition {
+  x: number;
+  y: number;
+  z: number;
+  orientation: number;
+  speed: number;
+  timestamp: string;
+}
+
+// Enhanced component to render base64 image map with robot position overlay
 export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNumber?: string }) {
   const [imageData, setImageData] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [mapMetadata, setMapMetadata] = useState<{resolution: number, origin: [number, number], size: [number, number]}>({
+    resolution: 0.05,
+    origin: [0, 0],
+    size: [0, 0]
+  });
+  const [robotPosition, setRobotPosition] = useState<RobotPosition | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   
-  // Fetch map data from the API
+  // Fetch map data from the API (kept for compatibility)
   const { data: mapData, isLoading } = useQuery<MapData>({
     queryKey: ['/api/robots/map', serialNumber],
     enabled: !!serialNumber,
@@ -17,7 +36,21 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
     placeholderData: {} as MapData, // Provide empty placeholder to prevent TypeScript errors
   });
   
-  // Make a direct API call to get the raw map data
+  // Fetch robot position data
+  const { data: positionData } = useQuery<RobotPosition>({
+    queryKey: ['/api/robots/position', serialNumber],
+    enabled: !!serialNumber,
+    refetchInterval: 1000, // Refresh every second for real-time tracking
+  });
+  
+  // Update robot position when position data changes
+  useEffect(() => {
+    if (positionData) {
+      setRobotPosition(positionData);
+    }
+  }, [positionData]);
+
+  // Make a direct API call to get the raw map data and metadata
   useEffect(() => {
     const fetchMapDirectly = async () => {
       try {
@@ -30,12 +63,20 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
         
         if (response.ok) {
           const data = await response.json();
-          console.log('Directly fetched map data:', data);
           
           // Check for valid base64 data
           if (data?.grid && typeof data.grid === 'string' && data.grid.startsWith('iVBOR')) {
             console.log('Got base64 map data directly, length:', data.grid.length);
             setImageData(data.grid.trim());
+            
+            // Also save the map metadata for positioning
+            if (data.resolution && data.origin && data.size) {
+              setMapMetadata({
+                resolution: data.resolution, 
+                origin: data.origin as [number, number],
+                size: data.size as [number, number]
+              });
+            }
           } else {
             console.log('Direct API call - No valid base64 data:', {
               hasData: !!data,
@@ -55,14 +96,37 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
       }
     };
     
-    // Fetch map data directly
+    // Also fetch the position data directly
+    const fetchPositionDirectly = async () => {
+      try {
+        const response = await fetch(`/api/robots/position/${serialNumber}`, {
+          headers: {
+            'Secret': import.meta.env.VITE_ROBOT_SECRET as string || '',
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setRobotPosition(data);
+        }
+      } catch (error) {
+        console.error('Error getting robot position:', error);
+      }
+    };
+    
+    // Fetch data directly
     fetchMapDirectly();
+    fetchPositionDirectly();
     
-    // Set up interval to refresh every 10 seconds
-    const intervalId = setInterval(fetchMapDirectly, 10000);
+    // Set up intervals for refreshing
+    const mapIntervalId = setInterval(fetchMapDirectly, 10000);
+    const positionIntervalId = setInterval(fetchPositionDirectly, 1000);
     
-    // Clean up interval on component unmount
-    return () => clearInterval(intervalId);
+    // Clean up intervals on component unmount
+    return () => {
+      clearInterval(mapIntervalId);
+      clearInterval(positionIntervalId);
+    };
   }, [serialNumber]);
 
   // Handle image load error
@@ -71,10 +135,45 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
     setImageError('Failed to load image from base64 data');
   };
 
+  // Function to convert robot position to pixel coordinates on the map
+  const convertPositionToPixels = (x: number, y: number): { pixelX: number, pixelY: number } => {
+    // The map origin is at the bottom left of the image, but in the DOM, (0,0) is at the top left
+    // So we need to flip the Y coordinate
+    
+    // Calculate pixels from physical coordinates
+    // Step 1: Adjust for map origin offset
+    const adjustedX = x - mapMetadata.origin[0];
+    const adjustedY = y - mapMetadata.origin[1];
+    
+    // Step 2: Convert to pixel coordinates using resolution
+    // Note: we need to invert the Y axis since image coordinates have (0,0) at top-left
+    const pixelX = adjustedX / mapMetadata.resolution;
+    const pixelY = mapMetadata.size[1] - (adjustedY / mapMetadata.resolution);
+    
+    return { pixelX, pixelY };
+  };
+  
+  // Calculate robot marker position
+  const robotMarkerPosition = robotPosition ? 
+    convertPositionToPixels(robotPosition.x, robotPosition.y) : 
+    { pixelX: 0, pixelY: 0 };
+
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Map Base64 Image Test</CardTitle>
+        <CardTitle>Robot Map with Real-time Position</CardTitle>
+        <CardDescription>
+          {robotPosition && (
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="outline" className="bg-green-50">
+                Robot Position: X: {robotPosition.x.toFixed(4)}, Y: {robotPosition.y.toFixed(4)}
+              </Badge>
+              <Badge variant="outline" className="bg-blue-50">
+                Orientation: {(robotPosition.orientation * (180/Math.PI)).toFixed(1)}°
+              </Badge>
+            </div>
+          )}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -95,18 +194,38 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
             
             <div className="bg-slate-100 p-4 rounded-md">
               <div className="font-mono text-sm overflow-hidden text-ellipsis">
-                <p>Base64 data length: {imageData.length}</p>
-                <p>Starting characters: {imageData.substring(0, 30)}...</p>
+                <p>Map resolution: {mapMetadata.resolution} m/pixel</p>
+                <p>Map size: {mapMetadata.size[0]} x {mapMetadata.size[1]} pixels</p>
               </div>
             </div>
             
-            <div className="border rounded-md overflow-hidden h-[400px] flex items-center justify-center">
+            <div 
+              ref={mapContainerRef}
+              className="border rounded-md overflow-hidden h-[500px] relative flex items-center justify-center"
+            >
+              {/* Map background image */}
               <img 
                 src={`data:image/png;base64,${imageData}`}
                 alt="Robot map data" 
                 className="max-w-full max-h-full"
                 onError={handleImageError}
               />
+              
+              {/* Robot position marker */}
+              {robotPosition && (
+                <div 
+                  className="absolute pointer-events-none"
+                  style={{
+                    // Position the robot marker - adjust as needed based on the marker's size
+                    left: `calc(${robotMarkerPosition.pixelX}px - 10px)`,
+                    top: `calc(${robotMarkerPosition.pixelY}px - 10px)`,
+                    transform: `rotate(${robotPosition.orientation}rad)`,
+                    transition: 'all 0.5s ease-out',
+                  }}
+                >
+                  <Navigation className="h-5 w-5 text-green-600" />
+                </div>
+              )}
             </div>
           </div>
         )}
