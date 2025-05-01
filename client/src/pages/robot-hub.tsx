@@ -123,16 +123,21 @@ export default function RobotHub() {
           Physical Robot (Live Connection)
         </h2>
         
-        <Card className="border-2 border-primary cursor-pointer hover:shadow-lg transition-shadow"
+        <Card className={`border-2 ${physicalRobotStatus ? 'border-primary' : 'border-red-500'} cursor-pointer hover:shadow-lg transition-shadow`}
               onClick={() => handleRobotCardClick(physicalRobotInfo.serialNumber)}>
-          <CardHeader className="pb-2 bg-primary/10">
+          {!physicalRobotStatus && (
+            <div className="absolute right-0 left-0 top-0 bg-red-500 text-white px-4 py-1 text-sm font-medium text-center">
+              Robot Offline - Connection Issues
+            </div>
+          )}
+          <CardHeader className={`pb-2 ${physicalRobotStatus ? 'bg-primary/10' : 'bg-red-500/10'}`}>
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Bot className="h-5 w-5 text-primary" />
+                <Bot className={`h-5 w-5 ${physicalRobotStatus ? 'text-primary' : 'text-red-500'}`} />
                 {physicalRobotInfo.model}
               </CardTitle>
               <Badge className={getStatusColor(physicalRobotStatus?.status)}>
-                {physicalRobotStatus?.status?.toUpperCase() || 'CONNECTING...'}
+                {physicalRobotStatus?.status?.toUpperCase() || 'OFFLINE'}
               </Badge>
             </div>
           </CardHeader>
@@ -146,8 +151,8 @@ export default function RobotHub() {
                 
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Status</div>
-                  <div className="font-medium">
-                    {physicalRobotStatus?.mode || 'Connecting...'}
+                  <div className={`font-medium ${!physicalRobotStatus && 'text-red-500'}`}>
+                    {physicalRobotStatus?.mode || 'Unable to establish connection'}
                   </div>
                 </div>
                 
@@ -219,8 +224,8 @@ export default function RobotHub() {
           </CardContent>
           <CardFooter className="border-t pt-3 flex justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <span className="flex h-2 w-2 rounded-full bg-green-500"></span>
-              <span>Live Data Connected</span>
+              <span className={`flex h-2 w-2 rounded-full ${physicalRobotStatus ? 'bg-green-500' : 'bg-red-500'}`}></span>
+              <span>{physicalRobotStatus ? 'Live Data Connected' : 'Connection Failed'}</span>
             </div>
             <div className="flex items-center gap-1">
               <Map className="h-3 w-3" />

@@ -74,7 +74,15 @@ export function RobotH264Stream({
   // Handle image load error
   const handleImageError = () => {
     setIsLoading(false);
-    setError('Could not load camera feed. The camera may be disabled or unavailable.');
+    setError('Camera feed unavailable. The robot may be disconnected or the camera is turned off.');
+    
+    // Try again after a few seconds
+    setTimeout(() => {
+      if (serialNumber && !error) {
+        setTimestamp(Date.now());
+        setImageUrl(`/api/robot-video-frame/${serialNumber}?t=${Date.now()}`);
+      }
+    }, 5000);
   };
 
   return (

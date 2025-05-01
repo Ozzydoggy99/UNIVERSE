@@ -59,63 +59,64 @@ export function RobotProvider({ children }: RobotProviderProps) {
     // Use our publicly accessible robot serial number for direct data access
     const PUBLIC_ROBOT_SERIAL = 'L382502104987ir';
     
-    // Only use real data from the robot, no mock or fallback data
-    let status = null;
-    let position = null;
-    let sensorData = null;
-    let map = null;
-    let camera = null;
+    // Track if we successfully fetched any data
     let fetchSuccess = false;
     
-    // Try to access the physical robot
     try {
-      // Get status
-      try {
-        status = await getRobotStatus(PUBLIC_ROBOT_SERIAL);
+      // Use Promise.allSettled to handle multiple API calls gracefully
+      const results = await Promise.allSettled([
+        getRobotStatus(PUBLIC_ROBOT_SERIAL),
+        getRobotPosition(PUBLIC_ROBOT_SERIAL),
+        getRobotSensorData(PUBLIC_ROBOT_SERIAL),
+        getMapData(PUBLIC_ROBOT_SERIAL),
+        getRobotCameraData(PUBLIC_ROBOT_SERIAL)
+      ]);
+      
+      // Process results from each API call
+      if (results[0].status === 'fulfilled' && results[0].value) {
+        setRobotStatus(results[0].value);
         fetchSuccess = true;
-      } catch (statusError) {
-        console.warn("Could not fetch robot status:", statusError);
+      } else if (results[0].status === 'rejected') {
+        console.error("Error fetching status for robot " + PUBLIC_ROBOT_SERIAL + ":", results[0].reason);
       }
       
-      // Get position
-      try {
-        position = await getRobotPosition(PUBLIC_ROBOT_SERIAL);
-      } catch (positionError) {
-        console.warn("Could not fetch robot position:", positionError);
+      if (results[1].status === 'fulfilled' && results[1].value) {
+        setRobotPosition(results[1].value);
+      } else if (results[1].status === 'rejected') {
+        console.warn("Could not fetch robot position:", results[1].reason);
       }
       
-      // Get sensor data
-      try {
-        sensorData = await getRobotSensorData(PUBLIC_ROBOT_SERIAL);
-      } catch (sensorError) {
-        console.warn("Could not fetch robot sensor data:", sensorError);
+      if (results[2].status === 'fulfilled' && results[2].value) {
+        setRobotSensorData(results[2].value);
+      } else if (results[2].status === 'rejected') {
+        console.warn("Could not fetch robot sensor data:", results[2].reason);
       }
       
-      // Get map data
-      try {
-        map = await getMapData(PUBLIC_ROBOT_SERIAL);
-      } catch (mapError) {
-        console.warn("Could not fetch robot map data:", mapError);
+      if (results[3].status === 'fulfilled' && results[3].value) {
+        setMapData(results[3].value);
+      } else if (results[3].status === 'rejected') {
+        console.warn("Could not fetch robot map data:", results[3].reason);
       }
       
-      // Also fetch camera data
-      try {
-        camera = await getRobotCameraData(PUBLIC_ROBOT_SERIAL);
-      } catch (cameraError) {
-        console.warn("Camera data not available:", cameraError);
+      if (results[4].status === 'fulfilled' && results[4].value) {
+        setCameraData(results[4].value);
+      } else if (results[4].status === 'rejected') {
+        console.warn("Camera data not available:", results[4].reason);
       }
       
-      console.log("Fetched robot data for", PUBLIC_ROBOT_SERIAL);
+      // Update the connection state based on data availability
+      if (fetchSuccess) {
+        setConnectionState('connected');
+        console.log("Fetched robot data for", PUBLIC_ROBOT_SERIAL);
+      } else {
+        setConnectionState('error');
+      }
     } catch (error) {
       console.error("Error fetching robot data:", error);
+      setConnectionState('error');
     }
     
-    // Set all the data we managed to get or create
-    setRobotStatus(status);
-    setRobotPosition(position);
-    setRobotSensorData(sensorData);
-    setMapData(map);
-    setCameraData(camera);
+    // Always update the timestamp to show we attempted a refresh
     updateTimestamp();
     
     return fetchSuccess;
@@ -142,8 +143,8 @@ export function RobotProvider({ children }: RobotProviderProps) {
     // Set up a polling interval to fetch data regularly
     const refreshInterval = setInterval(async () => {
       try {
-        // Fetch all robot data in parallel for efficiency
-        const [status, position, sensors, mapInfo, cameraInfo] = await Promise.all([
+        // Use Promise.allSettled instead of Promise.all to handle partial failures
+        const results = await Promise.allSettled([
           getRobotStatus(PUBLIC_ROBOT_SERIAL),
           getRobotPosition(PUBLIC_ROBOT_SERIAL),
           getRobotSensorData(PUBLIC_ROBOT_SERIAL),
@@ -151,17 +152,55 @@ export function RobotProvider({ children }: RobotProviderProps) {
           getRobotCameraData(PUBLIC_ROBOT_SERIAL)
         ]);
         
-        // Update state with fetched data
-        if (status) setRobotStatus(status);
-        if (position) setRobotPosition(position);
-        if (sensors) setRobotSensorData(sensors);
-        if (mapInfo) setMapData(mapInfo);
-        if (cameraInfo) setCameraData(cameraInfo);
+        // Process results even if some failed
+        let hasSuccessfulData = false;
+        let connectionFailed = false;
         
-        // Mark connection as successful
-        setConnectionState('connected');
+        // Check each promise result
+        if (results[0].status === 'fulfilled' && results[0].value) {
+          setRobotStatus(results[0].value);
+          hasSuccessfulData = true;
+        } else if (results[0].status === 'rejected') {
+          console.error('Error fetching status for robot', PUBLIC_ROBOT_SERIAL, ':', results[0].reason);
+          connectionFailed = true;
+        }
         
-        // Update the last updated timestamp
+        if (results[1].status === 'fulfilled' && results[1].value) {
+          setRobotPosition(results[1].value);
+          hasSuccessfulData = true;
+        } else if (results[1].status === 'rejected') {
+          console.error('Error fetching position for robot', PUBLIC_ROBOT_SERIAL, ':', results[1].reason);
+        }
+        
+        if (results[2].status === 'fulfilled' && results[2].value) {
+          setRobotSensorData(results[2].value);
+          hasSuccessfulData = true;
+        } else if (results[2].status === 'rejected') {
+          console.error('Error fetching sensor data for robot', PUBLIC_ROBOT_SERIAL, ':', results[2].reason);
+        }
+        
+        if (results[3].status === 'fulfilled' && results[3].value) {
+          setMapData(results[3].value);
+          hasSuccessfulData = true;
+        } else if (results[3].status === 'rejected') {
+          console.error('Error fetching map data for robot', PUBLIC_ROBOT_SERIAL, ':', results[3].reason);
+        }
+        
+        if (results[4].status === 'fulfilled' && results[4].value) {
+          setCameraData(results[4].value);
+          hasSuccessfulData = true;
+        } else if (results[4].status === 'rejected') {
+          console.error('Error fetching camera data for robot', PUBLIC_ROBOT_SERIAL, ':', results[4].reason);
+        }
+        
+        // Update connection state based on results
+        if (hasSuccessfulData) {
+          setConnectionState('connected');
+        } else if (connectionFailed) {
+          setConnectionState('error');
+        }
+        
+        // Always update timestamp when we try to fetch data
         updateTimestamp();
       } catch (error) {
         console.error('Error fetching robot data:', error);

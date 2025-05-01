@@ -90,15 +90,29 @@ export function registerRobotVideoRoutes(app: Express, httpServer: Server) {
           res.set('Content-Type', 'image/jpeg');
           res.send(frameData);
         } else {
-          // If we don't have frame data
-          res.status(404).json({ error: 'Video frame not available' });
+          // Return a more descriptive error when frame data is not properly formatted
+          res.status(200).json({ 
+            error: 'Video frame not available',
+            status: 'unavailable',
+            message: 'Camera feed is currently unavailable. Please check robot connection.'
+          });
         }
       } else {
-        res.status(404).json({ error: 'Video frame not available' });
+        // Return a more descriptive error for missing frame data
+        res.status(200).json({ 
+          error: 'Video frame not available',
+          status: 'unavailable',
+          message: 'Camera feed is currently unavailable. Please check robot connection.'
+        });
       }
     } catch (error) {
       console.error('Error getting video frame:', error);
-      res.status(500).json({ error: 'Failed to get video frame' });
+      // Return a 200 status with a structured error message for better client handling
+      res.status(200).json({ 
+        error: 'Failed to get video frame',
+        status: 'error',
+        message: 'An error occurred while fetching the camera feed. Please try again later.'
+      });
     }
   });
 }
