@@ -17,38 +17,53 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
     placeholderData: {} as MapData, // Provide empty placeholder to prevent TypeScript errors
   });
   
-  // Convert base64 data to image when map data changes
+  // Make a direct API call to get the raw map data
   useEffect(() => {
-    // Log the full map data to see exactly what we're getting
-    console.log('Raw map data received:', mapData);
-    
-    if (mapData?.grid && typeof mapData.grid === 'string' && mapData.grid.startsWith('iVBOR')) {
-      console.log('Got base64 map data, length:', mapData.grid.length);
-      console.log('Base64 data starts with:', mapData.grid.substring(0, 50));
-      setImageData(mapData.grid.trim());
-    } else {
-      console.log('No valid base64 map data found:', {
-        hasData: !!mapData,
-        hasGrid: !!(mapData?.grid),
-        gridType: mapData?.grid ? typeof mapData.grid : 'undefined',
-        isString: mapData?.grid ? typeof mapData.grid === 'string' : false,
-        startsWithCorrectly: mapData?.grid && typeof mapData.grid === 'string' ? mapData.grid.startsWith('iVBOR') : false,
-        keysInMapData: mapData ? Object.keys(mapData) : []
-      });
-      
-      // Check if we have a grid property with a shortened value (maybe the API is truncating it)
-      if (mapData && 'grid' in mapData) {
-        console.log('Grid property exists but may be in wrong format:', 
-          typeof mapData.grid === 'string' 
-            ? `String of length ${mapData.grid.length}` 
-            : Array.isArray(mapData.grid)
-              ? `Array of length ${mapData.grid.length}`
-              : typeof mapData.grid);
+    const fetchMapDirectly = async () => {
+      try {
+        // Make a direct fetch call to bypass the query client error handling
+        const response = await fetch(`/api/robots/map/${serialNumber}`, {
+          headers: {
+            'Secret': import.meta.env.VITE_ROBOT_SECRET as string || '',
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Directly fetched map data:', data);
+          
+          // Check for valid base64 data
+          if (data?.grid && typeof data.grid === 'string' && data.grid.startsWith('iVBOR')) {
+            console.log('Got base64 map data directly, length:', data.grid.length);
+            setImageData(data.grid.trim());
+          } else {
+            console.log('Direct API call - No valid base64 data:', {
+              hasData: !!data,
+              hasGrid: !!(data?.grid),
+              gridType: data?.grid ? typeof data.grid : 'undefined',
+              keysInData: data ? Object.keys(data) : []
+            });
+            setImageData(null);
+          }
+        } else {
+          console.error('Failed to fetch map data directly:', response.status);
+          setImageData(null);
+        }
+      } catch (error) {
+        console.error('Error making direct map fetch:', error);
+        setImageData(null);
       }
-      
-      setImageData(null);
-    }
-  }, [mapData]);
+    };
+    
+    // Fetch map data directly
+    fetchMapDirectly();
+    
+    // Set up interval to refresh every 10 seconds
+    const intervalId = setInterval(fetchMapDirectly, 10000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, [serialNumber]);
 
   // Handle image load error
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
