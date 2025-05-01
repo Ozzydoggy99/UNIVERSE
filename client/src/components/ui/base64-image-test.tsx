@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
 import { MapData } from './map-fixed';
 
+// Simple component to test rendering a base64 image from the robot's map data
 export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNumber?: string }) {
   const [imageData, setImageData] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);

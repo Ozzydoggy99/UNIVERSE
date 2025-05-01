@@ -7,6 +7,7 @@ import { ArrowLeft, Bot, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useRobot } from '@/providers/robot-provider';
 import { Map, MapData } from '@/components/ui/map-fixed';
+import { Base64ImageTest } from '@/components/ui/base64-image-test';
 import { ConnectionStatus } from '@/components/robot/ConnectionStatus';
 import ConnectionErrorMessage from '@/components/robot/ConnectionErrorMessage';
 
@@ -222,7 +223,7 @@ export default function MapTestPage() {
               <div className="h-[600px] overflow-auto">
                 <div className="h-full">
                   {/* Import and use the Base64 test component */}
-                  {React.createElement(require('@/components/ui/base64-image-test').Base64ImageTest, { serialNumber })}
+                  <Base64ImageTest serialNumber={serialNumber} />
                 </div>
               </div>
             </div>
