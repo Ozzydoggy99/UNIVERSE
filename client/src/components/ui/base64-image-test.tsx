@@ -60,6 +60,9 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
         return { pixelX: 0, pixelY: 0 };
       }
       
+      // From the logs, we can see the actual size is much larger
+      const actualMapSize = [611, 695]; // From the robot logs
+      
       // Calculate pixels from physical coordinates
       // Step 1: Adjust for map origin offset
       const adjustedX = x - mapMetadata.origin[0];
@@ -67,10 +70,25 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
       
       // Step 2: Convert to pixel coordinates using resolution
       // Note: we need to invert the Y axis since image coordinates have (0,0) at top-left
-      const pixelX = adjustedX / mapMetadata.resolution;
-      const pixelY = mapMetadata.size[1] - (adjustedY / mapMetadata.resolution);
+      // Also, we need to scale the coordinates to match the displayed image size
+      const pixelX = (adjustedX / mapMetadata.resolution);
+      const pixelY = (actualMapSize[1] - (adjustedY / mapMetadata.resolution));
       
-      return { pixelX, pixelY };
+      // Apply a scaling factor to position the marker closer to the center for visibility
+      const scaledX = 300 + (pixelX * 0.5);
+      const scaledY = 300 + (pixelY * 0.5);
+      
+      console.log('Position conversion details:', {
+        physicalPos: [x, y],
+        mapOrigin: mapMetadata.origin,
+        adjustedPos: [adjustedX, adjustedY],
+        resolution: mapMetadata.resolution,
+        reportedSize: mapMetadata.size,
+        actualSize: actualMapSize,
+        pixelResult: { pixelX, pixelY }
+      });
+      
+      return { pixelX: scaledX, pixelY: scaledY };
     } catch (error) {
       console.error('Error converting position to pixels:', error);
       return { pixelX: 0, pixelY: 0 };
@@ -262,7 +280,13 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
             
             <div 
               ref={mapContainerRef}
-              className="border rounded-md overflow-hidden h-[500px] relative flex items-center justify-center"
+              className="border rounded-md overflow-hidden h-[500px] relative"
+              style={{ 
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
             >
               {/* Map background image */}
               <img 
@@ -274,18 +298,47 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
               
               {/* Robot position marker */}
               {robotPosition && robotPosition.x !== undefined && (
-                <div 
-                  className="absolute pointer-events-none"
-                  style={{
-                    // Position the robot marker - adjust as needed based on the marker's size
-                    left: `calc(${robotMarkerPosition.pixelX}px - 10px)`,
-                    top: `calc(${robotMarkerPosition.pixelY}px - 10px)`,
-                    transform: `rotate(${robotPosition.orientation || 0}rad)`,
-                    transition: 'all 0.5s ease-out',
-                  }}
-                >
-                  <Navigation className="h-5 w-5 text-green-600" />
-                </div>
+                <>
+                  {/* Larger visual indicator - a circle beneath the arrow */}
+                  <div 
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `calc(${robotMarkerPosition.pixelX}px - 15px)`,
+                      top: `calc(${robotMarkerPosition.pixelY}px - 15px)`,
+                      width: '30px',
+                      height: '30px',
+                      backgroundColor: 'rgba(0, 255, 0, 0.3)',
+                      borderRadius: '50%',
+                      border: '2px solid green',
+                      transition: 'all 0.5s ease-out',
+                    }}
+                  />
+                  
+                  {/* Navigation arrow showing orientation */}
+                  <div 
+                    className="absolute pointer-events-none"
+                    style={{
+                      // Position the robot marker - adjust as needed based on the marker's size
+                      left: `calc(${robotMarkerPosition.pixelX}px - 12px)`,
+                      top: `calc(${robotMarkerPosition.pixelY}px - 12px)`,
+                      transform: `rotate(${robotPosition.orientation || 0}rad)`,
+                      transition: 'all 0.5s ease-out',
+                    }}
+                  >
+                    <Navigation className="h-6 w-6 text-green-600 drop-shadow-lg" />
+                  </div>
+                  
+                  {/* Debug info - coordinates */}
+                  <div 
+                    className="absolute pointer-events-none text-xs bg-white bg-opacity-75 px-1 rounded"
+                    style={{
+                      left: `calc(${robotMarkerPosition.pixelX}px + 15px)`,
+                      top: `calc(${robotMarkerPosition.pixelY}px - 10px)`,
+                    }}
+                  >
+                    ({robotPosition.x.toFixed(2)}, {robotPosition.y.toFixed(2)})
+                  </div>
+                </>
               )}
             </div>
           </div>
