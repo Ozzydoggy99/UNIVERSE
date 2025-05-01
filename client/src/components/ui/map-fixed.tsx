@@ -480,16 +480,22 @@ export function Map({
         // Add error handler for image
         img.onerror = (e) => {
           console.error('Error loading map image:', e);
-          console.log('Grid data starts with:', mapData.grid.substring(0, 100));
+          if (typeof mapData.grid === 'string') {
+            console.log('Grid data starts with:', mapData.grid.substring(0, 100));
+          }
         };
         
         // Set the source of the image to the base64 data
         // First, make sure the grid is properly formed base64 data
         try {
-          // Clean up any leading/trailing whitespace
-          const cleanGrid = mapData.grid.trim();
-          console.log('Setting image source with base64 data of length:', cleanGrid.length);
-          img.src = `data:image/png;base64,${cleanGrid}`;
+          if (typeof mapData.grid === 'string') {
+            // Clean up any leading/trailing whitespace
+            const cleanGrid = mapData.grid.trim();
+            console.log('Setting image source with base64 data of length:', cleanGrid.length);
+            img.src = `data:image/png;base64,${cleanGrid}`;
+          } else {
+            console.error('Grid data is not a string, cannot convert to image');
+          }
         } catch (err) {
           console.error('Error setting image source:', err);
         }

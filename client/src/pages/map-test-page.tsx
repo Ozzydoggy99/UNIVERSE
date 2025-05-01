@@ -201,20 +201,30 @@ export default function MapTestPage() {
               </div>
             </div>
             
-            <div className="h-[600px] border rounded-lg overflow-hidden">
-              {isLoading ? (
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="animate-pulse">Loading map data...</div>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="h-[600px] border rounded-lg overflow-hidden">
+                {isLoading ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="animate-pulse">Loading map data...</div>
+                  </div>
+                ) : (
+                  <Map
+                    robotStatus={status}
+                    robotPosition={position}
+                    sensorData={sensors}
+                    mapData={mapDataToUse}
+                    editable={false}
+                  />
+                )}
+              </div>
+              
+              {/* Add direct base64 image rendering test */}
+              <div className="h-[600px] overflow-auto">
+                <div className="h-full">
+                  {/* Import and use the Base64 test component */}
+                  {React.createElement(require('@/components/ui/base64-image-test').Base64ImageTest, { serialNumber })}
                 </div>
-              ) : (
-                <Map
-                  robotStatus={status}
-                  robotPosition={position}
-                  sensorData={sensors}
-                  mapData={mapDataToUse}
-                  editable={false}
-                />
-              )}
+              </div>
             </div>
             
             <div className="mt-4 text-sm">
