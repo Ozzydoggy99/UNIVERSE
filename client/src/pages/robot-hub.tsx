@@ -64,35 +64,10 @@ export default function RobotHub() {
     }
   };
 
-  // Generate placeholder data for development if needed
-  const mockRobotStatuses: Record<string, RobotStatus> = {
-    'AX-2000-1': {
-      model: 'AxBot 2000',
-      serialNumber: 'AX-2000-1',
-      status: 'active',
-      task: 'Delivering packages',
-      mode: 'autonomous',
-      battery: 78,
-      location: { x: 120, y: 80, floor: 2 },
-    },
-    'AX-2000-2': {
-      model: 'AxBot 2000',
-      serialNumber: 'AX-2000-2',
-      status: 'idle',
-      task: 'Awaiting instructions',
-      mode: 'manual',
-      battery: 45,
-      location: { x: 85, y: 45, floor: 1 },
-    },
-    'AX-2000-3': {
-      model: 'AxBot 3000',
-      serialNumber: 'AX-2000-3',
-      status: 'charging',
-      task: 'Battery at 25%',
-      mode: 'sleep',
-      battery: 92,
-      location: { x: 220, y: 160, floor: 3 },
-    },
+  // Add our physical robot status in case we need it
+  const physicalRobotInfo = {
+    serialNumber: 'L382502104987ir',
+    model: 'AxBot Physical Robot (Live)'
   };
 
   // If we're still loading data, show a loading indicator
@@ -104,10 +79,28 @@ export default function RobotHub() {
     );
   }
 
+  // Special function to get status for the physical robot directly
+  const { data: physicalRobotStatus } = useQuery<RobotStatus>({
+    queryKey: ['/api/robots/status', physicalRobotInfo.serialNumber],
+    refetchInterval: 5000, // Refresh more frequently
+  });
+
+  // Get physical robot position for showing real-time coordinates
+  const { data: physicalRobotPosition } = useQuery({
+    queryKey: ['/api/robots/position', physicalRobotInfo.serialNumber],
+    refetchInterval: 5000,
+  });
+
+  // Get physical robot sensor data for complete information
+  const { data: physicalRobotSensor } = useQuery({
+    queryKey: ['/api/robots/sensors', physicalRobotInfo.serialNumber],
+    refetchInterval: 5000,
+  });
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Assigned Robots</h1>
+        <h1 className="text-2xl font-bold">Robot Management Dashboard</h1>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleViewUnassignedClick}
@@ -118,11 +111,105 @@ export default function RobotHub() {
           </button>
           <Badge variant="outline" className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-green-500"></span>
-            Live Status
+            Live Robot Data
           </Badge>
         </div>
       </div>
 
+      {/* Physical Robot Card */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 flex items-center">
+          <Cpu className="mr-2 h-5 w-5 text-primary" />
+          Physical Robot (Live Connection)
+        </h2>
+        
+        <Card className="border-2 border-primary cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleRobotCardClick(physicalRobotInfo.serialNumber)}>
+          <CardHeader className="pb-2 bg-primary/10">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary" />
+                {physicalRobotInfo.model}
+              </CardTitle>
+              <Badge className={getStatusColor(physicalRobotStatus?.status)}>
+                {physicalRobotStatus?.status?.toUpperCase() || 'CONNECTING...'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Serial Number</div>
+                  <div className="font-mono text-sm">{physicalRobotInfo.serialNumber}</div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Status</div>
+                  <div className="font-medium">
+                    {physicalRobotStatus?.mode || 'Connecting...'}
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Battery</div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          physicalRobotSensor?.battery && physicalRobotSensor.battery > 60 ? 'bg-green-500' : 
+                          physicalRobotSensor?.battery && physicalRobotSensor.battery > 30 ? 'bg-yellow-500' : 
+                          'bg-red-500'
+                        }`}
+                        style={{ width: `${physicalRobotSensor?.battery || 0}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-xs font-medium">{physicalRobotSensor?.battery || 0}%</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Current Position</div>
+                  <div className="font-mono text-sm">
+                    X: {physicalRobotPosition?.x?.toFixed(2) || '?'}, 
+                    Y: {physicalRobotPosition?.y?.toFixed(2) || '?'}, 
+                    Z: {physicalRobotPosition?.z?.toFixed(2) || '?'}
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Orientation</div>
+                  <div className="font-mono text-sm">
+                    {physicalRobotPosition?.orientation?.toFixed(2) || '?'}°
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Sensors</div>
+                  <div className="font-mono text-sm">
+                    Temp: {physicalRobotSensor?.temperature?.toFixed(1) || '?'}°C, 
+                    Humidity: {physicalRobotSensor?.humidity?.toFixed(1) || '?'}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="border-t pt-3 flex justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <span className="flex h-2 w-2 rounded-full bg-green-500"></span>
+              <span>Live Data Connected</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Map className="h-3 w-3" />
+              <span>View Detailed Dashboard</span>
+            </div>
+          </CardFooter>
+        </Card>
+      </div>
+
+      <h2 className="text-xl font-semibold mb-4">Assigned Robots</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.isArray(robotAssignments) && robotAssignments.length > 0 ? (
           robotAssignments.map((robot: RobotTemplateAssignment) => {
@@ -131,12 +218,17 @@ export default function RobotHub() {
               ? templates.find((t: any) => t.id === robot.templateId) 
               : undefined;
             
-            // Get the robot status (either from API or use mock data)
+            // Get the robot status from API with fallback for unknown robots
             const robotStatus: RobotStatus = (robotStatuses && typeof robotStatuses === 'object' && robotStatuses[robot.serialNumber]) 
               ? robotStatuses[robot.serialNumber] 
-              : (robot.serialNumber in mockRobotStatuses) 
-                ? mockRobotStatuses[robot.serialNumber as keyof typeof mockRobotStatuses] 
-                : { status: 'unknown', task: 'Status unknown', mode: 'unknown', location: { x: 0, y: 0, floor: 0 } };
+              : { 
+                  model: robot.serialNumber === physicalRobotInfo.serialNumber ? physicalRobotInfo.model : 'Unknown Robot',
+                  serialNumber: robot.serialNumber,
+                  status: 'unknown', 
+                  mode: 'unknown', 
+                  battery: 0,
+                  lastUpdate: new Date().toISOString()
+                };
             
             return (
               <Card 
