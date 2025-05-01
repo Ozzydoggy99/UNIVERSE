@@ -154,12 +154,24 @@ export function RobotProvider({ children }: RobotProviderProps) {
         
         // Process results even if some failed
         let hasSuccessfulData = false;
+        let isConnecting = false;
+        let isDisconnected = false;
         let connectionFailed = false;
         
-        // Check each promise result
+        // Check each promise result and also look at the connectionStatus property
         if (results[0].status === 'fulfilled' && results[0].value) {
-          setRobotStatus(results[0].value);
+          const statusData = results[0].value;
+          setRobotStatus(statusData);
           hasSuccessfulData = true;
+          
+          // Use the connectionStatus from the response to determine overall state
+          if (statusData.connectionStatus === 'connected') {
+            hasSuccessfulData = true;
+          } else if (statusData.connectionStatus === 'connecting') {
+            isConnecting = true;
+          } else if (statusData.connectionStatus === 'disconnected') {
+            isDisconnected = true;
+          }
         } else if (results[0].status === 'rejected') {
           console.error('Error fetching status for robot', PUBLIC_ROBOT_SERIAL, ':', results[0].reason);
           connectionFailed = true;
@@ -193,9 +205,13 @@ export function RobotProvider({ children }: RobotProviderProps) {
           console.error('Error fetching camera data for robot', PUBLIC_ROBOT_SERIAL, ':', results[4].reason);
         }
         
-        // Update connection state based on results
-        if (hasSuccessfulData) {
+        // Update connection state based on results and connection status
+        if (hasSuccessfulData && !isDisconnected) {
           setConnectionState('connected');
+        } else if (isConnecting) {
+          setConnectionState('connecting');
+        } else if (isDisconnected) {
+          setConnectionState('disconnected');
         } else if (connectionFailed) {
           setConnectionState('error');
         }

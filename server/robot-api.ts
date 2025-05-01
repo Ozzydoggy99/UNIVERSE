@@ -337,22 +337,19 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Get map data from WebSocket cache
+      // Get map data from WebSocket cache - the updated function now always returns a data object
+      // with connectionStatus property that can be 'connected', 'connecting', or 'disconnected'
       const mapData = getRobotMapData(serialNumber);
       
       if (mapData) {
+        // Always return the map data - it will contain connection state information
         res.json(mapData);
       } else {
-        // If we don't have any data yet, check if the robot is connected
-        if (!isRobotConnected()) {
-          return res.status(503).json({ 
-            error: 'Robot not connected', 
-            message: 'The robot is not currently connected. Please check the connection.'
-          });
-        }
-        
-        // Return a 404 if the robot is not found
-        return res.status(404).json({ error: 'Robot map data not available' });
+        // This should never happen now, but keeping as a fallback
+        return res.status(503).json({ 
+          error: 'Robot not available', 
+          message: 'The robot is not available. Please check the system configuration.'
+        });
       }
     } catch (error) {
       console.error('Error fetching robot map data:', error);
@@ -370,22 +367,19 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Get camera data from WebSocket cache
+      // Get camera data from WebSocket cache - the updated function now always returns a data object
+      // with connectionStatus property that can be 'connected', 'connecting', or 'disconnected'
       const cameraData = getRobotCameraData(serialNumber);
       
       if (cameraData) {
+        // Always return the camera data - it will contain connection state information
         res.json(cameraData);
       } else {
-        // If we don't have any data yet, check if the robot is connected
-        if (!isRobotConnected()) {
-          return res.status(503).json({ 
-            error: 'Robot not connected', 
-            message: 'The robot is not currently connected. Please check the connection.'
-          });
-        }
-        
-        // Return a 404 if the robot is not found
-        return res.status(404).json({ error: 'Robot camera data not available' });
+        // This should never happen now, but keeping as a fallback
+        return res.status(503).json({ 
+          error: 'Robot not available', 
+          message: 'The robot is not available. Please check the system configuration.'
+        });
       }
     } catch (error) {
       console.error('Error fetching robot camera data:', error);
@@ -413,20 +407,19 @@ export function registerRobotApiRoutes(app: Express) {
         });
       }
       
-      // Get current camera data from WebSocket cache
+      // Get current camera data from WebSocket cache - the updated function now always returns a data object
+      // with connectionStatus property that can be 'connected', 'connecting', or 'disconnected'
       const cameraData = getRobotCameraData(serialNumber);
       
       if (cameraData) {
+        // Always return the camera data - it will contain connection state information
         res.json(cameraData);
       } else {
-        if (!isRobotConnected()) {
-          return res.status(503).json({ 
-            error: 'Robot not connected', 
-            message: 'The robot is not currently connected. Please check the connection.'
-          });
-        }
-        
-        return res.status(404).json({ error: 'Robot camera data not available' });
+        // This should never happen now, but keeping as a fallback
+        return res.status(503).json({ 
+          error: 'Robot not available', 
+          message: 'The robot is not available. Please check the system configuration.'
+        });
       }
     } catch (error) {
       console.error('Error updating robot camera settings:', error);
