@@ -57,12 +57,12 @@ const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
 // This is only for development purposes and should be removed in production
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-// Topics to subscribe to based on documentation
+// Topics to subscribe to based on documentation and actual robot data
 const TOPICS = {
-  STATUS: ['/wheel_state'],
-  POSITION: ['/tracked_pose'],
+  STATUS: ['/wheel_state', '/ws_connections'],
+  POSITION: ['/tracked_pose', '/robot/footprint'],
   SENSORS: ['/battery_state'],
-  MAP: ['/map'],
+  MAP: ['/map', '/slam/state'],
   CAMERA: ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video']
 };
 
@@ -87,6 +87,14 @@ let isConnecting = false;
 // Connection status
 let isConnected = false;
 let enabledTopics: string[] = [];
+
+// Logging flags to only log each message type once
+let positionDataLogged = false;
+let footprintDataLogged = false;
+let batteryDataLogged = false;
+let mapDataLogged = false;
+let slamDataLogged = false;
+let cameraDataLogged = false;
 
 /**
  * Initialize robot WebSocket connection
@@ -345,26 +353,67 @@ function handleRobotMessage(messageData: string) {
       // Status data
       robotDataCache.status.set(PHYSICAL_ROBOT_SERIAL, message);
       robotEvents.emit('status_update', PHYSICAL_ROBOT_SERIAL, message);
+      
+      // Log status message once to see the structure
+      if (topic === '/wheel_state') {
+        console.log('Robot wheel state data structure:', JSON.stringify(message, null, 2));
+      } else if (topic === '/ws_connections') {
+        console.log('Robot connections data structure:', JSON.stringify(message, null, 2));
+      }
     } 
     else if (TOPICS.POSITION.includes(topic)) {
       // Position data
       robotDataCache.position.set(PHYSICAL_ROBOT_SERIAL, message);
       robotEvents.emit('position_update', PHYSICAL_ROBOT_SERIAL, message);
+      
+      // Log position message once to see the structure
+      if (topic === '/tracked_pose' && !positionDataLogged) {
+        console.log('Robot position data structure:', JSON.stringify(message, null, 2));
+        positionDataLogged = true;
+      } else if (topic === '/robot/footprint' && !footprintDataLogged) {
+        console.log('Robot footprint data structure:', JSON.stringify(message, null, 2));
+        footprintDataLogged = true;
+      }
     }
     else if (TOPICS.SENSORS.includes(topic)) {
       // Sensor data
       robotDataCache.sensors.set(PHYSICAL_ROBOT_SERIAL, message);
       robotEvents.emit('sensor_update', PHYSICAL_ROBOT_SERIAL, message);
+      
+      // Log sensor message once to see the structure
+      if (topic === '/battery_state' && !batteryDataLogged) {
+        console.log('Robot battery data structure:', JSON.stringify(message, null, 2));
+        batteryDataLogged = true;
+      }
     }
     else if (TOPICS.MAP.includes(topic)) {
       // Map data
       robotDataCache.map.set(PHYSICAL_ROBOT_SERIAL, message);
       robotEvents.emit('map_update', PHYSICAL_ROBOT_SERIAL, message);
+      
+      // Log map message once to see the structure (but not the full data as it might be large)
+      if (topic === '/map' && !mapDataLogged) {
+        const { data, ...mapInfo } = message;
+        console.log('Robot map data structure (without full data array):', JSON.stringify(mapInfo, null, 2));
+        console.log('Map data length:', data ? data.length : 0);
+        mapDataLogged = true;
+      } else if (topic === '/slam/state' && !slamDataLogged) {
+        console.log('Robot SLAM state data structure:', JSON.stringify(message, null, 2));
+        slamDataLogged = true;
+      }
     }
     else if (TOPICS.CAMERA.includes(topic)) {
       // Camera data (compressed or video)
       robotDataCache.camera.set(PHYSICAL_ROBOT_SERIAL, message);
       robotEvents.emit('camera_update', PHYSICAL_ROBOT_SERIAL, message);
+      
+      // Log camera message once to see the structure (but not the full image data)
+      if ((topic === '/rgb_cameras/front/compressed' || topic === '/rgb_cameras/front/video') && !cameraDataLogged) {
+        const { data, ...cameraInfo } = message;
+        console.log('Robot camera data structure (without image data):', JSON.stringify(cameraInfo, null, 2));
+        console.log('Camera data length:', data ? data.length : 0);
+        cameraDataLogged = true;
+      }
     }
     else {
       console.log(`Received message from unhandled topic ${topic}`);
@@ -384,6 +433,7 @@ export function getRobotStatus(serialNumber: string) {
   }
   
   const statusData = robotDataCache.status.get(serialNumber);
+  const slamState = getTopicData(serialNumber, 'map', '/slam/state');
   
   if (!statusData) {
     // We don't have status data yet
@@ -392,11 +442,14 @@ export function getRobotStatus(serialNumber: string) {
   
   // Transform from robot format to our API format
   return {
-    model: "Physical Robot (Live)",
+    model: "AxBot Physical Robot (Live)",
     serialNumber,
     battery: getBatteryLevel(serialNumber),
     status: statusData.control_mode || 'unknown',
     mode: statusData.emergency_stop_pressed ? 'emergency' : 'ready',
+    error: statusData.error_msg || '',
+    slam_state: slamState?.state || 'unknown',
+    slam_quality: slamState?.position_quality || 0,
     lastUpdate: new Date().toISOString()
   };
 }
@@ -411,6 +464,7 @@ export function getRobotPosition(serialNumber: string) {
   }
   
   const positionData = robotDataCache.position.get(serialNumber);
+  const footprintData = getTopicData(serialNumber, 'position', '/robot/footprint');
   
   if (!positionData) {
     // We don't have position data yet
@@ -424,8 +478,26 @@ export function getRobotPosition(serialNumber: string) {
     z: 0, // Z coordinate not provided in /tracked_pose
     orientation: positionData.ori || 0,
     speed: 0, // Speed not provided in /tracked_pose
+    footprint: footprintData?.footprint || [],
+    covariance: positionData.cov || [[0,0],[0,0]],
     timestamp: new Date().toISOString()
   };
+}
+
+/**
+ * Get a specific topic's data from a robot data cache category
+ */
+function getTopicData(serialNumber: string, category: keyof typeof robotDataCache, topicName: string) {
+  const allData = robotDataCache[category].get(serialNumber);
+  if (!allData) return null;
+  
+  // If the data is already for the requested topic, return it
+  if (allData.topic === topicName) {
+    return allData;
+  }
+  
+  // Otherwise, we don't have the specific topic data
+  return null;
 }
 
 /**
@@ -457,10 +529,11 @@ export function getRobotSensorData(serialNumber: string) {
   
   // Transform from robot format to our API format
   return {
-    temperature: 22, // Temperature not provided in /battery_state
-    humidity: 45, // Humidity not provided in /battery_state
-    proximity: [], // Proximity not provided in /battery_state
+    temperature: sensorData.temperature || 22,
+    voltage: sensorData.voltage || 0,
+    current: sensorData.current || 0,
     battery: Math.round((sensorData.percentage || 0) * 100),
+    power_supply_status: sensorData.power_supply_status || 'unknown',
     timestamp: new Date().toISOString(),
     charging: sensorData.power_supply_status === 'charging'
   };
@@ -484,9 +557,12 @@ export function getRobotMapData(serialNumber: string) {
   
   // Transform from robot format to our API format
   return {
-    grid: [], // We would need to decode the base64 PNG data to get the actual grid
-    obstacles: [], // No direct obstacles data in /map
-    paths: [] // No direct paths data in /map
+    width: mapData.size?.[0] || 0,
+    height: mapData.size?.[1] || 0,
+    resolution: mapData.resolution || 0.05,
+    origin: mapData.origin || [0, 0],
+    data: mapData.data || '', // Base64 encoded map data
+    timestamp: mapData.stamp ? new Date(mapData.stamp * 1000).toISOString() : new Date().toISOString()
   };
 }
 
