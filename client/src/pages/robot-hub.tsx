@@ -70,15 +70,6 @@ export default function RobotHub() {
     model: 'AxBot Physical Robot (Live)'
   };
 
-  // If we're still loading data, show a loading indicator
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   // Special function to get status for the physical robot directly
   const { data: physicalRobotStatus } = useQuery<RobotStatus>({
     queryKey: ['/api/robots/status', physicalRobotInfo.serialNumber],
@@ -96,6 +87,15 @@ export default function RobotHub() {
     queryKey: ['/api/robots/sensors', physicalRobotInfo.serialNumber],
     refetchInterval: 5000,
   });
+
+  // If we're still loading data, show a loading indicator
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6">
