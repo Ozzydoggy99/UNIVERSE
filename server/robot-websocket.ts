@@ -14,12 +14,12 @@ let ROBOT_WS_URL = process.env.ROBOT_WS_URL;
 
 // If environment variables are not set, use default connection options
 if (!ROBOT_API_URL || !ROBOT_WS_URL) {
-  // Try to determine if we're in a local network that can directly connect to the robot
-  // For now, we'll default to the ngrok URL
+  // We're encountering issues with ngrok, so let's use direct connection
+  // for development and testing
   
   // 1. Direct connection via Ethernet RJ45 port (first preference for production)
-  // ROBOT_API_URL = 'http://192.168.25.25:8090';
-  // ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
+  ROBOT_API_URL = 'http://192.168.25.25:8090';
+  ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
   
   // 2. Direct connection via robot AP (secondary preference for production)
   // ROBOT_API_URL = 'http://192.168.12.1:8090';
@@ -27,8 +27,9 @@ if (!ROBOT_API_URL || !ROBOT_WS_URL) {
   
   // 3. Connection via ngrok (for remote development/testing)
   // This URL needs to be checked and updated if it changes
-  ROBOT_API_URL = 'https://df90-47-180-91-99.ngrok-free.app';
-  ROBOT_WS_URL = 'wss://df90-47-180-91-99.ngrok-free.app/ws/v2/topics';
+  // NOTE: Not using ngrok due to connection issues
+  // ROBOT_API_URL = 'https://df90-47-180-91-99.ngrok-free.app';
+  // ROBOT_WS_URL = 'wss://df90-47-180-91-99.ngrok-free.app/ws/v2/topics';
 }
 
 console.log(`Using robot connection: ${ROBOT_API_URL} (HTTP) and ${ROBOT_WS_URL} (WebSocket)`);
@@ -104,9 +105,11 @@ export function initRobotWebSocket() {
       rejectUnauthorized: false,
       headers: {
         // Based on documentation, all HTTP requests must have a Secret header
-        'Secret': ROBOT_SECRET
+        'Secret': process.env.ROBOT_SECRET || ''
       }
     };
+    
+    console.log('Using Secret header for authentication');
     
     // Make sure URL is defined before connecting
     if (!ROBOT_WS_URL) {
@@ -207,22 +210,22 @@ function enableRequiredTopics() {
     ...TOPICS.CAMERA
   ];
   
-  // Deduplicate topics
-  const uniqueTopics = [...new Set(allTopics)];
+  // Deduplicate topics - use Array.from to avoid TypeScript issues
+  const uniqueTopics = Array.from(new Set<string>(allTopics));
   
   // Check if we support multi-topic subscription
-  if (uniqueTopics.length > 1) {
+  if (uniqueTopics.length > 1 && robotWs) {
     // Try multi-topic subscription (since 2.7.0)
     robotWs.send(JSON.stringify({
       enable_topic: uniqueTopics
     }));
-  } else {
+  } else if (robotWs) {
     // Fall back to single topic subscription
-    uniqueTopics.forEach(topic => {
+    for (const topic of uniqueTopics) {
       robotWs.send(JSON.stringify({
         enable_topic: topic
       }));
-    });
+    }
   }
   
   // Store enabled topics
