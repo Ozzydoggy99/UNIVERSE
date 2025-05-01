@@ -105,6 +105,9 @@ export function initRobotWebSocket() {
   if (isConnecting) return;
   isConnecting = true;
 
+  // Record the time of this connection attempt
+  lastReconnectTime = Date.now();
+
   // Make sure we have a WebSocket URL
   if (!ROBOT_WS_URL) {
     console.error('WebSocket URL not defined, cannot connect to robot');

@@ -64,6 +64,8 @@ export interface RobotSensorData {
   power_supply_status?: string;
   charging?: boolean;
   percentage?: number;
+  // Connection status for real-time monitoring
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
 }
 
 export interface MapPoint {
@@ -81,6 +83,8 @@ export interface MapData {
   grid: any[];
   obstacles: MapPoint[];
   paths: MapPath[];
+  // Connection status for real-time monitoring
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
 }
 
 export interface CameraData {
@@ -93,4 +97,6 @@ export interface CameraData {
   rotation: number;
   nightVision: boolean;
   timestamp: string;
+  // Connection status for real-time monitoring
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
 }
