@@ -562,7 +562,7 @@ export function getRobotSensorData(serialNumber: string) {
     battery: Math.round((sensorData.percentage || 0) * 100),
     power_supply_status: sensorData.power_supply_status || 'unknown',
     timestamp: new Date().toISOString(),
-    charging: sensorData.power_supply_status === 'charging',
+    charging: sensorData.power_supply_status === 'charging' || sensorData.charging === true,
     connectionStatus: 'connected'
   };
 }
