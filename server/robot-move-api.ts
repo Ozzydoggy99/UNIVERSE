@@ -1,105 +1,100 @@
-import { Express, Request, Response } from 'express';
+import { Request, Response, Express } from 'express';
 import fetch from 'node-fetch';
-import { PHYSICAL_ROBOT_SERIAL, ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 
 /**
  * Register robot movement API routes
  */
 export function registerRobotMoveApiRoutes(app: Express) {
-  // Send move command to the robot
+  // Base robot API URL (will be replaced with environment variable or config)
+  const ROBOT_API_BASE_URL = 'http://47.180.91.99:8090';
+
+  /**
+   * POST /api/robots/move/:serialNumber
+   * Send a move command to the robot
+   */
   app.post('/api/robots/move/:serialNumber', async (req: Request, res: Response) => {
-    const { serialNumber } = req.params;
-    const moveData = req.body;
-    
     try {
-      // Only support our physical robot
-      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
-        return res.status(404).json({ error: 'Robot not found' });
-      }
+      const { serialNumber } = req.params;
       
-      if (!ROBOT_API_URL) {
-        throw new Error('Robot API URL not configured');
+      if (!serialNumber) {
+        return res.status(400).json({ error: 'Serial number is required' });
       }
+
+      const moveData = req.body;
       
+      if (!moveData || typeof moveData !== 'object') {
+        return res.status(400).json({ error: 'Invalid move data' });
+      }
+
+      // Ensure required fields are present
+      if (moveData.type !== 'standard') {
+        return res.status(400).json({ error: 'Only standard movement type is supported' });
+      }
+
       console.log(`Sending move command to robot ${serialNumber}:`, moveData);
-      
-      // Forward the move command to the robot's API
-      const response = await fetch(`${ROBOT_API_URL}/chassis/moves`, {
+
+      // Forward the request to the robot API
+      const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/move`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Secret': ROBOT_SECRET
         },
-        body: JSON.stringify(moveData)
+        body: JSON.stringify(moveData),
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Robot API returned ${response.status}: ${errorText}`);
+
+      if (!robotResponse.ok) {
+        const errorText = await robotResponse.text();
+        console.error(`Robot API error: ${robotResponse.status} - ${errorText}`);
+        return res.status(robotResponse.status).json({ 
+          error: `Robot API error: ${robotResponse.status}`,
+          details: errorText
+        });
       }
-      
-      const result = await response.json() as { id: string };
-      console.log(`Move command sent to robot ${serialNumber}, result:`, result);
-      
-      res.json({
-        success: true,
-        moveId: result.id,
-        message: 'Move command sent successfully'
-      });
+
+      const data = await robotResponse.json();
+      res.status(200).json(data);
     } catch (error) {
-      console.error(`Error sending move command to robot ${serialNumber}:`, error);
-      res.status(500).json({ 
-        error: 'Failed to send move command to robot',
-        details: error instanceof Error ? error.message : String(error)
-      });
+      console.error('Error sending move command to robot:', error);
+      res.status(500).json({ error: 'Failed to send move command to robot' });
     }
   });
-  
-  // Cancel the current move action
+
+  /**
+   * POST /api/robots/move/:serialNumber/cancel
+   * Cancel the current robot movement
+   */
   app.post('/api/robots/move/:serialNumber/cancel', async (req: Request, res: Response) => {
-    const { serialNumber } = req.params;
-    
     try {
-      // Only support our physical robot
-      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
-        return res.status(404).json({ error: 'Robot not found' });
+      const { serialNumber } = req.params;
+      
+      if (!serialNumber) {
+        return res.status(400).json({ error: 'Serial number is required' });
       }
-      
-      if (!ROBOT_API_URL) {
-        throw new Error('Robot API URL not configured');
-      }
-      
-      console.log(`Cancelling current move for robot ${serialNumber}`);
-      
-      // Forward the cancel command to the robot's API
-      const response = await fetch(`${ROBOT_API_URL}/chassis/moves/current`, {
-        method: 'PATCH',
+
+      console.log(`Cancelling movement for robot ${serialNumber}`);
+
+      // Forward the cancel request to the robot API
+      const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/move/cancel`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Secret': ROBOT_SECRET
         },
-        body: JSON.stringify({ state: "cancelled" })
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Robot API returned ${response.status}: ${errorText}`);
+
+      if (!robotResponse.ok) {
+        const errorText = await robotResponse.text();
+        console.error(`Robot API error: ${robotResponse.status} - ${errorText}`);
+        return res.status(robotResponse.status).json({ 
+          error: `Robot API error: ${robotResponse.status}`,
+          details: errorText
+        });
       }
-      
-      const result = await response.json() as { state: string };
-      console.log(`Move cancelled for robot ${serialNumber}, result:`, result);
-      
-      res.json({
-        success: true,
-        status: result.state,
-        message: 'Move cancelled successfully'
-      });
+
+      const data = await robotResponse.json();
+      res.status(200).json(data);
     } catch (error) {
-      console.error(`Error cancelling move for robot ${serialNumber}:`, error);
-      res.status(500).json({ 
-        error: 'Failed to cancel robot movement',
-        details: error instanceof Error ? error.message : String(error)
-      });
+      console.error('Error cancelling robot movement:', error);
+      res.status(500).json({ error: 'Failed to cancel robot movement' });
     }
   });
 }

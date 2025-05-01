@@ -52,6 +52,7 @@ import { useRobot } from '@/providers/robot-provider';
 import { Map } from '@/components/ui/map';
 import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 import { RobotH264Stream } from '@/components/RobotH264Stream';
+import { Joystick } from '@/components/robot/Joystick';
 
 interface RobotStatus {
   model: string;
@@ -664,6 +665,10 @@ export default function RobotDetails() {
                     <Camera className="h-4 w-4" />
                     Camera
                   </TabsTrigger>
+                  <TabsTrigger value="control" className="flex items-center gap-1">
+                    <RotateCw className="h-4 w-4" />
+                    Control
+                  </TabsTrigger>
                 </TabsList>
                 
                 <div className="h-[calc(100%-50px)]">
@@ -735,6 +740,80 @@ export default function RobotDetails() {
                         <div className="flex items-center justify-between p-2 border rounded-md">
                           <span>Heatmap Layer</span>
                           <Badge variant="outline">Disabled</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="control" className="h-full m-0">
+                    <div className="h-full border rounded-md p-4 bg-white overflow-auto">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium flex items-center gap-2">
+                          <RotateCw className="h-5 w-5 text-primary" />
+                          Manual Robot Control
+                        </h3>
+                        <Badge 
+                          variant={connectionState === 'connected' ? 'default' : 'outline'} 
+                          className="ml-2"
+                        >
+                          {connectionState === 'connected' ? 'Connected' : 'Disconnected'}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <Joystick 
+                            serialNumber={serialNumber || ''} 
+                            disabled={connectionState !== 'connected'} 
+                          />
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <Card>
+                            <CardHeader className="py-3">
+                              <CardTitle className="text-base">Robot Position</CardTitle>
+                            </CardHeader>
+                            <CardContent className="py-2 px-4">
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm items-center">
+                                  <span className="text-muted-foreground">X Position:</span>
+                                  <span className="font-mono">{finalPosition?.x?.toFixed(3) || '0.000'} m</span>
+                                </div>
+                                <div className="flex justify-between text-sm items-center">
+                                  <span className="text-muted-foreground">Y Position:</span>
+                                  <span className="font-mono">{finalPosition?.y?.toFixed(3) || '0.000'} m</span>
+                                </div>
+                                <div className="flex justify-between text-sm items-center">
+                                  <span className="text-muted-foreground">Z Position:</span>
+                                  <span className="font-mono">{finalPosition?.z?.toFixed(3) || '0.000'} m</span>
+                                </div>
+                                <div className="flex justify-between text-sm items-center">
+                                  <span className="text-muted-foreground">Orientation:</span>
+                                  <span className="font-mono">{(finalPosition?.orientation * (180/Math.PI))?.toFixed(1) || '0.0'}°</span>
+                                </div>
+                                <div className="flex justify-between text-sm items-center">
+                                  <span className="text-muted-foreground">Current Speed:</span>
+                                  <span className="font-mono">{finalPosition?.speed?.toFixed(2) || '0.00'} m/s</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          
+                          <Card>
+                            <CardHeader className="py-3">
+                              <CardTitle className="text-base">Movement Instructions</CardTitle>
+                            </CardHeader>
+                            <CardContent className="py-2 text-sm">
+                              <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                                <li>Use the directional controls to move the robot in different directions</li>
+                                <li>The forward/backward arrows move in the direction the robot is currently facing</li>
+                                <li>The left/right arrows strafe sideways relative to the robot's orientation</li>
+                                <li>Use the rotation controls to turn the robot left or right</li>
+                                <li>The stop button will immediately halt all movement</li>
+                                <li>You can adjust speed using the + and - buttons above the controls</li>
+                              </ul>
+                            </CardContent>
+                          </Card>
                         </div>
                       </div>
                     </div>
