@@ -2,11 +2,16 @@ import WebSocket from 'ws';
 import { storage } from './storage';
 import { EventEmitter } from 'events';
 import { registerRobot } from './register-robot';
+import https from 'https';
 
 // We only support a single physical robot
 const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
-const ROBOT_API_URL = 'http://8f50-47-180-91-99.ngrok-free.app';
-const ROBOT_WS_URL = 'ws://8f50-47-180-91-99.ngrok-free.app/ws';
+const ROBOT_API_URL = 'https://8f50-47-180-91-99.ngrok-free.app';
+const ROBOT_WS_URL = 'wss://8f50-47-180-91-99.ngrok-free.app/ws';
+
+// Use node rejectUnauthorized=false to bypass SSL certificate validation
+// This is only for development purposes and should be removed in production
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 // Topics to subscribe to based on documentation
 const TOPICS = {
@@ -49,7 +54,17 @@ export function initRobotWebSocket() {
   console.log(`Connecting to robot WebSocket at ${ROBOT_WS_URL}`);
   
   try {
-    robotWs = new WebSocket(ROBOT_WS_URL);
+    // Add options to handle redirects and SSL issues
+    const wsOptions = {
+      followRedirects: true,
+      rejectUnauthorized: false,
+      headers: {
+        // Some robots require authentication headers
+        // Add them here if needed
+      }
+    };
+    
+    robotWs = new WebSocket(ROBOT_WS_URL, wsOptions);
     
     robotWs.on('open', () => {
       console.log('Robot WebSocket connection established');
@@ -71,17 +86,26 @@ export function initRobotWebSocket() {
     
     robotWs.on('error', (error) => {
       console.error('Robot WebSocket error:', error);
+      console.error('Connection error occurred. Attempting to reconnect...');
       isConnected = false;
     });
     
-    robotWs.on('close', () => {
-      console.log('Robot WebSocket connection closed');
+    robotWs.on('close', (code, reason) => {
+      console.log(`Robot WebSocket connection closed: ${code} ${reason}`);
       isConnected = false;
       isConnecting = false;
       
       // Attempt to reconnect with exponential backoff
       handleReconnect();
     });
+    
+    // Add a timeout to detect stalled connections
+    setTimeout(() => {
+      if (robotWs && robotWs.readyState !== WebSocket.OPEN) {
+        console.log('WebSocket connection timed out, forcing close');
+        robotWs.terminate();
+      }
+    }, 10000);
   } catch (error) {
     console.error('Failed to connect to robot WebSocket:', error);
     isConnecting = false;

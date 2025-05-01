@@ -75,11 +75,12 @@ export function RobotH264Stream({
 
         // Set up WebSocket for video streaming
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/api/robot-video/${serialNumber}`;
+        const wsUrl = `${protocol}//${window.location.host}/api/robot-video`;
         
         console.log(`Connecting to H264 video stream at: ${wsUrl}`);
         
-        const socket = new WebSocket(wsUrl);
+        // The serialNumber will be extracted from the query parameter on the server side
+        const socket = new WebSocket(`${wsUrl}/${serialNumber}`);
         socketRef.current = socket;
 
         socket.binaryType = 'arraybuffer';

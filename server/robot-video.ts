@@ -19,7 +19,7 @@ export function registerRobotVideoRoutes(app: Express, httpServer: Server) {
   // Create WebSocket server for video streaming
   const videoWss = new WebSocketServer({ 
     server: httpServer, 
-    path: '/api/robot-video/:serialNumber'
+    path: '/api/robot-video'
   });
   
   // Handle WebSocket connections for video
