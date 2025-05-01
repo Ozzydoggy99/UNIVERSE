@@ -73,19 +73,6 @@ export default function RobotHub() {
     model: 'AxBot Physical Robot (Live)'
   };
 
-  // Special function to get status for the physical robot directly
-  const { data: physicalRobotStatus, isLoading: isPhysicalRobotStatusLoading } = useQuery<RobotStatus>({
-    queryKey: ['/api/robots/status', physicalRobotInfo.serialNumber],
-    refetchInterval: 2000, // Faster refresh rate for more responsive UI
-  });
-
-  // Log robot status when available
-  React.useEffect(() => {
-    if (physicalRobotStatus) {
-      console.log('Fetched robot data for', physicalRobotInfo.serialNumber, physicalRobotStatus);
-    }
-  }, [physicalRobotStatus]);
-
   // Get physical robot position for showing real-time coordinates
   const { data: physicalRobotPosition } = useQuery<RobotPosition>({
     queryKey: ['/api/robots/position', physicalRobotInfo.serialNumber],
@@ -97,6 +84,38 @@ export default function RobotHub() {
     queryKey: ['/api/robots/sensors', physicalRobotInfo.serialNumber],
     refetchInterval: 2000, // Faster refresh rate
   });
+  
+  // Special function to get status for the physical robot directly
+  const { data: physicalRobotStatus, isLoading: isPhysicalRobotStatusLoading } = useQuery<RobotStatus>({
+    queryKey: ['/api/robots/status', physicalRobotInfo.serialNumber],
+    refetchInterval: 2000, // Faster refresh rate for more responsive UI
+    retry: 3,
+    retryDelay: 1000,
+  });
+  
+  // We'll use any successful data fetch to determine if the robot is online
+  const isRobotOnline = 
+    !!physicalRobotStatus || 
+    !!physicalRobotPosition || 
+    !!physicalRobotSensor;
+    
+  // Log robot status changes
+  React.useEffect(() => {
+    if (isRobotOnline) {
+      console.log('Robot connection status: ONLINE');
+      if (physicalRobotStatus) {
+        console.log('Robot status data:', physicalRobotStatus);
+      }
+      if (physicalRobotPosition) {
+        console.log('Robot position data:', physicalRobotPosition);
+      }
+      if (physicalRobotSensor) {
+        console.log('Robot sensor data:', physicalRobotSensor);
+      }
+    } else {
+      console.log('Robot connection status: OFFLINE');
+    }
+  }, [isRobotOnline, physicalRobotStatus, physicalRobotPosition, physicalRobotSensor]);
 
   // If we're still loading data, show a loading indicator
   if (isLoading) {
@@ -133,21 +152,21 @@ export default function RobotHub() {
           Physical Robot (Live Connection)
         </h2>
         
-        <Card className={`border-2 ${physicalRobotStatus ? 'border-primary' : 'border-red-500'} cursor-pointer hover:shadow-lg transition-shadow`}
+        <Card className={`border-2 ${isRobotOnline ? 'border-primary' : 'border-red-500'} cursor-pointer hover:shadow-lg transition-shadow`}
               onClick={() => handleRobotCardClick(physicalRobotInfo.serialNumber)}>
-          {!physicalRobotStatus && (
+          {!isRobotOnline && (
             <div className="absolute right-0 left-0 top-0 bg-red-500 text-white px-4 py-1 text-sm font-medium text-center">
               Robot Offline - Connection Issues
             </div>
           )}
-          <CardHeader className={`pb-2 ${physicalRobotStatus ? 'bg-primary/10' : 'bg-red-500/10'}`}>
+          <CardHeader className={`pb-2 ${isRobotOnline ? 'bg-primary/10' : 'bg-red-500/10'}`}>
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Bot className={`h-5 w-5 ${physicalRobotStatus ? 'text-primary' : 'text-red-500'}`} />
+                <Bot className={`h-5 w-5 ${isRobotOnline ? 'text-primary' : 'text-red-500'}`} />
                 {physicalRobotInfo.model}
               </CardTitle>
-              <Badge className={getStatusColor(physicalRobotStatus ? 'online' : 'offline')}>
-                {physicalRobotStatus ? 'ONLINE' : 'OFFLINE'}
+              <Badge className={getStatusColor(isRobotOnline ? 'online' : 'offline')}>
+                {isRobotOnline ? 'ONLINE' : 'OFFLINE'}
               </Badge>
             </div>
           </CardHeader>
