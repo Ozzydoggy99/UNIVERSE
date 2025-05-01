@@ -477,8 +477,22 @@ export function Map({
           drawRobotAndPaths();
         };
         
+        // Add error handler for image
+        img.onerror = (e) => {
+          console.error('Error loading map image:', e);
+          console.log('Grid data starts with:', mapData.grid.substring(0, 100));
+        };
+        
         // Set the source of the image to the base64 data
-        img.src = `data:image/png;base64,${mapData.grid}`;
+        // First, make sure the grid is properly formed base64 data
+        try {
+          // Clean up any leading/trailing whitespace
+          const cleanGrid = mapData.grid.trim();
+          console.log('Setting image source with base64 data of length:', cleanGrid.length);
+          img.src = `data:image/png;base64,${cleanGrid}`;
+        } catch (err) {
+          console.error('Error setting image source:', err);
+        }
       } 
       // Draw numeric grid data (traditional array)
       else if (Array.isArray(mapData.grid)) {

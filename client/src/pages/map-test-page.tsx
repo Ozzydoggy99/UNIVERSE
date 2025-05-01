@@ -225,6 +225,12 @@ export default function MapTestPage() {
                   size: mapDataToUse.size,
                   origin: mapDataToUse.origin,
                   stamp: mapDataToUse.stamp,
+                  gridType: typeof mapDataToUse.grid,
+                  gridLength: typeof mapDataToUse.grid === 'string' ? mapDataToUse.grid.length : 0,
+                  hasGrid: Boolean(mapDataToUse.grid && 
+                    ((typeof mapDataToUse.grid === 'string' && mapDataToUse.grid.length > 0) || 
+                    (Array.isArray(mapDataToUse.grid) && mapDataToUse.grid.length > 0))),
+                  gridDataStart: typeof mapDataToUse.grid === 'string' ? mapDataToUse.grid.substring(0, 20) + '...' : '',
                   robotPosition: {
                     x: position.x,
                     y: position.y, 
