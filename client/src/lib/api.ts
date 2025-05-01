@@ -69,14 +69,29 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
       // Fall back to the regular API
       try {
         const response = await apiRequest(`/api/robots/status/${serialNumber}`);
-        if (!response.ok) {
-          console.warn(`/api/robots/status/${serialNumber} returned ${response.status}`);
-          throw new Error(`Failed to get robot status: ${response.statusText}`);
-        }
-        return await response.json();
+        const data = await response.json();
+        
+        // Add connection status to the result
+        return {
+          ...data,
+          connectionStatus: 'connected'
+        };
       } catch (apiError) {
         console.error(`API request error for robot ${serialNumber}:`, apiError);
-        throw apiError;
+        
+        // Return a minimal status with connection error
+        return {
+          model: "AxBot Physical Robot",
+          serialNumber: serialNumber,
+          battery: 0,
+          status: "offline",
+          operationalStatus: "error",
+          connectionStatus: "error",
+          uptime: "Disconnected",
+          messages: [
+            { timestamp: new Date().toISOString(), text: "Connection error" }
+          ]
+        };
       }
     } catch (error) {
       console.error(`Error fetching status for robot ${serialNumber}:`, error);
@@ -129,14 +144,29 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
       // Fall back to the regular API
       try {
         const response = await apiRequest(`/api/robots/position/${serialNumber}`);
-        if (!response.ok) {
-          console.warn(`/api/robots/position/${serialNumber} returned ${response.status}`);
-          throw new Error(`Failed to get robot position: ${response.statusText}`);
-        }
-        return await response.json();
+        const data = await response.json();
+        
+        // Add connection status to the result
+        return {
+          ...data,
+          connectionStatus: 'connected'
+        };
       } catch (apiError) {
         console.error(`API position request error for robot ${serialNumber}:`, apiError);
-        throw apiError;
+        
+        // Return a minimal position with connection error
+        return {
+          x: 0,
+          y: 0,
+          z: 0,
+          orientation: 0,
+          speed: 0,
+          timestamp: new Date().toISOString(),
+          connectionStatus: "error",
+          currentTask: "Disconnected",
+          destination: { x: 0, y: 0, z: 0 },
+          distanceToTarget: 0
+        };
       }
     } catch (error) {
       console.error(`Error fetching position for robot ${serialNumber}:`, error);
@@ -187,14 +217,27 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
       // Fall back to the regular API
       try {
         const response = await apiRequest(`/api/robots/sensors/${serialNumber}`);
-        if (!response.ok) {
-          console.warn(`/api/robots/sensors/${serialNumber} returned ${response.status}`);
-          throw new Error(`Failed to get robot sensor data: ${response.statusText}`);
-        }
-        return await response.json();
+        const data = await response.json();
+        
+        // Add connection status to the result
+        return {
+          ...data,
+          connectionStatus: 'connected'
+        };
       } catch (apiError) {
         console.error(`API sensor request error for robot ${serialNumber}:`, apiError);
-        throw apiError;
+        
+        // Return a minimal sensor data with connection error
+        return {
+          temperature: 0,
+          humidity: 0,
+          proximity: [],
+          battery: 0,
+          timestamp: new Date().toISOString(),
+          connectionStatus: "error",
+          light: 0,
+          noise: 0
+        };
       }
     } catch (error) {
       console.error(`Error fetching sensor data for robot ${serialNumber}:`, error);
@@ -348,14 +391,29 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
     // Fall back to the regular API
     try {
       const response = await apiRequest(`/api/robots/camera/${serialNumber}`);
-      if (!response.ok) {
-        console.warn(`/api/robots/camera/${serialNumber} returned ${response.status}`);
-        throw new Error(`Failed to get robot camera data: ${response.statusText}`);
-      }
-      return await response.json();
+      const data = await response.json();
+      
+      // Add connection status to the result
+      return {
+        ...data,
+        connectionStatus: 'connected'
+      };
     } catch (apiError) {
       console.error(`API camera request error for robot ${serialNumber}:`, apiError);
-      throw apiError;
+      
+      // Return a minimal camera data with connection error
+      return {
+        enabled: false,
+        streamUrl: '',
+        resolution: {
+          width: 0,
+          height: 0
+        },
+        rotation: 0,
+        nightVision: false,
+        timestamp: new Date().toISOString(),
+        connectionStatus: "error"
+      };
     }
   } catch (error) {
     console.error(`Error fetching camera data for robot ${serialNumber}:`, error);
