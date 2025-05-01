@@ -21,7 +21,7 @@ export async function apiRequest(
   
   // Add Secret header to all API requests when it involves robots
   // The secret is needed for robot authentication
-  const headers = {
+  const headers: Record<string, string> = {
     ...customHeaders,
     ...(data ? { "Content-Type": "application/json" } : {}),
   };

@@ -521,15 +521,18 @@ export function Map({
       const resolution = mapData.resolution;
       const [originX, originY] = mapData.origin;
       
-      ctx.fillStyle = '#000';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'left';
-      
-      // Only show these when debugging or if explicitly requested
-      if (false) {
-        ctx.fillText(`Resolution: ${resolution.toFixed(3)}m/px`, 10, 20);
-        ctx.fillText(`Size: ${width}x${height} px (${(width * resolution).toFixed(1)}x${(height * resolution).toFixed(1)}m)`, 10, 40);
-        ctx.fillText(`Origin: ${originX.toFixed(2)}, ${originY.toFixed(2)}`, 10, 60);
+      if (ctx) {
+        ctx.fillStyle = '#000';
+      if (ctx) {
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
+        
+        // Only show these when debugging or if explicitly requested
+        if (false) {
+          ctx.fillText(`Resolution: ${resolution.toFixed(3)}m/px`, 10, 20);
+          ctx.fillText(`Size: ${width}x${height} px (${(width * resolution).toFixed(1)}x${(height * resolution).toFixed(1)}m)`, 10, 40);
+          ctx.fillText(`Origin: ${originX.toFixed(2)}, ${originY.toFixed(2)}`, 10, 60);
+        }
       }
     }
     
