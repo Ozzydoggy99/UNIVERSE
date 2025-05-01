@@ -83,10 +83,12 @@ let robotWs: WebSocket | null = null;
 let reconnectAttempts = 0;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let isConnecting = false;
+let reconnectInterval: NodeJS.Timeout | null = null;
 
 // Connection status
 let isConnected = false;
 let enabledTopics: string[] = [];
+let lastReconnectTime = 0;
 
 // Logging flags to only log each message type once
 let positionDataLogged = false;
@@ -183,19 +185,49 @@ function handleReconnect() {
     clearTimeout(reconnectTimeout);
   }
   
+  // Clear any existing reconnect interval
+  if (reconnectInterval) {
+    clearInterval(reconnectInterval);
+    reconnectInterval = null;
+  }
+  
   const maxReconnectAttempts = 10;
   if (reconnectAttempts >= maxReconnectAttempts) {
     console.log(`Maximum reconnection attempts (${maxReconnectAttempts}) reached, waiting longer...`);
     
-    reconnectTimeout = setTimeout(() => {
-      reconnectAttempts = 0;
+    // After max attempts, switch to a persistent reconnection strategy
+    // This will keep trying to reconnect every 30 seconds indefinitely
+    reconnectAttempts = 0;
+    
+    // First immediate attempt
+    setTimeout(() => {
+      console.log('Starting persistent reconnection attempts...');
       initRobotWebSocket();
-    }, 30000); // Wait 30 seconds before trying again
+      
+      // Then set up regular attempts every 30 seconds
+      reconnectInterval = setInterval(() => {
+        const now = Date.now();
+        const timeSinceLastAttempt = now - lastReconnectTime;
+        
+        // Only attempt reconnection if we're not already connecting
+        // and if enough time has passed since the last attempt
+        if (!isConnecting && timeSinceLastAttempt > 10000) { // 10 seconds minimum between attempts
+          console.log('Persistent reconnection attempt...');
+          lastReconnectTime = now;
+          initRobotWebSocket();
+        }
+      }, 30000); // Try every 30 seconds indefinitely
+    }, 1000); // Small delay before first attempt
+    
     return;
   }
   
+  // Standard exponential backoff for initial attempts
   const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
   console.log(`Attempting to reconnect to robot WebSocket in ${delay}ms (attempt ${reconnectAttempts + 1})`);
+  
+  // Record the time of this reconnection attempt
+  lastReconnectTime = Date.now();
   
   reconnectTimeout = setTimeout(() => {
     reconnectAttempts++;

@@ -24,6 +24,8 @@ export interface RobotStatus {
   slam_quality?: number;
   control_mode?: string;
   emergency_stop_pressed?: boolean;
+  // Connection status for real-time monitoring
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
 }
 
 export interface RobotPosition {
@@ -43,6 +45,8 @@ export interface RobotPosition {
   pos?: number[];
   ori?: number;
   cov?: number[][];
+  // Connection status for real-time monitoring
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
 }
 
 export interface RobotSensorData {
