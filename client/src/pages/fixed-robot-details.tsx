@@ -37,7 +37,7 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
-import { MapFixed as Map } from '@/components/ui/map-fixed';
+import { Map } from '@/components/ui/map-fixed';
 import { ConnectionStatus } from '@/components/robot/ConnectionStatus';
 import ConnectionErrorMessage from '@/components/robot/ConnectionErrorMessage';
 

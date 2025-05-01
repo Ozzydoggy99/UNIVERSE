@@ -13,6 +13,7 @@ import AuthPage from "@/pages/auth-page";
 import AdminTemplates from "@/pages/admin-templates";
 import RobotAssignments from "@/pages/robot-assignments";
 import RobotHub from "@/pages/robot-hub";
+import FixedRobotDetails from "@/pages/fixed-robot-details";
 import RobotDetails from "@/pages/robot-details";
 import UnassignedRobots from "@/pages/unassigned-robots";
 import NumberedBoxes from "@/pages/numbered-boxes";
@@ -191,7 +192,7 @@ function Router() {
         path="/robot-details/:serialNumber" 
         component={() => (
           <AppLayout>
-            <RobotDetails />
+            <FixedRobotDetails />
           </AppLayout>
         )} 
       />
