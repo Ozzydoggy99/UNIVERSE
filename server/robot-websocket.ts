@@ -4,54 +4,26 @@ import { EventEmitter } from 'events';
 import { registerRobot } from './register-robot';
 import https from 'https';
 
-// We only support a single physical robot
-const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
-
-// Robot connection configuration
-// Connection URLs can be set via environment variables to allow dynamic updates
-let ROBOT_API_URL = process.env.ROBOT_API_URL;
-let ROBOT_WS_URL = process.env.ROBOT_WS_URL;
-
-// If environment variables are not set, use default connection options
-if (!ROBOT_API_URL || !ROBOT_WS_URL) {
-  // Use the configured port forwarding for robot connection
-  console.log('Using port forwarded connection to robot');
-  
-  // Connection to the robot via port forwarding (public IP)
-  ROBOT_API_URL = 'http://47.180.91.99:8090';
-  ROBOT_WS_URL = 'ws://47.180.91.99:8090/ws/v2/topics';
-  
-  // Other connection options (for reference only):
-  // 1. Direct connection via Ethernet RJ45 port - Not accessible from Replit
-  // ROBOT_API_URL = 'http://192.168.25.25:8090';
-  // ROBOT_WS_URL = 'ws://192.168.25.25:8090/ws/v2/topics';
-  
-  // 2. Direct connection via robot AP - Not accessible from Replit
-  // ROBOT_API_URL = 'http://192.168.12.1:8090';
-  // ROBOT_WS_URL = 'ws://192.168.12.1:8090/ws/v2/topics';
-}
+// Import shared constants
+import { 
+  PHYSICAL_ROBOT_SERIAL,
+  ROBOT_API_URL,
+  ROBOT_WS_URL,
+  ROBOT_SECRET,
+  updateRobotConnectionURLs as updateConnectionURLs
+} from './robot-constants';
 
 console.log(`Using robot connection: ${ROBOT_API_URL} (HTTP) and ${ROBOT_WS_URL} (WebSocket)`);
 
-// Allow updating the connection URLs at runtime
+// Re-export the updateRobotConnectionURLs function with additional functionality
 export function updateRobotConnectionURLs(apiUrl: string, wsUrl: string) {
-  ROBOT_API_URL = apiUrl;
-  ROBOT_WS_URL = wsUrl;
-  console.log(`Updated robot connection: ${ROBOT_API_URL} (HTTP) and ${ROBOT_WS_URL} (WebSocket)`);
+  updateConnectionURLs(apiUrl, wsUrl);
   
   // Disconnect current connection to force reconnect with new URLs
   if (robotWs) {
     robotWs.terminate();
   }
 }
-
-// Authentication note: The documentation states that requests from these IPs don't require a secret:
-// - 192.168.25.* (added since 2.7.1)
-// - 172.16.*     (added since 2.7.1)
-// Since we're connecting to 192.168.25.25, we should not need the secret
-
-// For testing with ngrok, we'll keep this option but it may not be needed
-const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
 
 // Use node rejectUnauthorized=false to bypass SSL certificate validation
 // This is only for development purposes and should be removed in production

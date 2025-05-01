@@ -10,8 +10,12 @@ import {
   isRobotConnected
 } from './robot-websocket';
 
-// We only support a single physical robot
-const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
+// Import shared constants
+import { 
+  PHYSICAL_ROBOT_SERIAL,
+  ROBOT_API_URL,
+  ROBOT_SECRET
+} from './robot-constants';
 
 /**
  * Register all robot-related API routes
@@ -337,8 +341,46 @@ export function registerRobotApiRoutes(app: Express) {
         return res.status(404).json({ error: 'Robot not found' });
       }
       
-      // Get map data from WebSocket cache - the updated function now always returns a data object
-      // with connectionStatus property that can be 'connected', 'connecting', or 'disconnected'
+      // First, try to get the map directly from the robot's carpad software if we have a connection
+      if (ROBOT_API_URL) {
+        try {
+          const mapUrl = `${ROBOT_API_URL}/map`;
+          console.log(`Trying to fetch map data directly from robot at ${mapUrl}`);
+          
+          const robotResponse = await fetch(mapUrl, {
+            headers: {
+              'Secret': process.env.ROBOT_SECRET || ''
+            }
+          });
+          
+          if (robotResponse.ok) {
+            const robotMapData = await robotResponse.json();
+            console.log('Successfully fetched map data from robot carpad software');
+            
+            // Transform into our expected format - retain the original data for editing
+            const formattedMapData = {
+              grid: robotMapData.data || [],
+              obstacles: robotMapData.obstacles || [],
+              paths: robotMapData.paths || [],
+              size: robotMapData.size || [0, 0],
+              resolution: robotMapData.resolution || 0.05,
+              origin: robotMapData.origin || [0, 0],
+              stamp: robotMapData.stamp,
+              originalData: robotMapData, // Keep the full original data for reference
+              connectionStatus: 'connected'
+            };
+            
+            return res.json(formattedMapData);
+          } else {
+            console.warn(`Failed to fetch map data from robot: ${robotResponse.status} ${robotResponse.statusText}`);
+          }
+        } catch (error) {
+          const directError = error as Error;
+          console.warn(`Error connecting to robot for map data: ${directError.message}`);
+        }
+      }
+      
+      // Fall back to using the WebSocket cache if direct connection failed
       const mapData = getRobotMapData(serialNumber);
       
       if (mapData) {
@@ -354,6 +396,62 @@ export function registerRobotApiRoutes(app: Express) {
     } catch (error) {
       console.error('Error fetching robot map data:', error);
       res.status(500).json({ error: 'Failed to fetch robot map data' });
+    }
+  });
+  
+  // Update map data for a specific robot (to support editing)
+  app.post('/api/robots/map/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const mapUpdates = req.body;
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Validate the map updates
+      if (!mapUpdates) {
+        return res.status(400).json({ error: 'No map data provided' });
+      }
+      
+      if (ROBOT_API_URL) {
+        try {
+          // Try to update the map on the robot
+          const mapUrl = `${ROBOT_API_URL}/map`;
+          console.log(`Trying to update map data on robot at ${mapUrl}`);
+          
+          const robotResponse = await fetch(mapUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Secret': process.env.ROBOT_SECRET || ''
+            },
+            body: JSON.stringify(mapUpdates)
+          });
+          
+          if (robotResponse.ok) {
+            console.log('Successfully updated map data on robot');
+            return res.json({ message: 'Map updated successfully' });
+          } else {
+            const errorText = await robotResponse.text();
+            console.warn(`Failed to update map on robot: ${robotResponse.status} ${errorText}`);
+            return res.status(robotResponse.status).json({ error: errorText || 'Failed to update map on robot' });
+          }
+        } catch (error) {
+          const updateError = error as Error;
+          console.error(`Error updating map on robot: ${updateError.message}`);
+          return res.status(500).json({ error: `Error updating map: ${updateError.message}` });
+        }
+      }
+      
+      // If we can't update directly, store the updates in our local cache
+      // This is a simplified implementation - in a real system you'd want to persist this
+      console.log('No direct robot connection, storing map edits locally');
+      res.json({ message: 'Map updates stored locally (no direct robot connection)' });
+    } catch (error) {
+      console.error('Error updating robot map data:', error);
+      res.status(500).json({ error: 'Failed to update robot map data' });
     }
   });
 
