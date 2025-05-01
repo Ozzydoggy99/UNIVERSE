@@ -27,8 +27,8 @@ if (!ROBOT_API_URL || !ROBOT_WS_URL) {
   
   // 3. Connection via ngrok (for remote development/testing)
   // This URL needs to be checked and updated if it changes
-  ROBOT_API_URL = 'https://8f50-47-180-91-99.ngrok-free.app';
-  ROBOT_WS_URL = 'wss://8f50-47-180-91-99.ngrok-free.app/ws/v2/topics';
+  ROBOT_API_URL = 'https://df90-47-180-91-99.ngrok-free.app';
+  ROBOT_WS_URL = 'wss://df90-47-180-91-99.ngrok-free.app/ws/v2/topics';
 }
 
 console.log(`Using robot connection: ${ROBOT_API_URL} (HTTP) and ${ROBOT_WS_URL} (WebSocket)`);
@@ -107,6 +107,11 @@ export function initRobotWebSocket() {
         'Secret': ROBOT_SECRET
       }
     };
+    
+    // Make sure URL is defined before connecting
+    if (!ROBOT_WS_URL) {
+      throw new Error('Robot WebSocket URL is not defined');
+    }
     
     robotWs = new WebSocket(ROBOT_WS_URL, wsOptions);
     
