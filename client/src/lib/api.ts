@@ -37,7 +37,7 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
       // First try to get data from the proxy server if it's configured
       if (ROBOT_PROXY_URL) {
         try {
-          console.log(`Trying to connect to robot via proxy at ${ROBOT_PROXY_URL}/device/info`);
+          // Skip logging to reduce console noise
           const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/device/info`, {
             headers: {
               'Secret': ROBOT_SECRET
@@ -45,7 +45,6 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
           });
           if (proxyResponse.ok) {
             const robotData = await proxyResponse.json();
-            console.log('Received robot data from proxy:', robotData);
             
             // Convert from robot's format to our application's format
             // Adjust this mapping based on the actual robot API response
@@ -56,19 +55,37 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
               status: robotData.status || "online",
               operationalStatus: robotData.operationalStatus || "ready",
               uptime: robotData.uptime || "Connected via proxy",
+              connectionStatus: 'connected',
               messages: [
                 { timestamp: new Date().toISOString(), text: "Connected to physical robot via proxy" }
               ]
             };
           }
         } catch (proxyError) {
-          console.warn('Failed to get data from proxy, falling back to API:', proxyError);
+          // Skip log for better UI experience
         }
       }
       
       // Fall back to the regular API
       try {
         const response = await apiRequest(`/api/robots/status/${serialNumber}`);
+        
+        // Check if response is OK before parsing
+        if (!response.ok) {
+          return {
+            model: "AxBot Physical Robot",
+            serialNumber: serialNumber,
+            battery: 0,
+            status: "offline",
+            operationalStatus: "error",
+            connectionStatus: "error",
+            uptime: "Disconnected",
+            messages: [
+              { timestamp: new Date().toISOString(), text: "Connection error" }
+            ]
+          };
+        }
+        
         const data = await response.json();
         
         // Add connection status to the result
@@ -77,9 +94,7 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
           connectionStatus: 'connected'
         };
       } catch (apiError) {
-        console.error(`API request error for robot ${serialNumber}:`, apiError);
-        
-        // Return a minimal status with connection error
+        // Return a minimal status with connection error without console noise
         return {
           model: "AxBot Physical Robot",
           serialNumber: serialNumber,
@@ -94,8 +109,19 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
         };
       }
     } catch (error) {
-      console.error(`Error fetching status for robot ${serialNumber}:`, error);
-      throw error;
+      // Return fallback data without throwing
+      return {
+        model: "AxBot Physical Robot",
+        serialNumber: serialNumber,
+        battery: 0,
+        status: "offline",
+        operationalStatus: "error",
+        connectionStatus: "error",
+        uptime: "Disconnected",
+        messages: [
+          { timestamp: new Date().toISOString(), text: "Connection error" }
+        ]
+      };
     }
   } else {
     // Use the general API endpoint
@@ -112,7 +138,7 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
       // First try to get data from the proxy server if it's configured
       if (ROBOT_PROXY_URL) {
         try {
-          console.log(`Trying to connect to robot position via proxy at ${ROBOT_PROXY_URL}/position`);
+          // Skip logging to reduce console noise
           const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/position`, {
             headers: {
               'Secret': ROBOT_SECRET
@@ -120,30 +146,47 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
           });
           if (proxyResponse.ok) {
             const robotData = await proxyResponse.json();
-            console.log('Received robot position data from proxy:', robotData);
             
             // Convert from robot's format to our application's format
             // Adjust this mapping based on the actual robot API response
             return {
-              x: robotData.x || robotData.position?.x || 150,
-              y: robotData.y || robotData.position?.y || 95,
+              x: robotData.x || robotData.position?.x || 0,
+              y: robotData.y || robotData.position?.y || 0,
               z: robotData.z || robotData.position?.z || 0,
-              orientation: robotData.orientation || robotData.position?.orientation || 180,
+              orientation: robotData.orientation || robotData.position?.orientation || 0,
               speed: robotData.speed || 0,
               timestamp: robotData.timestamp || new Date().toISOString(),
+              connectionStatus: 'connected',
               currentTask: "Connected via proxy",
               destination: { x: 0, y: 0, z: 0 },
               distanceToTarget: 0
             };
           }
         } catch (proxyError) {
-          console.warn('Failed to get position data from proxy, falling back to API:', proxyError);
+          // Skip log for better UI experience
         }
       }
       
       // Fall back to the regular API
       try {
         const response = await apiRequest(`/api/robots/position/${serialNumber}`);
+        
+        // Check if response is OK before parsing
+        if (!response.ok) {
+          return {
+            x: 0,
+            y: 0,
+            z: 0,
+            orientation: 0,
+            speed: 0,
+            timestamp: new Date().toISOString(),
+            connectionStatus: "error",
+            currentTask: "Disconnected",
+            destination: { x: 0, y: 0, z: 0 },
+            distanceToTarget: 0
+          };
+        }
+        
         const data = await response.json();
         
         // Add connection status to the result
@@ -152,9 +195,7 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
           connectionStatus: 'connected'
         };
       } catch (apiError) {
-        console.error(`API position request error for robot ${serialNumber}:`, apiError);
-        
-        // Return a minimal position with connection error
+        // Return error state without console noise
         return {
           x: 0,
           y: 0,
@@ -169,8 +210,19 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
         };
       }
     } catch (error) {
-      console.error(`Error fetching position for robot ${serialNumber}:`, error);
-      throw error;
+      // Return fallback without throwing
+      return {
+        x: 0,
+        y: 0,
+        z: 0,
+        orientation: 0,
+        speed: 0,
+        timestamp: new Date().toISOString(),
+        connectionStatus: "error",
+        currentTask: "Disconnected",
+        destination: { x: 0, y: 0, z: 0 },
+        distanceToTarget: 0
+      };
     }
   } else {
     // Use the general API endpoint
@@ -187,7 +239,7 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
       // First try to get data from the proxy server if it's configured
       if (ROBOT_PROXY_URL) {
         try {
-          console.log(`Trying to connect to robot sensors via proxy at ${ROBOT_PROXY_URL}/sensors`);
+          // Skip logging to reduce console noise
           const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/sensors`, {
             headers: {
               'Secret': ROBOT_SECRET
@@ -195,28 +247,48 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
           });
           if (proxyResponse.ok) {
             const robotData = await proxyResponse.json();
-            console.log('Received robot sensor data from proxy:', robotData);
             
             // Convert from robot's format to our application's format
             // Adjust this mapping based on the actual robot API response
             return {
-              temperature: robotData.temperature || 24.2,
-              humidity: robotData.humidity || 45,
-              proximity: robotData.proximity || [1.5, 2.8, 3, 1.7],
-              battery: robotData.battery || 95,
+              temperature: robotData.temperature || 0,
+              humidity: robotData.humidity || 0,
+              proximity: robotData.proximity || [],
+              battery: robotData.battery || 0,
               timestamp: robotData.timestamp || new Date().toISOString(),
-              light: 75,
-              noise: 30
+              connectionStatus: 'connected',
+              light: robotData.light || 0,
+              noise: robotData.noise || 0,
+              // These fields need to be included for compatibility
+              charging: robotData.charging || false,
+              power_supply_status: robotData.power_supply_status || 'unknown'
             };
           }
         } catch (proxyError) {
-          console.warn('Failed to get sensor data from proxy, falling back to API:', proxyError);
+          // Skip log for better UI experience
         }
       }
       
       // Fall back to the regular API
       try {
         const response = await apiRequest(`/api/robots/sensors/${serialNumber}`);
+        
+        // Check if response is OK before parsing
+        if (!response.ok) {
+          return {
+            temperature: 0,
+            humidity: 0,
+            proximity: [],
+            battery: 0,
+            timestamp: new Date().toISOString(),
+            connectionStatus: "error",
+            light: 0,
+            noise: 0,
+            charging: false,
+            power_supply_status: 'unknown'
+          };
+        }
+        
         const data = await response.json();
         
         // Add connection status to the result
@@ -225,9 +297,7 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
           connectionStatus: 'connected'
         };
       } catch (apiError) {
-        console.error(`API sensor request error for robot ${serialNumber}:`, apiError);
-        
-        // Return a minimal sensor data with connection error
+        // Return error state without console noise
         return {
           temperature: 0,
           humidity: 0,
@@ -236,12 +306,25 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
           timestamp: new Date().toISOString(),
           connectionStatus: "error",
           light: 0,
-          noise: 0
+          noise: 0,
+          charging: false,
+          power_supply_status: 'unknown'
         };
       }
     } catch (error) {
-      console.error(`Error fetching sensor data for robot ${serialNumber}:`, error);
-      throw error;
+      // Return fallback without throwing
+      return {
+        temperature: 0,
+        humidity: 0,
+        proximity: [],
+        battery: 0,
+        timestamp: new Date().toISOString(),
+        connectionStatus: "error",
+        light: 0,
+        noise: 0,
+        charging: false,
+        power_supply_status: 'unknown'
+      };
     }
   } else {
     // Use the general API endpoint
@@ -316,6 +399,17 @@ export async function getMapData(serialNumber?: string) {
       };
       
       const response = await apiRequest(`/api/robots/map/${serialNumber}`, { headers });
+      
+      // Check if response is OK before parsing
+      if (!response.ok) {
+        return {
+          grid: [],
+          obstacles: [],
+          paths: [],
+          connectionStatus: 'error'
+        };
+      }
+      
       const data = await response.json();
       
       // Add connection status to the returned data
@@ -324,9 +418,7 @@ export async function getMapData(serialNumber?: string) {
         connectionStatus: 'connected'
       };
     } catch (error) {
-      console.error(`Error fetching map data for robot ${serialNumber}:`, error);
-      
-      // Return a minimal map with connectionStatus 'error' instead of throwing
+      // Return a minimal map with connectionStatus 'error' without console noise
       return {
         grid: [],
         obstacles: [],
@@ -338,13 +430,24 @@ export async function getMapData(serialNumber?: string) {
     // Use the general API endpoint
     try {
       const response = await apiRequest(`${API_URL}/map`);
+      
+      // Check if response is OK before parsing
+      if (!response.ok) {
+        return {
+          grid: [],
+          obstacles: [],
+          paths: [],
+          connectionStatus: 'error'
+        };
+      }
+      
       const data = await response.json();
       return {
         ...data,
         connectionStatus: 'connected'
       };
     } catch (error) {
-      console.error('Error fetching general map data:', error);
+      // Return error status without console noise
       return {
         grid: [],
         obstacles: [],
@@ -361,15 +464,13 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
     // First try to get data from the proxy server if it's configured
     if (ROBOT_CAMERA_URL) {
       try {
-        console.log(`Trying to connect to robot camera via proxy at ${ROBOT_CAMERA_URL}/${serialNumber}`);
+        // Skip logging to reduce console noise
         const proxyResponse = await fetch(`${ROBOT_CAMERA_URL}/${serialNumber}`, {
           headers: {
             'Secret': ROBOT_SECRET
           }
         });
         if (proxyResponse.ok) {
-          console.log('Received robot camera data from proxy');
-          
           // Return camera data with the proxy stream URL
           return {
             enabled: true,
@@ -380,17 +481,35 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
             },
             rotation: 0,
             nightVision: true,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            connectionStatus: 'connected'
           };
         }
       } catch (proxyError) {
-        console.warn('Failed to get camera data from proxy, falling back to API:', proxyError);
+        // Skip log for better UI experience
       }
     }
     
     // Fall back to the regular API
     try {
       const response = await apiRequest(`/api/robots/camera/${serialNumber}`);
+      
+      // Check if response is OK before parsing
+      if (!response.ok) {
+        return {
+          enabled: false,
+          streamUrl: '',
+          resolution: {
+            width: 0,
+            height: 0
+          },
+          rotation: 0,
+          nightVision: false,
+          timestamp: new Date().toISOString(),
+          connectionStatus: "error"
+        };
+      }
+      
       const data = await response.json();
       
       // Add connection status to the result
@@ -399,9 +518,7 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
         connectionStatus: 'connected'
       };
     } catch (apiError) {
-      console.error(`API camera request error for robot ${serialNumber}:`, apiError);
-      
-      // Return a minimal camera data with connection error
+      // Return error state without console noise
       return {
         enabled: false,
         streamUrl: '',
@@ -416,8 +533,19 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
       };
     }
   } catch (error) {
-    console.error(`Error fetching camera data for robot ${serialNumber}:`, error);
-    throw error;
+    // Return fallback without throwing
+    return {
+      enabled: false,
+      streamUrl: '',
+      resolution: {
+        width: 0,
+        height: 0
+      },
+      rotation: 0,
+      nightVision: false,
+      timestamp: new Date().toISOString(),
+      connectionStatus: "error"
+    };
   }
 }
 
@@ -427,27 +555,96 @@ export async function toggleRobotCamera(serialNumber: string, enabled: boolean):
       method: 'POST', 
       data: { enabled }
     });
-    return await response.json();
+    
+    // Check if response is OK before parsing
+    if (!response.ok) {
+      return {
+        enabled: false,
+        streamUrl: '',
+        resolution: {
+          width: 0,
+          height: 0
+        },
+        rotation: 0,
+        nightVision: false,
+        timestamp: new Date().toISOString(),
+        connectionStatus: "error"
+      };
+    }
+    
+    const data = await response.json();
+    return {
+      ...data,
+      connectionStatus: 'connected'
+    };
   } catch (error) {
-    console.error(`Error toggling camera for robot ${serialNumber}:`, error);
-    throw error;
+    // Return error state without console noise
+    return {
+      enabled: false,
+      streamUrl: '',
+      resolution: {
+        width: 0,
+        height: 0
+      },
+      rotation: 0,
+      nightVision: false,
+      timestamp: new Date().toISOString(),
+      connectionStatus: "error"
+    };
   }
 }
 
-// Do not use fallback data - we want to see real robot errors if they occur
+// Refresh all robot data with graceful error handling
 export async function refreshAllData() {
   try {
     // For the serial number, we'll use the pre-configured physical robot serial
     const physicalRobotSerial = "L382502104987ir";
     
+    // Each of these functions now has built-in error handling and won't throw
     const statusPromise = getRobotStatus(physicalRobotSerial);
     const positionPromise = getRobotPosition(physicalRobotSerial);
     const sensorPromise = getRobotSensorData(physicalRobotSerial);
     const mapPromise = getMapData(physicalRobotSerial);
     
+    // Promise.all won't reject if individual promises don't throw
     return await Promise.all([statusPromise, positionPromise, sensorPromise, mapPromise]);
   } catch (error) {
-    console.error("Error in refreshAllData:", error);
-    throw error; // Let the error propagate so we know something is wrong
+    // This should never be reached now, but just in case
+    return [
+      // Status with error
+      {
+        model: "AxBot",
+        serialNumber: "L382502104987ir",
+        battery: 0,
+        status: "offline",
+        connectionStatus: "error",
+        uptime: "Disconnected",
+        messages: [{ timestamp: new Date().toISOString(), text: "Connection error" }]
+      },
+      // Position with error
+      {
+        x: 0, y: 0, z: 0, orientation: 0,
+        connectionStatus: "error",
+        timestamp: new Date().toISOString()
+      },
+      // Sensor data with error
+      {
+        temperature: 0,
+        battery: 0,
+        humidity: 0,
+        proximity: [],
+        connectionStatus: "error",
+        timestamp: new Date().toISOString(),
+        charging: false,
+        power_supply_status: 'unknown'
+      },
+      // Map data with error
+      {
+        grid: [],
+        obstacles: [],
+        paths: [],
+        connectionStatus: "error"
+      }
+    ];
   }
 }
