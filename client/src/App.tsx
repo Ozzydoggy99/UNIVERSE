@@ -192,7 +192,7 @@ function Router() {
         path="/robot-details/:serialNumber" 
         component={() => (
           <AppLayout>
-            <FixedRobotDetails />
+            <RobotDetails />
           </AppLayout>
         )} 
       />
