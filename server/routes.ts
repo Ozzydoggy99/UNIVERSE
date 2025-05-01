@@ -157,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Fetch live status data
             const statusResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/status`);
             if (statusResponse.ok) {
-              const liveStatusData = await statusResponse.json();
+              const liveStatusData = await statusResponse.json() as { status?: string };
               
               // Update the robot data with live status
               robotData = {
@@ -170,10 +170,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Fetch live sensor data for battery info
               const sensorResponse = await fetch(`http://8f50-47-180-91-99.ngrok-free.app/sensors`);
               if (sensorResponse.ok) {
-                const liveSensorData = await sensorResponse.json();
+                const liveSensorData = await sensorResponse.json() as { battery?: number };
                 
                 // Update battery level if available
-                if (liveSensorData.battery) {
+                if (liveSensorData && liveSensorData.battery !== undefined) {
                   robotData.battery = liveSensorData.battery;
                 }
               }
