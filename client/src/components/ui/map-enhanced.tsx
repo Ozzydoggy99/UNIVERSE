@@ -473,46 +473,45 @@ export function MapEnhanced({
               console.log("Checking for visual theme data:", mapData.visualTheme);
               const useEnhancedVisualization = mapData.enhancedVisualization === true;
               
-              // Get theme colors if available
-              const obstacleColor = mapData.visualTheme?.obstacles === 'blue' 
-                ? { r: 65, g: 105, b: 225, a: 255 }  // Blue color for obstacles
-                : { r: 65, g: 105, b: 225, a: 255 }; // Default blue if not specified
+              // Get theme colors if available - FORCE STRONGER COLORS
+              const obstacleColor = { r: 30, g: 87, b: 255, a: 255 }; // Bright blue for obstacles
+              const pathwayColor = { r: 255, g: 255, b: 255, a: 255 }; // Pure white for pathways
+              const unknownColor = { r: 220, g: 220, b: 220, a: 180 }; // Light gray for unknown
                 
-              const pathwayColor = mapData.visualTheme?.pathways === 'white' 
-                ? { r: 255, g: 255, b: 255, a: 255 } // White for pathways
-                : { r: 255, g: 255, b: 255, a: 255 }; // Default white if not specified
-                
-              const unknownColor = mapData.visualTheme?.unknown === 'lightgray' 
-                ? { r: 220, g: 220, b: 220, a: 180 } // Light gray for unknown
-                : { r: 220, g: 220, b: 220, a: 180 }; // Default light gray if not specified
-                
-              console.log("Using enhanced visualization:", useEnhancedVisualization);
+              console.log("USING FORCED COLOR ENHANCEMENT FOR MAP VISUALIZATION");
               console.log("Obstacle color:", obstacleColor);
               console.log("Pathway color:", pathwayColor);
               console.log("Unknown color:", unknownColor);
-                
+              
+              // Create a completely new image with our desired colors
+              let allBlack = true;
+              
               // Process each pixel to match the reference image colors
               for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
                 
-                // Dark areas (obstacles/walls) to blue
-                if (r < 100 && g < 100 && b < 100) {
+                if (r > 30 || g > 30 || b > 30) {
+                  allBlack = false;
+                }
+                
+                // Dark areas (obstacles/walls) to strong blue
+                if (r < 128 && g < 128 && b < 128) {
                   data[i] = obstacleColor.r;      // R
                   data[i + 1] = obstacleColor.g;  // G
                   data[i + 2] = obstacleColor.b;  // B
                   data[i + 3] = obstacleColor.a;  // Alpha
                 }
                 // Gray areas (unknown) to light gray
-                else if (r > 100 && r < 200 && g > 100 && g < 200 && b > 100 && b < 200) {
+                else if (r >= 128 && r < 220 && g >= 128 && g < 220 && b >= 128 && b < 220) {
                   data[i] = unknownColor.r;     // R
                   data[i + 1] = unknownColor.g;  // G
                   data[i + 2] = unknownColor.b;  // B
                   data[i + 3] = unknownColor.a;  // Alpha (semi-transparent)
                 }
-                // White areas (free space) keep white but enhance
-                else if (r > 200 && g > 200 && b > 200) {
+                // White areas (free space) to pure white
+                else {
                   data[i] = pathwayColor.r;     // R
                   data[i + 1] = pathwayColor.g;  // G
                   data[i + 2] = pathwayColor.b;  // B
@@ -571,10 +570,11 @@ export function MapEnhanced({
         }
         
         // Create a custom colormap for the grid data matching the reference image
+        // Use the EXACT same colors as in the forced image processing above
         const colormap = (value: number) => {
-          if (value < 0) return 'rgba(65, 105, 225, 0.9)';  // Blue for obstacles/walls (occupied)
-          if (value > 0) return 'rgba(255, 255, 255, 0.9)';  // White for free space (pathways)
-          return 'rgba(220, 220, 220, 0.3)';                 // Light gray for unknown
+          if (value < 0) return 'rgba(30, 87, 255, 1.0)';  // Bright blue for obstacles/walls (occupied)
+          if (value > 0) return 'rgba(255, 255, 255, 1.0)';  // Pure white for free space (pathways)
+          return 'rgba(220, 220, 220, 0.7)';                 // Light gray for unknown with higher opacity
         };
         
         // Draw the grid cells
