@@ -352,7 +352,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            inplace_rotate: true // Critical for pure rotation
+            inplace_rotate: true, // Critical for pure rotation
+            no_rotate: false // Explicitly allow rotation in rotation mode
           }
         };
         
