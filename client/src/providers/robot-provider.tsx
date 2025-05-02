@@ -207,9 +207,16 @@ export function RobotProvider({ children }: RobotProviderProps) {
         }
         
         if (results[4].status === 'fulfilled' && results[4].value) {
-          setCameraData(results[4].value);
+          setLidarData(results[4].value);
           successfulResponses++;
         } else if (results[4].status === 'rejected') {
+          // Skip logging to reduce console noise
+        }
+        
+        if (results[5].status === 'fulfilled' && results[5].value) {
+          setCameraData(results[5].value);
+          successfulResponses++;
+        } else if (results[5].status === 'rejected') {
           // Skip logging to reduce console noise
         }
         
@@ -274,13 +281,15 @@ export function RobotProvider({ children }: RobotProviderProps) {
     position: RobotPosition | null, 
     sensorData: RobotSensorData | null,
     mapData: MapData | null,
-    camera: CameraData | null
+    lidarData: LidarData | null,
+    cameraData: CameraData | null
   ) => {
     if (status) setRobotStatus(status);
     if (position) setRobotPosition(position);
     if (sensorData) setRobotSensorData(sensorData);
     if (mapData) setMapData(mapData);
-    if (camera) setCameraData(camera);
+    if (lidarData) setLidarData(lidarData);
+    if (cameraData) setCameraData(cameraData);
     
     updateTimestamp();
   };
@@ -318,6 +327,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
         robotSensorData,
         mapData,
         cameraData,
+        lidarData,
         lastUpdated,
         connectionState,
         setRobotData: handleSetRobotData,
