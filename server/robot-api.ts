@@ -10,6 +10,7 @@ import {
   getRobotLidarData,
   isRobotConnected
 } from './robot-websocket';
+import fetch from 'node-fetch';
 
 // Import shared constants
 import { 
@@ -17,6 +18,58 @@ import {
   ROBOT_API_URL,
   ROBOT_SECRET
 } from './robot-constants';
+
+// Cache for system settings
+let systemSettingsCache: any = null;
+let lastSettingsFetchTime = 0;
+const SETTINGS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Fetch system settings from robot
+ * @param effectiveOnly Whether to fetch only effective settings or all settings
+ * @returns System settings from robot
+ */
+async function fetchSystemSettings(effectiveOnly: boolean = true) {
+  try {
+    // Check cache first
+    const now = Date.now();
+    if (systemSettingsCache && (now - lastSettingsFetchTime) < SETTINGS_CACHE_TTL) {
+      return systemSettingsCache;
+    }
+    
+    // Default endpoint is effective.json which contains the merged values
+    let endpoint = 'effective';
+    
+    // Optionally get the full settings (schema, default, user, effective)
+    if (!effectiveOnly) {
+      endpoint = '';
+    }
+    
+    console.log(`Fetching system settings from ${ROBOT_API_URL}/system/settings/${endpoint}`);
+    
+    const response = await fetch(`${ROBOT_API_URL}/system/settings/${endpoint}`, {
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch system settings: ${response.status} ${response.statusText}`);
+    }
+    
+    const settings = await response.json();
+    
+    // Update cache
+    systemSettingsCache = settings;
+    lastSettingsFetchTime = now;
+    
+    return settings;
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    return null;
+  }
+}
 
 /**
  * Register all robot-related API routes
@@ -261,6 +314,94 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
 
+  // Get system settings/parameters for a specific robot
+  app.get('/api/robots/params/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Check if robot is connected
+      if (!isRobotConnected()) {
+        return res.status(503).json({ 
+          error: 'Robot not connected', 
+          message: 'The robot is not currently connected. Please check the connection.'
+        });
+      }
+      
+      // Fetch system settings from robot
+      try {
+        const settings = await fetchSystemSettings(true);
+        
+        if (!settings) {
+          // Fall back to legacy API if system settings API is not available
+          try {
+            const response = await fetch(`${ROBOT_API_URL}/robot-params`, {
+              headers: {
+                'Secret': ROBOT_SECRET || '',
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Failed to fetch robot parameters: ${response.status} ${response.statusText}`);
+            }
+            
+            const params = await response.json();
+            return res.json(params);
+          } catch (legacyError) {
+            console.error('Error fetching legacy robot parameters:', legacyError);
+            
+            // Return some default parameters as last resort
+            return res.json({
+              "/wheel_control/max_forward_velocity": 0.8,
+              "/wheel_control/max_backward_velocity": -0.2,
+              "/wheel_control/max_forward_acc": 0.26,
+              "/wheel_control/max_forward_decel": -2.0,
+              "/wheel_control/max_angular_velocity": 0.78,
+              "/wheel_control/acc_smoother/smooth_level": "normal",
+              "/planning/auto_hold": true,
+              "/control/bump_tolerance": 0.5,
+              "/control/bump_based_speed_limit/enable": true
+            });
+          }
+        }
+        
+        // Format system settings to match the legacy API format for backward compatibility
+        // This transforms control.max_forward_velocity to /wheel_control/max_forward_velocity
+        const legacyFormatParams = {
+          "/wheel_control/max_forward_velocity": settings?.control?.max_forward_velocity || 0.8,
+          "/wheel_control/max_backward_velocity": settings?.control?.max_backward_velocity || -0.2,
+          "/wheel_control/max_forward_acc": settings?.control?.max_forward_acc || 0.26,
+          "/wheel_control/max_forward_decel": settings?.control?.max_forward_decel || -2.0,
+          "/wheel_control/max_angular_velocity": settings?.control?.max_angular_velocity || 0.78,
+          "/wheel_control/acc_smoother/smooth_level": settings?.control?.acc_smoother?.smooth_level || "normal",
+          "/planning/auto_hold": settings?.control?.auto_hold || true,
+          "/control/bump_tolerance": settings?.bump_based_speed_limit?.bump_tolerance || 0.5,
+          "/control/bump_based_speed_limit/enable": settings?.bump_based_speed_limit?.enable || true,
+          "/robot/footprint": settings?.robot?.footprint || [],
+        };
+        
+        // Include the raw system settings for reference
+        const responseData = {
+          ...legacyFormatParams,
+          _systemSettings: settings
+        };
+        
+        res.json(responseData);
+      } catch (error) {
+        console.error('Error fetching robot parameters:', error);
+        res.status(500).json({ error: 'Failed to fetch robot parameters' });
+      }
+    } catch (error) {
+      console.error('Error in robot parameters endpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
   // Get sensor data for a specific robot
   app.get('/api/robots/sensors/:serialNumber', async (req: Request, res: Response) => {
     try {

@@ -73,9 +73,21 @@ export function DirectionalControl({ serialNumber, disabled = false }: Direction
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
       
+      // Calculate distance based on speed and robot parameters
+      // Use the configured max velocity from robot params if available
+      const maxVelocity = direction === 'forward' 
+        ? robotParams.maxForwardVel
+        : Math.abs(robotParams.maxBackwardVel);
+      
+      // Scale the velocity based on the speed slider (0.1 to 1.0)
+      const scaledVelocity = maxVelocity * speed;
+      
       // Fixed distance and rotation values for consistent movement
-      const distance = speed * 1.0; // 1.0 meter movement
-      const rotationAmount = Math.PI / 6; // 30 degrees rotation
+      const distance = scaledVelocity * 1.0; // 1.0 meter movement
+      const rotationAmount = robotParams.maxAngularVel * (speed / 2) * (Math.PI / 6); // Scale rotation by speed
+      
+      // Log the movement parameters for debugging
+      console.log(`Movement: ${direction}, Speed: ${speed}, Distance: ${distance}, Rotation: ${rotationAmount}`);
       
       let moveData = {};
       
@@ -218,9 +230,20 @@ export function DirectionalControl({ serialNumber, disabled = false }: Direction
   
   return (
     <div className="space-y-6">
+      {errorMessage && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 p-3 rounded-md text-sm">
+          {errorMessage}
+        </div>
+      )}
+      
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Speed: {speed.toFixed(1)} m/s</span>
+          {robotParamsLoaded && (
+            <span className="text-xs text-muted-foreground">
+              Using robot-specific parameters
+            </span>
+          )}
         </div>
         <Slider
           value={[speed]}
