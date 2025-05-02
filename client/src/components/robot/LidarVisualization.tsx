@@ -66,12 +66,21 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       
       // Send power on command
       console.log(`Sending power on command to LiDAR on robot ${serialNumber}`);
-      const result = await apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
-        method: 'POST',
-        data: { action: LidarPowerAction.POWER_ON }
-      });
-      console.log('Power on response:', result);
-      return result;
+      try {
+        const result = await fetch(`/api/robots/lidar/${serialNumber}/power`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': import.meta.env.VITE_ROBOT_SECRET || ''
+          },
+          body: JSON.stringify({ action: LidarPowerAction.POWER_ON })
+        });
+        console.log('Power on response:', result);
+        return result;
+      } catch (error) {
+        console.error("Error in power on fetch:", error);
+        throw error;
+      }
     },
     onMutate: () => {
       setPowerOnInProgress(true);
