@@ -208,6 +208,99 @@ async function getCurrentMapData(sessionId: string): Promise<any> {
     
     console.log(`Getting current map data for session ${sessionId}`);
     
+    // Check if we have a mapping ID - if so, we should get the mapping data instead of map data
+    if (session.mappingId) {
+      console.log(`Using mapping ID ${session.mappingId} to get current mapping data`);
+      
+      try {
+        // Fetch the mapping details from the robot's mapping API endpoint
+        const mappingResponse = await fetch(`${ROBOT_API_URL}/mappings/${session.mappingId}`, {
+          headers: {
+            'Secret': ROBOT_SECRET || '',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!mappingResponse.ok) {
+          console.warn(`Failed to get mapping data: ${mappingResponse.status} ${mappingResponse.statusText}`);
+          // Fall back to regular map fetching instead of failing
+          console.log('Falling back to regular map fetching');
+        } else {
+          const mappingData = await mappingResponse.json();
+          console.log('Successfully retrieved mapping data');
+          
+          // Check if the mapping has an image URL
+          if (mappingData.image_url) {
+            // Fetch the image data
+            try {
+              // The image URL provided by the API is already a full URL
+              // Parse out just the relative path part
+              const imageUrlParts = mappingData.image_url.split(ROBOT_API_URL);
+              const imagePath = imageUrlParts.length > 1 ? imageUrlParts[1] : mappingData.image_url;
+              
+              console.log(`Fetching map image from: ${ROBOT_API_URL}${imagePath}`);
+              
+              const imageResponse = await fetch(`${ROBOT_API_URL}${imagePath}`, {
+                headers: {
+                  'Secret': ROBOT_SECRET || '',
+                }
+              });
+              
+              if (imageResponse.ok) {
+                // Parse the PNG data - it could be base64 encoded or binary
+                // We're assuming it's a PNG image that can be base64 encoded
+                const imageBuffer = await imageResponse.arrayBuffer();
+                const base64Image = Buffer.from(imageBuffer).toString('base64');
+                
+                // Return the mapping data with the image included
+                return {
+                  grid: `data:image/png;base64,${base64Image}`,
+                  width: mappingData.width || 100,
+                  height: mappingData.height || 100,
+                  resolution: mappingData.grid_resolution || 0.05,
+                  origin: { 
+                    x: mappingData.grid_origin_x || 0, 
+                    y: mappingData.grid_origin_y || 0, 
+                    theta: 0 
+                  },
+                  inProgress: true,
+                  state: mappingData.state || 'running'
+                };
+              } else {
+                console.warn(`Failed to get mapping image: ${imageResponse.status} ${imageResponse.statusText}`);
+                // We'll continue using the mapping data even without the image
+              }
+            } catch (imageError) {
+              console.warn('Error fetching mapping image:', imageError);
+              // Continue without the image
+            }
+          }
+          
+          // Even without the image, we can return the mapping data
+          return {
+            grid: '', // No image available
+            width: mappingData.width || 100,
+            height: mappingData.height || 100,
+            resolution: mappingData.grid_resolution || 0.05,
+            origin: { 
+              x: mappingData.grid_origin_x || 0, 
+              y: mappingData.grid_origin_y || 0, 
+              theta: 0 
+            },
+            inProgress: true,
+            state: mappingData.state || 'running'
+          };
+        }
+      } catch (mappingError) {
+        console.warn('Error fetching mapping data:', mappingError);
+        // Fall back to regular map fetching
+        console.log('Falling back to regular map fetching due to error');
+      }
+    }
+    
+    // If we reach here, either there's no mapping ID or fetching mapping data failed
+    // Fall back to using map data like before
+    
     // If we already have the map ID stored in the session, use it
     let mapId: number | string;
     if (session.mapId) {
@@ -301,67 +394,93 @@ async function saveMap(sessionId: string): Promise<string> {
     
     console.log(`Saving map for session ${sessionId}`);
     
-    // First get the list of maps to find the one being built
-    const mapsResponse = await fetch(`${ROBOT_API_URL}/maps`, {
-      headers: {
-        'Secret': ROBOT_SECRET || '',
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!mapsResponse.ok) {
-      throw new Error(`Failed to get maps list: ${mapsResponse.status} ${mapsResponse.statusText}`);
+    // Check if we have a mapping ID from when we started the mapping process
+    if (!session.mappingId) {
+      throw new Error('Missing mapping ID from the robot - cannot complete mapping');
     }
     
-    const maps = await mapsResponse.json();
-    console.log(`Found ${maps.length} maps on the robot`);
+    console.log(`Using mapping ID ${session.mappingId} to finish mapping`);
     
-    if (maps.length === 0) {
-      throw new Error('No maps found on the robot');
-    }
-    
-    // Sort maps by creation time, newest first
-    maps.sort((a: any, b: any) => {
-      const dateA = new Date(a.created_at || 0);
-      const dateB = new Date(b.created_at || 0);
-      return dateB.getTime() - dateA.getTime();
-    });
-    
-    // Get the newest map - this is the one we were building
-    const newestMap = maps[0];
-    const mapId = newestMap.id || newestMap.uid;
-    
-    console.log(`Found map ID ${mapId} to save`);
-    
-    // Update the map with a finalized name and save it
-    const response = await fetch(`${ROBOT_API_URL}/maps/${mapId}`, {
-      method: 'PUT',
+    // Step 1: Finish the mapping process using the PATCH endpoint for mappings/current
+    // According to the API docs, this is how we indicate that mapping is complete
+    const finishMappingResponse = await fetch(`${ROBOT_API_URL}/mappings/current`, {
+      method: 'PATCH',
       headers: {
         'Secret': ROBOT_SECRET || '',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ 
-        name: session.mapName,
-        description: `Map ${session.mapName} completed on ${new Date().toLocaleString()}`
+      body: JSON.stringify({
+        state: 'finished',
+        new_map_only: false // We want to save the whole map, not just incremental changes
       })
     });
     
-    if (!response.ok) {
-      const errorText = await response.text();
+    if (!finishMappingResponse.ok) {
+      const errorText = await finishMappingResponse.text();
       session.status = 'error';
-      session.error = `Failed to save map: ${response.status} ${response.statusText} - ${errorText}`;
+      session.error = `Failed to finish mapping: ${finishMappingResponse.status} ${finishMappingResponse.statusText} - ${errorText}`;
+      console.error(session.error);
       throw new Error(session.error);
     }
     
-    const result = await response.json();
+    console.log('Successfully finished mapping');
+    
+    // Step 2: Save the mapping artifacts as a map 
+    // This turns the mapping task artifacts into a usable map for navigation
+    const createMapResponse = await fetch(`${ROBOT_API_URL}/maps/`, {
+      method: 'POST',
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        map_name: session.mapName,
+        mapping_id: session.mappingId  // Use the ID from the mapping task
+      })
+    });
+    
+    if (!createMapResponse.ok) {
+      const errorText = await createMapResponse.text();
+      session.status = 'error';
+      session.error = `Failed to save map: ${createMapResponse.status} ${createMapResponse.statusText} - ${errorText}`;
+      console.error(session.error);
+      throw new Error(session.error);
+    }
+    
+    // Parse the response to get the map ID
+    const result = await createMapResponse.json();
     console.log('Map save response:', result);
+    
+    // Store the new map ID in the session
+    session.mapId = result.id;
     
     // Update session status
     session.status = 'completed';
     session.mapData = result;
     
+    // If the API supports landmarks (since v2.11.0), try to get them
+    try {
+      // Fetch the landmarks for this mapping
+      const landmarksResponse = await fetch(`${ROBOT_API_URL}/mappings/${session.mappingId}/landmarks.json`, {
+        headers: {
+          'Secret': ROBOT_SECRET || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (landmarksResponse.ok) {
+        const landmarks = await landmarksResponse.json();
+        console.log(`Retrieved ${landmarks.length} landmarks from the mapping`);
+        // Store landmarks with the session data for potential future use
+        session.mapData.landmarks = landmarks;
+      }
+    } catch (landmarkError) {
+      console.warn('Could not fetch landmarks (this is non-critical):', landmarkError);
+      // Continue without landmarks - this is not a critical failure
+    }
+    
     // Return the map ID
-    return mapId;
+    return session.mapId.toString();
   } catch (error) {
     console.error('Error saving map:', error);
     throw error;
@@ -385,61 +504,70 @@ async function cancelMappingSession(sessionId: string): Promise<void> {
     
     console.log(`Cancelling mapping session ${sessionId}`);
     
-    // First get the list of maps to find the one being built
-    const mapsResponse = await fetch(`${ROBOT_API_URL}/maps`, {
-      headers: {
-        'Secret': ROBOT_SECRET || '',
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!mapsResponse.ok) {
-      throw new Error(`Failed to get maps list: ${mapsResponse.status} ${mapsResponse.statusText}`);
+    // Check if we have a mapping ID from when we started the mapping process
+    if (!session.mappingId) {
+      console.warn('No mapping ID available, setting local session as cancelled without API call');
+      session.status = 'cancelled';
+      return;
     }
     
-    const maps = await mapsResponse.json();
-    console.log(`Found ${maps.length} maps on the robot before cancellation`);
+    console.log(`Using mapping ID ${session.mappingId} to cancel mapping`);
     
-    // For the robot - there's no explicit mapping/cancel endpoint
-    // Instead, just mark the session as cancelled in our system
-    // In a real implementation, you might want to delete the unfinished map
-    console.log('No explicit cancel endpoint in robot API, marking session as cancelled');
-    
-    // If there are maps and we want to delete the most recent one:
-    if (maps.length > 0) {
-      // Sort maps by creation time, newest first
-      maps.sort((a: any, b: any) => {
-        const dateA = new Date(a.created_at || 0);
-        const dateB = new Date(b.created_at || 0);
-        return dateB.getTime() - dateA.getTime();
-      });
-      
-      // Get the newest map - this is the one we were building
-      const newestMap = maps[0];
-      const mapId = newestMap.id || newestMap.uid;
-      
-      console.log(`Found map ID ${mapId} to potentially cancel/delete (not implemented)`);
-      
-      // In a real implementation, you could delete the map:
-      /*
-      const deleteResponse = await fetch(`${ROBOT_API_URL}/maps/${mapId}`, {
-        method: 'DELETE',
+    try {
+      // According to the API documentation, we can cancel a mapping session with PATCH to /mappings/current
+      // setting state: 'cancelled'
+      const response = await fetch(`${ROBOT_API_URL}/mappings/current`, {
+        method: 'PATCH',
         headers: {
           'Secret': ROBOT_SECRET || '',
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          state: 'cancelled'
+        })
       });
       
-      if (!deleteResponse.ok) {
-        console.warn(`Failed to delete map during cancellation: ${deleteResponse.status} ${deleteResponse.statusText}`);
+      if (!response.ok) {
+        // Log the error but don't throw - we still want to mark our session as cancelled
+        const errorText = await response.text();
+        console.warn(`Failed to cancel mapping with API: ${response.status} ${response.statusText} - ${errorText}`);
       } else {
-        console.log(`Successfully deleted map ${mapId} during cancellation`);
+        console.log('Successfully cancelled mapping via API');
       }
-      */
+    } catch (apiError) {
+      // Log the error but don't throw - we still want to mark our session as cancelled
+      console.warn('Error trying to cancel mapping via API:', apiError);
+    }
+    
+    // We can also delete the mapping task if needed
+    try {
+      if (session.mappingId) {
+        console.log(`Attempting to delete mapping task ID ${session.mappingId}`);
+        
+        const deleteResponse = await fetch(`${ROBOT_API_URL}/mappings/${session.mappingId}`, {
+          method: 'DELETE',
+          headers: {
+            'Secret': ROBOT_SECRET || '',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!deleteResponse.ok) {
+          // Log the error but don't throw - we still want to mark our session as cancelled
+          const errorText = await deleteResponse.text();
+          console.warn(`Failed to delete mapping task: ${deleteResponse.status} ${deleteResponse.statusText} - ${errorText}`);
+        } else {
+          console.log(`Successfully deleted mapping task ID ${session.mappingId}`);
+        }
+      }
+    } catch (deleteError) {
+      // Log the error but don't throw - we still want to mark our session as cancelled
+      console.warn('Error trying to delete mapping task:', deleteError);
     }
     
     // Update session status
     session.status = 'cancelled';
+    console.log(`Mapping session ${sessionId} marked as cancelled`);
   } catch (error) {
     console.error('Error cancelling mapping session:', error);
     throw error;
