@@ -242,17 +242,18 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
       <CardHeader>
         <CardTitle>Robot Map with Real-time Position</CardTitle>
         <CardDescription>
-          {robotPosition && robotPosition.x !== undefined && (
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className="bg-green-50">
-                Robot Position: X: {robotPosition.x.toFixed(4)}, Y: {robotPosition.y.toFixed(4)}
-              </Badge>
-              <Badge variant="outline" className="bg-blue-50">
-                Orientation: {(robotPosition.orientation * (180/Math.PI)).toFixed(1)}°
-              </Badge>
-            </div>
-          )}
+          Robot position and orientation display
         </CardDescription>
+        {robotPosition && robotPosition.x !== undefined && (
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="outline" className="bg-green-50">
+              Robot Position: X: {robotPosition.x.toFixed(4)}, Y: {robotPosition.y.toFixed(4)}
+            </Badge>
+            <Badge variant="outline" className="bg-blue-50">
+              Orientation: {(robotPosition.orientation * (180/Math.PI)).toFixed(1)}°
+            </Badge>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -273,8 +274,8 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
             
             <div className="bg-slate-100 p-4 rounded-md">
               <div className="font-mono text-sm overflow-hidden text-ellipsis">
-                <p>Map resolution: {mapMetadata.resolution} m/pixel</p>
-                <p>Map size: {mapMetadata.size[0]} x {mapMetadata.size[1]} pixels</p>
+                <div>Map resolution: {mapMetadata.resolution} m/pixel</div>
+                <div>Map size: {mapMetadata.size[0]} x {mapMetadata.size[1]} pixels</div>
               </div>
             </div>
             

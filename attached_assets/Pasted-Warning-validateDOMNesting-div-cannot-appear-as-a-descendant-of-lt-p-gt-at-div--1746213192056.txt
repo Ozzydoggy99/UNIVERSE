@@ -1,0 +1,34 @@
+Warning: validateDOMNesting(...): <div> cannot appear as a descendant of &lt;p&gt;.
+    at div
+    at Badge (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/components/ui/badge.tsx:35:18)
+    at div
+    at p
+    at _c7 (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/components/ui/card.tsx:92:12)
+    at div
+    at _c3 (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/components/ui/card.tsx:45:12)
+    at div
+    at _c (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/components/ui/card.tsx:20:11)
+    at Base64ImageTest (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/components/ui/base64-image-test.tsx:23:35)
+    at div
+    at div
+    at div
+    at div
+    at _c9 (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at div
+    at MapTestPage (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/pages/map-test-page.tsx?t=1746213036975:31:24)
+    at main
+    at div
+    at div
+    at AppLayout (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/App.tsx?t=1746213036975&v=jbRtcGTSq1705CFSgvRwI:50:22)
+    at component
+    at Route (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=89eefba2:265:16)
+    at ProtectedRoute (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/lib/protected-route.tsx:22:3)
+    at Switch (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=89eefba2:321:17)
+    at Router (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/App.tsx?t=1746213036975&v=jbRtcGTSq1705CFSgvRwI:124:20)
+    at RobotProvider (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/providers/robot-provider.tsx:30:33)
+    at AuthProvider (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/src/hooks/use-auth.tsx:26:32)
+    at QueryClientProvider (https://b51bbd8d-97d8-4820-b3f7-cee2e99cf9bb-00-awg0vnrjry4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=89eefba2:2805:3)
+    at App
