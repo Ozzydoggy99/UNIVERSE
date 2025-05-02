@@ -345,6 +345,64 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
                 </p>
               </>
             )}
+            
+            {/* LiDAR Management Controls - Show even when no data is available */}
+            <div className="flex flex-col gap-2 mt-4 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium mb-1">LiDAR Controls</div>
+                {serialNumber ? (
+                  <Badge variant="outline" className="text-xs">
+                    Connected to LiDAR
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs text-destructive">
+                    No LiDAR Connected
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => powerCycleMutation.mutate()}
+                  disabled={powerCycleInProgress || !serialNumber}
+                >
+                  {powerCycleInProgress ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <PowerIcon className="h-4 w-4 mr-2" />
+                  )}
+                  Power Cycle
+                </Button>
+                
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => clearZeroErrorMutation.mutate()}
+                  disabled={errorClearInProgress || !serialNumber}
+                >
+                  {errorClearInProgress ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Clear Zero Error
+                </Button>
+              </div>
+              
+              {pointCount === 0 && (
+                <div className="text-xs text-amber-500 mt-1">
+                  No points detected. Try power cycling the LiDAR or clearing the zero error.
+                </div>
+              )}
+              
+              <div className="text-xs text-muted-foreground mt-1">
+                Serial: {serialNumber || 'Not connected'}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
