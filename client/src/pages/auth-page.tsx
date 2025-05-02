@@ -114,6 +114,23 @@ export default function AuthPage() {
                   </div>
                 ) : "Sign In"}
               </Button>
+              
+              <div className="mt-4">
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    loginMutation.mutate({
+                      username: "robotadmin",
+                      password: "robot123"
+                    });
+                  }}
+                  disabled={loginMutation.isPending}
+                >
+                  {loginMutation.isPending ? "Signing in..." : "Quick Login (System Admin)"}
+                </Button>
+              </div>
             </form>
           </Form>
         </CardContent>
