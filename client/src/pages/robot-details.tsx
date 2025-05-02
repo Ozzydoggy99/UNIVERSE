@@ -680,7 +680,11 @@ export default function RobotDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <LidarVisualization data={finalLidarData} loading={lidarLoading} />
+              <LidarVisualization 
+                data={finalLidarData} 
+                loading={lidarLoading} 
+                serialNumber={serialNumber} 
+              />
               <div className="flex justify-between text-xs text-muted-foreground mt-3">
                 <span>Last LiDAR Update:</span>
                 <span>{finalLidarData?.timestamp ? formatTimeSince(finalLidarData.timestamp) : 'No data'}</span>

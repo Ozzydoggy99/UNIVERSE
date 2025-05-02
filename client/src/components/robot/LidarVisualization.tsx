@@ -106,10 +106,9 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         throw new Error('Serial number is required to clear LiDAR zero error');
       }
       
-      return apiRequest(
-        'POST', 
-        `/api/robots/lidar/${serialNumber}/clear_zero_error`
-      );
+      return apiRequest(`/api/robots/lidar/${serialNumber}/clear_zero_error`, {
+        method: 'POST'
+      });
     },
     onMutate: () => {
       setErrorClearInProgress(true);
