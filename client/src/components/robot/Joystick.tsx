@@ -283,31 +283,63 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
       
-      // Calculate target with larger distance
-      const distance = speed * 1.0; // Full 1 meter at max speed for more noticeable movement
+      // Calculate distances based on joystick position
+      const forwardDistance = yDir * speed * 0.8; // Forward/backward movement (reduced to prevent spinning)
+      const strafeDistance = xDir * speed * 0.5; // Left/right movement (further reduced)
       
-      // Calculate the target position
-      let targetX = currentX + Math.cos(currentOrientation) * yDir * distance;
-      let targetY = currentY + Math.sin(currentOrientation) * yDir * distance;
+      // Determine if this should be a position movement or a rotation
+      const isRotationDominant = Math.abs(xDir) > 0.8 && Math.abs(yDir) < 0.3;
       
-      // Add strafing
-      targetX += Math.cos(currentOrientation - Math.PI/2) * xDir * distance;
-      targetY += Math.sin(currentOrientation - Math.PI/2) * xDir * distance;
+      let moveData = {};
       
-      // Simplified move command payload
-      const moveData = {
-        creator: "web_interface",
-        type: "standard",
-        target_x: targetX,
-        target_y: targetY,
-        target_z: 0,
-        target_ori: currentOrientation,
-        target_accuracy: 0.05,
-        use_target_zone: true,
-        properties: {
-          inplace_rotate: false
-        }
-      };
+      if (isRotationDominant) {
+        // For rotation dominant moves, we'll just change orientation
+        // Calculate a small rotation (up to 45 degrees = PI/4)
+        const rotationAmount = xDir * (Math.PI / 8); // Less aggressive rotation
+        
+        moveData = {
+          creator: "web_interface",
+          type: "standard",
+          target_x: currentX,
+          target_y: currentY,
+          target_z: 0,
+          target_ori: currentOrientation + rotationAmount,
+          target_accuracy: 0.05,
+          use_target_zone: true,
+          properties: {
+            inplace_rotate: true // Ensure in-place rotation
+          }
+        };
+      } else {
+        // For position dominant moves
+        // Forward vector (in the direction the robot is facing)
+        const forwardX = Math.cos(currentOrientation) * forwardDistance;
+        const forwardY = Math.sin(currentOrientation) * forwardDistance;
+        
+        // Strafe vector (perpendicular to the direction the robot is facing)
+        const strafeX = Math.cos(currentOrientation - Math.PI/2) * strafeDistance;
+        const strafeY = Math.sin(currentOrientation - Math.PI/2) * strafeDistance;
+        
+        // Calculate new target position (current + forward + strafe)
+        const targetX = currentX + forwardX + strafeX;
+        const targetY = currentY + forwardY + strafeY;
+        
+        moveData = {
+          creator: "web_interface",
+          type: "standard",
+          target_x: targetX,
+          target_y: targetY,
+          target_z: 0,
+          target_ori: currentOrientation, // Keep same orientation
+          target_accuracy: 0.05,
+          use_target_zone: true,
+          properties: {
+            inplace_rotate: false
+          }
+        };
+      }
+      
+      console.log('Sending move command:', moveData);
       
       // Use our server API instead of direct calls to avoid CORS issues
       const serverResponse = await fetch(`/api/robots/move/${serialNumber}`, {
@@ -329,7 +361,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       // Allow new commands after a short delay
       setTimeout(() => {
         setIsSendingCommand(false);
-      }, 50); // Reduced to 50ms for faster response
+      }, 30); // Further reduced to 30ms for faster response
     }
   };
 
