@@ -628,21 +628,30 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     pointCount = validRanges.length;
   } 
   // Otherwise check if we have point cloud data
-  else if (data.points && data.points.length > 0) {
+  else if (data.points && Array.isArray(data.points) && data.points.length > 0) {
     pointCount = data.points.length;
     
-    // Calculate ranges from point cloud data
-    const distances = data.points
-      .filter(p => p && p.length >= 2)
-      .map(p => Math.sqrt(p[0]*p[0] + p[1]*p[1]));
-    
-    if (distances.length > 0) {
-      avgRange = (distances.reduce((a, b) => a + b, 0) / distances.length).toFixed(2);
-      minRange = Math.min(...distances).toFixed(2);
-      maxRange = Math.max(...distances).toFixed(2);
+    try {
+      // Calculate ranges from point cloud data - safer with better error handling
+      const distances = data.points
+        .filter(p => Array.isArray(p) && p.length >= 2 && 
+                typeof p[0] === 'number' && typeof p[1] === 'number')
+        .map(p => Math.sqrt(p[0]*p[0] + p[1]*p[1]));
+      
+      if (distances.length > 0) {
+        avgRange = (distances.reduce((a, b) => a + b, 0) / distances.length).toFixed(2);
+        minRange = Math.min(...distances).toFixed(2);
+        maxRange = Math.max(...distances).toFixed(2);
+      }
+    } catch (error) {
+      console.error("Error processing point cloud data:", error);
+      // Keep default values if there's an error
     }
   }
 
+  // Check if LiDAR data exists but ranges are empty
+  const hasEmptyRanges = data && data.ranges && data.ranges.length === 0;
+  
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
@@ -652,6 +661,51 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Show warning and power controls if ranges are empty */}
+        {hasEmptyRanges && (
+          <div className="rounded-md bg-yellow-50 p-4 mb-4">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-yellow-400 mr-2" />
+              <h3 className="text-sm font-medium text-yellow-800">LiDAR Data Unavailable</h3>
+            </div>
+            <div className="mt-2 text-xs text-yellow-700">
+              <p>The LiDAR is not returning any data points. This could be because the LiDAR is powered off or experiencing an error.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => powerOnMutation.mutate()}
+                  disabled={powerOnInProgress}
+                  className="flex items-center gap-1"
+                >
+                  {powerOnInProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <PowerIcon className="h-3 w-3" />}
+                  Power On
+                </Button>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={() => powerCycleMutation.mutate()}
+                  disabled={powerCycleInProgress}
+                  className="flex items-center gap-1"
+                >
+                  {powerCycleInProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Power Cycle
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => clearZeroErrorMutation.mutate()}
+                  disabled={errorClearInProgress}
+                  className="flex items-center gap-1"
+                >
+                  {errorClearInProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertCircle className="h-3 w-3" />}
+                  Clear Error
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      
         <div className="flex justify-center">
           <canvas
             ref={canvasRef}
@@ -659,6 +713,40 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
             height={300}
             className="border border-border rounded-md bg-white"
           />
+        </div>
+        
+        {/* Power controls always available at the bottom for admin functionality */}
+        <div className="flex flex-wrap gap-2 mt-2 justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => powerOnMutation.mutate()}
+            disabled={powerOnInProgress}
+            className="flex items-center gap-1"
+          >
+            {powerOnInProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <PowerIcon className="h-3 w-3" />}
+            Power On
+          </Button>
+          <Button 
+            size="sm"
+            variant="outline"
+            onClick={() => powerOffMutation.mutate()}
+            disabled={powerOffInProgress}
+            className="flex items-center gap-1"
+          >
+            {powerOffInProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <PowerIcon className="h-3 w-3" />}
+            Power Off
+          </Button>
+          <Button 
+            size="sm"
+            variant="outline"
+            onClick={() => powerCycleMutation.mutate()}
+            disabled={powerCycleInProgress}
+            className="flex items-center gap-1"
+          >
+            {powerCycleInProgress ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            Power Cycle
+          </Button>
         </div>
         
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
