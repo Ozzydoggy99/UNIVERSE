@@ -145,29 +145,72 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     setIsSendingCommand(true);
     
     try {
-      // For stop, we get the current position and send it as the target to halt movement
-      const positionResponse = await fetch(`/api/robots/position/${serialNumber}`);
-      if (!positionResponse.ok) {
-        throw new Error(`Failed to get robot position: ${positionResponse.statusText}`);
+      // Try a direct stop with the robot API first
+      console.log('Sending direct stop command via button');
+      
+      // First check for active moves
+      try {
+        const movesResponse = await fetch('http://47.180.91.99:8090/chassis/moves');
+        const moves = await movesResponse.json();
+        
+        // Find any active move
+        const activeMove = Array.isArray(moves) ? moves.find((move) => move.state === 'moving') : null;
+        
+        if (activeMove) {
+          console.log(`Found active move with ID: ${activeMove.id}`);
+          
+          // Cancel specific move
+          const stopResponse = await fetch(`http://47.180.91.99:8090/chassis/moves/${activeMove.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ state: "cancelled" }),
+          });
+          
+          if (stopResponse.ok) {
+            console.log('Direct stop successful for specific move');
+            toast({
+              title: 'Movement stopped',
+              description: 'Robot has been commanded to stop',
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Error checking active moves:', e);
       }
       
-      const position = await positionResponse.json();
-      const currentX = position.x || 0;
-      const currentY = position.y || 0;
-      const currentOrientation = position.orientation || 0;
+      // If we didn't find specific moves or the first attempt failed, try a more general stop
+      try {
+        const stopResponse = await fetch('http://47.180.91.99:8090/chassis/moves/current', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ state: "cancelled" }),
+        });
+        
+        if (stopResponse.ok) {
+          console.log('Direct stop successful');
+          toast({
+            title: 'Movement stopped',
+            description: 'Robot has been commanded to stop all movement',
+          });
+          return;
+        }
+      } catch (e) {
+        console.error('Error with general stop:', e);
+      }
       
-      // Construct the stop command payload according to API docs
-      const stopData = {
-        state: "cancelled"
-      };
-      
-      // Send the command to the server
+      // If direct methods failed, fall back to our server API
+      console.log('Falling back to server API for stop');
       const response = await fetch(`/api/robots/move/${serialNumber}/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(stopData),
+        body: JSON.stringify({ state: "cancelled" }),
       });
       
       if (!response.ok) {
@@ -200,17 +243,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     setIsDragging(true);
     updateJoystickPosition(clientX, clientY);
     
-    // Start sending movement commands at regular intervals while joystick is active
-    if (moveIntervalRef.current) {
-      clearInterval(moveIntervalRef.current);
-    }
-    
-    moveIntervalRef.current = setInterval(() => {
-      if (normalizedPosition.x !== 0 || normalizedPosition.y !== 0) {
-        console.log('Sending joystick command:', normalizedPosition.x, -normalizedPosition.y);
-        sendMoveCommand(normalizedPosition.x, -normalizedPosition.y);
-      }
-    }, 300); // Send movement commands every 300ms for more responsive movement
+    // We'll send commands directly on position updates instead of using intervals
+    // This should be much more responsive
   };
 
   const handleJoystickMove = (clientX: number, clientY: number) => {
@@ -218,7 +252,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     updateJoystickPosition(clientX, clientY);
   };
 
-  const handleJoystickEnd = () => {
+  const handleJoystickEnd = async () => {
     setIsDragging(false);
     resetJoystickPosition();
     
@@ -226,6 +260,27 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     if (moveIntervalRef.current) {
       clearInterval(moveIntervalRef.current);
       moveIntervalRef.current = null;
+    }
+    
+    // Send a direct stop command when joystick is released
+    try {
+      // Try a direct robot API call to stop movement
+      console.log('Sending direct stop command');
+      const stopResponse = await fetch('http://47.180.91.99:8090/chassis/moves/current', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ state: "cancelled" }),
+      });
+      
+      if (stopResponse.ok) {
+        console.log('Stop command successful');
+      } else {
+        console.error('Stop command failed', await stopResponse.text());
+      }
+    } catch (error) {
+      console.error('Error sending stop command:', error);
     }
   };
 
@@ -260,6 +315,75 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     const normalizedX = offsetX / radius;
     const normalizedY = offsetY / radius;
     setNormalizedPosition({ x: normalizedX, y: normalizedY });
+    
+    // Only send command if position has changed significantly
+    if (isDragging && (Math.abs(normalizedX) > 0.05 || Math.abs(normalizedY) > 0.05)) {
+      // Send command immediately on joystick update - more responsive
+      console.log('Direct joystick command:', normalizedX, -normalizedY);
+      sendDirectCommand(normalizedX, -normalizedY);
+    }
+  };
+  
+  // Simplified, direct command without all the overhead
+  const sendDirectCommand = async (xDir: number, yDir: number) => {
+    if (disabled || !serialNumber || isSendingCommand) return;
+    
+    // Prevent rapid-fire commands
+    setIsSendingCommand(true);
+    
+    try {
+      // Get the robot's current position
+      const response = await fetch(`/api/robots/position/${serialNumber}`);
+      const position = await response.json();
+      const currentX = position.x || 0;
+      const currentY = position.y || 0;
+      const currentOrientation = position.orientation || 0;
+      
+      // Calculate target with larger distance
+      const distance = speed * 1.0; // Full 1 meter at max speed for more noticeable movement
+      
+      // Calculate the target position
+      let targetX = currentX + Math.cos(currentOrientation) * yDir * distance;
+      let targetY = currentY + Math.sin(currentOrientation) * yDir * distance;
+      
+      // Add strafing
+      targetX += Math.cos(currentOrientation - Math.PI/2) * xDir * distance;
+      targetY += Math.sin(currentOrientation - Math.PI/2) * xDir * distance;
+      
+      // Simplified move command payload
+      const moveData = {
+        creator: "web_interface",
+        type: "standard",
+        target_x: targetX,
+        target_y: targetY,
+        target_z: 0,
+        target_ori: currentOrientation,
+        target_accuracy: 0.05,
+        use_target_zone: true
+      };
+      
+      // Direct API call to the robot - bypass our server for speed
+      const directResponse = await fetch('http://47.180.91.99:8090/chassis/moves', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(moveData),
+      });
+      
+      if (directResponse.ok) {
+        console.log('Direct movement successful');
+      } else {
+        console.error('Direct movement failed');
+      }
+    } catch (error) {
+      console.error('Error sending direct command:', error);
+    } finally {
+      // Allow new commands after a short delay
+      setTimeout(() => {
+        setIsSendingCommand(false);
+      }, 100);
+    }
   };
 
   const resetJoystickPosition = () => {
