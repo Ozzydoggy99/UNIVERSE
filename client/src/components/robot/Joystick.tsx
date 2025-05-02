@@ -14,7 +14,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
   const joystickRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [speed, setSpeed] = useState<number>(0.2); // default speed in m/s
+  const [speed, setSpeed] = useState<number>(0.5); // Increased default speed
   const [isDragging, setIsDragging] = useState(false);
   const [joystickPosition, setJoystickPosition] = useState({ x: 0, y: 0 });
   const [normalizedPosition, setNormalizedPosition] = useState({ x: 0, y: 0 });
@@ -22,7 +22,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
   const moveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Track the most recent command type to ensure consistent movements
-  const lastCommandTypeRef = useRef<'forward' | 'rotation' | 'combined' | null>(null);
+  const lastCommandTypeRef = useRef<'x-axis' | 'y-axis' | null>(null);
 
   // Clean up any timers when component unmounts
   useEffect(() => {
@@ -316,38 +316,34 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
 
-      // Updated control logic based on joystick position
-      // Make rotation detection stronger when joystick is moved left/right
-      const isRotationCommand = Math.abs(xDir) > 0.2 && Math.abs(yDir) < 0.15;
+      // SIGNIFICANTLY simplified control logic:
+      // 1. Detect main direction (x or y axis)
+      // 2. Use only ONE input axis at a time for clearer movement
       
-      // Make forward/backward detection stronger when joystick is moved up/down
-      const isForwardCommand = Math.abs(yDir) > 0.2 && Math.abs(xDir) < 0.15;
+      // Determine which axis has more input
+      const absX = Math.abs(xDir);
+      const absY = Math.abs(yDir);
       
-      // Default to combined mode when neither rotation nor forward is clearly indicated
-      const currentCommandType = 
-        isRotationCommand ? 'rotation' : 
-        isForwardCommand ? 'forward' : 'combined';
-        
-      console.log('Joystick position:', {x: xDir, y: yDir}, 'Command type:', currentCommandType);
-      
-      console.log('Command mode:', currentCommandType);
-      
-      // Special case: if we're in forward/backward mode, we want to be much stricter about
-      // preventing any sideways (strafing) movement to ensure perfect straight line movement
-      if (lastCommandTypeRef.current === 'forward') {
-        // When already in forward/backward mode, make xDir zero to prevent any strafing
-        xDir = 0;
-        console.log('In forward/backward mode - removing any lateral/strafing component');
-        
-        // Only exit forward mode if there's almost no vertical input
-        // Give a bit more leeway here too to accommodate human joystick control
-        if (Math.abs(yDir) < 0.08) {
-          lastCommandTypeRef.current = currentCommandType;
-        }
+      // If we're rotating, zero out the non-dominant axis completely
+      if (absX > absY) {
+        // LEFT or RIGHT movement - zero out forward/backward component
+        yDir = 0;
+        // Use a fixed value for left/right to ensure consistent rotation
+        xDir = xDir > 0 ? 0.7 : -0.7;
       } else {
-        // If not already in forward mode, follow normal command type switching
-        lastCommandTypeRef.current = currentCommandType;
+        // FORWARD or BACKWARD movement - zero out left/right component
+        xDir = 0;
+        // Use a fixed value for forward/backward to ensure consistent movement
+        yDir = yDir > 0 ? 0.7 : -0.7;
       }
+      
+      // Simpler command type tracking - just "x-axis" or "y-axis"
+      const currentCommandType = absX > absY ? 'x-axis' : 'y-axis';
+      console.log('Command direction:', currentCommandType, 
+                 'Values:', {x: xDir, y: yDir});
+                 
+      // Store last command type to help maintain consistent movement
+      lastCommandTypeRef.current = currentCommandType;
       
       let moveData = {};
       
@@ -355,23 +351,18 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       // Determine the primary direction based on joystick position
       // This eliminates any combined movements for more predictable control
       
-      // Calculate basic movement magnitude (0-1.0)
-      const magnitude = Math.min(1.0, Math.sqrt(xDir*xDir + yDir*yDir));
+      // We already have our fixed values from above code, where:
+      // - We determined the primary direction (X or Y axis) 
+      // - We set fixed values for consistency (0.7 magnitude)
+      // - We're using only one axis at a time
+        
+      // Fixed distance for consistent movement - increased for more noticeable movement
+      const distance = speed * 1.0; // 1.0 meters per command
       
-      // Process movement with lower threshold for better responsiveness
-      if (magnitude > 0.2) { // Lowered from 0.3 to make joystick more sensitive
-        // Determine which direction has the strongest input
-        const absX = Math.abs(xDir);
-        const absY = Math.abs(yDir);
-        
-        // Fixed distance for consistent movement - increased for more noticeable movement
-        const distance = speed * 1.0; // 1.0 meters per command (increased from 0.4)
-        
-        // A simple fixed rotation amount when turning - increased for more noticeable rotation
-        const rotationAmount = Math.PI / 6; // 30 degrees (increased from 15 degrees)
-        
-        console.log('Direction inputs - X:', xDir, 'Y:', yDir);
-        console.log('Comparing absolute values - |X|:', absX, '|Y|:', absY);
+      // A simple fixed rotation amount when turning - increased for more noticeable rotation  
+      const rotationAmount = Math.PI / 6; // 30 degrees
+      
+      // Note: absX and absY were already calculated above, and we're using the normalized values
         
         if (absX > absY) {
           // LEFT or RIGHT movement (rotation in place)
