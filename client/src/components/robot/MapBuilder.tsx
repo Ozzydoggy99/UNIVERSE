@@ -21,6 +21,8 @@ import { DirectionalControl } from './DirectionalControl';
 import { apiRequest } from '@/lib/queryClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { robotWebSocket, startMappingStreams, stopMappingStreams } from '@/lib/robotWebSocket';
+import { RobotUpdateEvent } from '@/lib/robotWebSocket';
 
 const MAP_BUILDING_STATUS = {
   IDLE: 'idle',
@@ -43,11 +45,14 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
   const [mapName, setMapName] = useState(`New Map ${new Date().toLocaleDateString()}`);
   const [mappingSessionId, setMappingSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [realTimeMapData, setRealTimeMapData] = useState<any>(null);
+  const [isConnectedToMapStream, setIsConnectedToMapStream] = useState<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const websocketListenerRef = useRef<((event: RobotUpdateEvent) => void) | null>(null);
   
   // Get current map data (LiDAR and position) to display while mapping
   const { data: lidarData } = useQuery({
@@ -69,12 +74,60 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
     enabled: !!serialNumber && !!mappingSessionId && mapStatus === MAP_BUILDING_STATUS.BUILDING
   });
   
-  // Update the map canvas when data changes
+  // WebSocket integration for real-time map updates during building
   useEffect(() => {
-    if (canvasRef.current && currentMapData?.grid) {
-      drawMapOnCanvas(currentMapData);
+    // Only setup the WebSocket when we're actively building a map
+    if (mapStatus === MAP_BUILDING_STATUS.BUILDING && serialNumber) {
+      console.log('Setting up WebSocket for real-time map building visualization');
+      
+      // Define the WebSocket event handler
+      const handleRobotWebSocketUpdate = (event: RobotUpdateEvent) => {
+        if (event.type === 'map') {
+          console.log('Received real-time map update via WebSocket');
+          // Update our state with the latest map data
+          setRealTimeMapData(event.data);
+        } else if (event.type === 'connection') {
+          console.log('WebSocket connection state changed:', event.state);
+          setIsConnectedToMapStream(event.state === 'connected');
+        }
+      };
+      
+      // Store the handler in a ref so we can remove it later
+      websocketListenerRef.current = handleRobotWebSocketUpdate;
+      
+      // Subscribe to robot WebSocket updates
+      robotWebSocket.subscribe(handleRobotWebSocketUpdate);
+      
+      // Start the mapping streams
+      startMappingStreams(serialNumber);
+      
+      // When this effect cleans up, unsubscribe from the WebSocket
+      return () => {
+        console.log('Cleaning up WebSocket for map building');
+        if (websocketListenerRef.current) {
+          robotWebSocket.unsubscribe(websocketListenerRef.current);
+        }
+        
+        // Stop the mapping streams
+        stopMappingStreams(serialNumber);
+      };
     }
-  }, [currentMapData, canvasRef.current]);
+  }, [mapStatus, serialNumber]);
+  
+  // Update the map canvas when data changes - prioritize real-time data if available
+  useEffect(() => {
+    if (canvasRef.current) {
+      if (realTimeMapData?.grid) {
+        // Use real-time WebSocket data if available
+        console.log('Drawing map from real-time WebSocket data');
+        drawMapOnCanvas(realTimeMapData);
+      } else if (currentMapData?.grid) {
+        // Fall back to REST API data if WebSocket data not available
+        console.log('Drawing map from REST API data');
+        drawMapOnCanvas(currentMapData);
+      }
+    }
+  }, [realTimeMapData, currentMapData, canvasRef.current]);
   
   // Simulate progress update
   useEffect(() => {
@@ -297,6 +350,14 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
     try {
       setMapStatus(MAP_BUILDING_STATUS.SAVING);
       
+      // Stop WebSocket mapping streams before saving the map
+      console.log('Stopping mapping streams before saving map');
+      stopMappingStreams(serialNumber);
+      
+      // Reset real-time map data
+      setRealTimeMapData(null);
+      setIsConnectedToMapStream(false);
+      
       // Call API to finalize and save the map
       const response = await apiRequest('POST', `/api/robots/save-map/${serialNumber}`, {
         sessionId: mappingSessionId,
@@ -340,6 +401,14 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
     if (!mappingSessionId) return;
     
     try {
+      // Stop WebSocket mapping streams before cancelling the mapping session
+      console.log('Stopping mapping streams before cancelling mapping session');
+      stopMappingStreams(serialNumber);
+      
+      // Reset real-time map data
+      setRealTimeMapData(null);
+      setIsConnectedToMapStream(false);
+      
       // Call API to cancel the mapping session
       await apiRequest('POST', `/api/robots/cancel-mapping/${serialNumber}`, {
         sessionId: mappingSessionId
@@ -364,10 +433,19 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
   
   // Reset the map builder
   const resetMapBuilder = () => {
+    // Stop any active mapping streams
+    if (mapStatus === MAP_BUILDING_STATUS.BUILDING) {
+      console.log('Stopping mapping streams before resetting map builder');
+      stopMappingStreams(serialNumber);
+    }
+    
+    // Reset all state
     setMapStatus(MAP_BUILDING_STATUS.IDLE);
     setMappingSessionId(null);
     setMapProgress(0);
     setError(null);
+    setRealTimeMapData(null);
+    setIsConnectedToMapStream(false);
     setMapName(`New Map ${new Date().toLocaleDateString()}`);
   };
   
@@ -501,7 +579,7 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
                     className="w-full h-full object-contain"
                   />
                   
-                  {!currentMapData?.grid && (
+                  {!currentMapData?.grid && !realTimeMapData?.grid && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
                         <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin text-gray-400" />
@@ -509,6 +587,11 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
                       </div>
                     </div>
                   )}
+                  
+                  <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/80 rounded text-xs p-1">
+                    <div className={`w-2 h-2 rounded-full ${isConnectedToMapStream ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span>{isConnectedToMapStream ? 'Real-time updates active' : 'Polling for updates'}</span>
+                  </div>
                   
                   <div className="absolute bottom-2 right-2 bg-white/80 rounded text-xs p-1">
                     Drive the robot to build map
