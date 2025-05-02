@@ -981,6 +981,60 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to fetch robot LiDAR data' });
     }
   });
+  
+  // Control LiDAR power for a specific robot
+  app.post('/api/robots/lidar/:serialNumber/power', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { action } = req.body; // 'power_on' or 'power_off'
+      
+      // Validate action
+      if (!action || (action !== LidarPowerAction.POWER_ON && action !== LidarPowerAction.POWER_OFF)) {
+        return res.status(400).json({ 
+          error: 'Invalid action',
+          message: `Action must be either '${LidarPowerAction.POWER_ON}' or '${LidarPowerAction.POWER_OFF}'`
+        });
+      }
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      if (!isRobotConnected()) {
+        return res.status(503).json({ 
+          error: 'Robot not connected', 
+          message: 'The robot is not currently connected. Please check the connection.'
+        });
+      }
+      
+      console.log(`Setting LiDAR power to ${action} for robot ${serialNumber}`);
+      
+      // Call the robot API to power on/off the LiDAR
+      const actionEndpoint = action === LidarPowerAction.POWER_ON ? 'on' : 'off';
+      const response = await fetch(`${ROBOT_API_URL}/lidar/${actionEndpoint}`, {
+        method: 'POST',
+        headers: {
+          'Secret': ROBOT_SECRET || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to set LiDAR power: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      
+      // Return success message
+      res.json({
+        message: `LiDAR ${action === LidarPowerAction.POWER_ON ? 'powered on' : 'powered off'} successfully`,
+        action: action
+      });
+    } catch (error: any) {
+      console.error('Error controlling LiDAR power:', error);
+      res.status(500).json({ error: error.message || 'Failed to control LiDAR power' });
+    }
+  });
 
   // Get camera data for a specific robot
   app.get('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
