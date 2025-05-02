@@ -7,6 +7,7 @@ import { ArrowLeft, Bot, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useRobot } from '@/providers/robot-provider';
 import { Map, MapData } from '@/components/ui/map-fixed';
+import { MapEnhanced } from '@/components/ui/map-enhanced';
 import { Base64ImageTest } from '@/components/ui/base64-image-test';
 import { ConnectionStatus } from '@/components/robot/ConnectionStatus';
 import ConnectionErrorMessage from '@/components/robot/ConnectionErrorMessage';
@@ -162,10 +163,20 @@ export default function MapTestPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <Button variant="outline" className="mb-6" onClick={handleBack}>
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Robot Hub
-      </Button>
+      <div className="flex justify-between items-center mb-6">
+        <Button variant="outline" onClick={handleBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Robot Hub
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          onClick={() => navigate(`/robots/${serialNumber}`)}
+        >
+          <Bot className="h-4 w-4 mr-1" />
+          Back to Robot Details
+        </Button>
+      </div>
       
       {/* Add connection components */}
       <ConnectionStatus />
@@ -174,8 +185,8 @@ export default function MapTestPage() {
       <div className="flex flex-col gap-4">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Map Test Page</CardTitle>
-            <CardDescription>Testing the fixed map component with real robot data</CardDescription>
+            <CardTitle>Enhanced Map Test Page</CardTitle>
+            <CardDescription>Testing the enhanced map component with real robot data</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between mb-4">
@@ -209,12 +220,31 @@ export default function MapTestPage() {
                     <div className="animate-pulse">Loading map data...</div>
                   </div>
                 ) : (
-                  <Map
+                  <MapEnhanced
                     robotStatus={status}
                     robotPosition={position}
                     sensorData={sensors}
-                    mapData={mapDataToUse}
-                    editable={false}
+                    mapData={{
+                      ...mapDataToUse,
+                      // Add additional fields required by MapEnhanced
+                      waypoints: [],
+                      pickupPoints: [],
+                      dropoffPoints: [],
+                      mapId: "1",
+                      connectionStatus: 'connected'
+                    }}
+                    editable={true}
+                    onMapUpdate={(updatedMap) => {
+                      console.log('Map updated', updatedMap);
+                      refreshData();
+                    }}
+                    availableMaps={[
+                      { id: "1", name: "Current Map" }
+                    ]}
+                    onMapChange={(mapId) => {
+                      console.log('Map changed to', mapId);
+                      refreshData();
+                    }}
                   />
                 )}
               </div>

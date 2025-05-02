@@ -291,10 +291,21 @@ export default function RobotDetails() {
   if (initialLoading) {
     return (
       <div className="container mx-auto p-6">
-        <Button variant="outline" className="mb-6" onClick={handleBack}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Robot Hub
-        </Button>
+        <div className="flex justify-between items-center mb-6">
+          <Button variant="outline" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Robot Hub
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(`/map-test/${serialNumber}`)}
+            disabled={true}
+          >
+            <Bot className="h-4 w-4 mr-1" />
+            Go to Map Test
+          </Button>
+        </div>
         
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center space-y-4">
@@ -458,10 +469,20 @@ export default function RobotDetails() {
 
   return (
     <div className="container mx-auto p-6">
-      <Button variant="outline" className="mb-6" onClick={handleBack}>
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Robot Hub
-      </Button>
+      <div className="flex justify-between items-center mb-6">
+        <Button variant="outline" onClick={handleBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Robot Hub
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          onClick={() => navigate(`/map-test/${serialNumber}`)}
+        >
+          <Bot className="h-4 w-4 mr-1" />
+          Go to Map Test
+        </Button>
+      </div>
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="md:w-1/3 space-y-6">
