@@ -90,6 +90,8 @@ interface MappingSession {
   status: 'active' | 'processing' | 'completed' | 'cancelled' | 'error';
   mapData?: any;
   error?: string;
+  mapId?: number; // ID of the created map (after saving)
+  mappingId?: number; // ID of the mapping task from the robot
 }
 
 // In-memory storage for active mapping sessions
@@ -113,28 +115,20 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
     
     // Debug information about the API URL and headers
     console.log(`Using robot API URL: ${ROBOT_API_URL}`);
-    console.log(`Full mapping API endpoint: ${ROBOT_API_URL}/maps/`);
+    console.log(`Full mapping API endpoint: ${ROBOT_API_URL}/mappings/`);
     console.log(`Secret header present: ${ROBOT_SECRET ? 'Yes' : 'No'}`);
     
-    // Create payload based on robot API documentation 
-    // See documentation: robot needs map_name (not name)
+    // Create payload based on the mapping API documentation
     const requestBody = { 
-      map_name: mapName,
-      // Required fields according to documentation
-      carto_map: "", // Will be filled by robot during mapping
-      occupancy_grid: "", // Will be filled by robot during mapping
-      grid_origin_x: 0,
-      grid_origin_y: 0,
-      grid_resolution: 0.05,
-      description: `Map ${mapName} created on ${new Date().toLocaleString()}`
+      continue_mapping: false, // Create a new map, don't continue an existing one
+      start_pose_type: 'zero' // Use x=0, y=0, ori=0 as start point
     };
     
-    console.log('Request body for map creation:', JSON.stringify(requestBody, null, 2));
+    console.log('Request body for mapping creation:', JSON.stringify(requestBody, null, 2));
     
     try {
-      // Updated API endpoint to match robot's API specification
-      // The robot uses /maps/ with POST to create a new map (not /maps/create)
-      const response = await fetch(`${ROBOT_API_URL}/maps/`, {
+      // Use the proper endpoint for mapping according to documentation: /mappings/
+      const response = await fetch(`${ROBOT_API_URL}/mappings/`, {
         method: 'POST',
         headers: {
           'Secret': ROBOT_SECRET || '',
@@ -143,7 +137,7 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
         body: JSON.stringify(requestBody)
       });
       
-      console.log(`Map creation API response status: ${response.status} ${response.statusText}`);
+      console.log(`Mapping creation API response status: ${response.status} ${response.statusText}`);
       
       if (!response.ok) {
         let errorText = '';
@@ -157,11 +151,11 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
         throw new Error(`Failed to start mapping: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
-      // Parse the response to get the map ID from the robot
+      // Parse the response to get the mapping ID from the robot
       let responseData: any = null;
       try {
         responseData = await response.json();
-        console.log('Map creation response from robot:', JSON.stringify(responseData, null, 2));
+        console.log('Mapping creation response from robot:', JSON.stringify(responseData, null, 2));
       } catch (e) {
         console.error('Error parsing response JSON:', e);
         console.log('Raw response:', await response.text());
@@ -178,9 +172,10 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
         startTime: Date.now(),
         mapName,
         status: 'active',
+        mappingId: responseData?.id // Store the mapping ID from robot for future reference
       };
       
-      console.log(`Created mapping session with ID: ${sessionId}`);
+      console.log(`Created mapping session with ID: ${sessionId}, robot mapping ID: ${responseData?.id}`);
       
       // Return the session ID
       return sessionId;
@@ -213,38 +208,48 @@ async function getCurrentMapData(sessionId: string): Promise<any> {
     
     console.log(`Getting current map data for session ${sessionId}`);
     
-    // First get the list of maps to find the one being built
-    const mapsResponse = await fetch(`${ROBOT_API_URL}/maps`, {
-      headers: {
-        'Secret': ROBOT_SECRET || '',
-        'Content-Type': 'application/json'
+    // If we already have the map ID stored in the session, use it
+    let mapId: number | string;
+    if (session.mapId) {
+      console.log(`Using map ID ${session.mapId} from session`);
+      mapId = session.mapId;
+    } else {
+      // Otherwise, get the list of maps to find the one being built
+      console.log('No map ID stored in session, fetching maps list');
+      const mapsResponse = await fetch(`${ROBOT_API_URL}/maps`, {
+        headers: {
+          'Secret': ROBOT_SECRET || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!mapsResponse.ok) {
+        throw new Error(`Failed to get maps list: ${mapsResponse.status} ${mapsResponse.statusText}`);
       }
-    });
-    
-    if (!mapsResponse.ok) {
-      throw new Error(`Failed to get maps list: ${mapsResponse.status} ${mapsResponse.statusText}`);
+      
+      const maps = await mapsResponse.json();
+      console.log(`Found ${maps.length} maps on the robot`);
+      
+      // Find the most recent map - assuming this is the one being built
+      if (maps.length === 0) {
+        // If no maps are found, we should throw an error rather than returning mock data
+        throw new Error('No maps found on the robot - mapping may not have started properly');
+      }
+      
+      // Sort maps by creation time, newest first
+      maps.sort((a: any, b: any) => {
+        const dateA = new Date(a.created_at || 0);
+        const dateB = new Date(b.created_at || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      // Get the newest map
+      const newestMap = maps[0];
+      mapId = newestMap.id || newestMap.uid;
+      
+      // Store the map ID in the session for future use
+      session.mapId = mapId as number;
     }
-    
-    const maps = await mapsResponse.json();
-    console.log(`Found ${maps.length} maps on the robot`);
-    
-    // Find the most recent map - assuming this is the one being built
-    // We could also store the map ID in the session when starting mapping
-    if (maps.length === 0) {
-      // If no maps are found, we should throw an error rather than returning mock data
-      throw new Error('No maps found on the robot - mapping may not have started properly');
-    }
-    
-    // Sort maps by creation time, newest first
-    maps.sort((a: any, b: any) => {
-      const dateA = new Date(a.created_at || 0);
-      const dateB = new Date(b.created_at || 0);
-      return dateB.getTime() - dateA.getTime();
-    });
-    
-    // Get the newest map
-    const newestMap = maps[0];
-    const mapId = newestMap.id || newestMap.uid;
     
     // Get detailed map data
     const mapResponse = await fetch(`${ROBOT_API_URL}/maps/${mapId}`, {
