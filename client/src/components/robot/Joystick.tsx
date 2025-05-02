@@ -51,15 +51,16 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       // Calculate new target position based on joystick position and speed
       let targetX = currentX;
       let targetY = currentY;
-      let targetOrientation = null;
+      let targetOrientation = currentOrientation; // Keep current orientation by default
       
-      const distance = speed; // How far to move in meters
+      // Use a larger distance value to make movement more noticeable
+      const distance = speed * 0.5; // 0.5 meters at full speed
       
       if (isRotating) {
         // If it's a rotation movement
         targetOrientation = currentOrientation + (xDir * Math.PI/4); // Rotate based on x direction
       } else {
-        // For regular movement
+        // For regular movement - move in the direction of the joystick relative to the robot's current orientation
         targetX = currentX + Math.cos(currentOrientation) * yDir * distance;
         targetY = currentY + Math.sin(currentOrientation) * yDir * distance;
         
@@ -68,7 +69,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         targetY += Math.sin(currentOrientation - Math.PI/2) * xDir * distance;
       }
       
-      console.log(`Moving robot to: (${targetX.toFixed(3)}, ${targetY.toFixed(3)})`);
+      console.log(`Moving robot to: (${targetX.toFixed(3)}, ${targetY.toFixed(3)}), orientation: ${targetOrientation.toFixed(3)}`);
       
       // Construct the move command payload according to API documentation
       const moveData = {
@@ -78,7 +79,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         target_y: targetY,
         target_z: 0,
         target_ori: targetOrientation,
-        target_accuracy: 0.1, // 10cm accuracy
+        target_accuracy: 0.05, // 5cm accuracy for more precise movement
+        use_target_zone: true, // Added this parameter to make movement more responsive
         properties: {
           inplace_rotate: isRotating
         }
