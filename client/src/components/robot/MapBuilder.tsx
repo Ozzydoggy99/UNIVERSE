@@ -47,6 +47,7 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
   const [error, setError] = useState<string | null>(null);
   const [realTimeMapData, setRealTimeMapData] = useState<any>(null);
   const [isConnectedToMapStream, setIsConnectedToMapStream] = useState<boolean>(false);
+  const [currentRobotPosition, setCurrentRobotPosition] = useState<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -86,9 +87,21 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
           console.log('Received real-time map update via WebSocket');
           // Update our state with the latest map data
           setRealTimeMapData(event.data);
+        } else if (event.type === 'position') {
+          // Update robot position during mapping for real-time tracking
+          setCurrentRobotPosition(event.data);
         } else if (event.type === 'connection') {
           console.log('WebSocket connection state changed:', event.state);
           setIsConnectedToMapStream(event.state === 'connected');
+        } else if (event.type === 'error') {
+          console.error('WebSocket error during mapping:', event.message);
+          
+          // Show error toast
+          toast({
+            title: "Mapping Error",
+            description: `Error during map creation: ${event.message}`,
+            variant: "destructive"
+          });
         }
       };
       
@@ -98,8 +111,12 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
       // Subscribe to robot WebSocket updates
       robotWebSocket.subscribe(handleRobotWebSocketUpdate);
       
-      // Start the mapping streams
+      // Start the mapping streams with specialized topics for real-time mapping
+      console.log(`Starting real-time mapping streams for robot ${serialNumber}`);
       startMappingStreams(serialNumber);
+      
+      // Request initial position data
+      robotWebSocket.requestPosition(serialNumber);
       
       // When this effect cleans up, unsubscribe from the WebSocket
       return () => {
@@ -109,6 +126,7 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
         }
         
         // Stop the mapping streams
+        console.log(`Stopping real-time mapping streams for robot ${serialNumber}`);
         stopMappingStreams(serialNumber);
       };
     }

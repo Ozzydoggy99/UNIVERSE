@@ -348,56 +348,114 @@ class RobotWebSocketClient {
   }
 }
 
-// Enable WebSocket streams for mapping
-export function startMappingStreams(serialNumber?: string) {
+/**
+ * Enable WebSocket streams for real-time mapping visualization
+ * This function enables all the necessary topics needed for mapping
+ * @param serialNumber The robot's serial number (defaults to demo robot if not specified)
+ * @param customTopics Optional list of custom topics to enable instead of defaults
+ */
+export function startMappingStreams(serialNumber?: string, customTopics?: string[]) {
   const robot = serialNumber || 'L382502104987ir';
   console.log(`Starting real-time mapping streams for robot ${robot}`);
+  
+  // These are the mapping-specific topics needed for comprehensive mapping
+  const defaultTopics = [
+    // Basic map data 
+    '/map',
+    '/map_v2',
+    
+    // SLAM state information
+    '/slam/state',
+    
+    // Different map resolution streams
+    '/maps/5cm/1hz',
+    '/maps/1cm/1hz',
+    
+    // Path and trajectory information
+    '/trajectory', 
+    '/trajectory_node_list',
+    '/path',
+    
+    // LiDAR and point cloud data
+    '/scan_matched_points2',
+    '/scans',
+    '/scan',
+    
+    // Add any additional topics needed for full mapping visualization
+    '/submap_list'
+  ];
+  
+  // Use provided custom topics or fall back to defaults
+  const topics = customTopics || defaultTopics;
   
   // Send request to enable mapping-specific topics on the server
   robotWebSocket.sendMessage({
     type: 'start_mapping_streams',
     serialNumber: robot,
-    // These are the mapping-specific topics we want to enable
-    topics: [
-      '/map',
-      '/map_v2',
-      '/slam/state',
-      '/maps/5cm/1hz',
-      '/maps/1cm/1hz',
-      '/trajectory', 
-      '/scan_matched_points2',
-      '/scans',
-      '/scan'
-    ]
+    topics: topics
   });
   
   // Also request current data to initialize the UI
   robotWebSocket.requestPosition(robot);
   robotWebSocket.requestMapData(robot);
+  
+  // Connect to WebSocket if not already connected
+  if (!robotWebSocket.isConnected()) {
+    console.log('Connecting to WebSocket for real-time mapping...');
+    robotWebSocket.connect();
+  }
+  
+  return topics;
 }
 
-// Stop WebSocket streams for mapping
-export function stopMappingStreams(serialNumber?: string) {
+/**
+ * Stop WebSocket streams for mapping
+ * This function disables all the topics that were enabled for mapping
+ * @param serialNumber The robot's serial number (defaults to demo robot if not specified)
+ * @param customTopics Optional list of custom topics to disable instead of defaults
+ */
+export function stopMappingStreams(serialNumber?: string, customTopics?: string[]) {
   const robot = serialNumber || 'L382502104987ir';
   console.log(`Stopping real-time mapping streams for robot ${robot}`);
+  
+  // These should match the same topics that were enabled in startMappingStreams
+  const defaultTopics = [
+    // Basic map data 
+    '/map',
+    '/map_v2',
+    
+    // SLAM state information
+    '/slam/state',
+    
+    // Different map resolution streams
+    '/maps/5cm/1hz',
+    '/maps/1cm/1hz',
+    
+    // Path and trajectory information
+    '/trajectory', 
+    '/trajectory_node_list',
+    '/path',
+    
+    // LiDAR and point cloud data
+    '/scan_matched_points2',
+    '/scans',
+    '/scan',
+    
+    // Add any additional topics needed for full mapping visualization
+    '/submap_list'
+  ];
+  
+  // Use provided custom topics or fall back to defaults
+  const topics = customTopics || defaultTopics;
   
   // Send request to disable mapping-specific topics on the server
   robotWebSocket.sendMessage({
     type: 'stop_mapping_streams',
     serialNumber: robot,
-    // These are the mapping-specific topics we want to disable
-    topics: [
-      '/map',
-      '/map_v2',
-      '/slam/state',
-      '/maps/5cm/1hz',
-      '/maps/1cm/1hz',
-      '/trajectory',
-      '/scan_matched_points2',
-      '/scans',
-      '/scan'
-    ]
+    topics: topics
   });
+  
+  return topics;
 }
 
 // Export a singleton instance
