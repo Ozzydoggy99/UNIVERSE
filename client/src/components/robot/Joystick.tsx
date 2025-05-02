@@ -54,11 +54,11 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       let targetOrientation = currentOrientation; // Keep current orientation by default
       
       // Use a larger distance value to make movement more noticeable
-      const distance = speed * 0.5; // 0.5 meters at full speed
+      const distance = speed * 0.75; // 0.75 meters at full speed
       
       if (isRotating) {
-        // If it's a rotation movement
-        targetOrientation = currentOrientation + (xDir * Math.PI/4); // Rotate based on x direction
+        // If it's a rotation movement, make rotation more responsive
+        targetOrientation = currentOrientation + (xDir * Math.PI/2); // Rotate 90 degrees at full deflection
       } else {
         // For regular movement - move in the direction of the joystick relative to the robot's current orientation
         targetX = currentX + Math.cos(currentOrientation) * yDir * distance;
@@ -210,7 +210,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         console.log('Sending joystick command:', normalizedPosition.x, -normalizedPosition.y);
         sendMoveCommand(normalizedPosition.x, -normalizedPosition.y);
       }
-    }, 1000); // Send movement commands every 1 second (increased delay for debugging)
+    }, 300); // Send movement commands every 300ms for more responsive movement
   };
 
   const handleJoystickMove = (clientX: number, clientY: number) => {
