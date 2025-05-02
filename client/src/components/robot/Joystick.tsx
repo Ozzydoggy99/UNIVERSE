@@ -86,7 +86,34 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         }
       };
       
-      // Send the command to the server
+      // Try a direct API call first as a test (for debugging - will be removed later)
+      console.log('Attempting direct API call to robot...');
+      try {
+        // Debug directly with the physical robot
+        const directResponse = await fetch('http://47.180.91.99:8090/chassis/moves', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(moveData),
+        });
+        
+        if (directResponse.ok) {
+          const directResult = await directResponse.json();
+          console.log('Direct API call successful:', directResult);
+          // No need to continue with the server API call
+          return;
+        } else {
+          console.error('Direct API call failed:', await directResponse.text());
+          // Continue with the server API call as fallback
+        }
+      } catch (directErr) {
+        console.error('Direct API call error:', directErr);
+        // Continue with the server API call as fallback
+      }
+      
+      // Send the command through our server API
+      console.log('Sending move command through server API');
       const response = await fetch(`/api/robots/move/${serialNumber}`, {
         method: 'POST',
         headers: {
@@ -180,9 +207,10 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     
     moveIntervalRef.current = setInterval(() => {
       if (normalizedPosition.x !== 0 || normalizedPosition.y !== 0) {
+        console.log('Sending joystick command:', normalizedPosition.x, -normalizedPosition.y);
         sendMoveCommand(normalizedPosition.x, -normalizedPosition.y);
       }
-    }, 300); // Send movement commands every 300ms
+    }, 1000); // Send movement commands every 1 second (increased delay for debugging)
   };
 
   const handleJoystickMove = (clientX: number, clientY: number) => {

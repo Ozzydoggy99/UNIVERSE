@@ -40,7 +40,11 @@ export function registerRobotMoveApiRoutes(app: Express) {
         moveData.target_accuracy = moveData.target_accuracy || 0.1;
       }
 
-      console.log(`Sending move command to robot ${serialNumber}:`, JSON.stringify(moveData, null, 2));
+      // Add extensive logging for debugging
+      console.log(`============== MOVE COMMAND REQUEST ==============`);
+      console.log(`Serial Number: ${serialNumber}`);
+      console.log(`Move data:`, JSON.stringify(moveData, null, 2));
+      console.log(`=================================================`);
 
       // Forward the request to the robot API according to documentation
       const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/chassis/moves`, {
