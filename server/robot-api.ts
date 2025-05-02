@@ -19,6 +19,12 @@ import {
   ROBOT_SECRET
 } from './robot-constants';
 
+// Enum for LiDAR power action
+enum LidarPowerAction {
+  POWER_ON = 'power_on',
+  POWER_OFF = 'power_off'
+}
+
 // Cache for system settings
 let systemSettingsCache: any = null;
 let lastSettingsFetchTime = 0;
