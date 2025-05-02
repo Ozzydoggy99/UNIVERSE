@@ -166,6 +166,12 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
       setError(null);
       setMapProgress(0);
       
+      // Notify user about the development mode override for connection status
+      toast({
+        title: "Development Mode",
+        description: "Connection checks are bypassed in development mode to allow mapping to work.",
+      });
+      
       // Start a new mapping session
       const response = await apiRequest('POST', `/api/robots/start-mapping/${serialNumber}`, {
         mapName: mapName
