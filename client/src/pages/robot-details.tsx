@@ -53,6 +53,7 @@ import { Map } from '@/components/ui/map';
 import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 import { RobotH264Stream } from '@/components/RobotH264Stream';
 import { DirectionalControl } from '@/components/robot/DirectionalControl';
+import { LidarVisualization } from '@/components/robot/LidarVisualization';
 
 interface RobotStatus {
   model: string;
@@ -90,6 +91,18 @@ interface CameraData {
   rotation: number;
   nightVision: boolean;
   timestamp: string;
+}
+
+interface LidarData {
+  ranges: number[];
+  angle_min: number;
+  angle_max: number;
+  angle_increment: number;
+  range_min: number;
+  range_max: number;
+  intensities?: number[];
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
+  timestamp?: string;
 }
 
 export default function RobotDetails() {
@@ -139,6 +152,7 @@ export default function RobotDetails() {
     robotSensorData: wsSensorData,
     mapData: wsMapData,
     cameraData: wsCameraData,
+    lidarData: wsLidarData,
     connectionState, 
     connectWebSocket, 
     disconnectWebSocket, 
@@ -205,6 +219,18 @@ export default function RobotDetails() {
     retry: 5,
     retryDelay: 1000,
     staleTime: 10000,
+    refetchOnWindowFocus: false,
+    gcTime: 60000
+  });
+  
+  // Fetch LiDAR data as fallback to WebSocket
+  const { data: restLidarData, isLoading: lidarLoading } = useQuery<LidarData>({
+    queryKey: ['/api/robots/lidar', serialNumber],
+    enabled: !!serialNumber && !wsLidarData,
+    refetchInterval: connectionState !== 'connected' ? 3000 : false, // Only poll when WebSocket is not available
+    retry: 5,
+    retryDelay: 1000,
+    staleTime: 5000, // LiDAR data needs to be fresh
     refetchOnWindowFocus: false,
     gcTime: 60000
   });
@@ -315,6 +341,7 @@ export default function RobotDetails() {
   const sensors = wsSensorData || restSensorData || null;
   const mapDataToUse = wsMapData || restMapData || null;
   const cameraDataToUse = wsCameraData || restCameraData || null;
+  const lidarDataToUse = wsLidarData || restLidarData || null;
   
   // Create default data objects if needed
   const createDefaultStatus = () => ({
@@ -365,12 +392,25 @@ export default function RobotDetails() {
     timestamp: new Date().toISOString()
   });
   
+  const createDefaultLidarData = () => ({
+    ranges: Array(360).fill(0),
+    angle_min: 0,
+    angle_max: 6.28,
+    angle_increment: 0.0174533,
+    range_min: 0.15,
+    range_max: 25.0,
+    intensities: [],
+    connectionStatus: 'disconnected',
+    timestamp: new Date().toISOString()
+  });
+  
   // Use default data objects if real data isn't available
   const finalStatus = status || createDefaultStatus();
   const finalPosition = position || createDefaultPosition();
   const finalSensors = sensors || createDefaultSensorData();
   const finalMapData = mapDataToUse || createDefaultMapData();
   const finalCameraData = cameraDataToUse || createDefaultCameraData();
+  const finalLidarData = lidarDataToUse || createDefaultLidarData();
   
   // Use cached data for assignment and template
   const displayAssignment = cachedAssignment || assignment;
@@ -627,6 +667,23 @@ export default function RobotDetails() {
                     Disconnect
                   </Button>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* LiDAR Visualization Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Layers className="h-5 w-5 text-primary" />
+                LiDAR Data
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LidarVisualization data={finalLidarData} loading={lidarLoading} />
+              <div className="flex justify-between text-xs text-muted-foreground mt-3">
+                <span>Last LiDAR Update:</span>
+                <span>{finalLidarData?.timestamp ? formatTimeSince(finalLidarData.timestamp) : 'No data'}</span>
               </div>
             </CardContent>
           </Card>
