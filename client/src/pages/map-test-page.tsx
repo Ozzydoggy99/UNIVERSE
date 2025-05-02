@@ -170,7 +170,7 @@ export default function MapTestPage() {
         </Button>
         
         <Button 
-          variant="primary"
+          variant="default"
           className="bg-primary text-white hover:bg-primary/90"
           onClick={() => navigate(`/robot-details/${serialNumber}`)}
         >
