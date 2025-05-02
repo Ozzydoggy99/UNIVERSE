@@ -302,6 +302,96 @@ function enableRequiredTopics() {
 }
 
 /**
+ * Enable specific WebSocket topics
+ * @param topics Array of topic strings to enable
+ * @returns True if the topics were successfully enabled, false otherwise
+ */
+export function enableTopics(topics: string[]): boolean {
+  if (!robotWs || robotWs.readyState !== WebSocket.OPEN) {
+    console.error('Cannot enable topics: WebSocket is not connected');
+    return false;
+  }
+  
+  if (!topics || topics.length === 0) {
+    console.error('No topics provided to enable');
+    return false;
+  }
+  
+  // Deduplicate topics
+  const uniqueTopics = Array.from(new Set<string>(topics));
+  
+  try {
+    // Check if we support multi-topic subscription
+    if (uniqueTopics.length > 1) {
+      // Try multi-topic subscription (since 2.7.0)
+      robotWs.send(JSON.stringify({
+        enable_topic: uniqueTopics
+      }));
+    } else {
+      // Fall back to single topic subscription
+      for (const topic of uniqueTopics) {
+        robotWs.send(JSON.stringify({
+          enable_topic: topic
+        }));
+      }
+    }
+    
+    // Add to enabled topics list
+    enabledTopics = Array.from(new Set([...enabledTopics, ...uniqueTopics]));
+    console.log('Enabled additional robot topics:', uniqueTopics);
+    return true;
+  } catch (err) {
+    console.error('Failed to enable topics:', err);
+    return false;
+  }
+}
+
+/**
+ * Disable specific WebSocket topics
+ * @param topics Array of topic strings to disable
+ * @returns True if the topics were successfully disabled, false otherwise
+ */
+export function disableTopics(topics: string[]): boolean {
+  if (!robotWs || robotWs.readyState !== WebSocket.OPEN) {
+    console.error('Cannot disable topics: WebSocket is not connected');
+    return false;
+  }
+  
+  if (!topics || topics.length === 0) {
+    console.error('No topics provided to disable');
+    return false;
+  }
+  
+  // Deduplicate topics
+  const uniqueTopics = Array.from(new Set<string>(topics));
+  
+  try {
+    // Check if we support multi-topic unsubscription
+    if (uniqueTopics.length > 1) {
+      // Try multi-topic unsubscription (since 2.7.0)
+      robotWs.send(JSON.stringify({
+        disable_topic: uniqueTopics
+      }));
+    } else {
+      // Fall back to single topic unsubscription
+      for (const topic of uniqueTopics) {
+        robotWs.send(JSON.stringify({
+          disable_topic: topic
+        }));
+      }
+    }
+    
+    // Remove from enabled topics list
+    enabledTopics = enabledTopics.filter(topic => !uniqueTopics.includes(topic));
+    console.log('Disabled robot topics:', uniqueTopics);
+    return true;
+  } catch (err) {
+    console.error('Failed to disable topics:', err);
+    return false;
+  }
+}
+
+/**
  * Handle incoming robot WebSocket messages
  */
 function handleRobotMessage(messageData: string) {
