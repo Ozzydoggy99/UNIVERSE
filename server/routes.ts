@@ -237,6 +237,97 @@ function setupWebSockets(httpServer: Server) {
         if (data.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong' }));
         }
+        else if (data.type === 'start_mapping_streams') {
+          // Start mapping-specific WebSocket topics
+          console.log('Starting mapping streams for real-time map building visualization');
+          
+          // Enable mapping-specific topics on the robot WebSocket
+          // These topics are needed for real-time map visualization
+          const MAPPING_TOPICS = [
+            '/slam/state',
+            '/map',
+            '/map_v2',
+            '/trajectory',
+            '/trajectory_node_list',
+            '/path',
+            '/scan_matched_points2'
+          ];
+          
+          // Send the request to the robot WebSocket
+          try {
+            const robotWs = require('./robot-websocket');
+            
+            // Check if robotWs is connected
+            if (robotWs.isRobotConnected()) {
+              // Enable all mapping topics
+              // Try multi-topic subscription (since 2.7.0)
+              robotWs.enableTopics(MAPPING_TOPICS);
+              
+              // Acknowledge the request
+              ws.send(JSON.stringify({
+                type: 'mapping_streams_started',
+                message: 'Successfully enabled mapping-specific WebSocket topics'
+              }));
+              
+              console.log('Enabled mapping streams:', MAPPING_TOPICS);
+            } else {
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Robot WebSocket is not connected'
+              }));
+            }
+          } catch (err) {
+            console.error('Error enabling mapping streams:', err);
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Failed to enable mapping streams'
+            }));
+          }
+        }
+        else if (data.type === 'stop_mapping_streams') {
+          // Stop mapping-specific WebSocket topics
+          console.log('Stopping mapping streams for real-time map building visualization');
+          
+          const MAPPING_TOPICS = [
+            '/slam/state',
+            '/map',
+            '/map_v2',
+            '/trajectory',
+            '/trajectory_node_list',
+            '/path',
+            '/scan_matched_points2'
+          ];
+          
+          // Send the request to the robot WebSocket
+          try {
+            const robotWs = require('./robot-websocket');
+            
+            // Check if robotWs is connected
+            if (robotWs.isRobotConnected()) {
+              // Disable all mapping topics
+              robotWs.disableTopics(MAPPING_TOPICS);
+              
+              // Acknowledge the request
+              ws.send(JSON.stringify({
+                type: 'mapping_streams_stopped',
+                message: 'Successfully disabled mapping-specific WebSocket topics'
+              }));
+              
+              console.log('Disabled mapping streams:', MAPPING_TOPICS);
+            } else {
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Robot WebSocket is not connected'
+              }));
+            }
+          } catch (err) {
+            console.error('Error disabling mapping streams:', err);
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Failed to disable mapping streams'
+            }));
+          }
+        }
         // Add more message handlers as needed
         
       } catch (error) {

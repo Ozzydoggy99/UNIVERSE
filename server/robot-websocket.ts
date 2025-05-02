@@ -34,7 +34,7 @@ const TOPICS = {
   STATUS: ['/wheel_state', '/ws_connections'],
   POSITION: ['/tracked_pose', '/robot/footprint'],
   SENSORS: ['/battery_state', '/detailed_battery_state'],
-  MAP: ['/map', '/slam/state'],
+  MAP: ['/map', '/slam/state', '/map_v2'],
   CAMERA: ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video'],
   LIDAR: [
     // Main scanning topics from documentation
@@ -62,6 +62,25 @@ const TOPICS = {
     '/lidar/scan_matched',    // Namespaced variation
     '/slam/points',           // SLAM might publish point cloud
     '/raw/lidar',             // Raw LiDAR data
+  ],
+  // Additional topics that are essential for real-time mapping visualization
+  MAPPING: [
+    // SLAM state for mapping progress
+    '/slam/state',
+    
+    // Map data during mapping
+    '/map',
+    '/map_v2',
+    
+    // Trajectory data during mapping
+    '/trajectory',
+    '/trajectory_node_list',  // For older robot versions
+    
+    // Path planning during mapping
+    '/path',
+    
+    // Points for visualization
+    '/scan_matched_points2'
   ]
 };
 

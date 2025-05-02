@@ -348,5 +348,21 @@ class RobotWebSocketClient {
   }
 }
 
+// Enable WebSocket streams for mapping
+export function startMappingStreams(serialNumber?: string) {
+  robotWebSocket.sendMessage({
+    type: 'start_mapping_streams',
+    serialNumber: serialNumber || 'L382502104987ir'
+  });
+}
+
+// Stop WebSocket streams for mapping
+export function stopMappingStreams(serialNumber?: string) {
+  robotWebSocket.sendMessage({
+    type: 'stop_mapping_streams',
+    serialNumber: serialNumber || 'L382502104987ir'
+  });
+}
+
 // Export a singleton instance
 export const robotWebSocket = new RobotWebSocketClient();
