@@ -172,24 +172,59 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
         description: "Connection checks are bypassed in development mode to allow mapping to work.",
       });
       
-      // Start a new mapping session
-      const response = await apiRequest('POST', `/api/robots/start-mapping/${serialNumber}`, {
-        mapName: mapName
-      });
+      console.log(`Starting mapping with name: ${mapName} for robot: ${serialNumber}`);
       
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error);
+      try {
+        // Start a new mapping session
+        const response = await fetch(`/api/robots/start-mapping/${serialNumber}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            mapName: mapName
+          })
+        });
+        
+        console.log('Start mapping API response status:', response.status);
+        
+        if (!response.ok) {
+          let errorText = '';
+          try {
+            const errorData = await response.json();
+            console.error('Start mapping error response:', errorData);
+            errorText = errorData.error || `Server returned ${response.status} ${response.statusText}`;
+          } catch (e) {
+            errorText = await response.text();
+            console.error('Start mapping raw error response:', errorText);
+          }
+          throw new Error(errorText || `Server returned ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Start mapping API response data:', data);
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+        if (!data.sessionId) {
+          throw new Error('No session ID returned from server');
+        }
+        
+        setMappingSessionId(data.sessionId);
+        setMapStatus(MAP_BUILDING_STATUS.BUILDING);
+        
+        toast({
+          title: "Map building started",
+          description: "Drive the robot around to create a map of the environment.",
+        });
+      } catch (apiError: any) {
+        console.error('API error when starting mapping:', apiError);
+        throw apiError;
       }
-      
-      setMappingSessionId(data.sessionId);
-      setMapStatus(MAP_BUILDING_STATUS.BUILDING);
-      
-      toast({
-        title: "Map building started",
-        description: "Drive the robot around to create a map of the environment.",
-      });
     } catch (err: any) {
+      console.error('Error in startMapBuilding:', err);
       setError(err.message || 'Failed to start mapping session');
       setMapStatus(MAP_BUILDING_STATUS.ERROR);
       
