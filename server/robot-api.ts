@@ -111,17 +111,22 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
     console.log('Checking robot connection status:', isRobotConnected() ? 'Connected' : 'Not connected');
     console.log('Proceeding with mapping operation regardless of connection status for development');
     
-    // Removed connection check that was causing errors
+    // Debug information about the API URL
+    console.log(`Using robot API URL: ${ROBOT_API_URL}`);
+    console.log(`Full mapping API endpoint: ${ROBOT_API_URL}/maps/create`);
     
-    // API endpoint to start mapping on the robot
-    const response = await fetch(`${ROBOT_API_URL}/mapping/start`, {
+    // Updated API endpoint to match robot's API specification
+    // The robot uses /maps/create to start creating a new map
+    const response = await fetch(`${ROBOT_API_URL}/maps/create`, {
       method: 'POST',
       headers: {
         'Secret': ROBOT_SECRET || '',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
-        map_name: mapName 
+        name: mapName,
+        type: "nav2",
+        description: `Map ${mapName} created on ${new Date().toLocaleString()}`
       })
     });
     
@@ -129,6 +134,10 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
       const errorText = await response.text();
       throw new Error(`Failed to start mapping: ${response.status} ${response.statusText} - ${errorText}`);
     }
+    
+    // Parse the response to get the map ID from the robot
+    const responseData = await response.json();
+    console.log('Map creation response from robot:', responseData);
     
     // Generate a unique session ID
     const sessionId = `map_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
@@ -166,20 +175,71 @@ async function getCurrentMapData(sessionId: string): Promise<any> {
       throw new Error(`Mapping session is ${session.status}, not active`);
     }
     
-    // Fetch current map data from the robot
-    const response = await fetch(`${ROBOT_API_URL}/mapping/current`, {
+    console.log(`Getting current map data for session ${sessionId}`);
+    
+    // First get the list of maps to find the one being built
+    const mapsResponse = await fetch(`${ROBOT_API_URL}/maps`, {
       headers: {
         'Secret': ROBOT_SECRET || '',
         'Content-Type': 'application/json'
       }
     });
     
-    if (!response.ok) {
-      throw new Error(`Failed to get current map: ${response.status} ${response.statusText}`);
+    if (!mapsResponse.ok) {
+      throw new Error(`Failed to get maps list: ${mapsResponse.status} ${mapsResponse.statusText}`);
     }
     
-    const mapData = await response.json();
-    return mapData;
+    const maps = await mapsResponse.json();
+    console.log(`Found ${maps.length} maps on the robot`);
+    
+    // Find the most recent map - assuming this is the one being built
+    // We could also store the map ID in the session when starting mapping
+    if (maps.length === 0) {
+      // If no maps found, return a basic empty map structure
+      return {
+        grid: '',
+        width: 100,
+        height: 100,
+        resolution: 0.05,
+        origin: { x: 0, y: 0, theta: 0 },
+        inProgress: true
+      };
+    }
+    
+    // Sort maps by creation time, newest first
+    maps.sort((a: any, b: any) => {
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    // Get the newest map
+    const newestMap = maps[0];
+    const mapId = newestMap.id || newestMap.uid;
+    
+    // Get detailed map data
+    const mapResponse = await fetch(`${ROBOT_API_URL}/maps/${mapId}`, {
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!mapResponse.ok) {
+      throw new Error(`Failed to get map data: ${mapResponse.status} ${mapResponse.statusText}`);
+    }
+    
+    const mapData = await mapResponse.json();
+    
+    // Transform the response to match our expected format
+    return {
+      grid: mapData.image || mapData.data || '',
+      width: mapData.width || 100,
+      height: mapData.height || 100,
+      resolution: mapData.resolution || 0.05,
+      origin: mapData.origin || { x: 0, y: 0, theta: 0 },
+      inProgress: true
+    };
   } catch (error) {
     console.error('Error getting current map data:', error);
     throw error;
@@ -205,15 +265,50 @@ async function saveMap(sessionId: string): Promise<string> {
     // Update session status
     session.status = 'processing';
     
-    // Call API to save the map
-    const response = await fetch(`${ROBOT_API_URL}/mapping/save`, {
-      method: 'POST',
+    console.log(`Saving map for session ${sessionId}`);
+    
+    // First get the list of maps to find the one being built
+    const mapsResponse = await fetch(`${ROBOT_API_URL}/maps`, {
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!mapsResponse.ok) {
+      throw new Error(`Failed to get maps list: ${mapsResponse.status} ${mapsResponse.statusText}`);
+    }
+    
+    const maps = await mapsResponse.json();
+    console.log(`Found ${maps.length} maps on the robot`);
+    
+    if (maps.length === 0) {
+      throw new Error('No maps found on the robot');
+    }
+    
+    // Sort maps by creation time, newest first
+    maps.sort((a: any, b: any) => {
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    // Get the newest map - this is the one we were building
+    const newestMap = maps[0];
+    const mapId = newestMap.id || newestMap.uid;
+    
+    console.log(`Found map ID ${mapId} to save`);
+    
+    // Update the map with a finalized name and save it
+    const response = await fetch(`${ROBOT_API_URL}/maps/${mapId}`, {
+      method: 'PUT',
       headers: {
         'Secret': ROBOT_SECRET || '',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
-        map_name: session.mapName 
+        name: session.mapName,
+        description: `Map ${session.mapName} completed on ${new Date().toLocaleString()}`
       })
     });
     
@@ -225,12 +320,14 @@ async function saveMap(sessionId: string): Promise<string> {
     }
     
     const result = await response.json();
+    console.log('Map save response:', result);
     
     // Update session status
     session.status = 'completed';
     session.mapData = result;
     
-    return result.map_id || result.id || '1'; // Return map ID from response
+    // Return the map ID
+    return mapId;
   } catch (error) {
     console.error('Error saving map:', error);
     throw error;
@@ -252,17 +349,59 @@ async function cancelMappingSession(sessionId: string): Promise<void> {
       throw new Error(`Mapping session is ${session.status}, not active`);
     }
     
-    // Call API to cancel mapping
-    const response = await fetch(`${ROBOT_API_URL}/mapping/cancel`, {
-      method: 'POST',
+    console.log(`Cancelling mapping session ${sessionId}`);
+    
+    // First get the list of maps to find the one being built
+    const mapsResponse = await fetch(`${ROBOT_API_URL}/maps`, {
       headers: {
         'Secret': ROBOT_SECRET || '',
         'Content-Type': 'application/json'
       }
     });
     
-    if (!response.ok) {
-      throw new Error(`Failed to cancel mapping: ${response.status} ${response.statusText}`);
+    if (!mapsResponse.ok) {
+      throw new Error(`Failed to get maps list: ${mapsResponse.status} ${mapsResponse.statusText}`);
+    }
+    
+    const maps = await mapsResponse.json();
+    console.log(`Found ${maps.length} maps on the robot before cancellation`);
+    
+    // For the robot - there's no explicit mapping/cancel endpoint
+    // Instead, just mark the session as cancelled in our system
+    // In a real implementation, you might want to delete the unfinished map
+    console.log('No explicit cancel endpoint in robot API, marking session as cancelled');
+    
+    // If there are maps and we want to delete the most recent one:
+    if (maps.length > 0) {
+      // Sort maps by creation time, newest first
+      maps.sort((a: any, b: any) => {
+        const dateA = new Date(a.created_at || 0);
+        const dateB = new Date(b.created_at || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      // Get the newest map - this is the one we were building
+      const newestMap = maps[0];
+      const mapId = newestMap.id || newestMap.uid;
+      
+      console.log(`Found map ID ${mapId} to potentially cancel/delete (not implemented)`);
+      
+      // In a real implementation, you could delete the map:
+      /*
+      const deleteResponse = await fetch(`${ROBOT_API_URL}/maps/${mapId}`, {
+        method: 'DELETE',
+        headers: {
+          'Secret': ROBOT_SECRET || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!deleteResponse.ok) {
+        console.warn(`Failed to delete map during cancellation: ${deleteResponse.status} ${deleteResponse.statusText}`);
+      } else {
+        console.log(`Successfully deleted map ${mapId} during cancellation`);
+      }
+      */
     }
     
     // Update session status
