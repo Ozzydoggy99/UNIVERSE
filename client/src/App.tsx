@@ -24,6 +24,7 @@ import UnitBoxes from "@/pages/unit-boxes";
 import AIAssistantPage from "@/pages/ai-assistant";
 import RobotTasks from "@/pages/robot-tasks";
 import MapTestPage from "@/pages/map-test-page";
+import LayeredMapPage from "@/pages/layered-map-page";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -370,6 +371,14 @@ function Router() {
           <AppLayout>
             <MapTestPage />
           </AppLayout>
+        )} 
+      />
+      
+      {/* Layered Map Builder */}
+      <ProtectedRoute 
+        path="/layered-map/:serialNumber" 
+        component={() => (
+          <LayeredMapPage />
         )} 
       />
       
