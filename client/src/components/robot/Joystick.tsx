@@ -145,66 +145,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     setIsSendingCommand(true);
     
     try {
-      // Try a direct stop with the robot API first
-      console.log('Sending direct stop command via button');
+      console.log('Sending stop command via button');
       
-      // First check for active moves
-      try {
-        const movesResponse = await fetch('http://47.180.91.99:8090/chassis/moves');
-        const moves = await movesResponse.json();
-        
-        // Find any active move
-        const activeMove = Array.isArray(moves) ? moves.find((move) => move.state === 'moving') : null;
-        
-        if (activeMove) {
-          console.log(`Found active move with ID: ${activeMove.id}`);
-          
-          // Cancel specific move
-          const stopResponse = await fetch(`http://47.180.91.99:8090/chassis/moves/${activeMove.id}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ state: "cancelled" }),
-          });
-          
-          if (stopResponse.ok) {
-            console.log('Direct stop successful for specific move');
-            toast({
-              title: 'Movement stopped',
-              description: 'Robot has been commanded to stop',
-            });
-            return;
-          }
-        }
-      } catch (e) {
-        console.error('Error checking active moves:', e);
-      }
-      
-      // If we didn't find specific moves or the first attempt failed, try a more general stop
-      try {
-        const stopResponse = await fetch('http://47.180.91.99:8090/chassis/moves/current', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ state: "cancelled" }),
-        });
-        
-        if (stopResponse.ok) {
-          console.log('Direct stop successful');
-          toast({
-            title: 'Movement stopped',
-            description: 'Robot has been commanded to stop all movement',
-          });
-          return;
-        }
-      } catch (e) {
-        console.error('Error with general stop:', e);
-      }
-      
-      // If direct methods failed, fall back to our server API
-      console.log('Falling back to server API for stop');
+      // Use our server API for the stop command
       const response = await fetch(`/api/robots/move/${serialNumber}/cancel`, {
         method: 'POST',
         headers: {
@@ -262,12 +205,13 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       moveIntervalRef.current = null;
     }
     
-    // Send a direct stop command when joystick is released
+    if (!serialNumber) return;
+    
+    // Send a stop command through our server API when joystick is released
     try {
-      // Try a direct robot API call to stop movement
-      console.log('Sending direct stop command');
-      const stopResponse = await fetch('http://47.180.91.99:8090/chassis/moves/current', {
-        method: 'PATCH',
+      console.log('Sending stop command on joystick release');
+      const stopResponse = await fetch(`/api/robots/move/${serialNumber}/cancel`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -324,7 +268,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     }
   };
   
-  // Simplified, direct command without all the overhead
+  // Send movement commands through our server (to avoid CORS issues)
   const sendDirectCommand = async (xDir: number, yDir: number) => {
     if (disabled || !serialNumber || isSendingCommand) return;
     
@@ -359,11 +303,14 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         target_z: 0,
         target_ori: currentOrientation,
         target_accuracy: 0.05,
-        use_target_zone: true
+        use_target_zone: true,
+        properties: {
+          inplace_rotate: false
+        }
       };
       
-      // Direct API call to the robot - bypass our server for speed
-      const directResponse = await fetch('http://47.180.91.99:8090/chassis/moves', {
+      // Use our server API instead of direct calls to avoid CORS issues
+      const serverResponse = await fetch(`/api/robots/move/${serialNumber}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -371,18 +318,18 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         body: JSON.stringify(moveData),
       });
       
-      if (directResponse.ok) {
-        console.log('Direct movement successful');
+      if (serverResponse.ok) {
+        console.log('Movement command sent successfully');
       } else {
-        console.error('Direct movement failed');
+        console.error('Movement command failed:', await serverResponse.text());
       }
     } catch (error) {
-      console.error('Error sending direct command:', error);
+      console.error('Error sending movement command:', error);
     } finally {
       // Allow new commands after a short delay
       setTimeout(() => {
         setIsSendingCommand(false);
-      }, 100);
+      }, 50); // Reduced to 50ms for faster response
     }
   };
 
