@@ -377,9 +377,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // For forward/backward motion, explicitly set inplace_rotate to false
-            // This tells the robot this is NOT a rotation-in-place command
-            inplace_rotate: false
+            // For forward/backward motion, need BOTH properties
+            inplace_rotate: false,
+            no_rotate: true // This was missing! Critical for straight-line movement
           }
         };
         
@@ -414,8 +414,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // Combined movement should NOT use inplace_rotate
-            inplace_rotate: false
+            // For combined movement we need BOTH properties
+            inplace_rotate: false,
+            no_rotate: true  // This was missing! Critical for controlling rotation in combined mode
           }
         };
         
