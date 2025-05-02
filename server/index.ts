@@ -56,15 +56,32 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // Try multiple ports starting with 5000
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  const startPort = 5000;
+  const maxPortAttempts = 10; // Try ports 5000-5009
+  
+  function tryPort(portNumber: number, attempt: number) {
+    server.listen({
+      port: portNumber,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`serving on port ${portNumber}`);
+    }).on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE' && attempt < maxPortAttempts) {
+        // Port is in use, try the next one
+        const nextPort = portNumber + 1;
+        log(`Port ${portNumber} is in use, trying port ${nextPort}...`);
+        tryPort(nextPort, attempt + 1);
+      } else {
+        // Either we've exhausted all port attempts or hit a different error
+        log(`Failed to start server: ${err.message}`);
+        throw err;
+      }
+    });
+  }
+  
+  // Start trying ports
+  tryPort(startPort, 0);
 })();

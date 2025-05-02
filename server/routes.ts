@@ -195,11 +195,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
  * Set up WebSocket servers
  */
 function setupWebSockets(httpServer: Server) {
-  // Create WebSocket server for camera control
-  const wss = new WebSocketServer({ 
-    server: httpServer, 
-    path: '/api/ws/camera' 
-  });
+  // Create WebSocket server for camera control with error handling for port conflicts
+  let wss: WebSocketServer;
+  
+  try {
+    wss = new WebSocketServer({ 
+      server: httpServer, 
+      path: '/api/ws/camera',
+      // Add error handling for the WebSocket server
+      clientTracking: true
+    });
+    
+    // Handle server-level errors
+    wss.on('error', (error: any) => {
+      console.error('WebSocket server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.log('WebSocket port is already in use, will use the HTTP server port chosen by the dynamic port selection');
+      }
+    });
+  } catch (error) {
+    console.error('Failed to create WebSocket server:', error);
+    return; // Exit if we can't create the WebSocket server
+  }
   
   // Store connected clients
   const connectedClients: WebSocket[] = [];

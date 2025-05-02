@@ -40,7 +40,11 @@ class RobotWebSocketClient {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // Get host and add port explicitly to avoid undefined port issues
     const host = window.location.hostname;
+    
+    // Get the current port from location.port
+    // The server's dynamic port selection will be reflected here automatically
     const port = window.location.port || (protocol === 'wss:' ? '443' : '80');
+    
     // Use camera-specific WebSocket endpoint to avoid conflicts with Vite
     const wsUrl = `${protocol}//${host}:${port}/api/ws/camera`;
     console.log('Connecting to WebSocket URL:', wsUrl);
