@@ -89,7 +89,8 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         description: 'The LiDAR is being powered on. This may take a few seconds.',
       });
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log('Power on success, response:', response);
       toast({
         title: 'LiDAR powered on',
         description: 'The LiDAR has been successfully powered on. It might take a moment to start sending data.',
@@ -120,12 +121,21 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       
       // Send power off command
       console.log(`Sending power off command to LiDAR on robot ${serialNumber}`);
-      const result = await apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
-        method: 'POST',
-        data: { action: LidarPowerAction.POWER_OFF }
-      });
-      console.log('Power off response:', result);
-      return result;
+      try {
+        const result = await fetch(`/api/robots/lidar/${serialNumber}/power`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': import.meta.env.VITE_ROBOT_SECRET || ''
+          },
+          body: JSON.stringify({ action: LidarPowerAction.POWER_OFF })
+        });
+        console.log('Power off response:', result);
+        return result;
+      } catch (error) {
+        console.error("Error in power off fetch:", error);
+        throw error;
+      }
     },
     onMutate: () => {
       setPowerOffInProgress(true);
@@ -134,7 +144,8 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         description: 'The LiDAR is being powered off.',
       });
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log('Power off success, response:', response);
       toast({
         title: 'LiDAR powered off',
         description: 'The LiDAR has been successfully powered off.',
@@ -164,19 +175,37 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       }
       
       // First power off
-      await apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
-        method: 'POST',
-        data: { action: LidarPowerAction.POWER_OFF }
-      });
-      
-      // Wait a bit
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Then power on
-      return apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
-        method: 'POST',
-        data: { action: LidarPowerAction.POWER_ON }
-      });
+      try {
+        console.log(`Power cycling LiDAR: step 1 - sending power off command to robot ${serialNumber}`);
+        await fetch(`/api/robots/lidar/${serialNumber}/power`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': import.meta.env.VITE_ROBOT_SECRET || ''
+          },
+          body: JSON.stringify({ action: LidarPowerAction.POWER_OFF })
+        });
+        
+        // Wait a bit
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Then power on
+        console.log(`Power cycling LiDAR: step 2 - sending power on command to robot ${serialNumber}`);
+        const result = await fetch(`/api/robots/lidar/${serialNumber}/power`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': import.meta.env.VITE_ROBOT_SECRET || ''
+          },
+          body: JSON.stringify({ action: LidarPowerAction.POWER_ON })
+        });
+        
+        console.log('Power cycle complete response:', result);
+        return result;
+      } catch (error) {
+        console.error("Error in power cycle fetch:", error);
+        throw error;
+      }
     },
     onMutate: () => {
       setPowerCycleInProgress(true);
@@ -185,11 +214,16 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         description: 'The LiDAR is being power cycled. This may take a few seconds.',
       });
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log('Power cycle success, response:', response);
       toast({
         title: 'LiDAR power cycled',
         description: 'The LiDAR has been successfully power cycled. It might take a moment to start sending data.',
       });
+      // Invalidate lidar data query to refresh
+      if (serialNumber) {
+        queryClient.invalidateQueries({ queryKey: [`/api/robots/lidar/${serialNumber}`] });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -211,11 +245,20 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       }
       
       console.log(`Sending clear zero error command to LiDAR on robot ${serialNumber}`);
-      const result = await apiRequest(`/api/robots/lidar/${serialNumber}/clear_zero_error`, {
-        method: 'POST'
-      });
-      console.log('Clear zero error response:', result);
-      return result;
+      try {
+        const result = await fetch(`/api/robots/lidar/${serialNumber}/clear_zero_error`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': import.meta.env.VITE_ROBOT_SECRET || ''
+          }
+        });
+        console.log('Clear zero error response:', result);
+        return result;
+      } catch (error) {
+        console.error("Error in clear zero error fetch:", error);
+        throw error;
+      }
     },
     onMutate: () => {
       setErrorClearInProgress(true);
@@ -224,11 +267,16 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         description: 'Attempting to clear LiDAR range data all zero error.',
       });
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log('Clear zero error success, response:', response);
       toast({
         title: 'LiDAR error cleared',
         description: 'The LiDAR range data all zero error has been cleared. Data should start flowing shortly.',
       });
+      // Invalidate lidar data query to refresh
+      if (serialNumber) {
+        queryClient.invalidateQueries({ queryKey: [`/api/robots/lidar/${serialNumber}`] });
+      }
     },
     onError: (error: Error) => {
       toast({
