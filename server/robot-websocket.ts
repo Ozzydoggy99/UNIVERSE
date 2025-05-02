@@ -988,5 +988,53 @@ export function getVideoFrame(serialNumber: string): Buffer | null {
   return null;
 }
 
+/**
+ * Send a command to the robot
+ * @param serialNumber Robot serial number
+ * @param endpoint API endpoint to call
+ * @param data Command data to send
+ * @returns Response from the robot
+ */
+export async function sendRobotCommand(serialNumber: string, endpoint: string, data: any = {}): Promise<any> {
+  try {
+    // Verify that the requested robot is our physical robot
+    if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      throw new Error('Robot not found');
+    }
+    
+    // Check if robot is connected
+    if (!isConnected) {
+      throw new Error('Robot is not connected');
+    }
+    
+    // Make sure endpoint starts with a slash
+    if (!endpoint.startsWith('/')) {
+      endpoint = `/${endpoint}`;
+    }
+    
+    // Perform HTTP request to robot API
+    const response = await fetch(`${ROBOT_API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Robot command failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    // Return response data
+    const responseData = await response.json().catch(() => ({}));
+    return responseData;
+  } catch (error) {
+    console.error(`Error sending command to robot ${serialNumber}:`, error);
+    throw error;
+  }
+}
+
 // Initialize the connection when this module is loaded
 initRobotWebSocket();

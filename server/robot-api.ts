@@ -844,6 +844,114 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to update robot map data' });
     }
   });
+  
+  // Start a new mapping session
+  app.post('/api/robots/start-mapping/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { mapName } = req.body;
+      
+      if (!mapName) {
+        return res.status(400).json({ error: 'Map name is required' });
+      }
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Use the implementation from earlier
+      const sessionId = await startMappingSession(serialNumber, mapName);
+      
+      res.status(201).json({
+        sessionId,
+        message: 'Mapping session started successfully'
+      });
+    } catch (error: any) {
+      console.error('Error starting mapping session:', error);
+      res.status(500).json({ error: error.message || 'Failed to start mapping session' });
+    }
+  });
+  
+  // Get current map being built in a mapping session
+  app.get('/api/robots/current-map/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { sessionId } = req.query;
+      
+      if (!sessionId) {
+        return res.status(400).json({ error: 'Session ID is required' });
+      }
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Get current map data for the session
+      const mapData = await getCurrentMapData(sessionId as string);
+      
+      res.json(mapData);
+    } catch (error: any) {
+      console.error('Error getting current map data:', error);
+      res.status(500).json({ error: error.message || 'Failed to get current map data' });
+    }
+  });
+  
+  // Save map after mapping session is complete
+  app.post('/api/robots/save-map/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { sessionId } = req.body;
+      
+      if (!sessionId) {
+        return res.status(400).json({ error: 'Session ID is required' });
+      }
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Save the map
+      const mapId = await saveMap(sessionId);
+      
+      res.json({
+        mapId,
+        message: 'Map saved successfully'
+      });
+    } catch (error: any) {
+      console.error('Error saving map:', error);
+      res.status(500).json({ error: error.message || 'Failed to save map' });
+    }
+  });
+  
+  // Cancel a mapping session
+  app.post('/api/robots/cancel-mapping/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { sessionId } = req.body;
+      
+      if (!sessionId) {
+        return res.status(400).json({ error: 'Session ID is required' });
+      }
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Cancel the mapping session
+      await cancelMappingSession(sessionId);
+      
+      res.json({
+        message: 'Mapping session cancelled successfully'
+      });
+    } catch (error: any) {
+      console.error('Error cancelling mapping session:', error);
+      res.status(500).json({ error: error.message || 'Failed to cancel mapping session' });
+    }
+  });
 
   // Get LiDAR data for a specific robot
   app.get('/api/robots/lidar/:serialNumber', async (req: Request, res: Response) => {
