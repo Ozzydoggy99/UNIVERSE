@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
-import { RobotStatus, RobotPosition, RobotSensorData, CameraData } from "@/types/robot";
+import { RobotStatus, RobotPosition, RobotSensorData, CameraData, LidarData } from "@/types/robot";
 
 // API endpoint configurations
 const API_URL = import.meta.env.VITE_AXBOT_API_URL || "/api/axbot";
@@ -594,6 +594,51 @@ export async function toggleRobotCamera(serialNumber: string, enabled: boolean):
   }
 }
 
+// LiDAR data
+export async function getLidarData(serialNumber: string): Promise<LidarData> {
+  try {
+    const response = await apiRequest(`/api/robots/lidar/${serialNumber}`, {
+      headers: {
+        'Secret': ROBOT_SECRET
+      }
+    });
+    
+    // Check if response is OK before parsing
+    if (!response.ok) {
+      return {
+        ranges: [],
+        angle_min: 0,
+        angle_max: 0,
+        angle_increment: 0,
+        range_min: 0,
+        range_max: 0,
+        timestamp: new Date().toISOString(),
+        connectionStatus: "error"
+      };
+    }
+    
+    const data = await response.json();
+    
+    // Add connection status to the result
+    return {
+      ...data,
+      connectionStatus: 'connected'
+    };
+  } catch (error) {
+    // Return error state without console noise
+    return {
+      ranges: [],
+      angle_min: 0,
+      angle_max: 0,
+      angle_increment: 0,
+      range_min: 0,
+      range_max: 0,
+      timestamp: new Date().toISOString(),
+      connectionStatus: "error"
+    };
+  }
+}
+
 // Refresh all robot data with graceful error handling
 export async function refreshAllData() {
   try {
@@ -605,9 +650,18 @@ export async function refreshAllData() {
     const positionPromise = getRobotPosition(physicalRobotSerial);
     const sensorPromise = getRobotSensorData(physicalRobotSerial);
     const mapPromise = getMapData(physicalRobotSerial);
+    const lidarPromise = getLidarData(physicalRobotSerial);
+    const cameraPromise = getRobotCameraData(physicalRobotSerial);
     
     // Promise.all won't reject if individual promises don't throw
-    return await Promise.all([statusPromise, positionPromise, sensorPromise, mapPromise]);
+    return await Promise.all([
+      statusPromise, 
+      positionPromise, 
+      sensorPromise, 
+      mapPromise, 
+      lidarPromise,
+      cameraPromise
+    ]);
   } catch (error) {
     // This should never be reached now, but just in case
     return [
@@ -643,6 +697,27 @@ export async function refreshAllData() {
         grid: [],
         obstacles: [],
         paths: [],
+        connectionStatus: "error"
+      },
+      // LiDAR data with error
+      {
+        ranges: [],
+        angle_min: 0,
+        angle_max: 0,
+        angle_increment: 0,
+        range_min: 0,
+        range_max: 0,
+        timestamp: new Date().toISOString(),
+        connectionStatus: "error"
+      },
+      // Camera data with error
+      {
+        enabled: false,
+        streamUrl: '',
+        resolution: { width: 0, height: 0 },
+        rotation: 0,
+        nightVision: false,
+        timestamp: new Date().toISOString(),
         connectionStatus: "error"
       }
     ];

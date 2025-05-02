@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { RobotStatus, RobotPosition, RobotSensorData, MapData, CameraData } from "@/types/robot";
+import { RobotStatus, RobotPosition, RobotSensorData, MapData, CameraData, LidarData } from "@/types/robot";
 import { 
   getRobotStatus, 
   getRobotPosition, 
   getRobotSensorData, 
   getMapData,
   getRobotCameraData,
+  getLidarData,
   toggleRobotCamera
 } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,6 +17,7 @@ interface RobotContextType {
   robotSensorData: RobotSensorData | null;
   mapData: MapData | null;
   cameraData: CameraData | null;
+  lidarData: LidarData | null;
   lastUpdated: Date | null;
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'error';
   setRobotData: (
@@ -23,6 +25,7 @@ interface RobotContextType {
     position: RobotPosition | null, 
     sensorData: RobotSensorData | null,
     mapData: MapData | null,
+    lidarData: LidarData | null,
     cameraData: CameraData | null
   ) => void;
   toggleCamera: (enabled: boolean) => Promise<void>;
@@ -44,6 +47,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
   const [robotSensorData, setRobotSensorData] = useState<RobotSensorData | null>(null);
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [cameraData, setCameraData] = useState<CameraData | null>(null);
+  const [lidarData, setLidarData] = useState<LidarData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [connectionState, setConnectionState] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   
@@ -69,6 +73,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
         getRobotPosition(PUBLIC_ROBOT_SERIAL),
         getRobotSensorData(PUBLIC_ROBOT_SERIAL),
         getMapData(PUBLIC_ROBOT_SERIAL),
+        getLidarData(PUBLIC_ROBOT_SERIAL),
         getRobotCameraData(PUBLIC_ROBOT_SERIAL)
       ]);
       
@@ -91,7 +96,11 @@ export function RobotProvider({ children }: RobotProviderProps) {
       }
       
       if (results[4].status === 'fulfilled' && results[4].value) {
-        setCameraData(results[4].value);
+        setLidarData(results[4].value);
+      }
+      
+      if (results[5].status === 'fulfilled' && results[5].value) {
+        setCameraData(results[5].value);
       }
       
       // Update the connection state based on data availability
@@ -142,6 +151,7 @@ export function RobotProvider({ children }: RobotProviderProps) {
           getRobotPosition(PUBLIC_ROBOT_SERIAL),
           getRobotSensorData(PUBLIC_ROBOT_SERIAL),
           getMapData(PUBLIC_ROBOT_SERIAL),
+          getLidarData(PUBLIC_ROBOT_SERIAL),
           getRobotCameraData(PUBLIC_ROBOT_SERIAL)
         ]);
         
