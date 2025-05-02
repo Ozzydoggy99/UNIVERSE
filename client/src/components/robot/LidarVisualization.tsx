@@ -366,7 +366,16 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     
     // First try to render range data if available
     if (data.ranges && data.ranges.length > 0) {
-      const { angle_min, angle_increment } = data;
+      // For full 360° visualization, we need to handle the angle calculation properly
+      
+      // Get angle parameters from data or use defaults for a full 360° view
+      const angle_min = data.angle_min !== undefined ? data.angle_min : 0;
+      const angle_max = data.angle_max !== undefined ? data.angle_max : 2 * Math.PI;
+      const angle_increment = data.angle_increment !== undefined ? 
+                              data.angle_increment : 
+                              (angle_max - angle_min) / data.ranges.length;
+      
+      console.log(`LiDAR viz: ranges=${data.ranges.length}, angle_min=${angle_min}, angle_max=${angle_max}, increment=${angle_increment}`);
       
       data.ranges.forEach((range, i) => {
         if (!isFinite(range) || range <= 0) return;
@@ -388,6 +397,8 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     } 
     // Then try to render point cloud data if available
     else if (data.points && data.points.length > 0) {
+      console.log(`LiDAR viz: Processing ${data.points.length} point cloud points`);
+      
       // Draw points directly from the point cloud
       data.points.forEach(point => {
         if (!point || point.length < 2) return;

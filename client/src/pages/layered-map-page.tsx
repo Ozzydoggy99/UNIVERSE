@@ -33,7 +33,6 @@ import {
   Eraser, 
   Square
 } from 'lucide-react';
-import { fetcher } from '@/lib/fetcher';
 import { useRobot } from '@/providers/robot-provider';
 import { useToast } from "@/hooks/use-toast";
 
@@ -106,8 +105,8 @@ export default function LayeredMapPage() {
         id: `map-${serialNumber}`,
         name: `${serialNumber} Map`,
         resolution: baseMapData.resolution || 0.05,
-        origin: baseMapData.origin || [0, 0],
-        size: baseMapData.size || [1000, 1000],
+        origin: baseMapData.origin ? [baseMapData.origin[0], baseMapData.origin[1]] as [number, number] : [0, 0] as [number, number],
+        size: baseMapData.size ? [baseMapData.size[0], baseMapData.size[1]] as [number, number] : [1000, 1000] as [number, number],
         layers: [
           {
             id: 'base-layer',
@@ -379,9 +378,12 @@ export default function LayeredMapPage() {
     const numRanges = ranges.length;
     
     if (numRanges > 0) {
+      // Use full 360° visualization
       let angleMin = 0;
       let angleMax = 2 * Math.PI;
       let angleIncrement = (angleMax - angleMin) / numRanges;
+      
+      console.log(`Rendering ${numRanges} LiDAR points with angle range ${angleMin} to ${angleMax}`);
       
       for (let i = 0; i < numRanges; i++) {
         const range = ranges[i];
@@ -390,8 +392,11 @@ export default function LayeredMapPage() {
         const angle = angleMin + i * angleIncrement;
         const distance = range * 20 * zoom; // Scale for visualization
         
+        // Draw point in correct orientation
+        // Note: In standard coordinates, 0° is to the right (east), 
+        // and angles increase counterclockwise
         const x = pixelRobot.x + Math.cos(angle) * distance;
-        const y = pixelRobot.y - Math.sin(angle) * distance; // Note: Y is inverted in canvas
+        const y = pixelRobot.y - Math.sin(angle) * distance; // Flip Y for canvas coordinates
         
         // Draw LiDAR point
         ctx.beginPath();
