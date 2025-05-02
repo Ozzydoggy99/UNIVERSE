@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, StopCircle } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface DirectionalControlProps {
   serialNumber: string;
@@ -11,6 +13,52 @@ interface DirectionalControlProps {
 export function DirectionalControl({ serialNumber, disabled = false }: DirectionalControlProps) {
   const [speed, setSpeed] = useState<number>(0.5); // Value from 0.1 to 1.0
   const [isSendingCommand, setIsSendingCommand] = useState(false);
+  const [robotParams, setRobotParams] = useState<any>({
+    maxForwardVel: 0.8,
+    maxBackwardVel: -0.2,
+    maxAngularVel: 0.78,
+    accSmoothLevel: 'normal',
+    autoHold: true,
+    bumpTolerance: 0.5
+  });
+  const [robotParamsLoaded, setRobotParamsLoaded] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Fetch robot parameters on component mount
+  useEffect(() => {
+    const fetchRobotParams = async () => {
+      try {
+        if (!serialNumber) return;
+        
+        // Get robot parameters from the backend
+        const response = await fetch(`/api/robots/params/${serialNumber}`);
+        if (!response.ok) {
+          console.warn('Could not fetch robot parameters, using defaults');
+          return;
+        }
+        
+        const params = await response.json();
+        
+        // Store relevant parameters in state
+        setRobotParams({
+          maxForwardVel: params['/wheel_control/max_forward_velocity'] || 0.8,
+          maxBackwardVel: params['/wheel_control/max_backward_velocity'] || -0.2,
+          maxAngularVel: params['/wheel_control/max_angular_velocity'] || 0.78,
+          accSmoothLevel: params['/wheel_control/acc_smoother/smooth_level'] || 'normal',
+          autoHold: params['/planning/auto_hold'] !== undefined ? params['/planning/auto_hold'] : true,
+          bumpTolerance: params['/control/bump_tolerance'] || 0.5
+        });
+        
+        setRobotParamsLoaded(true);
+        console.log('Robot parameters loaded:', params);
+      } catch (error) {
+        console.error('Error fetching robot parameters:', error);
+        setErrorMessage('Could not load robot configuration. Using default parameters.');
+      }
+    };
+    
+    fetchRobotParams();
+  }, [serialNumber]);
   
   const handleDirectionClick = async (direction: 'forward' | 'backward' | 'left' | 'right') => {
     if (disabled || !serialNumber || isSendingCommand) return;

@@ -1,12 +1,72 @@
 import { Request, Response, Express } from 'express';
 import fetch from 'node-fetch';
+import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+
+// Cache for robot parameters
+let robotParamsCache: any = null;
+let lastParamsFetchTime = 0;
+const PARAMS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Fetch robot parameters
+ * @returns Robot parameters
+ */
+async function fetchRobotParams() {
+  try {
+    // Check cache first
+    const now = Date.now();
+    if (robotParamsCache && (now - lastParamsFetchTime) < PARAMS_CACHE_TTL) {
+      return robotParamsCache;
+    }
+
+    console.log('Fetching robot parameters...');
+    const response = await fetch(`${ROBOT_API_URL}/robot-params`, {
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch robot parameters: ${response.status} ${response.statusText}`);
+    }
+    
+    const params = await response.json();
+    console.log('Robot parameters:', params);
+    
+    // Update cache
+    robotParamsCache = params;
+    lastParamsFetchTime = now;
+    
+    return params;
+  } catch (error) {
+    console.error('Error fetching robot parameters:', error);
+    // If we have a cached version, return that on error
+    if (robotParamsCache) {
+      return robotParamsCache;
+    }
+    
+    // Return default parameters if we can't fetch
+    return {
+      "/wheel_control/max_forward_velocity": 0.8,
+      "/wheel_control/max_backward_velocity": -0.2,
+      "/wheel_control/max_forward_acc": 0.26,
+      "/wheel_control/max_forward_decel": -2.0,
+      "/wheel_control/max_angular_velocity": 0.78,
+      "/wheel_control/acc_smoother/smooth_level": "normal",
+      "/planning/auto_hold": true,
+      "/control/bump_tolerance": 0.5,
+      "/control/bump_based_speed_limit/enable": true
+    };
+  }
+}
 
 /**
  * Register robot movement API routes
  */
 export function registerRobotMoveApiRoutes(app: Express) {
-  // Base robot API URL (will be replaced with environment variable or config)
-  const ROBOT_API_BASE_URL = 'http://47.180.91.99:8090';
+  // Get base robot API URL from constants
+  const ROBOT_API_BASE_URL = ROBOT_API_URL;
   
   // Helper function to handle cancel logic in the background
   async function processCancelRequest(serialNumber: string, apiBaseUrl: string) {
@@ -14,7 +74,12 @@ export function registerRobotMoveApiRoutes(app: Express) {
       console.log(`Cancelling movement for robot ${serialNumber}`);
 
       // First check if there are any active moves
-      const movesResponse = await fetch(`${apiBaseUrl}/chassis/moves`);
+      const movesResponse = await fetch(`${apiBaseUrl}/chassis/moves`, {
+        headers: {
+          'Secret': ROBOT_SECRET || '',
+          'Content-Type': 'application/json'
+        }
+      });
       const moves = await movesResponse.json();
       
       // Find any move in 'moving' state
@@ -28,6 +93,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
           },
           body: JSON.stringify({ state: "cancelled" }),
         });
@@ -47,6 +113,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
           },
           body: JSON.stringify({ state: "cancelled" }),
         });
@@ -81,6 +148,9 @@ export function registerRobotMoveApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Invalid move data' });
       }
       
+      // Get robot parameters for optimized movement
+      const robotParams = await fetchRobotParams();
+      
       // Ensure all required fields are present for a standard move
       if (moveData.type === 'standard') {
         if (typeof moveData.target_x !== 'number' || typeof moveData.target_y !== 'number') {
@@ -93,6 +163,59 @@ export function registerRobotMoveApiRoutes(app: Express) {
         // Add required fields if not present
         moveData.creator = moveData.creator || 'web_interface';
         moveData.target_accuracy = moveData.target_accuracy || 0.1;
+      }
+      
+      // Apply robot parameter optimizations - adapt based on robot configuration
+      if (!moveData.properties) {
+        moveData.properties = {};
+      }
+      
+      // Apply velocity limits from robot parameters
+      if (moveData.type === 'differential') {
+        // For direct differential drive control
+        const maxForwardVel = robotParams['/wheel_control/max_forward_velocity'] || 0.8;
+        const maxBackwardVel = robotParams['/wheel_control/max_backward_velocity'] || -0.2;
+        const maxAngularVel = robotParams['/wheel_control/max_angular_velocity'] || 0.78;
+        
+        // Cap the velocities to the robot's limits
+        if (moveData.linear_velocity > 0) {
+          moveData.linear_velocity = Math.min(moveData.linear_velocity, maxForwardVel);
+        } else {
+          moveData.linear_velocity = Math.max(moveData.linear_velocity, maxBackwardVel);
+        }
+        
+        // Cap angular velocity
+        moveData.angular_velocity = Math.max(
+          -maxAngularVel,
+          Math.min(moveData.angular_velocity, maxAngularVel)
+        );
+        
+        // Set acceleration smoother if not explicitly specified
+        if (!moveData.properties.acc_smoother_level) {
+          moveData.properties.acc_smoother_level = robotParams['/wheel_control/acc_smoother/smooth_level'] || 'normal';
+        }
+      } else if (moveData.type === 'inplace_rotate') {
+        // For rotational movement, set appropriate parameters
+        const maxAngularVel = robotParams['/wheel_control/max_angular_velocity'] || 0.78;
+        
+        // Ensure we don't exceed max angular velocity
+        if (moveData.properties && typeof moveData.properties.angular_velocity === 'number') {
+          moveData.properties.angular_velocity = Math.max(
+            -maxAngularVel,
+            Math.min(moveData.properties.angular_velocity, maxAngularVel)
+          );
+        } else if (!moveData.properties.angular_velocity) {
+          // Default angular velocity if not specified
+          moveData.properties.angular_velocity = maxAngularVel / 2;
+        }
+      } else if (moveData.type === 'standard') {
+        // For standard movement - point to point navigation
+        // Set auto_hold based on robot param but can be overridden
+        if (moveData.properties.auto_hold === undefined) {
+          moveData.properties.auto_hold = robotParams['/planning/auto_hold'] !== undefined 
+            ? robotParams['/planning/auto_hold'] 
+            : true;
+        }
       }
 
       // Log detailed move command data for debugging
@@ -119,6 +242,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
           },
           body: JSON.stringify(moveData),
         });
