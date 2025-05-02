@@ -9,9 +9,10 @@ import { toast } from '@/hooks/use-toast';
 interface DirectionalControlProps {
   serialNumber: string;
   disabled?: boolean;
+  compact?: boolean;
 }
 
-export function DirectionalControl({ serialNumber, disabled = false }: DirectionalControlProps) {
+export function DirectionalControl({ serialNumber, disabled = false, compact = false }: DirectionalControlProps) {
   const [speed, setSpeed] = useState<number>(0.5); // Value from 0.1 to 1.0
   const [isSendingCommand, setIsSendingCommand] = useState(false);
   const [robotParams, setRobotParams] = useState<any>({
@@ -322,8 +323,8 @@ export function DirectionalControl({ serialNumber, disabled = false }: Direction
   };
   
   return (
-    <div className="space-y-6">
-      {errorMessage && (
+    <div className={`${compact ? 'space-y-3' : 'space-y-6'}`}>
+      {errorMessage && !compact && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 p-3 rounded-md text-sm">
           {errorMessage}
         </div>
@@ -331,8 +332,8 @@ export function DirectionalControl({ serialNumber, disabled = false }: Direction
       
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Speed: {speed.toFixed(1)} m/s</span>
-          {robotParamsLoaded && (
+          <span className={`${compact ? 'text-xs' : 'text-sm'} font-medium`}>Speed: {speed.toFixed(1)} m/s</span>
+          {robotParamsLoaded && !compact && (
             <span className="text-xs text-muted-foreground">
               Using robot-specific parameters
             </span>
@@ -349,7 +350,7 @@ export function DirectionalControl({ serialNumber, disabled = false }: Direction
         />
       </div>
       
-      <div className="grid grid-cols-3 gap-2 max-w-[250px] mx-auto">
+      <div className={`grid grid-cols-3 gap-2 ${compact ? 'max-w-full' : 'max-w-[250px] mx-auto'}`}>
         {/* Empty cell (top-left) */}
         <div></div>
         
@@ -419,9 +420,9 @@ export function DirectionalControl({ serialNumber, disabled = false }: Direction
       </div>
       
       {/* Jack Control Section */}
-      <div className="border-t pt-4 mt-4">
-        <h3 className="text-sm font-medium mb-3">Jack Control</h3>
-        <div className="grid grid-cols-2 gap-4 max-w-[250px] mx-auto">
+      <div className={`border-t ${compact ? 'pt-2 mt-2' : 'pt-4 mt-4'}`}>
+        <h3 className={`${compact ? 'text-xs' : 'text-sm'} font-medium ${compact ? 'mb-2' : 'mb-3'}`}>Jack Control</h3>
+        <div className={`grid grid-cols-2 gap-2 ${compact ? 'max-w-full' : 'max-w-[250px] mx-auto gap-4'}`}>
           {/* Jack Up button */}
           <Button
             variant="outline"
