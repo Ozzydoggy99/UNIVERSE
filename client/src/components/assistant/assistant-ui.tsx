@@ -10,7 +10,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { apiRequest } from '@/lib/queryClient';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bot, Loader2, SendHorizontal, PlusCircle, History, Trash2 } from 'lucide-react';
 
@@ -93,8 +92,16 @@ export default function AssistantUI() {
       if (!user) return [];
       // Wrapping in a try/catch for better error handling
       try {
-        const response = await apiRequest(`/api/assistant/conversations?userId=${user.id}`, { method: 'GET' }) as Conversation[];
-        return response;
+        const res = await fetch(`/api/assistant/conversations?userId=${user.id}`, { 
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!res.ok) {
+          throw new Error(`Failed to fetch conversations: ${res.status} ${res.statusText}`);
+        }
+        
+        return await res.json() as Conversation[];
       } catch (error) {
         console.error('Error fetching conversations:', error);
         return [];
@@ -104,14 +111,22 @@ export default function AssistantUI() {
   });
   
   // Get current conversation
-  const { data: conversation, isLoading: conversationLoading } = useQuery<Conversation>({
+  const { data: conversation, isLoading: conversationLoading } = useQuery<Conversation | null>({
     queryKey: ['/api/assistant/conversations', activeConversation],
     queryFn: async () => {
       if (!activeConversation) return null;
       // Wrapping in a try/catch for better error handling
       try {
-        const response = await apiRequest(`/api/assistant/conversations/${activeConversation}`, { method: 'GET' }) as Conversation;
-        return response;
+        const res = await fetch(`/api/assistant/conversations/${activeConversation}`, { 
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!res.ok) {
+          throw new Error(`Failed to fetch conversation: ${res.status} ${res.statusText}`);
+        }
+        
+        return await res.json() as Conversation;
       } catch (error) {
         console.error('Error fetching conversation:', error);
         return null;
@@ -131,15 +146,20 @@ export default function AssistantUI() {
       };
       
       try {
-        const response = await apiRequest(`/api/assistant/message?userId=${user.id}`, {
+        const res = await fetch(`/api/assistant/message?userId=${user.id}`, {
           method: 'POST',
           body: JSON.stringify(body),
           headers: {
             'Content-Type': 'application/json'
-          }
-        }) as AssistantResponse;
+          },
+          credentials: 'include'
+        });
         
-        return response;
+        if (!res.ok) {
+          throw new Error(`Failed to send message: ${res.status} ${res.statusText}`);
+        }
+        
+        return await res.json() as AssistantResponse;
       } catch (error) {
         console.error('Error sending message:', error);
         throw new Error(error instanceof Error ? error.message : 'Failed to send message');
@@ -187,15 +207,20 @@ export default function AssistantUI() {
       };
       
       try {
-        const response = await apiRequest('/api/assistant/request', {
+        const res = await fetch('/api/assistant/request', {
           method: 'POST',
           body: JSON.stringify(request),
           headers: {
             'Content-Type': 'application/json'
-          }
-        }) as AssistantResponse;
+          },
+          credentials: 'include'
+        });
         
-        return response;
+        if (!res.ok) {
+          throw new Error(`Failed to submit form: ${res.status} ${res.statusText}`);
+        }
+        
+        return await res.json() as AssistantResponse;
       } catch (error) {
         console.error('Error submitting form:', error);
         throw new Error(error instanceof Error ? error.message : 'Failed to submit form');
@@ -229,7 +254,7 @@ export default function AssistantUI() {
       
       // Just send an empty message to create a new conversation
       try {
-        const response = await apiRequest(`/api/assistant/message?userId=${user.id}`, {
+        const res = await fetch(`/api/assistant/message?userId=${user.id}`, {
           method: 'POST',
           body: JSON.stringify({
             message: 'Hello, I need some assistance.',
@@ -237,10 +262,15 @@ export default function AssistantUI() {
           }),
           headers: {
             'Content-Type': 'application/json'
-          }
-        }) as AssistantResponse;
+          },
+          credentials: 'include'
+        });
         
-        return response;
+        if (!res.ok) {
+          throw new Error(`Failed to create conversation: ${res.status} ${res.statusText}`);
+        }
+        
+        return await res.json() as AssistantResponse;
       } catch (error) {
         console.error('Error creating conversation:', error);
         throw new Error(error instanceof Error ? error.message : 'Failed to create conversation');
@@ -455,7 +485,7 @@ export default function AssistantUI() {
             <>
               <ScrollArea className="flex-1 pr-4 mb-4">
                 <div className="space-y-4">
-                  {conversation?.messages?.map((msg) => (
+                  {conversation?.messages?.map((msg: Message) => (
                     <div
                       key={msg.id}
                       className={`flex ${msg.source === 'USER' ? 'justify-end' : 'justify-start'}`}
