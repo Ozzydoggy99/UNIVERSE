@@ -447,8 +447,65 @@ export function MapEnhanced({
           const x = (canvas.width - worldWidth * imageScale) / 2 + panOffset.x;
           const y = (canvas.height - worldHeight * imageScale) / 2 + panOffset.y;
           
-          // Draw the image
-          ctx.drawImage(img, x, y, worldWidth * imageScale, worldHeight * imageScale);
+          // Use a temporary canvas to process the image colors
+          try {
+            // Create a temporary canvas for image processing
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = img.width;
+            tempCanvas.height = img.height;
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            
+            if (tempCtx) {
+              // Draw the original image to the temp canvas
+              tempCtx.drawImage(img, 0, 0);
+              
+              // Get the image data for processing
+              const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+              const data = imageData.data;
+              
+              // Process each pixel to match the reference image colors
+              for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                
+                // Dark areas (obstacles/walls) to blue
+                if (r < 100 && g < 100 && b < 100) {
+                  data[i] = 65;      // R
+                  data[i + 1] = 105;  // G
+                  data[i + 2] = 225;  // B
+                  data[i + 3] = 255;  // Alpha
+                }
+                // Gray areas (unknown) to light gray
+                else if (r > 100 && r < 200 && g > 100 && g < 200 && b > 100 && b < 200) {
+                  data[i] = 220;     // R
+                  data[i + 1] = 220;  // G
+                  data[i + 2] = 220;  // B
+                  data[i + 3] = 180;  // Alpha (semi-transparent)
+                }
+                // White areas (free space) keep white but enhance
+                else if (r > 200 && g > 200 && b > 200) {
+                  data[i] = 255;     // R
+                  data[i + 1] = 255;  // G
+                  data[i + 2] = 255;  // B
+                  data[i + 3] = 255;  // Alpha
+                }
+              }
+              
+              // Apply the processed image data
+              tempCtx.putImageData(imageData, 0, 0);
+              
+              // Draw the processed image to the main canvas
+              ctx.drawImage(tempCanvas, x, y, worldWidth * imageScale, worldHeight * imageScale);
+            } else {
+              // Fallback to original image if temp context fails
+              ctx.drawImage(img, x, y, worldWidth * imageScale, worldHeight * imageScale);
+            }
+          } catch (error) {
+            console.error('Error processing map image:', error);
+            // Fallback to original image if processing fails
+            ctx.drawImage(img, x, y, worldWidth * imageScale, worldHeight * imageScale);
+          }
           
           // Draw the points, paths, and robot on top
           drawPointsAndPaths();
