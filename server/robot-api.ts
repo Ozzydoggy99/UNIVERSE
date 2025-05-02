@@ -98,6 +98,90 @@ interface MappingSession {
 const mappingSessions: { [key: string]: MappingSession } = {};
 
 /**
+ * Check and stop any active mapping tasks on the robot
+ * @returns true if a task was stopped, false if no active tasks were found
+ */
+async function stopActiveRobotMapping(): Promise<boolean> {
+  try {
+    console.log('Checking for active mapping tasks on the robot...');
+    
+    // First, check if there are any active mapping tasks
+    const response = await fetch(`${ROBOT_API_URL}/mappings/current`, {
+      method: 'GET',
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+      }
+    });
+    
+    // If we get a 404, there are no active mapping tasks
+    if (response.status === 404) {
+      console.log('No active mapping tasks found on the robot');
+      return false;
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn(`Error checking active mapping tasks: ${response.status} ${response.statusText} - ${errorText}`);
+      // Not throwing error, just return false
+      return false;
+    }
+    
+    // Parse the response to get info about the current mapping task
+    const mappingInfo = await response.json();
+    
+    if (!mappingInfo || !mappingInfo.id) {
+      console.log('No active mapping task ID found in response');
+      return false;
+    }
+    
+    console.log(`Found active mapping task with ID: ${mappingInfo.id}`);
+    
+    // Stop the active mapping task
+    const cancelResponse = await fetch(`${ROBOT_API_URL}/mappings/current`, {
+      method: 'PATCH',
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        state: 'cancelled'
+      })
+    });
+    
+    if (!cancelResponse.ok) {
+      const errorText = await cancelResponse.text();
+      console.warn(`Failed to cancel active mapping task: ${cancelResponse.status} ${cancelResponse.statusText} - ${errorText}`);
+      return false;
+    }
+    
+    console.log(`Successfully cancelled mapping task with ID: ${mappingInfo.id}`);
+    
+    // Attempt to delete the task as well
+    try {
+      const deleteResponse = await fetch(`${ROBOT_API_URL}/mappings/${mappingInfo.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Secret': ROBOT_SECRET || '',
+        }
+      });
+      
+      if (deleteResponse.ok) {
+        console.log(`Successfully deleted mapping task with ID: ${mappingInfo.id}`);
+      } else {
+        console.warn(`Could not delete mapping task, but cancellation was successful`);
+      }
+    } catch (deleteError) {
+      console.warn('Error trying to delete mapping task:', deleteError);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error checking/stopping active mapping tasks:', error);
+    return false;
+  }
+}
+
+/**
  * Start a new mapping session with the robot
  * @param serialNumber Robot serial number
  * @param mapName Name for the new map
@@ -112,6 +196,15 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
     // This bypasses the connection check that was causing errors
     console.log('Checking robot connection status:', isRobotConnected() ? 'Connected' : 'Not connected');
     console.log('Proceeding with mapping operation regardless of connection status for development');
+    
+    // Before starting a new mapping session, check and stop any active ones
+    console.log('Checking for active mapping tasks before starting a new one...');
+    const stoppedTask = await stopActiveRobotMapping();
+    if (stoppedTask) {
+      console.log('Successfully stopped an active mapping task. Proceeding with new mapping session.');
+    } else {
+      console.log('No active mapping tasks found or couldn\'t stop them. Continuing with new mapping session.');
+    }
     
     // Debug information about the API URL and headers
     console.log(`Using robot API URL: ${ROBOT_API_URL}`);
