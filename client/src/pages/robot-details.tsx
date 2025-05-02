@@ -374,10 +374,14 @@ export default function RobotDetails() {
     grid: [],
     obstacles: [],
     paths: [],
+    waypoints: [],  // Add these fields for the enhanced map
+    pickupPoints: [],
+    dropoffPoints: [],
     size: [0, 0],
     resolution: 0.05,
     origin: [0, 0],
-    connectionStatus: 'unknown'
+    connectionStatus: 'unknown',
+    mapId: "1"  // Default map ID
   });
   
   const createDefaultCameraData = () => ({
@@ -751,29 +755,20 @@ export default function RobotDetails() {
                     <div className="h-full relative border rounded-md p-1 bg-gray-50">
                       {/* Enhanced Map Component */}
                       <MapEnhanced 
-                        robotStatus={finalStatus} 
-                        robotPosition={finalPosition} 
-                        sensorData={finalSensors} 
-                        mapData={{
-                          ...finalMapData,
-                          // Add the required new fields for enhanced map
-                          waypoints: finalMapData.waypoints || [],
-                          pickupPoints: finalMapData.pickupPoints || [],
-                          dropoffPoints: finalMapData.dropoffPoints || []
-                        }}
+                        robotStatus={finalStatus as any} 
+                        robotPosition={finalPosition as any} 
+                        sensorData={finalSensors as any} 
+                        mapData={finalMapData as any}
                         editable={true}
                         onMapUpdate={(updatedMap) => {
                           console.log('Map updated', updatedMap);
-                          // In a real implementation, we might want to refresh the data here
                           refreshData();
                         }}
-                        // Add available maps when we have them
                         availableMaps={[
                           { id: finalMapData.mapId || "1", name: "Current Map" }
                         ]}
                         onMapChange={(mapId) => {
                           console.log('Map changed to', mapId);
-                          // Here we would load a different map if available
                           refreshData();
                         }}
                       />
