@@ -104,7 +104,19 @@ export default function TemplateDetail() {
   // Assign template to user
   const assignMutation = useMutation({
     mutationFn: async (data: { userId: number; templateId: number }) => {
-      const res = await apiRequest('PUT', `/api/users/${data.userId}/template`, { templateId: data.templateId });
+      const res = await fetch(`/api/users/${data.userId}/template`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ templateId: data.templateId }),
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to assign template: ${res.status} ${res.statusText}`);
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -129,7 +141,19 @@ export default function TemplateDetail() {
   // Remove template from user
   const unassignMutation = useMutation({
     mutationFn: async (userId: number) => {
-      const res = await apiRequest('PUT', `/api/users/${userId}/template`, { templateId: null });
+      const res = await fetch(`/api/users/${userId}/template`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ templateId: null }),
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to unassign template: ${res.status} ${res.statusText}`);
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -151,7 +175,19 @@ export default function TemplateDetail() {
   // Create new user
   const createUserMutation = useMutation({
     mutationFn: async (data: { username: string; password: string; role: string }) => {
-      const res = await apiRequest('POST', '/api/register', data);
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data),
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to create user: ${res.status} ${res.statusText}`);
+      }
+      
       return await res.json();
     },
     onSuccess: (newUser) => {
@@ -185,7 +221,19 @@ export default function TemplateDetail() {
   // Update template component (floors)
   const updateTemplateMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<UITemplate> }) => {
-      const res = await apiRequest('PUT', `/api/templates/${data.id}`, data.updates);
+      const res = await fetch(`/api/templates/${data.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data.updates),
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to update template: ${res.status} ${res.statusText}`);
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
