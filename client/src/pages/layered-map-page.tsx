@@ -32,10 +32,13 @@ import {
   Bot,
   Pencil,
   Eraser, 
-  Square
+  Square,
+  Building2,
+  Navigation
 } from 'lucide-react';
 import { useRobot } from '@/providers/robot-provider';
 import { useToast } from "@/hooks/use-toast";
+import { MapBuilder } from '@/components/robot/MapBuilder';
 
 interface Point {
   x: number;
