@@ -282,20 +282,19 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       const currentX = position.x || 0;
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
-      
-      // Calculate distances based on joystick position
-      const forwardDistance = yDir * speed * 0.8; // Forward/backward movement (reduced to prevent spinning)
-      const strafeDistance = xDir * speed * 0.5; // Left/right movement (further reduced)
-      
-      // Determine if this should be a position movement or a rotation
-      const isRotationDominant = Math.abs(xDir) > 0.8 && Math.abs(yDir) < 0.3;
+
+      // Detect different actions based on joystick position
+      const isRotationCommand = Math.abs(xDir) > 0.2 && Math.abs(yDir) < 0.2;
+      const isForwardCommand = Math.abs(yDir) > 0.2 && Math.abs(xDir) < 0.2;
       
       let moveData = {};
       
-      if (isRotationDominant) {
-        // For rotation dominant moves, we'll just change orientation
-        // Calculate a small rotation (up to 45 degrees = PI/4)
-        const rotationAmount = xDir * (Math.PI / 8); // Less aggressive rotation
+      if (isRotationCommand) {
+        // Pure rotation command - rotate in place
+        // Direction indicates clockwise (negative) or counter-clockwise (positive)
+        // The amount is proportional to how far the joystick is pushed
+        const rotationDirection = xDir > 0 ? 1 : -1;
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // Up to 45 degrees
         
         moveData = {
           creator: "web_interface",
@@ -303,26 +302,24 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_x: currentX,
           target_y: currentY,
           target_z: 0,
-          target_ori: currentOrientation + rotationAmount,
+          target_ori: currentOrientation + (rotationDirection * rotationAmount),
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            inplace_rotate: true // Ensure in-place rotation
+            inplace_rotate: true // Force in-place rotation with no translation
           }
         };
-      } else {
-        // For position dominant moves
-        // Forward vector (in the direction the robot is facing)
-        const forwardX = Math.cos(currentOrientation) * forwardDistance;
-        const forwardY = Math.sin(currentOrientation) * forwardDistance;
         
-        // Strafe vector (perpendicular to the direction the robot is facing)
-        const strafeX = Math.cos(currentOrientation - Math.PI/2) * strafeDistance;
-        const strafeY = Math.sin(currentOrientation - Math.PI/2) * strafeDistance;
+        console.log('Sending rotation command, amount:', rotationDirection * rotationAmount);
+      } 
+      else if (isForwardCommand) {
+        // Pure forward/backward movement with no rotation
+        // Calculate distance based on joystick position and speed setting
+        const distance = yDir * speed * 0.5; // Reduced for smoother movement
         
-        // Calculate new target position (current + forward + strafe)
-        const targetX = currentX + forwardX + strafeX;
-        const targetY = currentY + forwardY + strafeY;
+        // Calculate target coordinates using the current orientation vector
+        const targetX = currentX + Math.cos(currentOrientation) * distance;
+        const targetY = currentY + Math.sin(currentOrientation) * distance;
         
         moveData = {
           creator: "web_interface",
@@ -334,12 +331,45 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            inplace_rotate: false
+            inplace_rotate: false // Allow combined movement
           }
         };
+        
+        console.log('Sending forward command, distance:', distance);
       }
-      
-      console.log('Sending move command:', moveData);
+      else {
+        // Combined movement (both rotation and forward/backward)
+        // This is a more complex movement - we'll handle it differently
+        // First calculate the movement component
+        const distance = yDir * speed * 0.5;
+        
+        // Then calculate a small rotation
+        const rotationDirection = xDir > 0 ? 1 : -1;
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 8); // Reduced rotation
+        
+        // Calculate target position
+        const targetX = currentX + Math.cos(currentOrientation) * distance;
+        const targetY = currentY + Math.sin(currentOrientation) * distance;
+        
+        // Calculate new orientation
+        const targetOrientation = currentOrientation + (rotationDirection * rotationAmount);
+        
+        moveData = {
+          creator: "web_interface",
+          type: "standard",
+          target_x: targetX,
+          target_y: targetY,
+          target_z: 0,
+          target_ori: targetOrientation,
+          target_accuracy: 0.05,
+          use_target_zone: true,
+          properties: {
+            inplace_rotate: false // Allow combined movement
+          }
+        };
+        
+        console.log('Sending combined command');
+      }
       
       // Use our server API instead of direct calls to avoid CORS issues
       const serverResponse = await fetch(`/api/robots/move/${serialNumber}`, {
@@ -361,7 +391,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       // Allow new commands after a short delay
       setTimeout(() => {
         setIsSendingCommand(false);
-      }, 30); // Further reduced to 30ms for faster response
+      }, 30); // Keep the 30ms for fast response
     }
   };
 
