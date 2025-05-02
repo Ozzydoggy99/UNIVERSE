@@ -272,12 +272,16 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
         </CardDescription>
         {robotPosition && robotPosition.x !== undefined && (
           <div className="flex items-center gap-2 mt-1">
-            <Badge variant="outline" className="bg-green-50">
-              Robot Position: X: {robotPosition.x.toFixed(4)}, Y: {robotPosition.y.toFixed(4)}
-            </Badge>
-            <Badge variant="outline" className="bg-blue-50">
-              Orientation: {(robotPosition.orientation * (180/Math.PI)).toFixed(1)}°
-            </Badge>
+            <div>
+              <Badge variant="outline" className="bg-green-50">
+                Robot Position: X: {robotPosition.x.toFixed(4)}, Y: {robotPosition.y.toFixed(4)}
+              </Badge>
+            </div>
+            <div>
+              <Badge variant="outline" className="bg-blue-50">
+                Orientation: {(robotPosition.orientation * (180/Math.PI)).toFixed(1)}°
+              </Badge>
+            </div>
           </div>
         )}
       </CardHeader>
