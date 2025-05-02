@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import { useRobot } from '@/providers/robot-provider';
 import { useToast } from "@/hooks/use-toast";
-import { MapBuilder } from '@/components/robot/MapBuilder';
+import MapBuilder from '@/components/robot/MapBuilder';
 
 interface Point {
   x: number;
@@ -81,6 +81,7 @@ export default function LayeredMapPage() {
   const [editSize, setEditSize] = useState(5);
   const [showGrid, setShowGrid] = useState(true);
   const [followRobot, setFollowRobot] = useState(true);
+  const [showMapBuilder, setShowMapBuilder] = useState(false);
   const { toast } = useToast();
 
   // Get robot WebSocket state from context
@@ -423,8 +424,8 @@ export default function LayeredMapPage() {
         // Draw point in correct orientation
         // Note: In standard coordinates, 0° is to the right (east), 
         // and angles increase counterclockwise
-        const x = pixelRobot.x + Math.cos(angle) * distance;
-        const y = pixelRobot.y - Math.sin(angle) * distance; // Flip Y for canvas coordinates
+        const x = pixelRobot.x + Math.sin(angle) * distance;
+        const y = pixelRobot.y - Math.cos(angle) * distance; // Flip Y for canvas coordinates
         
         // Draw LiDAR point
         ctx.beginPath();
@@ -737,26 +738,52 @@ export default function LayeredMapPage() {
         <div className="md:col-span-3">
           <Card className="w-full h-[60vh]">
             <CardHeader className="p-3 border-b">
-              <CardTitle className="text-base flex items-center">
-                <Layers className="h-4 w-4 mr-2" />
-                Layered Map
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center">
+                  <Layers className="h-4 w-4 mr-2" />
+                  {showMapBuilder ? 'Map Builder' : 'Layered Map'}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant={showMapBuilder ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => setShowMapBuilder(true)}
+                  >
+                    <Building2 className="h-3.5 w-3.5 mr-1" />
+                    Map Builder
+                  </Button>
+                  <Button 
+                    variant={!showMapBuilder ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => setShowMapBuilder(false)}
+                  >
+                    <Navigation className="h-3.5 w-3.5 mr-1" />
+                    Viewer
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0 h-full">
-              <div className="relative w-full h-full overflow-auto">
-                {!mapData && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80">
-                    <div className="text-center">
-                      <RotateCw className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-                      <p className="text-sm text-gray-600">Loading map data...</p>
+              {showMapBuilder ? (
+                <div className="h-full">
+                  {serialNumber && <MapBuilder serialNumber={serialNumber} />}
+                </div>
+              ) : (
+                <div className="relative w-full h-full overflow-auto">
+                  {!mapData && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80">
+                      <div className="text-center">
+                        <RotateCw className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+                        <p className="text-sm text-gray-600">Loading map data...</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-                <canvas
-                  ref={canvasRef}
-                  className="min-w-full min-h-full"
-                ></canvas>
-              </div>
+                  )}
+                  <canvas
+                    ref={canvasRef}
+                    className="min-w-full min-h-full"
+                  ></canvas>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
