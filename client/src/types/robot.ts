@@ -104,3 +104,16 @@ export interface CameraData {
   // Connection status for real-time monitoring
   connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
+
+export interface LidarData {
+  ranges: number[];
+  angle_min: number;
+  angle_max: number;
+  angle_increment: number;
+  range_min: number;
+  range_max: number;
+  intensities?: number[];
+  timestamp?: string;
+  // Connection status for real-time monitoring
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
+}
