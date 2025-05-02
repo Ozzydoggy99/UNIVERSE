@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Robot Management Platform - Non-HMR Version</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .map-container {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .map-image {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+      }
+      .robot-status {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+      .status-card {
+        flex: 1;
+        min-width: 200px;
+        padding: 15px;
+        border-radius: 8px;
+        background-color: #f5f5f5;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .status-card h3 {
+        margin-top: 0;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 8px;
+      }
+      .refresh-button {
+        background-color: #4f46e5;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      .refresh-button:hover {
+        background-color: #4338ca;
+      }
+      .error {
+        background-color: #fee2e2;
+        border: 1px solid #ef4444;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        color: #b91c1c;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Robot Management Platform</h1>
+      <p>This is a static HTML version that doesn't rely on Vite's HMR WebSocket connection.</p>
+      
+      <button id="refresh-data" class="refresh-button">Refresh Data</button>
+      <div id="error-container"></div>
+      
+      <div class="robot-status">
+        <div class="status-card">
+          <h3>Robot Status</h3>
+          <div id="robot-status">Loading...</div>
+        </div>
+        <div class="status-card">
+          <h3>Robot Position</h3>
+          <div id="robot-position">Loading...</div>
+        </div>
+        <div class="status-card">
+          <h3>Robot Sensors</h3>
+          <div id="robot-sensors">Loading...</div>
+        </div>
+      </div>
+      
+      <div class="map-container">
+        <h2>Robot Map</h2>
+        <div id="map-info"></div>
+        <img id="map-image" class="map-image" alt="Robot Map" />
+      </div>
+    </div>
+    
+    <script>
+      const serialNumber = 'L382502104987ir';
+      
+      // Function to show errors
+      function showError(message) {
+        const errorContainer = document.getElementById('error-container');
+        errorContainer.innerHTML = `<div class="error">${message}</div>`;
+      }
+      
+      // Function to clear errors
+      function clearErrors() {
+        document.getElementById('error-container').innerHTML = '';
+      }
+      
+      // Function to fetch and display robot status
+      async function fetchRobotStatus() {
+        try {
+          const response = await fetch(`/api/robots/status/${serialNumber}`);
+          if (!response.ok) throw new Error(`Status API error: ${response.status}`);
+          
+          const data = await response.json();
+          const statusElement = document.getElementById('robot-status');
+          
+          statusElement.innerHTML = `
+            <div><strong>Model:</strong> ${data.model || 'Unknown'}</div>
+            <div><strong>Serial:</strong> ${data.serial || 'Unknown'}</div>
+            <div><strong>Status:</strong> ${data.status || 'Unknown'}</div>
+            <div><strong>Battery:</strong> ${data.battery || '0'}%</div>
+          `;
+        } catch (error) {
+          console.error('Error fetching robot status:', error);
+          document.getElementById('robot-status').innerHTML = 'Failed to load status';
+        }
+      }
+      
+      // Function to fetch and display robot position
+      async function fetchRobotPosition() {
+        try {
+          const response = await fetch(`/api/robots/position/${serialNumber}`);
+          if (!response.ok) throw new Error(`Position API error: ${response.status}`);
+          
+          const data = await response.json();
+          const positionElement = document.getElementById('robot-position');
+          
+          positionElement.innerHTML = `
+            <div><strong>X:</strong> ${data.x?.toFixed(2) || '0.00'}</div>
+            <div><strong>Y:</strong> ${data.y?.toFixed(2) || '0.00'}</div>
+            <div><strong>Orientation:</strong> ${(data.orientation * (180/Math.PI)).toFixed(1) || '0.0'}°</div>
+            <div><strong>Connection:</strong> ${data.connectionStatus || 'Unknown'}</div>
+          `;
+        } catch (error) {
+          console.error('Error fetching robot position:', error);
+          document.getElementById('robot-position').innerHTML = 'Failed to load position';
+        }
+      }
+      
+      // Function to fetch and display robot sensors
+      async function fetchRobotSensors() {
+        try {
+          const response = await fetch(`/api/robots/sensors/${serialNumber}`);
+          if (!response.ok) throw new Error(`Sensors API error: ${response.status}`);
+          
+          const data = await response.json();
+          const sensorsElement = document.getElementById('robot-sensors');
+          
+          sensorsElement.innerHTML = `
+            <div><strong>Temperature:</strong> ${data.temperature || '0'}°C</div>
+            <div><strong>Voltage:</strong> ${data.voltage || '0'}V</div>
+            <div><strong>CPU Usage:</strong> ${data.cpu_usage || '0'}%</div>
+            <div><strong>Memory:</strong> ${data.memory_usage || '0'}%</div>
+          `;
+        } catch (error) {
+          console.error('Error fetching robot sensors:', error);
+          document.getElementById('robot-sensors').innerHTML = 'Failed to load sensor data';
+        }
+      }
+      
+      // Function to fetch and display robot map
+      async function fetchRobotMap() {
+        try {
+          const response = await fetch(`/api/robots/map/${serialNumber}`);
+          if (!response.ok) throw new Error(`Map API error: ${response.status}`);
+          
+          const data = await response.json();
+          
+          // Display map metadata
+          const mapInfoElement = document.getElementById('map-info');
+          mapInfoElement.innerHTML = `
+            <div><strong>Resolution:</strong> ${data.resolution || '0'} m/pixel</div>
+            <div><strong>Size:</strong> ${data.size?.[0] || '0'} x ${data.size?.[1] || '0'}</div>
+            <div><strong>Origin:</strong> (${data.origin?.[0] || '0'}, ${data.origin?.[1] || '0'})</div>
+          `;
+          
+          // Display map image
+          if (data.grid && typeof data.grid === 'string') {
+            document.getElementById('map-image').src = `data:image/png;base64,${data.grid}`;
+          } else {
+            document.getElementById('map-image').src = '';
+            document.getElementById('map-image').alt = 'No map data available';
+          }
+        } catch (error) {
+          console.error('Error fetching robot map:', error);
+          document.getElementById('map-info').innerHTML = 'Failed to load map data';
+          document.getElementById('map-image').src = '';
+          document.getElementById('map-image').alt = 'Map data unavailable';
+        }
+      }
+      
+      // Function to load all data
+      async function loadAllData() {
+        clearErrors();
+        try {
+          await Promise.all([
+            fetchRobotStatus(),
+            fetchRobotPosition(),
+            fetchRobotSensors(),
+            fetchRobotMap()
+          ]);
+        } catch (error) {
+          showError(`Failed to load robot data: ${error.message}`);
+        }
+      }
+      
+      // Initial data load
+      document.addEventListener('DOMContentLoaded', () => {
+        loadAllData();
+        
+        // Set up refresh button
+        document.getElementById('refresh-data').addEventListener('click', loadAllData);
+      });
+    </script>
+  </body>
+</html>

@@ -178,6 +178,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up WebSocket server for camera control
   setupWebSockets(httpServer);
   
+  // Create a direct route to serve our static HTML page without relying on Vite
+  app.get('/static-map', (req: Request, res: Response) => {
+    // Serve our static HTML page as an alternative to the Vite-served React app
+    res.sendFile('index-static.html', { root: './client' });
+    console.log('Serving static map page without Vite HMR');
+  });
+
   // Setup Vite for development frontend
   await setupVite(app, httpServer);
   
