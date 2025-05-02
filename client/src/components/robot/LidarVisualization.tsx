@@ -4,17 +4,27 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 interface LidarData {
-  ranges: number[];
+  // Legacy 2D range-based LiDAR data format
+  ranges: number[];  
   angle_min: number;
   angle_max: number;
   angle_increment: number;
   range_min: number;
   range_max: number;
   intensities?: number[];
+  
+  // Modern 3D point cloud data format (from /scan_matched_points2 topic)
   points?: number[][]; // 3D point cloud data [x,y,z]
+  
+  // Binary format for individual device topics (since 2.12.0)
+  fields?: Array<{name: string, data_type: string}>;
+  data?: string; // base64 encoded binary data
+  stamp?: number; // timestamp
+  
+  // Metadata
   topic?: string;      // Topic the data came from
   source?: string;     // Source of the data (websocket, http, etc.)
-  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
   timestamp?: string;
 }
 
@@ -141,6 +151,31 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
         ctx.fill();
       });
     }
+    // Finally check for binary format data (since 2.12.0)
+    else if (data.fields && data.data) {
+      // This is binary encoded point cloud data
+      // We can't decode binary data directly in the browser, so
+      // display a placeholder visualization for now
+      
+      // Draw a pattern of dots to represent the data
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 18) {
+        for (let dist = 1; dist <= 5; dist++) {
+          const x = centerX + Math.cos(angle) * dist * scale;
+          const y = centerY + Math.sin(angle) * dist * scale;
+          
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      
+      // Draw a note about binary data
+      ctx.fillStyle = 'rgba(100, 100, 100, 0.8)';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Binary point cloud data', centerX, centerY - 30);
+      ctx.fillText('Topic: ' + (data.topic || 'unknown'), centerX, centerY - 15);
+    }
 
     // Draw a front direction indicator
     ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
@@ -181,7 +216,11 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
     );
   }
 
-  if (!data || (!data.ranges || data.ranges.length === 0) && (!data.points || data.points.length === 0)) {
+  if (!data || 
+      (!data.ranges || data.ranges.length === 0) && 
+      (!data.points || data.points.length === 0) &&
+      (!data.fields || !data.data) &&
+      (!data.topic || (!data.topic.includes('/maps/') && !data.topic.includes('/costmap')))) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">

@@ -33,12 +33,26 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const TOPICS = {
   STATUS: ['/wheel_state', '/ws_connections'],
   POSITION: ['/tracked_pose', '/robot/footprint'],
-  SENSORS: ['/battery_state'],
+  SENSORS: ['/battery_state', '/detailed_battery_state'],
   MAP: ['/map', '/slam/state'],
   CAMERA: ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video'],
   LIDAR: [
+    // Main scanning topics from documentation
     '/scan', 
     '/scan_matched_points2',
+    
+    // Individual LiDAR device topics (since 2.12.0)
+    '/horizontal_laser_2d/matched',
+    '/left_laser_2d/matched',
+    '/right_laser_2d/matched',
+    '/lt_laser_2d/matched',  // left top
+    '/rb_laser_2d/matched',  // right back
+    
+    // Costmap topics (documented)
+    '/maps/5cm/1hz', // Low res costmap for path planning
+    '/maps/1cm/1hz', // High res costmap for collision detection
+    
+    // Additional pointcloud and scan topics to try
     '/pointcloud2',           // Try generic pointcloud topic
     '/points',                // Another common pointcloud name
     '/points2',               // Another variation
@@ -48,16 +62,6 @@ const TOPICS = {
     '/lidar/scan_matched',    // Namespaced variation
     '/slam/points',           // SLAM might publish point cloud
     '/raw/lidar',             // Raw LiDAR data
-    '/rb/lidar_pts',          // From Robot Admin UI
-    '/rb/costmap_l',          // Low resolution cost map
-    '/rb/costmap_h',          // High resolution cost map
-    '/rb/ematch_map',         // Environment matching map 
-    '/rb/bump_map',           // Bump map
-    '/rb/lidar/scan',         // Robot-specific LiDAR scan
-    '/rb/points',             // Robot-specific points
-    '/rb/scan',               // Robot-specific scan
-    '/rb/laser_scan',         // Robot-specific laser scan
-    '/rb/slam/points'         // Robot-specific SLAM points
   ]
 };
 
@@ -383,7 +387,8 @@ function handleRobotMessage(messageData: string) {
           }
         }
       }
-      else if (topic === '/scan_matched_points2' || topic.includes('/point') || topic.includes('/scan_matched')) {
+      else if (topic === '/scan_matched_points2' || topic.includes('/point') || topic.includes('/scan_matched') || 
+              topic.includes('_laser_2d/matched')) {
         const { points, ...pointCloudInfo } = message;
         
         // Log the first time to see the structure
@@ -405,7 +410,7 @@ function handleRobotMessage(messageData: string) {
         
         // Create a base LiDAR data object even if no points are available
         // This ensures we always provide detailed diagnostic information to the client
-        let lidarData = {
+        let lidarData: any = {
           ranges: [],
           angle_min: 0,
           angle_max: 2 * Math.PI,
@@ -418,6 +423,17 @@ function handleRobotMessage(messageData: string) {
           source: 'websocket',
           timestamp: new Date().toISOString()
         };
+        
+        // If this is a binary format message from individual device topics (since 2.12.0)
+        if (message.fields && message.data) {
+          // Pass along the binary data format
+          lidarData.fields = message.fields;
+          lidarData.data = message.data;
+          lidarData.stamp = message.stamp;
+          
+          console.log(`Received binary LiDAR data from topic ${topic} with fields:`, 
+            message.fields.map((f: any) => f.name).join(', '));
+        }
         
         // Convert the point cloud data to a format compatible with our LiDAR visualization
         // Points are in world frame as [x, y, z] coordinates
