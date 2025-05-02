@@ -222,13 +222,28 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       });
       
       if (stopResponse.ok) {
-        console.log('Stop command successful');
+        console.log('Cancel command successful');
       } else {
-        console.error('Stop command failed', await stopResponse.text());
+        console.error('Cancel command failed', await stopResponse.text());
       }
+      
+      // Also send an explicit stop movement command to ensure all motion stops
+      // This deals with any queued commands or movement that might continue
+      await handleStopMovement();
+      console.log('Joystick released - all movement stopped');
+      
     } catch (error) {
       console.error('Error sending stop command:', error);
+      // Try the handleStopMovement as a fallback if cancel failed
+      try {
+        await handleStopMovement();
+      } catch (secondError) {
+        console.error('Both stop methods failed:', secondError);
+      }
     }
+    
+    // Reset command type when joystick is released
+    lastCommandTypeRef.current = null;
   };
 
   const updateJoystickPosition = (clientX: number, clientY: number) => {
@@ -342,8 +357,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       } 
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
-        // Use a larger distance increment for more noticeable movement
-        const distance = yDir * speed * 0.5; // Increased for more substantial movement
+        // Use a significantly larger distance increment for much more noticeable movement
+        const distance = yDir * speed * 1.0; // Doubled to a full meter equivalent at maximum deflection
         
         // Calculate target coordinates using the current orientation vector
         const targetX = currentX + Math.cos(currentOrientation) * distance;
@@ -372,8 +387,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       }
       else { // combined
         // Combined movement (both rotation and forward/backward)
-        // For combined movement, we'll use the same larger distance as forward mode
-        const distance = yDir * speed * 0.5; // Increased for more substantial movement
+        // For combined movement, we'll use the same full-meter distance as forward mode
+        const distance = yDir * speed * 1.0; // Same full meter equivalent as forward mode
         
         // REVERSE the direction (flip the sign) for rotation since controls are reversed
         const rotationDirection = xDir > 0 ? -1 : 1;
