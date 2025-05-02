@@ -352,8 +352,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            inplace_rotate: true, // Critical for pure rotation
-            no_rotate: false // Explicitly allow rotation in rotation mode
+            inplace_rotate: true // Critical for pure rotation
           }
         };
         
@@ -378,10 +377,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // Always set no_rotate for both forward and backward in strict forward mode
-            // This ensures the robot maintains exact orientation
-            no_rotate: true,
-            inplace_rotate: false // Explicitly set to false to prevent any rotation
+            // For forward/backward motion, explicitly set inplace_rotate to false
+            // This tells the robot this is NOT a rotation-in-place command
+            inplace_rotate: false
           }
         };
         
@@ -416,10 +414,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // Always use no_rotate for both forward and backward movements
-            // This ensures the robot won't swing or turn unexpectedly
-            inplace_rotate: false,
-            no_rotate: true
+            // Combined movement should NOT use inplace_rotate
+            inplace_rotate: false
           }
         };
         
