@@ -366,43 +366,6 @@ export async function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    // Add a special quick login for development/testing only
-    if (req.body.username === "robotadmin" && req.body.password === "robot123") {
-      console.log("Using quick login for development");
-      
-      // Create a temporary admin user or get existing one
-      (async () => {
-        try {
-          let adminUser = await storage.getUserByUsername("robotadmin");
-          
-          if (!adminUser) {
-            console.log("Creating robotadmin user");
-            const hashedPassword = await hashPassword("robot123");
-            adminUser = await storage.createUser({
-              username: "robotadmin",
-              password: hashedPassword,
-              role: "admin"
-            });
-          } else {
-            console.log("Found existing robotadmin user");
-          }
-          
-          // Login the user directly
-          req.login(adminUser, (err) => {
-            if (err) return next(err);
-            // Don't return password in response
-            const { password, ...userWithoutPassword } = adminUser;
-            res.status(200).json(userWithoutPassword);
-          });
-        } catch (error) {
-          console.error("Quick login error:", error);
-          next(error);
-        }
-      })();
-      return;
-    }
-    
-    // Normal authentication flow
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) {
