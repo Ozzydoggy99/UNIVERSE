@@ -241,17 +241,26 @@ function setupWebSockets(httpServer: Server) {
           // Start mapping-specific WebSocket topics
           console.log('Starting mapping streams for real-time map building visualization');
           
-          // Enable mapping-specific topics on the robot WebSocket
-          // These topics are needed for real-time map visualization
-          const MAPPING_TOPICS = [
+          // Use client-provided topics if available, otherwise use defaults
+          let mappingTopics = data.topics || [
             '/slam/state',
             '/map',
             '/map_v2',
             '/trajectory',
             '/trajectory_node_list',
             '/path',
-            '/scan_matched_points2'
+            '/scan_matched_points2',
+            '/maps/5cm/1hz',
+            '/maps/1cm/1hz',
+            '/scan'
           ];
+          
+          // Ensure mappingTopics is an array
+          if (!Array.isArray(mappingTopics)) {
+            mappingTopics = [mappingTopics];
+          }
+          
+          console.log(`Enabling ${mappingTopics.length} mapping topics for robot ${data.serialNumber || 'L382502104987ir'}`);
           
           // Send the request to the robot WebSocket
           try {
@@ -260,16 +269,23 @@ function setupWebSockets(httpServer: Server) {
             // Check if robotWs is connected
             if (robotWs.isRobotConnected()) {
               // Enable all mapping topics
-              // Try multi-topic subscription (since 2.7.0)
-              robotWs.enableTopics(MAPPING_TOPICS);
+              const success = robotWs.enableTopics(mappingTopics);
               
-              // Acknowledge the request
-              ws.send(JSON.stringify({
-                type: 'mapping_streams_started',
-                message: 'Successfully enabled mapping-specific WebSocket topics'
-              }));
-              
-              console.log('Enabled mapping streams:', MAPPING_TOPICS);
+              if (success) {
+                // Acknowledge the request
+                ws.send(JSON.stringify({
+                  type: 'mapping_streams_started',
+                  message: 'Successfully enabled mapping-specific WebSocket topics',
+                  topics: mappingTopics
+                }));
+                
+                console.log('Enabled mapping streams:', mappingTopics);
+              } else {
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  message: 'Failed to enable some mapping topics'
+                }));
+              }
             } else {
               ws.send(JSON.stringify({
                 type: 'error',
@@ -288,15 +304,26 @@ function setupWebSockets(httpServer: Server) {
           // Stop mapping-specific WebSocket topics
           console.log('Stopping mapping streams for real-time map building visualization');
           
-          const MAPPING_TOPICS = [
+          // Use client-provided topics if available, otherwise use defaults
+          let mappingTopics = data.topics || [
             '/slam/state',
             '/map',
             '/map_v2',
             '/trajectory',
             '/trajectory_node_list',
             '/path',
-            '/scan_matched_points2'
+            '/scan_matched_points2',
+            '/maps/5cm/1hz',
+            '/maps/1cm/1hz',
+            '/scan'
           ];
+          
+          // Ensure mappingTopics is an array
+          if (!Array.isArray(mappingTopics)) {
+            mappingTopics = [mappingTopics];
+          }
+          
+          console.log(`Disabling ${mappingTopics.length} mapping topics for robot ${data.serialNumber || 'L382502104987ir'}`);
           
           // Send the request to the robot WebSocket
           try {
@@ -305,15 +332,23 @@ function setupWebSockets(httpServer: Server) {
             // Check if robotWs is connected
             if (robotWs.isRobotConnected()) {
               // Disable all mapping topics
-              robotWs.disableTopics(MAPPING_TOPICS);
+              const success = robotWs.disableTopics(mappingTopics);
               
-              // Acknowledge the request
-              ws.send(JSON.stringify({
-                type: 'mapping_streams_stopped',
-                message: 'Successfully disabled mapping-specific WebSocket topics'
-              }));
-              
-              console.log('Disabled mapping streams:', MAPPING_TOPICS);
+              if (success) {
+                // Acknowledge the request
+                ws.send(JSON.stringify({
+                  type: 'mapping_streams_stopped',
+                  message: 'Successfully disabled mapping-specific WebSocket topics',
+                  topics: mappingTopics
+                }));
+                
+                console.log('Disabled mapping streams:', mappingTopics);
+              } else {
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  message: 'Failed to disable some mapping topics'
+                }));
+              }
             } else {
               ws.send(JSON.stringify({
                 type: 'error',

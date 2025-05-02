@@ -350,17 +350,53 @@ class RobotWebSocketClient {
 
 // Enable WebSocket streams for mapping
 export function startMappingStreams(serialNumber?: string) {
+  const robot = serialNumber || 'L382502104987ir';
+  console.log(`Starting real-time mapping streams for robot ${robot}`);
+  
+  // Send request to enable mapping-specific topics on the server
   robotWebSocket.sendMessage({
     type: 'start_mapping_streams',
-    serialNumber: serialNumber || 'L382502104987ir'
+    serialNumber: robot,
+    // These are the mapping-specific topics we want to enable
+    topics: [
+      '/map',
+      '/map_v2',
+      '/slam/state',
+      '/maps/5cm/1hz',
+      '/maps/1cm/1hz',
+      '/trajectory', 
+      '/scan_matched_points2',
+      '/scans',
+      '/scan'
+    ]
   });
+  
+  // Also request current data to initialize the UI
+  robotWebSocket.requestPosition(robot);
+  robotWebSocket.requestMapData(robot);
 }
 
 // Stop WebSocket streams for mapping
 export function stopMappingStreams(serialNumber?: string) {
+  const robot = serialNumber || 'L382502104987ir';
+  console.log(`Stopping real-time mapping streams for robot ${robot}`);
+  
+  // Send request to disable mapping-specific topics on the server
   robotWebSocket.sendMessage({
     type: 'stop_mapping_streams',
-    serialNumber: serialNumber || 'L382502104987ir'
+    serialNumber: robot,
+    // These are the mapping-specific topics we want to disable
+    topics: [
+      '/map',
+      '/map_v2',
+      '/slam/state',
+      '/maps/5cm/1hz',
+      '/maps/1cm/1hz',
+      '/trajectory',
+      '/scan_matched_points2',
+      '/scans',
+      '/scan'
+    ]
   });
 }
 
