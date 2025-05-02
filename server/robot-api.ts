@@ -862,4 +862,125 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to delete robot template assignment' });
     }
   });
+
+  /**
+   * Power on/off the LiDAR
+   * Based on the Power On/Off Lidar Service API
+   */
+  app.post('/api/robots/lidar/:serialNumber/power', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { action } = req.body;
+      
+      // Validate action is either 'power_on' or 'power_off'
+      if (!action || (action !== LidarPowerAction.POWER_ON && action !== LidarPowerAction.POWER_OFF)) {
+        return res.status(400).json({ 
+          error: 'Invalid action', 
+          message: "Action must be either 'power_on' or 'power_off'" 
+        });
+      }
+      
+      // Only allow our specific robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Check if robot is connected
+      if (!isRobotConnected()) {
+        return res.status(503).json({ 
+          error: 'Robot not connected', 
+          message: 'The robot is not currently connected. Please check the connection.'
+        });
+      }
+      
+      // Send the power command to the robot API
+      console.log(`Sending ${action} command to LiDAR on robot ${serialNumber}`);
+      
+      try {
+        const response = await fetch(`${ROBOT_API_URL}/services/baseboard/power_on_lidar`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
+          },
+          body: JSON.stringify({ action })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to ${action} LiDAR: ${response.status} ${response.statusText}`);
+        }
+        
+        // Return success
+        res.json({ 
+          success: true, 
+          message: `LiDAR ${action === LidarPowerAction.POWER_ON ? 'powered on' : 'powered off'} successfully`,
+          action
+        });
+      } catch (apiError) {
+        console.error(`Error in LiDAR power API call:`, apiError);
+        return res.status(500).json({ 
+          error: 'LiDAR power API error', 
+          message: `Failed to ${action} LiDAR. Check robot connectivity and try again.`
+        });
+      }
+    } catch (error) {
+      console.error('Error controlling LiDAR power:', error);
+      res.status(500).json({ error: 'Failed to control LiDAR power' });
+    }
+  });
+  
+  /**
+   * Clear the "range data all zero" error
+   * Based on the Clear Range Data All Zero Error Service API
+   */
+  app.post('/api/robots/lidar/:serialNumber/clear_zero_error', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      
+      // Only allow our specific robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Check if robot is connected
+      if (!isRobotConnected()) {
+        return res.status(503).json({ 
+          error: 'Robot not connected', 
+          message: 'The robot is not currently connected. Please check the connection.'
+        });
+      }
+      
+      // Send the command to clear the zero range error
+      console.log(`Clearing range data all zero error on robot ${serialNumber}`);
+      
+      try {
+        const response = await fetch(`${ROBOT_API_URL}/services/clear_range_data_all_zero_error`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to clear range data all zero error: ${response.status} ${response.statusText}`);
+        }
+        
+        // Return success
+        res.json({ 
+          success: true, 
+          message: 'LiDAR range data all zero error cleared successfully'
+        });
+      } catch (apiError) {
+        console.error(`Error in clear range data all zero error API call:`, apiError);
+        return res.status(500).json({ 
+          error: 'Clear range data zero error API error', 
+          message: 'Failed to clear range data all zero error. Check robot connectivity and try again.'
+        });
+      }
+    } catch (error) {
+      console.error('Error clearing range data all zero error:', error);
+      res.status(500).json({ error: 'Failed to clear range data all zero error' });
+    }
+  });
 }

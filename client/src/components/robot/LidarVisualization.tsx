@@ -1,7 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, PowerIcon, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface LidarData {
   // Legacy 2D range-based LiDAR data format
@@ -31,10 +35,106 @@ interface LidarData {
 interface LidarVisualizationProps {
   data: LidarData | null;
   loading?: boolean;
+  serialNumber?: string;
 }
 
-export function LidarVisualization({ data, loading = false }: LidarVisualizationProps) {
+// LiDAR power action enum - must match server-side enum
+enum LidarPowerAction {
+  POWER_ON = 'power_on',
+  POWER_OFF = 'power_off'
+}
+
+export function LidarVisualization({ data, loading = false, serialNumber }: LidarVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { toast } = useToast();
+  
+  // Track loading states for our API mutations
+  const [powerCycleInProgress, setPowerCycleInProgress] = useState(false);
+  const [errorClearInProgress, setErrorClearInProgress] = useState(false);
+  
+  // Power cycle mutation (first power off, then power on)
+  const powerCycleMutation = useMutation({
+    mutationFn: async () => {
+      if (!serialNumber) {
+        throw new Error('Serial number is required to power cycle LiDAR');
+      }
+      
+      // First power off
+      await apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
+        method: 'POST',
+        data: { action: LidarPowerAction.POWER_OFF }
+      });
+      
+      // Wait a bit
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Then power on
+      return apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
+        method: 'POST',
+        data: { action: LidarPowerAction.POWER_ON }
+      });
+    },
+    onMutate: () => {
+      setPowerCycleInProgress(true);
+      toast({
+        title: 'Power cycling LiDAR',
+        description: 'The LiDAR is being power cycled. This may take a few seconds.',
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'LiDAR power cycled',
+        description: 'The LiDAR has been successfully power cycled. It might take a moment to start sending data.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error power cycling LiDAR',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setPowerCycleInProgress(false);
+    },
+  });
+  
+  // Clear range data all zero error mutation
+  const clearZeroErrorMutation = useMutation({
+    mutationFn: async () => {
+      if (!serialNumber) {
+        throw new Error('Serial number is required to clear LiDAR zero error');
+      }
+      
+      return apiRequest(
+        'POST', 
+        `/api/robots/lidar/${serialNumber}/clear_zero_error`
+      );
+    },
+    onMutate: () => {
+      setErrorClearInProgress(true);
+      toast({
+        title: 'Clearing LiDAR zero error',
+        description: 'Attempting to clear LiDAR range data all zero error.',
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'LiDAR error cleared',
+        description: 'The LiDAR range data all zero error has been cleared. Data should start flowing shortly.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error clearing LiDAR error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setErrorClearInProgress(false);
+    },
+  });
 
   useEffect(() => {
     if (!data || (!data.ranges || data.ranges.length === 0) && (!data.points || data.points.length === 0) || !canvasRef.current) return;
@@ -333,6 +433,49 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
           <div className="text-muted-foreground">Updated:</div>
           <div className="font-medium">{data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Never'}</div>
         </div>
+        
+        {/* LiDAR Management Controls - Only show if serial number is provided */}
+        {serialNumber && (
+          <div className="flex flex-col gap-2 mt-4 border-t pt-4">
+            <div className="text-sm font-medium mb-1">LiDAR Controls</div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => powerCycleMutation.mutate()}
+                disabled={powerCycleInProgress || !serialNumber}
+              >
+                {powerCycleInProgress ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <PowerIcon className="h-4 w-4 mr-2" />
+                )}
+                Power Cycle
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => clearZeroErrorMutation.mutate()}
+                disabled={errorClearInProgress || !serialNumber}
+              >
+                {errorClearInProgress ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Clear Zero Error
+              </Button>
+            </div>
+            {(pointCount === 0) && (
+              <div className="text-xs text-amber-500 mt-1">
+                No points detected. Try power cycling the LiDAR or clearing the zero error.
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
