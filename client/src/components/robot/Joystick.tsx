@@ -378,8 +378,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       } 
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
-        // Use a smaller distance to prevent overshooting and improve control
-        const distance = yDir * speed * 0.8; // Reduced from 1.2 to 0.8 meters for more precise control
+        // Use a small distance to prevent overshooting and improve control
+        const distance = yDir * speed * 0.5; // Reduced from 0.8 to 0.5 meters for even more precise control
         
         console.log('Current orientation:', currentOrientation); 
         // Calculate target coordinates using the current orientation vector
@@ -396,7 +396,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_ori: currentOrientation, // MAINTAIN EXACT orientation for forward/backward
           target_accuracy: 0.05,
           use_target_zone: true,
-          target_orientation_accuracy: 0.005, // Even more strict orientation accuracy (reduced from 0.01 to 0.005)
+          // Go back to the original orientation accuracy that was working before
+          target_orientation_accuracy: 0.01,
           properties: {
             // Keep orientation strictly fixed during forward/backward movement
             // Adding a comment for clarity, this disables in-place rotation 
