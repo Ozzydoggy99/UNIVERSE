@@ -326,18 +326,31 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
               <MapIcon className="h-5 w-5 text-primary" />
               Map Builder
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge className={getStatusBadgeColor()}>
+                {getStatusText()}
+              </Badge>
+              {mapStatus === MAP_BUILDING_STATUS.IDLE && (
+                <Button
+                  onClick={startMapBuilding}
+                  size="sm"
+                  className="relative z-10"
+                  disabled={!mapName}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Begin Mapping
+                </Button>
+              )}
             </div>
-            <Badge className={getStatusBadgeColor()}>
-              {getStatusText()}
-            </Badge>
-          </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-4">
           {mapStatus === MAP_BUILDING_STATUS.IDLE && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -350,21 +363,28 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
                 />
               </div>
               
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Map Building Instructions</AlertTitle>
-                <AlertDescription>
-                  <p className="mt-1">
-                    <strong>IMPORTANT:</strong> Always start and end mapping from a charging station for proper localization.
-                  </p>
-                  <p className="mt-1">
-                    Click "Start Building Map" and drive the robot around to map the environment. Try to cover all accessible areas for the best results.
-                  </p>
-                  <p className="mt-1">
-                    When finished, return to the charging station before clicking "Save Map" to ensure accurate map alignment.
-                  </p>
-                </AlertDescription>
-              </Alert>
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex items-start mb-2">
+                  <AlertCircle className="h-5 w-5 text-amber-500 mr-2 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-base mb-2">Map Building Instructions</h4>
+                    <ul className="space-y-2 text-sm">
+                      <li className="flex items-start">
+                        <span className="text-primary font-bold mr-2">1.</span>
+                        <span>Always start and end mapping from a charging station for proper localization.</span>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="text-primary font-bold mr-2">2.</span>
+                        <span>Drive the robot around to map the environment. Cover all accessible areas for best results.</span>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="text-primary font-bold mr-2">3.</span>
+                        <span>Return to the charging station before saving the map to ensure accurate alignment.</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
               
               <Button 
                 onClick={startMapBuilding} 
