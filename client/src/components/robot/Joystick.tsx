@@ -284,15 +284,15 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       console.log('Direct joystick command:', normalizedX, -normalizedY);
       sendDirectCommand(normalizedX, -normalizedY);
       
-      // Set up continuous movement if not already running
+      // Reduce continuous movement updates - too many commands can cause issues
       if (!moveIntervalRef.current) {
-        // Start a timer to continually send movement commands while joystick is held
+        // Start a timer but with a longer interval to avoid overwhelming the robot
         moveIntervalRef.current = setInterval(() => {
           if (isDragging && !isSendingCommand) {
             console.log('Continuous movement update:', normalizedX, -normalizedY);
             sendDirectCommand(normalizedX, -normalizedY);
           }
-        }, 400); // Send a new command every 400ms - reduced from 700ms for smoother continuous motion
+        }, 800); // Use a longer interval (800ms) to give commands time to complete
       }
     } else if (moveIntervalRef.current && Math.abs(normalizedX) <= 0.05 && Math.abs(normalizedY) <= 0.05) {
       // If joystick is basically centered, clear the interval
@@ -351,81 +351,65 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       
       let moveData = {};
       
-      if (lastCommandTypeRef.current === 'rotation') {
-        // Pure rotation command - rotate in place without moving
-        // LEFT joystick should make robot rotate LEFT (counterclockwise), which is positive rotation
-        // RIGHT joystick should make robot rotate RIGHT (clockwise), which is negative rotation
+      // Simplified approach - always use direct joystick control with a simpler model
+      // The more complex approach with different command types was causing issues
+      
+      // Get magnitude of movement (0-1.0)
+      const magnitude = Math.min(1.0, Math.sqrt(xDir*xDir + yDir*yDir));
+      
+      // Calculate a small, fixed target distance based on joystick position
+      // Use a much smaller distance for more precise control
+      const distance = magnitude * speed * 0.3; // Only move 0.3 meters at most per command
+      
+      // If joystick is pushed primarily left or right, do rotation in place
+      const isRotationPrimary = Math.abs(xDir) > 0.6 && Math.abs(yDir) < 0.3;
+      
+      if (isRotationPrimary) {
+        // Pure rotation mode - rotate in place
         const rotationDirection = xDir < 0 ? 1 : -1; // Left = positive, Right = negative
-        // Use a larger rotation amount for more noticeable turning
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // 45 degrees max
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 6); // 30 degrees max
         
         moveData = {
           creator: "web_interface",
           type: "standard",
-          target_x: currentX, // Stay in same position
-          target_y: currentY, // Stay in same position
+          target_x: currentX, // Stay in current position
+          target_y: currentY, // Stay in current position
           target_z: 0,
           target_ori: currentOrientation + (rotationDirection * rotationAmount),
           target_accuracy: 0.05,
           use_target_zone: true,
-          target_orientation_accuracy: 0.05, // Less strict for rotation
+          target_orientation_accuracy: 0.05,
           properties: {
-            inplace_rotate: true // This is critical for pure rotation to happen at current position
+            inplace_rotate: true // Essential for pure rotation
           }
         };
         
-        console.log('Sending rotation command, amount:', rotationDirection * rotationAmount);
-      } 
-      else if (lastCommandTypeRef.current === 'forward') {
-        // Pure forward/backward movement with EXACT same orientation
-        // Use a small distance to prevent overshooting and improve control
-        const distance = yDir * speed * 0.5; // Reduced from 0.8 to 0.5 meters for even more precise control
-        
-        console.log('Current orientation:', currentOrientation); 
-        // Calculate target coordinates using the current orientation vector
-        const targetX = currentX + Math.cos(currentOrientation) * distance;
-        const targetY = currentY + Math.sin(currentOrientation) * distance;
-        console.log('Forward move: current position:', {x: currentX, y: currentY}, 'target:', {x: targetX, y: targetY});
-        
-        moveData = {
-          creator: "web_interface",
-          type: "standard",
-          target_x: targetX,
-          target_y: targetY,
-          target_z: 0,
-          target_ori: currentOrientation, // MAINTAIN EXACT orientation for forward/backward
-          target_accuracy: 0.05,
-          use_target_zone: true,
-          // Go back to the original orientation accuracy that was working before
-          target_orientation_accuracy: 0.01,
-          properties: {
-            // Keep orientation strictly fixed during forward/backward movement
-            // Adding a comment for clarity, this disables in-place rotation 
-            inplace_rotate: false
-          }
-        };
-        
-        // Indicate direction in log message
-        const directionWord = yDir > 0 ? "FORWARD" : "BACKWARD";
-        console.log(`Sending STRICT ${directionWord} command, distance:`, distance, 'orientation:', currentOrientation);
+        console.log('Sending pure rotation command, amount:', rotationDirection * rotationAmount);
       }
-      else { // combined
-        // Combined movement (both rotation and forward/backward)
-        // For combined movement, use a larger distance to ensure the robot responds
-        const distance = yDir * speed * 1.0; // Full meter at maximum deflection for better response
+      else {
+        // Forward or combined movement
+        // Calculate vector components based on joystick direction
+        // Remember: y is inverted (up is negative)
         
-        // LEFT joystick should make robot rotate LEFT (counterclockwise), which is positive rotation
-        // RIGHT joystick should make robot rotate RIGHT (clockwise), which is negative rotation
-        const rotationDirection = xDir < 0 ? 1 : -1; // Left = positive, Right = negative
-        // Make the rotation much more dramatic in combined mode too
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // 45 degrees max at full deflection
+        // Calculate the movement vector based on the joystick orientation
+        // But always move relative to the robot's current orientation
         
-        // Calculate target position
-        const targetX = currentX + Math.cos(currentOrientation) * distance;
-        const targetY = currentY + Math.sin(currentOrientation) * distance;
+        // Calculate offset angle from joystick
+        const joystickAngle = Math.atan2(-yDir, xDir);
         
-        // Calculate new orientation - with extremely small rotation
-        const targetOrientation = currentOrientation + (rotationDirection * rotationAmount);
+        // Calculate the new target position
+        // We use the robot's current orientation as the reference
+        const targetX = currentX + Math.cos(currentOrientation + joystickAngle) * distance;
+        const targetY = currentY + Math.sin(currentOrientation + joystickAngle) * distance;
+        
+        // Keep current orientation for forward movement, slight turn otherwise
+        let targetOrientation = currentOrientation;
+        
+        // Small rotational adjustment if moving diagonally
+        if (Math.abs(xDir) > 0.2) {
+          const turnAmount = xDir * (Math.PI / 12); // Max 15 degrees adjustment
+          targetOrientation = currentOrientation + turnAmount;
+        }
         
         moveData = {
           creator: "web_interface",
@@ -436,14 +420,13 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_ori: targetOrientation,
           target_accuracy: 0.05,
           use_target_zone: true,
-          target_orientation_accuracy: 0.03, // Medium-strict orientation tolerance for combined movement
+          target_orientation_accuracy: 0.02,
           properties: {
-            // According to API documentation, only inplace_rotate is a valid property
             inplace_rotate: false
           }
         };
         
-        console.log('Sending combined command, distance:', distance, 'rotation:', rotationAmount);
+        console.log('Sending movement command to:', {x: targetX, y: targetY}, 'ori:', targetOrientation);
       }
       
       // Use our server API instead of direct calls to avoid CORS issues
@@ -463,10 +446,10 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     } catch (error) {
       console.error('Error sending movement command:', error);
     } finally {
-      // Allow new commands after a short delay
+      // Allow new commands after a longer delay to ensure the current command completes
       setTimeout(() => {
         setIsSendingCommand(false);
-      }, 30); // Keep the 30ms for responsive control
+      }, 300); // Increased from 30ms to 300ms to prevent command overlap
     }
   };
 
