@@ -20,6 +20,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
   const [normalizedPosition, setNormalizedPosition] = useState({ x: 0, y: 0 });
   const [isSendingCommand, setIsSendingCommand] = useState(false);
   const moveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track the most recent command type to ensure consistent movements
+  const lastCommandTypeRef = useRef<'forward' | 'rotation' | 'combined' | null>(null);
 
   // Clean up any timers when component unmounts
   useEffect(() => {
@@ -283,39 +286,55 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
 
-      // Detect different actions based on joystick position
-      const isRotationCommand = Math.abs(xDir) > 0.2 && Math.abs(yDir) < 0.2;
-      const isForwardCommand = Math.abs(yDir) > 0.2 && Math.abs(xDir) < 0.2;
+      // Create stricter thresholds for different movement types
+      // This helps ensure more precise command classifications
+      const isRotationCommand = Math.abs(xDir) > 0.15 && Math.abs(yDir) < 0.1;
+      const isForwardCommand = Math.abs(yDir) > 0.15 && Math.abs(xDir) < 0.1;
+      
+      // For consistent movement patterns, if we previously determined the command type
+      // and we're only making small joystick adjustments, keep the same command type
+      const currentCommandType = 
+        isRotationCommand ? 'rotation' : 
+        isForwardCommand ? 'forward' : 'combined';
+      
+      // If we were previously moving forward/backward and still have significant vertical component,
+      // maintain the forward movement type to prevent unexpected rotation
+      if (lastCommandTypeRef.current === 'forward' && Math.abs(yDir) > 0.15 && Math.abs(xDir) < 0.15) {
+        // Maintain forward mode with stricter thresholds when continuing a forward/backward movement
+        console.log('Maintaining forward/backward mode for consistency');
+        lastCommandTypeRef.current = 'forward';
+      } else {
+        // Otherwise update the command type
+        lastCommandTypeRef.current = currentCommandType;
+      }
       
       let moveData = {};
       
-      if (isRotationCommand) {
-        // Pure rotation command - rotate in place
-        // Direction indicates clockwise (negative) or counter-clockwise (positive)
-        // The amount is proportional to how far the joystick is pushed
+      if (lastCommandTypeRef.current === 'rotation') {
+        // Pure rotation command - rotate in place without moving
         const rotationDirection = xDir > 0 ? 1 : -1;
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // Up to 45 degrees
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 6); // Reduced to 30 degrees max
         
         moveData = {
           creator: "web_interface",
           type: "standard",
-          target_x: currentX,
-          target_y: currentY,
+          target_x: currentX, // Stay in same position
+          target_y: currentY, // Stay in same position
           target_z: 0,
           target_ori: currentOrientation + (rotationDirection * rotationAmount),
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            inplace_rotate: true // Force in-place rotation with no translation
+            inplace_rotate: true // Critical for pure rotation
           }
         };
         
         console.log('Sending rotation command, amount:', rotationDirection * rotationAmount);
       } 
-      else if (isForwardCommand) {
-        // Pure forward/backward movement with no rotation
-        // Calculate distance based on joystick position and speed setting
-        const distance = yDir * speed * 0.5; // Reduced for smoother movement
+      else if (lastCommandTypeRef.current === 'forward') {
+        // Pure forward/backward movement with EXACT same orientation
+        // Use a smaller distance increment for more precise movements
+        const distance = yDir * speed * 0.2; // Further reduced for smoother movement
         
         // Calculate target coordinates using the current orientation vector
         const targetX = currentX + Math.cos(currentOrientation) * distance;
@@ -327,25 +346,22 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_x: targetX,
           target_y: targetY,
           target_z: 0,
-          target_ori: currentOrientation, // Keep same orientation
+          target_ori: currentOrientation, // No rotation at all in forward mode
           target_accuracy: 0.05,
           use_target_zone: true,
-          properties: {
-            inplace_rotate: false // Allow combined movement
-          }
+          properties: {} // Don't set inplace_rotate at all for forward movement
         };
         
-        console.log('Sending forward command, distance:', distance);
+        console.log('Sending STRICT forward command, distance:', distance, 'orientation:', currentOrientation);
       }
-      else {
+      else { // combined
         // Combined movement (both rotation and forward/backward)
-        // This is a more complex movement - we'll handle it differently
-        // First calculate the movement component
-        const distance = yDir * speed * 0.5;
+        // For combined movement, we'll make the rotation component very subtle
+        const distance = yDir * speed * 0.3;
         
-        // Then calculate a small rotation
+        // Make the rotation even more subtle in combined movements
         const rotationDirection = xDir > 0 ? 1 : -1;
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 8); // Reduced rotation
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 12); // Even smaller rotation
         
         // Calculate target position
         const targetX = currentX + Math.cos(currentOrientation) * distance;
@@ -363,12 +379,10 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_ori: targetOrientation,
           target_accuracy: 0.05,
           use_target_zone: true,
-          properties: {
-            inplace_rotate: false // Allow combined movement
-          }
+          properties: {} // Don't set inplace_rotate for combined movement
         };
         
-        console.log('Sending combined command');
+        console.log('Sending combined command, distance:', distance, 'rotation:', rotationAmount);
       }
       
       // Use our server API instead of direct calls to avoid CORS issues
@@ -391,7 +405,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       // Allow new commands after a short delay
       setTimeout(() => {
         setIsSendingCommand(false);
-      }, 30); // Keep the 30ms for fast response
+      }, 30); // Keep the 30ms for responsive control
     }
   };
 
