@@ -175,7 +175,21 @@ export default function RobotTasksPage() {
   }, [data, taskTypeFilter]);
   
   const cancelTaskMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/robot-tasks/${id}/cancel`, 'PUT'),
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/robot-tasks/${id}/cancel`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to cancel task: ${res.status} ${res.statusText}`);
+      }
+      
+      return res.json();
+    },
     onSuccess: () => {
       invalidateCurrentQueries();
       toast({
@@ -193,7 +207,21 @@ export default function RobotTasksPage() {
   });
   
   const completeTaskMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/robot-tasks/${id}/complete`, 'PUT'),
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/robot-tasks/${id}/complete`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to complete task: ${res.status} ${res.statusText}`);
+      }
+      
+      return res.json();
+    },
     onSuccess: () => {
       invalidateCurrentQueries();
       toast({
