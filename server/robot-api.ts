@@ -8,7 +8,8 @@ import {
   getRobotMapData,
   getRobotCameraData,
   getRobotLidarData,
-  isRobotConnected
+  isRobotConnected,
+  sendRobotCommand
 } from './robot-websocket';
 import fetch from 'node-fetch';
 
@@ -80,6 +81,195 @@ async function fetchSystemSettings(effectiveOnly: boolean = true) {
 /**
  * Register all robot-related API routes
  */
+// Track mapping sessions
+interface MappingSession {
+  id: string;
+  serialNumber: string;
+  startTime: number;
+  mapName: string;
+  status: 'active' | 'processing' | 'completed' | 'cancelled' | 'error';
+  mapData?: any;
+  error?: string;
+}
+
+// In-memory storage for active mapping sessions
+const mappingSessions: { [key: string]: MappingSession } = {};
+
+/**
+ * Start a new mapping session with the robot
+ * @param serialNumber Robot serial number
+ * @param mapName Name for the new map
+ * @returns Session ID for the mapping operation
+ */
+async function startMappingSession(serialNumber: string, mapName: string): Promise<string> {
+  try {
+    console.log(`Starting mapping session for robot ${serialNumber} with map name "${mapName}"`);
+    
+    // Check if robot is connected
+    if (!isRobotConnected()) {
+      throw new Error('Robot is not connected');
+    }
+    
+    // API endpoint to start mapping on the robot
+    const response = await fetch(`${ROBOT_API_URL}/mapping/start`, {
+      method: 'POST',
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        map_name: mapName 
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to start mapping: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    // Generate a unique session ID
+    const sessionId = `map_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    
+    // Create a new mapping session
+    mappingSessions[sessionId] = {
+      id: sessionId,
+      serialNumber,
+      startTime: Date.now(),
+      mapName,
+      status: 'active',
+    };
+    
+    // Return the session ID
+    return sessionId;
+  } catch (error) {
+    console.error('Error starting mapping session:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get the current map being built in a mapping session
+ * @param sessionId Mapping session ID
+ * @returns Current map data
+ */
+async function getCurrentMapData(sessionId: string): Promise<any> {
+  try {
+    const session = mappingSessions[sessionId];
+    if (!session) {
+      throw new Error('Mapping session not found');
+    }
+    
+    if (session.status !== 'active') {
+      throw new Error(`Mapping session is ${session.status}, not active`);
+    }
+    
+    // Fetch current map data from the robot
+    const response = await fetch(`${ROBOT_API_URL}/mapping/current`, {
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get current map: ${response.status} ${response.statusText}`);
+    }
+    
+    const mapData = await response.json();
+    return mapData;
+  } catch (error) {
+    console.error('Error getting current map data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save the completed map from a mapping session
+ * @param sessionId Mapping session ID
+ * @returns Saved map ID
+ */
+async function saveMap(sessionId: string): Promise<string> {
+  try {
+    const session = mappingSessions[sessionId];
+    if (!session) {
+      throw new Error('Mapping session not found');
+    }
+    
+    if (session.status !== 'active') {
+      throw new Error(`Mapping session is ${session.status}, not active`);
+    }
+    
+    // Update session status
+    session.status = 'processing';
+    
+    // Call API to save the map
+    const response = await fetch(`${ROBOT_API_URL}/mapping/save`, {
+      method: 'POST',
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        map_name: session.mapName 
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      session.status = 'error';
+      session.error = `Failed to save map: ${response.status} ${response.statusText} - ${errorText}`;
+      throw new Error(session.error);
+    }
+    
+    const result = await response.json();
+    
+    // Update session status
+    session.status = 'completed';
+    session.mapData = result;
+    
+    return result.map_id || result.id || '1'; // Return map ID from response
+  } catch (error) {
+    console.error('Error saving map:', error);
+    throw error;
+  }
+}
+
+/**
+ * Cancel a mapping session
+ * @param sessionId Mapping session ID
+ */
+async function cancelMappingSession(sessionId: string): Promise<void> {
+  try {
+    const session = mappingSessions[sessionId];
+    if (!session) {
+      throw new Error('Mapping session not found');
+    }
+    
+    if (session.status !== 'active') {
+      throw new Error(`Mapping session is ${session.status}, not active`);
+    }
+    
+    // Call API to cancel mapping
+    const response = await fetch(`${ROBOT_API_URL}/mapping/cancel`, {
+      method: 'POST',
+      headers: {
+        'Secret': ROBOT_SECRET || '',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to cancel mapping: ${response.status} ${response.statusText}`);
+    }
+    
+    // Update session status
+    session.status = 'cancelled';
+  } catch (error) {
+    console.error('Error cancelling mapping session:', error);
+    throw error;
+  }
+}
+
 export function registerRobotApiRoutes(app: Express) {
   // Register a physical robot for remote communication
   app.get('/api/robots/register-physical/:serialNumber', async (req: Request, res: Response) => {
