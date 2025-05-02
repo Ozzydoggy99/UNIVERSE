@@ -49,7 +49,7 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
-import { MapEnhanced } from '@/components/ui/map-enhanced';
+import { Map } from '@/components/ui/map';
 import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 import { RobotH264Stream } from '@/components/RobotH264Stream';
 import { DirectionalControl } from '@/components/robot/DirectionalControl';
@@ -754,24 +754,33 @@ export default function RobotDetails() {
                   <TabsContent value="map" className="h-full m-0">
                     <div className="h-full relative border rounded-md p-1 bg-gray-50">
                       {/* Enhanced Map Component */}
-                      <MapEnhanced 
-                        robotStatus={finalStatus as any} 
-                        robotPosition={finalPosition as any} 
-                        sensorData={finalSensors as any} 
-                        mapData={finalMapData as any}
+                      <Map 
+                        robotStatus={finalStatus} 
+                        robotPosition={finalPosition} 
+                        sensorData={finalSensors} 
+                        mapData={finalMapData}
                         editable={true}
                         onMapUpdate={(updatedMap) => {
                           console.log('Map updated', updatedMap);
                           refreshData();
                         }}
-                        availableMaps={[
-                          { id: finalMapData.mapId || "1", name: "Current Map" }
-                        ]}
-                        onMapChange={(mapId) => {
-                          console.log('Map changed to', mapId);
-                          refreshData();
-                        }}
                       />
+                      
+                      {/* Map Legend */}
+                      <div className="absolute bottom-2 right-2 bg-white/90 rounded-md p-2 text-xs space-y-1 shadow-sm">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-primary"></div>
+                          <span>Robot Location</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded bg-red-500"></div>
+                          <span>Obstacle</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                          <span>Navigation Path</span>
+                        </div>
+                      </div>
                     </div>
                   </TabsContent>
                   
