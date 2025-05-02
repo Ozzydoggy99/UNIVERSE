@@ -360,8 +360,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       } 
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
-        // Use a moderate distance increment for smoother movement
-        const distance = yDir * speed * 0.3; // More moderate distance for better stability
+        // Use a larger distance to ensure the robot responds to commands
+        const distance = yDir * speed * 1.0; // Full meter at maximum deflection for better response
         
         // Calculate target coordinates using the current orientation vector
         const targetX = currentX + Math.cos(currentOrientation) * distance;
@@ -389,13 +389,13 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       }
       else { // combined
         // Combined movement (both rotation and forward/backward)
-        // For combined movement, use the same moderate distance as forward mode
-        const distance = yDir * speed * 0.3; // Same moderate distance as forward mode for consistency
+        // For combined movement, use a larger distance to ensure the robot responds
+        const distance = yDir * speed * 1.0; // Full meter at maximum deflection for better response
         
         // REVERSE the direction (flip the sign) for rotation since controls are reversed
         const rotationDirection = xDir > 0 ? -1 : 1;
-        // Make the rotation more noticeable in combined mode too
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 12); // Increased rotation (15 degrees max)
+        // Make the rotation much more dramatic in combined mode too
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // 45 degrees max at full deflection
         
         // Calculate target position
         const targetX = currentX + Math.cos(currentOrientation) * distance;
