@@ -68,10 +68,18 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
       
       // Fall back to the regular API
       try {
-        const response = await apiRequest(`/api/robots/status/${serialNumber}`);
+        console.log(`Fetching status from API: /api/robots/status/${serialNumber}`);
+        const response = await fetch(`/api/robots/status/${serialNumber}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
+          }
+        });
         
         // Check if response is OK before parsing
         if (!response.ok) {
+          console.error(`Error fetching status: ${response.status} ${response.statusText}`);
           return {
             model: "AxBot Physical Robot",
             serialNumber: serialNumber,
@@ -87,6 +95,7 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
         }
         
         const data = await response.json();
+        console.log('Status data retrieved successfully');
         
         // Add connection status to the result
         return {
@@ -94,6 +103,7 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
           connectionStatus: 'connected'
         };
       } catch (apiError) {
+        console.error('Error in status fetch:', apiError);
         // Return a minimal status with connection error without console noise
         return {
           model: "AxBot Physical Robot",
@@ -125,8 +135,49 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
     }
   } else {
     // Use the general API endpoint
-    const response = await apiRequest(`${API_URL}/status`);
-    return response.json();
+    console.log(`Fetching general status from: ${API_URL}/status`);
+    try {
+      const response = await fetch(`${API_URL}/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Secret': ROBOT_SECRET || ''
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Error fetching general status: ${response.status} ${response.statusText}`);
+        return {
+          model: "AxBot",
+          serialNumber: "unknown",
+          battery: 0,
+          status: "offline",
+          operationalStatus: "error",
+          uptime: "Disconnected",
+          connectionStatus: "error",
+          messages: [{ timestamp: new Date().toISOString(), text: "Connection error" }]
+        };
+      }
+      
+      console.log('General status data retrieved successfully');
+      const data = await response.json();
+      return {
+        ...data,
+        connectionStatus: 'connected'
+      };
+    } catch (error) {
+      console.error('Error in general status fetch:', error);
+      return {
+        model: "AxBot",
+        serialNumber: "unknown",
+        battery: 0,
+        status: "offline",
+        operationalStatus: "error",
+        uptime: "Disconnected",
+        connectionStatus: "error",
+        messages: [{ timestamp: new Date().toISOString(), text: "Connection error" }]
+      };
+    }
   }
 }
 
@@ -169,10 +220,18 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
       
       // Fall back to the regular API
       try {
-        const response = await apiRequest(`/api/robots/position/${serialNumber}`);
+        console.log(`Fetching position from API: /api/robots/position/${serialNumber}`);
+        const response = await fetch(`/api/robots/position/${serialNumber}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
+          }
+        });
         
         // Check if response is OK before parsing
         if (!response.ok) {
+          console.error(`Error fetching position: ${response.status} ${response.statusText}`);
           return {
             x: 0,
             y: 0,
@@ -188,6 +247,7 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
         }
         
         const data = await response.json();
+        console.log('Position data retrieved successfully');
         
         // Add connection status to the result
         return {
@@ -195,6 +255,7 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
           connectionStatus: 'connected'
         };
       } catch (apiError) {
+        console.error('Error in position fetch:', apiError);
         // Return error state without console noise
         return {
           x: 0,
@@ -335,73 +396,191 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
 
 // Robot Controls
 export async function startRobot() {
-  const response = await apiRequest(`${API_URL}/control/start`, { method: 'POST' });
-  return response.json();
+  console.log('Sending start command to robot');
+  try {
+    const response = await fetch(`${API_URL}/control/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      }
+    });
+    console.log('Start robot response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in start robot fetch:', error);
+    throw error;
+  }
 }
 
 export async function stopRobot() {
-  const response = await apiRequest(`${API_URL}/control/stop`, { method: 'POST' });
-  return response.json();
+  console.log('Sending stop command to robot');
+  try {
+    const response = await fetch(`${API_URL}/control/stop`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      }
+    });
+    console.log('Stop robot response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in stop robot fetch:', error);
+    throw error;
+  }
 }
 
 export async function pauseRobot() {
-  const response = await apiRequest(`${API_URL}/control/pause`, { method: 'POST' });
-  return response.json();
+  console.log('Sending pause command to robot');
+  try {
+    const response = await fetch(`${API_URL}/control/pause`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      }
+    });
+    console.log('Pause robot response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in pause robot fetch:', error);
+    throw error;
+  }
 }
 
 export async function homeRobot() {
-  const response = await apiRequest(`${API_URL}/control/home`, { method: 'POST' });
-  return response.json();
+  console.log('Sending home command to robot');
+  try {
+    const response = await fetch(`${API_URL}/control/home`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      }
+    });
+    console.log('Home robot response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in home robot fetch:', error);
+    throw error;
+  }
 }
 
 export async function calibrateRobot() {
-  const response = await apiRequest(`${API_URL}/control/calibrate`, { method: 'POST' });
-  return response.json();
+  console.log('Sending calibrate command to robot');
+  try {
+    const response = await fetch(`${API_URL}/control/calibrate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      }
+    });
+    console.log('Calibrate robot response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in calibrate robot fetch:', error);
+    throw error;
+  }
 }
 
 export async function moveRobot(direction: 'forward' | 'backward' | 'left' | 'right', speed: number) {
-  const response = await apiRequest(`${API_URL}/control/move`, { 
-    method: 'POST', 
-    data: { direction, speed } 
-  });
-  return response.json();
+  console.log(`Sending move ${direction} command to robot with speed ${speed}`);
+  try {
+    const response = await fetch(`${API_URL}/control/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      },
+      body: JSON.stringify({ direction, speed })
+    });
+    console.log('Move robot response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in move robot fetch:', error);
+    throw error;
+  }
 }
 
 export async function stopMovement() {
-  const response = await apiRequest(`${API_URL}/control/move/stop`, { method: 'POST' });
-  return response.json();
+  console.log('Sending stop movement command to robot');
+  try {
+    const response = await fetch(`${API_URL}/control/move/stop`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      }
+    });
+    console.log('Stop movement response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in stop movement fetch:', error);
+    throw error;
+  }
 }
 
 export async function setSpeed(speed: number) {
-  const response = await apiRequest(`${API_URL}/control/speed`, { 
-    method: 'POST', 
-    data: { speed }
-  });
-  return response.json();
+  console.log(`Sending set speed command to robot with speed ${speed}`);
+  try {
+    const response = await fetch(`${API_URL}/control/speed`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      },
+      body: JSON.stringify({ speed })
+    });
+    console.log('Set speed response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in set speed fetch:', error);
+    throw error;
+  }
 }
 
 export async function sendCustomCommand(command: string) {
-  const response = await apiRequest(`${API_URL}/control/custom`, { 
-    method: 'POST', 
-    data: { command }
-  });
-  return response.json();
+  console.log(`Sending custom command to robot: ${command}`);
+  try {
+    const response = await fetch(`${API_URL}/control/custom`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      },
+      body: JSON.stringify({ command })
+    });
+    console.log('Custom command response:', response);
+    return await response.json();
+  } catch (error) {
+    console.error('Error in custom command fetch:', error);
+    throw error;
+  }
 }
 
 // Map Functions
 export async function getMapData(serialNumber?: string) {
+  console.log(`Getting map data for serial: ${serialNumber || 'general'}`);
   // If serial number is provided, fetch that specific robot's map data
   if (serialNumber) {
     try {
       // Add the Secret header which is required for robot API endpoints
       const headers = {
-        'Secret': ROBOT_SECRET
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
       };
       
-      const response = await apiRequest(`/api/robots/map/${serialNumber}`, { headers });
+      console.log(`Fetching map data from: /api/robots/map/${serialNumber}`);
+      const response = await fetch(`/api/robots/map/${serialNumber}`, { 
+        method: 'GET',
+        headers 
+      });
       
       // Check if response is OK before parsing
       if (!response.ok) {
+        console.error(`Error fetching map data: ${response.status} ${response.statusText}`);
         return {
           grid: [],
           obstacles: [],
@@ -411,6 +590,7 @@ export async function getMapData(serialNumber?: string) {
       }
       
       const data = await response.json();
+      console.log('Map data retrieved successfully');
       
       // Add connection status to the returned data
       return {
@@ -418,6 +598,7 @@ export async function getMapData(serialNumber?: string) {
         connectionStatus: 'connected'
       };
     } catch (error) {
+      console.error('Error in getMapData fetch:', error);
       // Return a minimal map with connectionStatus 'error' without console noise
       return {
         grid: [],
@@ -429,10 +610,18 @@ export async function getMapData(serialNumber?: string) {
   } else {
     // Use the general API endpoint
     try {
-      const response = await apiRequest(`${API_URL}/map`);
+      console.log(`Fetching general map data from: ${API_URL}/map`);
+      const response = await fetch(`${API_URL}/map`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Secret': ROBOT_SECRET || ''
+        }
+      });
       
       // Check if response is OK before parsing
       if (!response.ok) {
+        console.error(`Error fetching general map data: ${response.status} ${response.statusText}`);
         return {
           grid: [],
           obstacles: [],
@@ -442,11 +631,13 @@ export async function getMapData(serialNumber?: string) {
       }
       
       const data = await response.json();
+      console.log('General map data retrieved successfully');
       return {
         ...data,
         connectionStatus: 'connected'
       };
     } catch (error) {
+      console.error('Error in getMapData general fetch:', error);
       // Return error status without console noise
       return {
         grid: [],
@@ -460,17 +651,21 @@ export async function getMapData(serialNumber?: string) {
 
 // Camera Functions
 export async function getRobotCameraData(serialNumber: string): Promise<CameraData> {
+  console.log(`Getting camera data for serial: ${serialNumber}`);
   try {
     // First try to get data from the proxy server if it's configured
     if (ROBOT_CAMERA_URL) {
       try {
-        // Skip logging to reduce console noise
+        console.log(`Attempting to fetch camera data from proxy: ${ROBOT_CAMERA_URL}/${serialNumber}`);
         const proxyResponse = await fetch(`${ROBOT_CAMERA_URL}/${serialNumber}`, {
+          method: 'GET',
           headers: {
-            'Secret': ROBOT_SECRET
+            'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
           }
         });
         if (proxyResponse.ok) {
+          console.log('Camera proxy connection successful');
           // Return camera data with the proxy stream URL
           return {
             enabled: true,
@@ -486,16 +681,24 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
           };
         }
       } catch (proxyError) {
-        // Skip log for better UI experience
+        console.error('Error connecting to camera proxy:', proxyError);
       }
     }
     
     // Fall back to the regular API
     try {
-      const response = await apiRequest(`/api/robots/camera/${serialNumber}`);
+      console.log(`Fetching camera data from API: /api/robots/camera/${serialNumber}`);
+      const response = await fetch(`/api/robots/camera/${serialNumber}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Secret': ROBOT_SECRET || ''
+        }
+      });
       
       // Check if response is OK before parsing
       if (!response.ok) {
+        console.error(`Error fetching camera data: ${response.status} ${response.statusText}`);
         return {
           enabled: false,
           streamUrl: '',
@@ -511,6 +714,7 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
       }
       
       const data = await response.json();
+      console.log('Camera data retrieved successfully');
       
       // Add connection status to the result
       return {
@@ -518,6 +722,7 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
         connectionStatus: 'connected'
       };
     } catch (apiError) {
+      console.error('Error in camera data fetch:', apiError);
       // Return error state without console noise
       return {
         enabled: false,
@@ -533,6 +738,7 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
       };
     }
   } catch (error) {
+    console.error('Unexpected error in camera data fetch:', error);
     // Return fallback without throwing
     return {
       enabled: false,
@@ -550,14 +756,20 @@ export async function getRobotCameraData(serialNumber: string): Promise<CameraDa
 }
 
 export async function toggleRobotCamera(serialNumber: string, enabled: boolean): Promise<CameraData> {
+  console.log(`Toggling camera for serial: ${serialNumber} to ${enabled ? 'enabled' : 'disabled'}`);
   try {
-    const response = await apiRequest(`/api/robots/camera/${serialNumber}`, { 
-      method: 'POST', 
-      data: { enabled }
+    const response = await fetch(`/api/robots/camera/${serialNumber}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      },
+      body: JSON.stringify({ enabled })
     });
     
     // Check if response is OK before parsing
     if (!response.ok) {
+      console.error(`Error toggling camera: ${response.status} ${response.statusText}`);
       return {
         enabled: false,
         streamUrl: '',
@@ -573,11 +785,13 @@ export async function toggleRobotCamera(serialNumber: string, enabled: boolean):
     }
     
     const data = await response.json();
+    console.log('Camera toggle successful');
     return {
       ...data,
       connectionStatus: 'connected'
     };
   } catch (error) {
+    console.error('Error in camera toggle fetch:', error);
     // Return error state without console noise
     return {
       enabled: false,
@@ -596,15 +810,20 @@ export async function toggleRobotCamera(serialNumber: string, enabled: boolean):
 
 // LiDAR data
 export async function getLidarData(serialNumber: string): Promise<LidarData> {
+  console.log(`Getting LiDAR data for serial: ${serialNumber}`);
   try {
-    const response = await apiRequest(`/api/robots/lidar/${serialNumber}`, {
+    console.log(`Fetching LiDAR data from: /api/robots/lidar/${serialNumber}`);
+    const response = await fetch(`/api/robots/lidar/${serialNumber}`, {
+      method: 'GET',
       headers: {
-        'Secret': ROBOT_SECRET
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
       }
     });
     
     // Check if response is OK before parsing
     if (!response.ok) {
+      console.error(`Error fetching LiDAR data: ${response.status} ${response.statusText}`);
       return {
         ranges: [],
         angle_min: 0,
@@ -618,6 +837,7 @@ export async function getLidarData(serialNumber: string): Promise<LidarData> {
     }
     
     const data = await response.json();
+    console.log('LiDAR data retrieved successfully');
     
     // Add connection status to the result
     return {
@@ -625,6 +845,7 @@ export async function getLidarData(serialNumber: string): Promise<LidarData> {
       connectionStatus: 'connected'
     };
   } catch (error) {
+    console.error('Error in getLidarData fetch:', error);
     // Return error state without console noise
     return {
       ranges: [],
