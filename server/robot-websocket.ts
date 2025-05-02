@@ -36,7 +36,7 @@ const TOPICS = {
   SENSORS: ['/battery_state'],
   MAP: ['/map', '/slam/state'],
   CAMERA: ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video'],
-  LIDAR: ['/scan']
+  LIDAR: ['/scan', '/scan_matched_points2']
 };
 
 // Data caches
@@ -359,6 +359,79 @@ function handleRobotMessage(messageData: string) {
             console.log(`Received LiDAR update with ${ranges ? ranges.length : 0} range points at ${new Date().toISOString()}`);
             lastLidarLogTime = now;
           }
+        }
+      }
+      else if (topic === '/scan_matched_points2') {
+        const { points, ...pointCloudInfo } = message;
+        
+        // Log the first time to see the structure
+        if (!lidarDataLogged) {
+          console.log('Robot Point Cloud data structure:', JSON.stringify(pointCloudInfo, null, 2));
+          console.log('Point Cloud points length:', points ? points.length : 0);
+          if (points && points.length > 0) {
+            console.log('Sample point format:', points[0]);
+          }
+          lidarDataLogged = true;
+        } else {
+          // Periodic updates - log every 10 seconds to verify we're still getting data
+          const now = Date.now();
+          if (!lastLidarLogTime || (now - lastLidarLogTime) > 10000) {
+            console.log(`Received Point Cloud update with ${points ? points.length : 0} points at ${new Date().toISOString()}`);
+            lastLidarLogTime = now;
+          }
+        }
+        
+        // Convert the point cloud data to a format compatible with our LiDAR visualization
+        // Points are in world frame as [x, y, z] coordinates
+        if (points && points.length > 0) {
+          // Create synthetic ranges from point cloud
+          // First, we need to convert the points to polar coordinates
+          const syntheticRanges = [];
+          const angleMin = 0;
+          const angleMax = 2 * Math.PI;
+          const angleIncrement = 2 * Math.PI / 360; // 1-degree increments
+          
+          // Assume the robot is at position 0,0 for simplicity
+          // In a more sophisticated implementation, we would adjust this based on the robot's actual position
+          for (let angle = angleMin; angle < angleMax; angle += angleIncrement) {
+            // Find points that are approximately in this direction
+            let minRange = Infinity;
+            
+            for (const point of points) {
+              const [x, y] = point; // Ignore z-coordinate for 2D visualization
+              
+              // Calculate angle and distance to this point
+              const pointAngle = Math.atan2(y, x);
+              const distance = Math.sqrt(x*x + y*y);
+              
+              // Check if this point is within our current angle slice
+              if (Math.abs(pointAngle - angle) < angleIncrement / 2 && distance < minRange) {
+                minRange = distance;
+              }
+            }
+            
+            // Add the minimum range for this angle
+            syntheticRanges.push(minRange === Infinity ? 0 : minRange);
+          }
+          
+          // Create a synthetic scan message that's compatible with our existing visualization
+          const syntheticScan = {
+            ranges: syntheticRanges,
+            angle_min: angleMin,
+            angle_max: angleMax,
+            angle_increment: angleIncrement,
+            range_min: 0,
+            range_max: 10, // Arbitrary max range
+            intensities: [],
+            topic: '/scan_matched_points2',
+            timestamp: message.stamp || Date.now()
+          };
+          
+          // Store this synthetic scan message
+          robotDataCache.lidar.set(PHYSICAL_ROBOT_SERIAL, syntheticScan);
+          robotEvents.emit('lidar_update', PHYSICAL_ROBOT_SERIAL, syntheticScan);
+          
+          console.log(`Converted ${points.length} point cloud points to ${syntheticRanges.length} synthetic ranges`);
         }
       }
     }
