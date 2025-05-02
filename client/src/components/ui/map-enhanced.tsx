@@ -485,11 +485,11 @@ export function MapEnhanced({
           }
         }
         
-        // Create a custom colormap for the grid data
+        // Create a custom colormap for the grid data matching the reference image
         const colormap = (value: number) => {
-          if (value < 0) return 'rgba(255, 0, 0, 0.5)';  // Red for negative values (occupied)
-          if (value > 0) return 'rgba(0, 255, 0, 0.2)';  // Green for positive values (free)
-          return 'rgba(200, 200, 200, 0.1)';             // Gray for unknown
+          if (value < 0) return 'rgba(65, 105, 225, 0.9)';  // Blue for obstacles/walls (occupied)
+          if (value > 0) return 'rgba(255, 255, 255, 0.9)';  // White for free space (pathways)
+          return 'rgba(220, 220, 220, 0.3)';                 // Light gray for unknown
         };
         
         // Draw the grid cells
