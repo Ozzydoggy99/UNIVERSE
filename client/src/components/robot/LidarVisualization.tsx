@@ -65,10 +65,13 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       }
       
       // Send power on command
-      return apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
+      console.log(`Sending power on command to LiDAR on robot ${serialNumber}`);
+      const result = await apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
         method: 'POST',
         data: { action: LidarPowerAction.POWER_ON }
       });
+      console.log('Power on response:', result);
+      return result;
     },
     onMutate: () => {
       setPowerOnInProgress(true);
@@ -107,10 +110,13 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       }
       
       // Send power off command
-      return apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
+      console.log(`Sending power off command to LiDAR on robot ${serialNumber}`);
+      const result = await apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
         method: 'POST',
         data: { action: LidarPowerAction.POWER_OFF }
       });
+      console.log('Power off response:', result);
+      return result;
     },
     onMutate: () => {
       setPowerOffInProgress(true);
@@ -195,9 +201,12 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         throw new Error('Serial number is required to clear LiDAR zero error');
       }
       
-      return apiRequest(`/api/robots/lidar/${serialNumber}/clear_zero_error`, {
+      console.log(`Sending clear zero error command to LiDAR on robot ${serialNumber}`);
+      const result = await apiRequest(`/api/robots/lidar/${serialNumber}/clear_zero_error`, {
         method: 'POST'
       });
+      console.log('Clear zero error response:', result);
+      return result;
     },
     onMutate: () => {
       setErrorClearInProgress(true);
