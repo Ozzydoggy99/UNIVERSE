@@ -49,8 +49,97 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
   const { toast } = useToast();
   
   // Track loading states for our API mutations
+  const [powerOnInProgress, setPowerOnInProgress] = useState(false);
+  const [powerOffInProgress, setPowerOffInProgress] = useState(false);
   const [powerCycleInProgress, setPowerCycleInProgress] = useState(false);
   const [errorClearInProgress, setErrorClearInProgress] = useState(false);
+  
+  // Import query client for cache invalidation
+  const queryClient = useQueryClient();
+  
+  // Power on mutation
+  const powerOnMutation = useMutation({
+    mutationFn: async () => {
+      if (!serialNumber) {
+        throw new Error('Serial number is required to power on LiDAR');
+      }
+      
+      // Send power on command
+      return apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
+        method: 'POST',
+        data: { action: LidarPowerAction.POWER_ON }
+      });
+    },
+    onMutate: () => {
+      setPowerOnInProgress(true);
+      toast({
+        title: 'Powering on LiDAR',
+        description: 'The LiDAR is being powered on. This may take a few seconds.',
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'LiDAR powered on',
+        description: 'The LiDAR has been successfully powered on. It might take a moment to start sending data.',
+      });
+      // Invalidate lidar data query to refresh
+      if (serialNumber) {
+        queryClient.invalidateQueries({ queryKey: [`/api/robots/lidar/${serialNumber}`] });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error powering on LiDAR',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setPowerOnInProgress(false);
+    },
+  });
+  
+  // Power off mutation
+  const powerOffMutation = useMutation({
+    mutationFn: async () => {
+      if (!serialNumber) {
+        throw new Error('Serial number is required to power off LiDAR');
+      }
+      
+      // Send power off command
+      return apiRequest(`/api/robots/lidar/${serialNumber}/power`, {
+        method: 'POST',
+        data: { action: LidarPowerAction.POWER_OFF }
+      });
+    },
+    onMutate: () => {
+      setPowerOffInProgress(true);
+      toast({
+        title: 'Powering off LiDAR',
+        description: 'The LiDAR is being powered off.',
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'LiDAR powered off',
+        description: 'The LiDAR has been successfully powered off.',
+      });
+      // Invalidate lidar data query to refresh
+      if (serialNumber) {
+        queryClient.invalidateQueries({ queryKey: [`/api/robots/lidar/${serialNumber}`] });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error powering off LiDAR',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setPowerOffInProgress(false);
+    },
+  });
   
   // Power cycle mutation (first power off, then power on)
   const powerCycleMutation = useMutation({
@@ -361,10 +450,40 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
                 )}
               </div>
               
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2 mb-2">
                 <Button 
                   variant="default" 
-                  size="sm" 
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => powerOnMutation.mutate()}
+                  disabled={powerOnInProgress || !serialNumber}
+                >
+                  {powerOnInProgress ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <PowerIcon className="h-4 w-4 mr-2" />
+                  )}
+                  Power On
+                </Button>
+                
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => powerOffMutation.mutate()}
+                  disabled={powerOffInProgress || !serialNumber}
+                >
+                  {powerOffInProgress ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <PowerIcon className="h-4 w-4 mr-2" />
+                  )}
+                  Power Off
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm"
                   className="flex-1"
                   onClick={() => powerCycleMutation.mutate()}
                   disabled={powerCycleInProgress || !serialNumber}
@@ -378,8 +497,8 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
                 </Button>
                 
                 <Button 
-                  variant="default" 
-                  size="sm" 
+                  variant="outline" 
+                  size="sm"
                   className="flex-1"
                   onClick={() => clearZeroErrorMutation.mutate()}
                   disabled={errorClearInProgress || !serialNumber}
@@ -504,10 +623,40 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
             )}
           </div>
           
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 mb-2">
             <Button 
               variant="default" 
-              size="sm" 
+              size="sm"
+              className="flex-1"
+              onClick={() => powerOnMutation.mutate()}
+              disabled={powerOnInProgress || !serialNumber}
+            >
+              {powerOnInProgress ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <PowerIcon className="h-4 w-4 mr-2" />
+              )}
+              Power On
+            </Button>
+            
+            <Button 
+              variant="default" 
+              size="sm"
+              className="flex-1"
+              onClick={() => powerOffMutation.mutate()}
+              disabled={powerOffInProgress || !serialNumber}
+            >
+              {powerOffInProgress ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <PowerIcon className="h-4 w-4 mr-2" />
+              )}
+              Power Off
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
               className="flex-1"
               onClick={() => powerCycleMutation.mutate()}
               disabled={powerCycleInProgress || !serialNumber}
@@ -521,8 +670,8 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
             </Button>
             
             <Button 
-              variant="default" 
-              size="sm" 
+              variant="outline" 
+              size="sm"
               className="flex-1"
               onClick={() => clearZeroErrorMutation.mutate()}
               disabled={errorClearInProgress || !serialNumber}
