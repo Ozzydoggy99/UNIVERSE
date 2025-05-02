@@ -321,7 +321,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         // Pure rotation command - rotate in place without moving
         // REVERSE the direction (flip the sign) since controls are reversed
         const rotationDirection = xDir > 0 ? -1 : 1;
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 6); // Reduced to 30 degrees max
+        // Use a more conservative rotation amount for smoother control
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 8); // Reduced to ~22.5 degrees max
         
         moveData = {
           creator: "web_interface",
@@ -358,8 +359,10 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // For backward movement, we need to make sure it doesn't try to rotate at all
-            no_rotate: yDir < 0 ? true : undefined
+            // Always set no_rotate for both forward and backward in strict forward mode
+            // This ensures the robot maintains exact orientation
+            no_rotate: true,
+            inplace_rotate: false // Explicitly set to false to prevent any rotation
           }
         };
         
@@ -369,13 +372,13 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       }
       else { // combined
         // Combined movement (both rotation and forward/backward)
-        // For combined movement, we'll make the rotation component very subtle
-        const distance = yDir * speed * 0.2; // Reduced distance for combined movement
+        // For combined movement, we'll make the rotation component extremely subtle
+        const distance = yDir * speed * 0.15; // Use same reduced distance as forward mode
         
         // REVERSE the direction (flip the sign) for rotation since controls are reversed
         const rotationDirection = xDir > 0 ? -1 : 1;
         // Make the rotation extremely subtle
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 20); // Much smaller rotation
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 40); // Even smaller rotation (4.5 degrees max)
         
         // Calculate target position
         const targetX = currentX + Math.cos(currentOrientation) * distance;
@@ -394,7 +397,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // For backward movement in combined mode, also ensure no rotation
+            // For forward movement, use extremely minimal rotation
+            // For backward movement, prevent rotation altogether
+            inplace_rotate: false,
             no_rotate: yDir < 0 ? true : undefined
           }
         };
