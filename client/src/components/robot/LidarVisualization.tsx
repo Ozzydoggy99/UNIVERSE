@@ -393,11 +393,9 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
                 </Button>
               </div>
               
-              {pointCount === 0 && (
-                <div className="text-xs text-amber-500 mt-1">
-                  No points detected. Try power cycling the LiDAR or clearing the zero error.
-                </div>
-              )}
+              <div className="text-xs text-amber-500 mt-1">
+                LiDAR data not available. Try power cycling the LiDAR or clearing the zero error.
+              </div>
               
               <div className="text-xs text-muted-foreground mt-1">
                 Serial: {serialNumber || 'Not connected'}
