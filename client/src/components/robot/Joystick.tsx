@@ -297,14 +297,19 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         isRotationCommand ? 'rotation' : 
         isForwardCommand ? 'forward' : 'combined';
       
-      // If we were previously moving forward/backward and still have significant vertical component,
-      // maintain the forward movement type to prevent unexpected rotation
-      if (lastCommandTypeRef.current === 'forward' && Math.abs(yDir) > 0.15 && Math.abs(xDir) < 0.15) {
-        // Maintain forward mode with stricter thresholds when continuing a forward/backward movement
-        console.log('Maintaining forward/backward mode for consistency');
-        lastCommandTypeRef.current = 'forward';
+      // Special case: if we're in forward/backward mode, we want to be much stricter about
+      // preventing any sideways (strafing) movement to ensure perfect straight line movement
+      if (lastCommandTypeRef.current === 'forward') {
+        // When already in forward/backward mode, make xDir zero to prevent any strafing
+        xDir = 0;
+        console.log('In forward/backward mode - removing any lateral/strafing component');
+        
+        // Only exit forward mode if there's almost no vertical input
+        if (Math.abs(yDir) < 0.05) {
+          lastCommandTypeRef.current = currentCommandType;
+        }
       } else {
-        // Otherwise update the command type
+        // If not already in forward mode, follow normal command type switching
         lastCommandTypeRef.current = currentCommandType;
       }
       
@@ -312,7 +317,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       
       if (lastCommandTypeRef.current === 'rotation') {
         // Pure rotation command - rotate in place without moving
-        const rotationDirection = xDir > 0 ? 1 : -1;
+        // REVERSE the direction (flip the sign) since controls are reversed
+        const rotationDirection = xDir > 0 ? -1 : 1;
         const rotationAmount = Math.abs(xDir) * (Math.PI / 6); // Reduced to 30 degrees max
         
         moveData = {
@@ -334,7 +340,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
         // Use a smaller distance increment for more precise movements
-        const distance = yDir * speed * 0.2; // Further reduced for smoother movement
+        const distance = yDir * speed * 0.15; // Even smaller distance for more precision
         
         // Calculate target coordinates using the current orientation vector
         const targetX = currentX + Math.cos(currentOrientation) * distance;
@@ -346,28 +352,34 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_x: targetX,
           target_y: targetY,
           target_z: 0,
-          target_ori: currentOrientation, // No rotation at all in forward mode
+          target_ori: currentOrientation, // No rotation at all in forward/backward mode
           target_accuracy: 0.05,
           use_target_zone: true,
-          properties: {} // Don't set inplace_rotate at all for forward movement
+          properties: {
+            // For backward movement, we need to make sure it doesn't try to rotate at all
+            no_rotate: yDir < 0 ? true : undefined
+          }
         };
         
-        console.log('Sending STRICT forward command, distance:', distance, 'orientation:', currentOrientation);
+        // Indicate direction in log message
+        const directionWord = yDir > 0 ? "FORWARD" : "BACKWARD";
+        console.log(`Sending STRICT ${directionWord} command, distance:`, distance, 'orientation:', currentOrientation);
       }
       else { // combined
         // Combined movement (both rotation and forward/backward)
         // For combined movement, we'll make the rotation component very subtle
-        const distance = yDir * speed * 0.3;
+        const distance = yDir * speed * 0.2; // Reduced distance for combined movement
         
-        // Make the rotation even more subtle in combined movements
-        const rotationDirection = xDir > 0 ? 1 : -1;
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 12); // Even smaller rotation
+        // REVERSE the direction (flip the sign) for rotation since controls are reversed
+        const rotationDirection = xDir > 0 ? -1 : 1;
+        // Make the rotation extremely subtle
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 20); // Much smaller rotation
         
         // Calculate target position
         const targetX = currentX + Math.cos(currentOrientation) * distance;
         const targetY = currentY + Math.sin(currentOrientation) * distance;
         
-        // Calculate new orientation
+        // Calculate new orientation - with extremely small rotation
         const targetOrientation = currentOrientation + (rotationDirection * rotationAmount);
         
         moveData = {
@@ -379,7 +391,10 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_ori: targetOrientation,
           target_accuracy: 0.05,
           use_target_zone: true,
-          properties: {} // Don't set inplace_rotate for combined movement
+          properties: {
+            // For backward movement in combined mode, also ensure no rotation
+            no_rotate: yDir < 0 ? true : undefined
+          }
         };
         
         console.log('Sending combined command, distance:', distance, 'rotation:', rotationAmount);
