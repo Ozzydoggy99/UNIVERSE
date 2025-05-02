@@ -1280,6 +1280,39 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
   
+  // Stop any active mapping task on the robot
+  app.post('/api/robots/stop-mapping/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      console.log('STOP MAPPING API called with params:', req.params);
+      
+      const { serialNumber } = req.params;
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        console.log(`ERROR: Robot not found - ${serialNumber} is not ${PHYSICAL_ROBOT_SERIAL}`);
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      console.log(`Attempting to stop any active mapping tasks for robot ${serialNumber}`);
+      
+      const success = await stopActiveRobotMapping();
+      
+      if (success) {
+        return res.status(200).json({
+          message: 'Successfully stopped active mapping task'
+        });
+      } else {
+        return res.status(200).json({
+          message: 'No active mapping tasks were found or could not be stopped'
+        });
+      }
+    } catch (error: any) {
+      console.error('Error stopping mapping task:', error);
+      console.error('Error details:', error.stack);
+      res.status(500).json({ error: error.message || 'Failed to stop mapping task' });
+    }
+  });
+  
   // Get current map being built in a mapping session
   app.get('/api/robots/current-map/:serialNumber', async (req: Request, res: Response) => {
     try {
