@@ -95,6 +95,18 @@ export function registerRobotMoveApiRoutes(app: Express) {
         moveData.target_accuracy = moveData.target_accuracy || 0.1;
       }
 
+      // Log detailed move command data for debugging
+      console.log('Move command details:', {
+        serialNumber,
+        type: moveData.type,
+        target: {
+          x: moveData.target_x,
+          y: moveData.target_y,
+          orientation: moveData.target_ori
+        },
+        properties: moveData.properties
+      });
+      
       // Forward the move request to the robot API
       // Immediately respond to client to avoid delay
       // This makes the joystick commands nearly instant

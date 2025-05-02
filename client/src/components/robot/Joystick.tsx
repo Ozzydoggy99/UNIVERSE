@@ -309,10 +309,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       
       // For consistent movement patterns, if we previously determined the command type
       // and we're only making small joystick adjustments, keep the same command type
-      // For now, we'll force all movement to use the 'forward' mode with no_rotate
-      // to prevent any swinging issues. This basically disables combined mode temporarily.
       const currentCommandType = 
-        isRotationCommand ? 'rotation' : 'forward'; // Treat all non-rotation as forward
+        isRotationCommand ? 'rotation' : 
+        isForwardCommand ? 'forward' : 'combined';
       
       console.log('Command mode:', currentCommandType);
       
@@ -337,10 +336,11 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       
       if (lastCommandTypeRef.current === 'rotation') {
         // Pure rotation command - rotate in place without moving
-        // REVERSE the direction (flip the sign) since controls are reversed
-        const rotationDirection = xDir > 0 ? -1 : 1;
+        // LEFT joystick should make robot rotate LEFT (counterclockwise), which is positive rotation
+        // RIGHT joystick should make robot rotate RIGHT (clockwise), which is negative rotation
+        const rotationDirection = xDir < 0 ? 1 : -1; // Left = positive, Right = negative
         // Use a larger rotation amount for more noticeable turning
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // Increased to 45 degrees max
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // 45 degrees max
         
         moveData = {
           creator: "web_interface",
@@ -361,12 +361,14 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       } 
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
-        // Use a larger distance to ensure the robot responds to commands
-        const distance = yDir * speed * 1.0; // Full meter at maximum deflection for better response
+        // Use a much larger distance to ensure the robot responds to commands
+        const distance = yDir * speed * 2.0; // TWO meters at maximum deflection for better response
         
+        console.log('Current orientation:', currentOrientation); 
         // Calculate target coordinates using the current orientation vector
         const targetX = currentX + Math.cos(currentOrientation) * distance;
         const targetY = currentY + Math.sin(currentOrientation) * distance;
+        console.log('Forward move: current position:', {x: currentX, y: currentY}, 'target:', {x: targetX, y: targetY});
         
         moveData = {
           creator: "web_interface",
@@ -393,8 +395,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         // For combined movement, use a larger distance to ensure the robot responds
         const distance = yDir * speed * 1.0; // Full meter at maximum deflection for better response
         
-        // REVERSE the direction (flip the sign) for rotation since controls are reversed
-        const rotationDirection = xDir > 0 ? -1 : 1;
+        // LEFT joystick should make robot rotate LEFT (counterclockwise), which is positive rotation
+        // RIGHT joystick should make robot rotate RIGHT (clockwise), which is negative rotation
+        const rotationDirection = xDir < 0 ? 1 : -1; // Left = positive, Right = negative
         // Make the rotation much more dramatic in combined mode too
         const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // 45 degrees max at full deflection
         
