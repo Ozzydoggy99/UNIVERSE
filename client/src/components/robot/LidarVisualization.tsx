@@ -163,7 +163,13 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
             <AlertCircle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
             <p className="text-sm text-muted-foreground">No LiDAR data available</p>
             <p className="text-xs text-muted-foreground mt-1">
-              LiDAR data not supported on this robot model or topic not enabled
+              Topic: {data.topic || 'None'} - Source: {data.source || 'None'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Last update: {data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Never'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Connection: {data.connectionStatus || 'Unknown'}
             </p>
           </div>
         </CardContent>

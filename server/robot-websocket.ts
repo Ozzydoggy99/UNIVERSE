@@ -36,7 +36,19 @@ const TOPICS = {
   SENSORS: ['/battery_state'],
   MAP: ['/map', '/slam/state'],
   CAMERA: ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video'],
-  LIDAR: ['/scan', '/scan_matched_points2']
+  LIDAR: [
+    '/scan', 
+    '/scan_matched_points2',
+    '/pointcloud2',        // Try generic pointcloud topic
+    '/points',             // Another common pointcloud name
+    '/points2',            // Another variation
+    '/lidar/points',       // Namespaced variation
+    '/lidar/scan',         // Namespaced variation
+    '/lidar/pointcloud',   // Namespaced variation
+    '/lidar/scan_matched', // Namespaced variation
+    '/slam/points',        // SLAM might publish point cloud
+    '/raw/lidar'           // Raw LiDAR data
+  ]
 };
 
 // Data caches
