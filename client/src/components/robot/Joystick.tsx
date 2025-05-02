@@ -321,8 +321,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         // Pure rotation command - rotate in place without moving
         // REVERSE the direction (flip the sign) since controls are reversed
         const rotationDirection = xDir > 0 ? -1 : 1;
-        // Use a more conservative rotation amount for smoother control
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 8); // Reduced to ~22.5 degrees max
+        // Use a larger rotation amount for more noticeable turning
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 4); // Increased to 45 degrees max
         
         moveData = {
           creator: "web_interface",
@@ -342,8 +342,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       } 
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
-        // Use a smaller distance increment for more precise movements
-        const distance = yDir * speed * 0.15; // Even smaller distance for more precision
+        // Use a larger distance increment for more noticeable movement
+        const distance = yDir * speed * 0.5; // Increased for more substantial movement
         
         // Calculate target coordinates using the current orientation vector
         const targetX = currentX + Math.cos(currentOrientation) * distance;
@@ -372,13 +372,13 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       }
       else { // combined
         // Combined movement (both rotation and forward/backward)
-        // For combined movement, we'll make the rotation component extremely subtle
-        const distance = yDir * speed * 0.15; // Use same reduced distance as forward mode
+        // For combined movement, we'll use the same larger distance as forward mode
+        const distance = yDir * speed * 0.5; // Increased for more substantial movement
         
         // REVERSE the direction (flip the sign) for rotation since controls are reversed
         const rotationDirection = xDir > 0 ? -1 : 1;
-        // Make the rotation extremely subtle
-        const rotationAmount = Math.abs(xDir) * (Math.PI / 40); // Even smaller rotation (4.5 degrees max)
+        // Make the rotation more noticeable in combined mode too
+        const rotationAmount = Math.abs(xDir) * (Math.PI / 12); // Increased rotation (15 degrees max)
         
         // Calculate target position
         const targetX = currentX + Math.cos(currentOrientation) * distance;
