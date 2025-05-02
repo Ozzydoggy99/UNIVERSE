@@ -538,8 +538,35 @@ export function MapEnhanced({
           drawPointsAndPaths();
         };
         
-        // Set the source of the image to the base64 data
-        img.src = `data:image/png;base64,${mapData.grid}`;
+        // Add error handling before setting the source
+        img.onerror = (error) => {
+          console.error('Error loading base64 image:', error);
+          // Draw fallback content without the image
+          if (ctx && canvasRef.current) {
+            ctx.fillStyle = '#e9f7ef';
+            ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+            ctx.fillStyle = '#3f51b5';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Could not load map image', canvasRef.current.width / 2, canvasRef.current.height / 2);
+            
+            // Still draw the robot position and other elements
+            drawPointsAndPaths();
+          }
+        };
+        
+        // Safely set the source with a try-catch around the entire operation
+        try {
+          // Validate base64 string (at least check it's not empty and has reasonable structure)
+          if (typeof mapData.grid === 'string' && mapData.grid.length > 100 && mapData.grid.startsWith('iVBOR')) {
+            img.src = `data:image/png;base64,${mapData.grid}`;
+          } else {
+            throw new Error('Invalid base64 image data');
+          }
+        } catch (error) {
+          console.error('Error setting image source:', error);
+          img.onerror(new ErrorEvent('error', { error }));
+        }
       } 
       // Handle numeric grid data (traditional array)
       else if (Array.isArray(mapData.grid)) {

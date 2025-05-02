@@ -122,33 +122,59 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
             grid: data.grid ? `${data.grid.substring(0, 20)}... (${data.grid.length} chars)` : null
           });
           
-          // Check for valid base64 data
-          if (data?.grid && typeof data.grid === 'string' && data.grid.startsWith('iVBOR')) {
-            console.log('Got base64 map data directly, length:', data.grid.length);
-            setImageData(data.grid.trim());
-            
-            // Also save the map metadata for positioning
-            if (data.resolution && data.origin && data.size) {
-              console.log('Map metadata received:', {
-                resolution: data.resolution,
-                origin: data.origin,
-                size: data.size
+          try {
+            // Check for valid base64 data
+            if (data?.grid && typeof data.grid === 'string') {
+              // Additional validation to prevent DOMException
+              if (data.grid.startsWith('iVBOR') && data.grid.length > 100) {
+                console.log('Got base64 map data directly, length:', data.grid.length);
+                
+                // Trim whitespace and safely set image data
+                const cleanedBase64 = data.grid.trim();
+                
+                // Check for invalid base64 characters
+                const isValidBase64 = /^[A-Za-z0-9+/=]+$/.test(cleanedBase64);
+                if (!isValidBase64) {
+                  console.warn('Base64 data contains invalid characters');
+                  setImageData(null);
+                } else {
+                  setImageData(cleanedBase64);
+                }
+                
+                // Also save the map metadata for positioning
+                if (data.resolution && data.origin && data.size) {
+                  console.log('Map metadata received:', {
+                    resolution: data.resolution,
+                    origin: data.origin,
+                    size: data.size
+                  });
+                  
+                  setMapMetadata({
+                    resolution: data.resolution, 
+                    origin: data.origin as [number, number],
+                    size: data.size as [number, number]
+                  });
+                }
+              } else {
+                console.warn('Invalid base64 data format:', {
+                  startsWithiVBOR: data.grid.startsWith('iVBOR'),
+                  length: data.grid.length
+                });
+                setImageData(null);
+              }
+            } else {
+              console.log('Direct API call - No valid base64 data:', {
+                hasData: !!data,
+                hasGrid: !!(data?.grid),
+                gridType: data?.grid ? typeof data.grid : 'undefined',
+                keysInData: data ? Object.keys(data) : []
               });
-              
-              setMapMetadata({
-                resolution: data.resolution, 
-                origin: data.origin as [number, number],
-                size: data.size as [number, number]
-              });
+              setImageData(null);
             }
-          } else {
-            console.log('Direct API call - No valid base64 data:', {
-              hasData: !!data,
-              hasGrid: !!(data?.grid),
-              gridType: data?.grid ? typeof data.grid : 'undefined',
-              keysInData: data ? Object.keys(data) : []
-            });
+          } catch (error) {
+            console.error('Error processing base64 image data:', error);
             setImageData(null);
+            setImageError('Error processing map data: ' + (error instanceof Error ? error.message : String(error)));
           }
         } else {
           console.error('Failed to fetch map data directly:', response.status);
@@ -290,12 +316,23 @@ export function Base64ImageTest({ serialNumber = 'L382502104987ir' }: { serialNu
               }}
             >
               {/* Map background image */}
-              <img 
-                src={`data:image/png;base64,${imageData}`}
-                alt="Robot map data" 
-                className="max-w-full max-h-full"
-                onError={handleImageError}
-              />
+              {imageData ? (
+                <img 
+                  src={`data:image/png;base64,${imageData}`}
+                  alt="Robot map data" 
+                  className="max-w-full max-h-full"
+                  onError={handleImageError}
+                  crossOrigin="anonymous" // Add cross-origin attribute to help with CORS issues
+                  loading="eager"         // Eager loading for faster display
+                />
+              ) : (
+                <div className="flex items-center justify-center h-[400px] w-full text-gray-500">
+                  <div className="text-center">
+                    <div className="mb-2">No image data available</div>
+                    <div className="text-sm opacity-70">Waiting for valid map data from robot</div>
+                  </div>
+                </div>
+              )}
               
               {/* Robot position marker */}
               {robotPosition && robotPosition.x !== undefined && (
