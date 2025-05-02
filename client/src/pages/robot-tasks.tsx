@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
 import { 
   Table, 
   TableBody, 
@@ -239,8 +238,22 @@ export default function RobotTasksPage() {
   });
   
   const updatePriorityMutation = useMutation({
-    mutationFn: ({ id, priority }: { id: number, priority: number }) => 
-      apiRequest(`/api/robot-tasks/${id}/priority`, 'PUT', { priority }),
+    mutationFn: async ({ id, priority }: { id: number, priority: number }) => {
+      const res = await fetch(`/api/robot-tasks/${id}/priority`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ priority }),
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to update priority: ${res.status} ${res.statusText}`);
+      }
+      
+      return res.json();
+    },
     onSuccess: () => {
       invalidateCurrentQueries();
       toast({
@@ -258,13 +271,28 @@ export default function RobotTasksPage() {
   });
   
   const reorderTasksMutation = useMutation({
-    mutationFn: (taskIds: number[]) => {
-      if (templateFilter === 'all') {
-        return apiRequest('/api/robot-tasks/reorder', 'POST', { taskIds });
-      } else {
+    mutationFn: async (taskIds: number[]) => {
+      let url = '/api/robot-tasks/reorder';
+      
+      if (templateFilter !== 'all') {
         const templateId = parseInt(templateFilter);
-        return apiRequest(`/api/robot-tasks/template/${templateId}/reorder`, 'POST', { taskIds });
+        url = `/api/robot-tasks/template/${templateId}/reorder`;
       }
+      
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ taskIds }),
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to reorder tasks: ${res.status} ${res.statusText}`);
+      }
+      
+      return res.json();
     },
     onSuccess: () => {
       invalidateCurrentQueries();

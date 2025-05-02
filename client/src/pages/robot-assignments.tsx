@@ -41,7 +41,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+
 import { RobotTemplateAssignment, UITemplate } from '@shared/schema';
 import { Trash2, Edit, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -111,11 +111,21 @@ export default function RobotAssignments() {
   
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (data: AssignmentFormData) => {
-      return apiRequest('/api/robot-assignments/register', {
+    mutationFn: async (data: AssignmentFormData) => {
+      const res = await fetch('/api/robot-assignments/register', {
         method: 'POST',
-        data,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data),
+        credentials: 'include'
       });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to create assignment: ${res.status} ${res.statusText}`);
+      }
+      
+      return res.json();
     },
     onSuccess: async () => {
       toast({
@@ -140,12 +150,22 @@ export default function RobotAssignments() {
   
   // Edit mutation
   const editMutation = useMutation({
-    mutationFn: (data: AssignmentFormData & { id: number }) => {
+    mutationFn: async (data: AssignmentFormData & { id: number }) => {
       const { id, ...updateData } = data;
-      return apiRequest(`/api/robot-assignments/${id}`, {
+      const res = await fetch(`/api/robot-assignments/${id}`, {
         method: 'PUT',
-        data: updateData,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData),
+        credentials: 'include'
       });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to update assignment: ${res.status} ${res.statusText}`);
+      }
+      
+      return res.json();
     },
     onSuccess: async () => {
       toast({
@@ -171,10 +191,20 @@ export default function RobotAssignments() {
   
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => {
-      return apiRequest(`/api/robot-assignments/${id}`, {
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/robot-assignments/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
       });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to delete assignment: ${res.status} ${res.statusText}`);
+      }
+      
+      return res.json();
     },
     onSuccess: async () => {
       toast({
