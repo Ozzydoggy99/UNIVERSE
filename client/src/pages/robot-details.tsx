@@ -18,6 +18,7 @@ import {
 import { 
   ArrowLeft, 
   Bot, 
+  Map,
   Map as MapIcon, 
   BarChart, 
   AlertCircle,
@@ -49,7 +50,7 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
-import { Map } from '@/components/ui/map';
+import { Map as MapComponent } from '@/components/ui/map';
 import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 import { RobotH264Stream } from '@/components/RobotH264Stream';
 import { DirectionalControl } from '@/components/robot/DirectionalControl';
@@ -727,6 +728,20 @@ export default function RobotDetails() {
               <div className="flex justify-between text-xs text-muted-foreground mt-3">
                 <span>Last LiDAR Update:</span>
                 <span>{finalLidarData?.timestamp ? formatTimeSince(finalLidarData.timestamp) : 'No data'}</span>
+              </div>
+              
+              {/* Add button to launch layered map visualization */}
+              <div className="mt-4">
+                <Link to={`/layered-map/${serialNumber}`}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full flex items-center gap-2"
+                    disabled={!serialNumber}
+                  >
+                    <Map className="h-4 w-4" />
+                    Open Layered Map View
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
