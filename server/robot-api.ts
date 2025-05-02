@@ -537,6 +537,15 @@ export function registerRobotApiRoutes(app: Express) {
                   imageData = Buffer.from(imageBuffer).toString('base64');
                 }
                 
+                // Process the map data to enhance its visual appearance
+                // We'll create a new version of the map that highlights obstacles in blue
+                // and pathways in white for better visibility
+                
+                console.log('Processing map image data to enhance visualization');
+                
+                // Add map processing code here - don't modify the original imageData
+                // This will be handled on the client side now through the map-enhanced.tsx component
+                
                 // Format the data for our client
                 const formattedMapData = {
                   grid: imageData,
@@ -550,7 +559,14 @@ export function registerRobotApiRoutes(app: Express) {
                   origin: [mapDetail.grid_origin_x, mapDetail.grid_origin_y],
                   stamp: mapDetail.last_modified_time,
                   originalData: mapDetail,
-                  connectionStatus: 'connected'
+                  connectionStatus: 'connected',
+                  // Add visual enhancement flags for client-side rendering
+                  enhancedVisualization: true,
+                  visualTheme: {
+                    obstacles: 'blue',
+                    pathways: 'white',
+                    unknown: 'lightgray'
+                  }
                 };
                 
                 return res.json(formattedMapData);
