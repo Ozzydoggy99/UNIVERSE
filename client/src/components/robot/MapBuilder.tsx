@@ -416,21 +416,37 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
   
   // Cancel map building
   const cancelMapBuilding = async () => {
-    if (!mappingSessionId) return;
+    if (!serialNumber) return;
     
     try {
-      // Stop WebSocket mapping streams before cancelling the mapping session
-      console.log('Stopping mapping streams before cancelling mapping session');
+      // First, try to stop any active mapping task on the robot
+      console.log('Attempting to stop any active mapping task on the robot');
+      
+      try {
+        // Use our new dedicated endpoint to stop any active mapping task
+        const stopResponse = await apiRequest('POST', `/api/robots/stop-mapping/${serialNumber}`, {});
+        console.log('Stop mapping response:', stopResponse);
+      } catch (stopError) {
+        // Log but don't throw - we still want to attempt the session-specific cancel
+        console.error('Error stopping active mapping task:', stopError);
+      }
+      
+      // Stop WebSocket mapping streams
+      console.log('Stopping mapping streams');
       stopMappingStreams(serialNumber);
       
       // Reset real-time map data
       setRealTimeMapData(null);
       setIsConnectedToMapStream(false);
       
-      // Call API to cancel the mapping session
-      await apiRequest('POST', `/api/robots/cancel-mapping/${serialNumber}`, {
-        sessionId: mappingSessionId
-      });
+      // If we have a specific mapping session ID, also cancel it properly
+      if (mappingSessionId) {
+        console.log(`Cancelling specific mapping session with ID ${mappingSessionId}`);
+        // Call API to cancel the specific mapping session
+        await apiRequest('POST', `/api/robots/cancel-mapping/${serialNumber}`, {
+          sessionId: mappingSessionId
+        });
+      }
       
       setMapStatus(MAP_BUILDING_STATUS.IDLE);
       setMappingSessionId(null);
@@ -441,30 +457,63 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
         description: "The mapping session has been cancelled."
       });
     } catch (err: any) {
+      console.error('Error in cancelMapBuilding:', err);
       toast({
         title: "Error cancelling map building",
         description: err.message || 'Something went wrong',
         variant: "destructive"
       });
+      
+      // Even if there's an error, reset the UI state
+      setMapStatus(MAP_BUILDING_STATUS.IDLE);
+      setMappingSessionId(null);
+      setMapProgress(0);
     }
   };
   
   // Reset the map builder
-  const resetMapBuilder = () => {
-    // Stop any active mapping streams
-    if (mapStatus === MAP_BUILDING_STATUS.BUILDING) {
-      console.log('Stopping mapping streams before resetting map builder');
-      stopMappingStreams(serialNumber);
+  const resetMapBuilder = async () => {
+    try {
+      // First, try to stop any active mapping task on the robot
+      if (serialNumber) {
+        console.log('Attempting to stop any active mapping task on the robot');
+        
+        try {
+          // Use our new dedicated endpoint to stop any active mapping task
+          const stopResponse = await apiRequest('POST', `/api/robots/stop-mapping/${serialNumber}`, {});
+          console.log('Stop mapping response:', stopResponse);
+        } catch (stopError) {
+          // Log but don't throw - we still want to reset the UI
+          console.error('Error stopping active mapping task:', stopError);
+        }
+      }
+      
+      // Stop any active mapping streams
+      if (mapStatus === MAP_BUILDING_STATUS.BUILDING && serialNumber) {
+        console.log('Stopping mapping streams before resetting map builder');
+        stopMappingStreams(serialNumber);
+      }
+      
+      // Reset all state
+      setMapStatus(MAP_BUILDING_STATUS.IDLE);
+      setMappingSessionId(null);
+      setMapProgress(0);
+      setError(null);
+      setRealTimeMapData(null);
+      setIsConnectedToMapStream(false);
+      setMapName(`New Map ${new Date().toLocaleDateString()}`);
+    } catch (error) {
+      console.error('Error in resetMapBuilder:', error);
+      
+      // Even if there's an error, reset the UI state
+      setMapStatus(MAP_BUILDING_STATUS.IDLE);
+      setMappingSessionId(null);
+      setMapProgress(0);
+      setError(null);
+      setRealTimeMapData(null);
+      setIsConnectedToMapStream(false);
+      setMapName(`New Map ${new Date().toLocaleDateString()}`);
     }
-    
-    // Reset all state
-    setMapStatus(MAP_BUILDING_STATUS.IDLE);
-    setMappingSessionId(null);
-    setMapProgress(0);
-    setError(null);
-    setRealTimeMapData(null);
-    setIsConnectedToMapStream(false);
-    setMapName(`New Map ${new Date().toLocaleDateString()}`);
   };
   
   // Get status badge color
