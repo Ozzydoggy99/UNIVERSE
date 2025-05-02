@@ -476,11 +476,12 @@ export default function RobotDetails() {
         </Button>
         
         <Button 
-          variant="outline" 
+          variant="default" 
           onClick={() => navigate(`/map-test/${serialNumber}`)}
+          className="bg-primary text-white hover:bg-primary/90"
         >
-          <Bot className="h-4 w-4 mr-1" />
-          Go to Map Test
+          <MapIcon className="h-4 w-4 mr-2" />
+          Open Enhanced Map
         </Button>
       </div>
 

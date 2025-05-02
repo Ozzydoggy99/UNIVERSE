@@ -170,10 +170,11 @@ export default function MapTestPage() {
         </Button>
         
         <Button 
-          variant="outline" 
-          onClick={() => navigate(`/robots/${serialNumber}`)}
+          variant="primary"
+          className="bg-primary text-white hover:bg-primary/90"
+          onClick={() => navigate(`/robot-details/${serialNumber}`)}
         >
-          <Bot className="h-4 w-4 mr-1" />
+          <Bot className="h-4 w-4 mr-2" />
           Back to Robot Details
         </Button>
       </div>
