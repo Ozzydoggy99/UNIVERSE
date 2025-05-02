@@ -985,4 +985,114 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to clear range data all zero error' });
     }
   });
+  
+  /**
+   * Jack up the robot
+   * Based on the Jack Device Up/Down Service API
+   */
+  app.post('/api/robots/jack/:serialNumber/up', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      
+      // Only allow our specific robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Check if robot is connected
+      if (!isRobotConnected()) {
+        return res.status(503).json({ 
+          error: 'Robot not connected', 
+          message: 'The robot is not currently connected. Please check the connection.'
+        });
+      }
+      
+      // Send the command to jack up the robot
+      console.log(`Jacking up robot ${serialNumber}`);
+      
+      try {
+        const response = await fetch(`${ROBOT_API_URL}/services/jack_up`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to jack up robot: ${response.status} ${response.statusText}`);
+        }
+        
+        // Return success
+        res.json({ 
+          success: true, 
+          message: 'Robot jacked up successfully'
+        });
+      } catch (apiError) {
+        console.error(`Error in jack up API call:`, apiError);
+        return res.status(500).json({ 
+          error: 'Jack up API error', 
+          message: 'Failed to jack up robot. Check robot connectivity and try again.'
+        });
+      }
+    } catch (error) {
+      console.error('Error jacking up robot:', error);
+      res.status(500).json({ error: 'Failed to jack up robot' });
+    }
+  });
+
+  /**
+   * Jack down the robot
+   * Based on the Jack Device Up/Down Service API
+   */
+  app.post('/api/robots/jack/:serialNumber/down', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      
+      // Only allow our specific robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Check if robot is connected
+      if (!isRobotConnected()) {
+        return res.status(503).json({ 
+          error: 'Robot not connected', 
+          message: 'The robot is not currently connected. Please check the connection.'
+        });
+      }
+      
+      // Send the command to jack down the robot
+      console.log(`Jacking down robot ${serialNumber}`);
+      
+      try {
+        const response = await fetch(`${ROBOT_API_URL}/services/jack_down`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to jack down robot: ${response.status} ${response.statusText}`);
+        }
+        
+        // Return success
+        res.json({ 
+          success: true, 
+          message: 'Robot jacked down successfully'
+        });
+      } catch (apiError) {
+        console.error(`Error in jack down API call:`, apiError);
+        return res.status(500).json({ 
+          error: 'Jack down API error', 
+          message: 'Failed to jack down robot. Check robot connectivity and try again.'
+        });
+      }
+    } catch (error) {
+      console.error('Error jacking down robot:', error);
+      res.status(500).json({ error: 'Failed to jack down robot' });
+    }
+  });
 }

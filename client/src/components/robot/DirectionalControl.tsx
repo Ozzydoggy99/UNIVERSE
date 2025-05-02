@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, StopCircle } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, StopCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from '@/hooks/use-toast';
 
 interface DirectionalControlProps {
   serialNumber: string;
@@ -228,6 +229,98 @@ export function DirectionalControl({ serialNumber, disabled = false }: Direction
     setSpeed(value[0]);
   };
   
+  // Handle jack up command
+  const handleJackUp = async () => {
+    if (disabled || !serialNumber || isSendingCommand) return;
+    
+    setIsSendingCommand(true);
+    
+    try {
+      console.log(`Sending jack up command for robot ${serialNumber}`);
+      
+      const response = await fetch(`/api/robots/jack/${serialNumber}/up`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        console.log('Jack up command sent successfully');
+        toast({
+          title: "Success",
+          description: "Robot jack up command sent",
+          variant: "success",
+        });
+      } else {
+        const errorData = await response.json();
+        console.error('Jack up command failed:', errorData);
+        toast({
+          title: "Error",
+          description: errorData.message || "Failed to jack up robot",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error sending jack up command:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send jack up command",
+        variant: "destructive",
+      });
+    } finally {
+      setTimeout(() => {
+        setIsSendingCommand(false);
+      }, 500);
+    }
+  };
+  
+  // Handle jack down command
+  const handleJackDown = async () => {
+    if (disabled || !serialNumber || isSendingCommand) return;
+    
+    setIsSendingCommand(true);
+    
+    try {
+      console.log(`Sending jack down command for robot ${serialNumber}`);
+      
+      const response = await fetch(`/api/robots/jack/${serialNumber}/down`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        console.log('Jack down command sent successfully');
+        toast({
+          title: "Success",
+          description: "Robot jack down command sent",
+          variant: "success",
+        });
+      } else {
+        const errorData = await response.json();
+        console.error('Jack down command failed:', errorData);
+        toast({
+          title: "Error",
+          description: errorData.message || "Failed to jack down robot",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error sending jack down command:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send jack down command",
+        variant: "destructive",
+      });
+    } finally {
+      setTimeout(() => {
+        setIsSendingCommand(false);
+      }, 500);
+    }
+  };
+  
   return (
     <div className="space-y-6">
       {errorMessage && (
@@ -323,6 +416,36 @@ export function DirectionalControl({ serialNumber, disabled = false }: Direction
         
         {/* Empty cell (bottom-right) */}
         <div></div>
+      </div>
+      
+      {/* Jack Control Section */}
+      <div className="border-t pt-4 mt-4">
+        <h3 className="text-sm font-medium mb-3">Jack Control</h3>
+        <div className="grid grid-cols-2 gap-4 max-w-[250px] mx-auto">
+          {/* Jack Up button */}
+          <Button
+            variant="outline"
+            size="default"
+            onClick={handleJackUp}
+            disabled={disabled || isSendingCommand}
+            className="flex items-center justify-center gap-2"
+          >
+            <ChevronUp className="h-5 w-5" />
+            <span>Jack Up</span>
+          </Button>
+          
+          {/* Jack Down button */}
+          <Button
+            variant="outline"
+            size="default"
+            onClick={handleJackDown}
+            disabled={disabled || isSendingCommand}
+            className="flex items-center justify-center gap-2"
+          >
+            <ChevronDown className="h-5 w-5" />
+            <span>Jack Down</span>
+          </Button>
+        </div>
       </div>
       
       {isSendingCommand && (
