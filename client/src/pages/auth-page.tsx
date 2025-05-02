@@ -30,7 +30,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function AuthPage() {
-  const { user, loginMutation } = useAuth();
+  const { user, loginMutation, registerMutation } = useAuth();
   
   // If user is already logged in, redirect to home
   if (user) {
@@ -47,9 +47,20 @@ export default function AuthPage() {
   });
 
   const onLoginSubmit = (values: LoginFormValues) => {
+    // Add console logs for debugging 
+    console.log("Attempting login with username:", values.username);
     loginMutation.mutate({
       username: values.username,
       password: values.password,
+    });
+  };
+  
+  // Helper function to login with preset credentials (Development only)
+  const loginWithPresetCredentials = (username: string) => {
+    console.log(`Quick login with username: ${username}`);
+    loginMutation.mutate({
+      username,
+      password: username, // Password same as username for preset accounts
     });
   };
 
@@ -111,6 +122,41 @@ export default function AuthPage() {
                   </div>
                 ) : "Sign In"}
               </Button>
+              
+              <div className="mt-6">
+                <div className="text-center text-sm text-gray-500 mb-2">
+                  Quick login with existing accounts
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => loginWithPresetCredentials("admin")}
+                    disabled={loginMutation.isPending}
+                  >
+                    Admin
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => loginWithPresetCredentials("Nana")}
+                    disabled={loginMutation.isPending}
+                  >
+                    Nana
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => loginWithPresetCredentials("Isabella")}
+                    disabled={loginMutation.isPending}
+                  >
+                    Isabella
+                  </Button>
+                </div>
+              </div>
             </form>
           </Form>
         </CardContent>
