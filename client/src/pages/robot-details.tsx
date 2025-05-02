@@ -52,7 +52,7 @@ import { useRobot } from '@/providers/robot-provider';
 import { Map } from '@/components/ui/map';
 import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 import { RobotH264Stream } from '@/components/RobotH264Stream';
-import { SimpleJoystick } from '@/components/robot/SimpleJoystick';
+import { DirectionalControl } from '@/components/robot/DirectionalControl';
 
 interface RobotStatus {
   model: string;
@@ -640,7 +640,7 @@ export default function RobotDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <SimpleJoystick 
+              <DirectionalControl 
                 serialNumber={serialNumber || ''} 
                 disabled={connectionState !== 'connected'} 
               />
