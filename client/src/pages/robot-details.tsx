@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useLocation, useNavigate } from 'wouter';
+import { useParams, useLocation, useNavigate, Link } from 'wouter';
 import { 
   Card, 
   CardContent, 
@@ -299,11 +299,12 @@ export default function RobotDetails() {
           
           <Button 
             variant="outline" 
-            onClick={() => navigate(`/map-test/${serialNumber}`)}
-            disabled={true}
+            asChild
           >
-            <Bot className="h-4 w-4 mr-1" />
-            Go to Map Test
+            <Link href={`/layered-map/${serialNumber}`}>
+              <Layers className="h-4 w-4 mr-1" />
+              Layered Map
+            </Link>
           </Button>
         </div>
         
@@ -475,14 +476,26 @@ export default function RobotDetails() {
           Back to Robot Hub
         </Button>
         
-        <Button 
-          variant="default" 
-          onClick={() => navigate(`/map-test/${serialNumber}`)}
-          className="bg-primary text-white hover:bg-primary/90"
-        >
-          <MapIcon className="h-4 w-4 mr-2" />
-          Open Enhanced Map
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            asChild
+          >
+            <Link href={`/layered-map/${serialNumber}`}>
+              <Layers className="h-4 w-4 mr-1" />
+              Layered Map
+            </Link>
+          </Button>
+          
+          <Button 
+            variant="default" 
+            onClick={() => navigate(`/map-test/${serialNumber}`)}
+            className="bg-primary text-white hover:bg-primary/90"
+          >
+            <MapIcon className="h-4 w-4 mr-2" />
+            Map Test
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">

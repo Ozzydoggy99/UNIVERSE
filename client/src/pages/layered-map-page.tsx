@@ -1,34 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'wouter';
+import { useParams, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Toggle } from '@/components/ui/toggle';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  ChevronLeft, 
-  Layers, 
-  Map as MapIcon, 
-  Route, 
-  Target, 
-  Home, 
-  Eye, 
-  EyeOff, 
-  Plus, 
-  Trash2, 
-  Save, 
-  Undo,
-  RotateCcw 
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle,
+  CardDescription,
+  CardFooter
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
+import { 
+  ArrowLeft, 
+  Map as MapIcon,
+  Layers,
+  Crosshair,
+  Eye,
+  EyeOff,
+  Save,
+  Download,
+  Upload,
+  Trash2,
+  Plus,
+  Minus,
+  RotateCw,
+  Bot,
+  Pencil,
+  Eraser, 
+  Square
+} from 'lucide-react';
 import { fetcher } from '@/lib/fetcher';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RobotStatus, RobotPosition, RobotSensorData, MapData, LidarData } from '@/types/robot';
-import { Badge } from '@/components/ui/badge';
-import { Link } from 'wouter';
+import { useRobot } from '@/providers/robot-provider';
+import { useToast } from "@/hooks/use-toast";
 
-// Type definitions for our layered map system
 interface Point {
   x: number;
   y: number;
@@ -56,554 +64,818 @@ interface LayeredMap {
   layers: MapLayer[];
 }
 
-const DEFAULT_LAYERS: MapLayer[] = [
-  {
-    id: 'base',
-    name: 'Base Map',
-    visible: true,
-    type: 'base',
-    color: '#ffffff',
-    data: null
-  },
-  {
-    id: 'lidar',
-    name: 'LiDAR Data',
-    visible: true,
-    type: 'lidar',
-    color: '#ff0000',
-    data: []
-  },
-  {
-    id: 'path',
-    name: 'Path History',
-    visible: true,
-    type: 'path',
-    color: '#00ff00',
-    data: []
-  },
-  {
-    id: 'obstacles',
-    name: 'Detected Obstacles',
-    visible: true,
-    type: 'obstacle',
-    color: '#ff00ff',
-    data: []
-  }
-];
-
-const LayeredMapPage: React.FC = () => {
-  const { serialNumber } = useParams<{ serialNumber: string }>();
-  const [robotStatus, setRobotStatus] = useState<RobotStatus | null>(null);
-  const [robotPosition, setRobotPosition] = useState<RobotPosition | null>(null);
-  const [sensors, setSensors] = useState<RobotSensorData | null>(null);
-  const [mapData, setMapData] = useState<MapData | null>(null);
-  const [lidarData, setLidarData] = useState<LidarData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [layers, setLayers] = useState<MapLayer[]>(DEFAULT_LAYERS);
-  const [selectedLayer, setSelectedLayer] = useState<string>('lidar');
-  const [pathHistory, setPathHistory] = useState<PathPoint[]>([]);
-  const [refreshInterval, setRefreshInterval] = useState<number>(1000);
+export default function LayeredMapPage() {
+  const params = useParams();
+  const serialNumber = params.serialNumber;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [mapData, setMapData] = useState<LayeredMap | null>(null);
+  const [robotPosition, setRobotPosition] = useState<Point | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [activeLayer, setActiveLayer] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTool, setEditTool] = useState<'pencil' | 'eraser' | 'line' | 'rectangle'>('pencil');
+  const [editColor, setEditColor] = useState('#3b82f6');
+  const [editSize, setEditSize] = useState(5);
+  const [showGrid, setShowGrid] = useState(true);
+  const [followRobot, setFollowRobot] = useState(true);
   const { toast } = useToast();
 
-  // Fetch robot data
+  // Get robot WebSocket state from context
+  const { 
+    robotPosition: wsRobotPosition,
+    lidarData: wsLidarData,
+    mapData: wsMapData,
+    refreshData,
+    connectionState
+  } = useRobot();
+
+  // Initialize map with layers when data is available
   useEffect(() => {
-    if (!serialNumber) return;
+    if (serialNumber && (wsMapData || wsLidarData)) {
+      const baseMapData = wsMapData || { 
+        grid: '',
+        obstacles: [],
+        paths: [],
+        size: [1000, 1000],
+        resolution: 0.05,
+        origin: [0, 0],
+        connectionStatus: 'unknown',
+      };
 
-    const fetchData = async () => {
-      try {
-        const [status, position, sensorData, map, lidar] = await Promise.all([
-          fetcher(`/api/robots/status/${serialNumber}`),
-          fetcher(`/api/robots/position/${serialNumber}`),
-          fetcher(`/api/robots/sensors/${serialNumber}`),
-          fetcher(`/api/robots/map/${serialNumber}`),
-          fetcher(`/api/robots/lidar/${serialNumber}`)
-        ]);
+      let initialMap: LayeredMap = {
+        id: `map-${serialNumber}`,
+        name: `${serialNumber} Map`,
+        resolution: baseMapData.resolution || 0.05,
+        origin: baseMapData.origin || [0, 0],
+        size: baseMapData.size || [1000, 1000],
+        layers: [
+          {
+            id: 'base-layer',
+            name: 'Base Map',
+            visible: true,
+            type: 'base',
+            color: '#1a56db',
+            data: baseMapData.grid
+          },
+          {
+            id: 'lidar-layer',
+            name: 'LiDAR Data',
+            visible: true,
+            type: 'lidar',
+            color: '#ef4444',
+            data: wsLidarData?.ranges || []
+          },
+          {
+            id: 'path-layer',
+            name: 'Path History',
+            visible: true,
+            type: 'path',
+            color: '#10b981',
+            data: []
+          },
+          {
+            id: 'obstacle-layer',
+            name: 'Obstacles',
+            visible: true,
+            type: 'obstacle',
+            color: '#f59e0b',
+            data: baseMapData.obstacles || []
+          },
+          {
+            id: 'annotation-layer',
+            name: 'Annotations',
+            visible: true,
+            type: 'annotation',
+            color: '#8b5cf6',
+            data: []
+          }
+        ]
+      };
 
-        setRobotStatus(status);
-        setRobotPosition(position);
-        setSensors(sensorData);
-        setMapData(map);
-        setLidarData(lidar);
+      setMapData(initialMap);
+      setActiveLayer('annotation-layer');
+    }
+  }, [serialNumber, wsMapData, wsLidarData]);
 
-        // Add position to path history
-        if (position && position.x !== undefined && position.y !== undefined) {
-          setPathHistory(prev => {
-            // Only add if position has changed
-            const lastPoint = prev[prev.length - 1];
-            if (!lastPoint || lastPoint.x !== position.x || lastPoint.y !== position.y) {
-              return [...prev, { 
-                x: position.x, 
-                y: position.y, 
-                timestamp: new Date().toISOString() 
-              }];
-            }
-            return prev;
-          });
+  // Update robot position when it changes
+  useEffect(() => {
+    if (wsRobotPosition) {
+      const newPosition: Point = {
+        x: wsRobotPosition.x,
+        y: wsRobotPosition.y
+      };
+      
+      setRobotPosition(newPosition);
+      
+      // If we have an existing path layer, add the position to it
+      if (mapData) {
+        const pathLayer = mapData.layers.find(l => l.id === 'path-layer');
+        if (pathLayer) {
+          const pathData = [...pathLayer.data];
+          
+          // Add position to path if it differs from the previous one
+          const lastPoint = pathData[pathData.length - 1];
+          const minDistance = 0.1; // Minimum distance in meters to add a new point
+          
+          if (!lastPoint || 
+              Math.sqrt(Math.pow(lastPoint.x - newPosition.x, 2) + 
+                      Math.pow(lastPoint.y - newPosition.y, 2)) > minDistance) {
+            pathData.push({
+              ...newPosition,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Update the path layer
+            const updatedLayers = mapData.layers.map(layer => {
+              if (layer.id === 'path-layer') {
+                return { ...layer, data: pathData };
+              }
+              return layer;
+            });
+            
+            setMapData({
+              ...mapData,
+              layers: updatedLayers
+            });
+          }
         }
-
-        // Update layer data
-        setLayers(currentLayers => {
-          return currentLayers.map(layer => {
-            if (layer.id === 'base' && map) {
-              return { ...layer, data: map };
-            }
-            if (layer.id === 'lidar' && lidar) {
-              return { ...layer, data: lidar };
-            }
-            if (layer.id === 'path') {
-              return { ...layer, data: pathHistory };
-            }
-            return layer;
-          });
-        });
-
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error fetching robot data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch robot data.',
-          variant: 'destructive',
-        });
       }
-    };
+    }
+  }, [wsRobotPosition, mapData]);
 
-    fetchData();
-    const interval = setInterval(fetchData, refreshInterval);
-    
-    return () => clearInterval(interval);
-  }, [serialNumber, refreshInterval, toast]);
-
-  // Draw the map with all visible layers
+  // Update LiDAR layer when data changes
   useEffect(() => {
-    if (!canvasRef.current || !mapData || !robotPosition) return;
+    if (wsLidarData && mapData) {
+      const updatedLayers = mapData.layers.map(layer => {
+        if (layer.id === 'lidar-layer') {
+          return { ...layer, data: wsLidarData.ranges || [] };
+        }
+        return layer;
+      });
+      
+      setMapData({
+        ...mapData,
+        layers: updatedLayers
+      });
+    }
+  }, [wsLidarData, mapData]);
 
+  // Draw map layers to canvas
+  useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas || !mapData || !mapData.layers) return;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Set canvas size based on map size and zoom
+    const canvasWidth = Math.floor(mapData.size[0] / mapData.resolution) * zoom;
+    const canvasHeight = Math.floor(mapData.size[1] / mapData.resolution) * zoom;
+    
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    
+    // Draw background (white)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw grid if enabled
+    if (showGrid) {
+      drawGrid(ctx, canvas.width, canvas.height, 50 * zoom);
+    }
+    
+    // Draw each visible layer
+    mapData.layers.filter(layer => layer.visible).forEach(layer => {
+      switch (layer.type) {
+        case 'base':
+          drawBaseLayer(ctx, layer);
+          break;
+        case 'lidar':
+          drawLidarLayer(ctx, layer);
+          break;
+        case 'path':
+          drawPathLayer(ctx, layer);
+          break;
+        case 'obstacle':
+          drawObstacleLayer(ctx, layer);
+          break;
+        case 'annotation':
+          drawAnnotationLayer(ctx, layer);
+          break;
+        default:
+          drawCustomLayer(ctx, layer);
+      }
+    });
+    
+    // Draw robot position
+    if (robotPosition) {
+      drawRobot(ctx, robotPosition);
+    }
+    
+  }, [mapData, robotPosition, zoom, showGrid]);
 
-    // Draw base map layer if visible
-    const baseLayer = layers.find(layer => layer.id === 'base');
-    if (baseLayer && baseLayer.visible && mapData.grid) {
+  // Draw grid with given spacing
+  function drawGrid(ctx: CanvasRenderingContext2D, width: number, height: number, spacing: number) {
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    
+    // Draw vertical lines
+    for (let x = 0; x <= width; x += spacing) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    
+    // Draw horizontal lines
+    for (let y = 0; y <= height; y += spacing) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+  }
+
+  // Convert robot coordinates to pixel coordinates
+  function worldToPixel(point: Point): Point {
+    if (!mapData) return { x: 0, y: 0 };
+    
+    // Calculate pixel positions based on robot coordinates, map origin, and resolution
+    const pixelX = (point.x - mapData.origin[0]) / mapData.resolution * zoom;
+    const pixelY = (mapData.size[1] - (point.y - mapData.origin[1])) / mapData.resolution * zoom;
+    
+    return { x: pixelX, y: pixelY };
+  }
+
+  // Draw robot as a triangle pointing in the direction of travel
+  function drawRobot(ctx: CanvasRenderingContext2D, position: Point) {
+    const pixelPos = worldToPixel(position);
+    
+    // Robot size in pixels
+    const robotSize = 10 * zoom;
+    
+    // Draw robot circle
+    ctx.beginPath();
+    ctx.arc(pixelPos.x, pixelPos.y, robotSize, 0, Math.PI * 2);
+    ctx.fillStyle = '#0ea5e9';
+    ctx.fill();
+    
+    // Draw direction indicator
+    ctx.beginPath();
+    ctx.moveTo(pixelPos.x + robotSize, pixelPos.y);
+    ctx.lineTo(pixelPos.x + robotSize * 2, pixelPos.y);
+    ctx.strokeStyle = '#0ea5e9';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Draw robot label
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `${Math.max(10, 12 * zoom)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('R', pixelPos.x, pixelPos.y);
+  }
+
+  // Draw base map layer
+  function drawBaseLayer(ctx: CanvasRenderingContext2D, layer: MapLayer) {
+    if (layer.data && typeof layer.data === 'string' && layer.data.startsWith('data:image')) {
+      // Draw base map image if it's a base64 data URL
       const img = new Image();
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        drawOtherLayers();
+        ctx.drawImage(img, 0, 0, canvasRef.current!.width, canvasRef.current!.height);
       };
-      img.src = `data:image/png;base64,${mapData.grid}`;
+      img.src = layer.data;
     } else {
-      drawOtherLayers();
+      // Draw a placeholder grid if no image is available
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fillRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
+      
+      // Draw a border
+      ctx.strokeStyle = layer.color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(5, 5, canvasRef.current!.width - 10, canvasRef.current!.height - 10);
+      
+      // Add a "No map data" label
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('No base map data', canvasRef.current!.width / 2, canvasRef.current!.height / 2);
     }
+  }
 
-    function drawOtherLayers() {
-      // Draw LiDAR data if visible
-      const lidarLayer = layers.find(layer => layer.id === 'lidar');
-      if (lidarLayer && lidarLayer.visible && lidarData) {
-        ctx.save();
-        ctx.strokeStyle = lidarLayer.color;
+  // Draw LiDAR data
+  function drawLidarLayer(ctx: CanvasRenderingContext2D, layer: MapLayer) {
+    if (!robotPosition || !Array.isArray(layer.data) || layer.data.length === 0) return;
+    
+    const pixelRobot = worldToPixel(robotPosition);
+    ctx.fillStyle = layer.color;
+    
+    // Draw each LiDAR point
+    const ranges = layer.data;
+    const numRanges = ranges.length;
+    
+    if (numRanges > 0) {
+      let angleMin = 0;
+      let angleMax = 2 * Math.PI;
+      let angleIncrement = (angleMax - angleMin) / numRanges;
+      
+      for (let i = 0; i < numRanges; i++) {
+        const range = ranges[i];
+        if (range <= 0) continue; // Skip invalid ranges
         
-        // Find center of canvas in map coordinates
-        const mapWidth = mapData.size[0] * mapData.resolution;
-        const mapHeight = mapData.size[1] * mapData.resolution;
-        const canvasCenterX = canvas.width / 2;
-        const canvasCenterY = canvas.height / 2;
+        const angle = angleMin + i * angleIncrement;
+        const distance = range * 20 * zoom; // Scale for visualization
         
-        // Calculate scale factors
-        const scaleX = canvas.width / mapWidth;
-        const scaleY = canvas.height / mapHeight;
+        const x = pixelRobot.x + Math.cos(angle) * distance;
+        const y = pixelRobot.y - Math.sin(angle) * distance; // Note: Y is inverted in canvas
         
-        // Draw LiDAR points relative to robot position
-        if (lidarData.ranges && lidarData.ranges.length > 0) {
-          const angleIncrement = lidarData.angle_increment;
-          let startAngle = lidarData.angle_min;
-          
-          ctx.beginPath();
-          
-          lidarData.ranges.forEach((range, i) => {
-            if (range > 0 && range < lidarData.range_max) {
-              // Calculate point position
-              const angle = startAngle + i * angleIncrement;
-              const x = robotPosition.x + range * Math.cos(angle);
-              const y = robotPosition.y + range * Math.sin(angle);
-              
-              // Convert to canvas coordinates
-              const canvasX = (x - mapData.origin[0]) * scaleX;
-              const canvasY = canvas.height - (y - mapData.origin[1]) * scaleY;
-              
-              ctx.moveTo(
-                (robotPosition.x - mapData.origin[0]) * scaleX,
-                canvas.height - (robotPosition.y - mapData.origin[1]) * scaleY
-              );
-              ctx.lineTo(canvasX, canvasY);
-            }
-          });
-          
-          ctx.stroke();
-        }
-        ctx.restore();
+        // Draw LiDAR point
+        ctx.beginPath();
+        ctx.arc(x, y, 2 * zoom, 0, Math.PI * 2);
+        ctx.fill();
       }
+    }
+  }
+
+  // Draw path history
+  function drawPathLayer(ctx: CanvasRenderingContext2D, layer: MapLayer) {
+    if (!Array.isArray(layer.data) || layer.data.length < 2) return;
+    
+    const pathPoints = layer.data as PathPoint[];
+    const pixelPoints = pathPoints.map(worldToPixel);
+    
+    // Draw path line
+    ctx.beginPath();
+    ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
+    
+    for (let i = 1; i < pixelPoints.length; i++) {
+      ctx.lineTo(pixelPoints[i].x, pixelPoints[i].y);
+    }
+    
+    ctx.strokeStyle = layer.color;
+    ctx.lineWidth = 2 * zoom;
+    ctx.stroke();
+    
+    // Draw small circles at each point
+    pixelPoints.forEach((point, index) => {
+      // Only draw points every few steps to avoid clutter
+      if (index % 5 === 0) {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 3 * zoom, 0, Math.PI * 2);
+        ctx.fillStyle = layer.color;
+        ctx.fill();
+      }
+    });
+  }
+
+  // Draw obstacles
+  function drawObstacleLayer(ctx: CanvasRenderingContext2D, layer: MapLayer) {
+    if (!Array.isArray(layer.data)) return;
+    
+    const obstacles = layer.data as Point[];
+    
+    obstacles.forEach(obstacle => {
+      const pixelPos = worldToPixel(obstacle);
       
-      // Draw robot position
-      const robotX = (robotPosition.x - mapData.origin[0]) * (canvas.width / (mapData.size[0] * mapData.resolution));
-      const robotY = canvas.height - (robotPosition.y - mapData.origin[1]) * (canvas.height / (mapData.size[1] * mapData.resolution));
-      
-      ctx.save();
-      ctx.fillStyle = 'blue';
       ctx.beginPath();
-      ctx.arc(robotX, robotY, 10, 0, 2 * Math.PI);
+      ctx.arc(pixelPos.x, pixelPos.y, 5 * zoom, 0, Math.PI * 2);
+      ctx.fillStyle = layer.color;
       ctx.fill();
       
-      // Draw robot orientation
-      ctx.strokeStyle = 'blue';
-      ctx.lineWidth = 2;
+      // Draw X through obstacle
+      const size = 5 * zoom;
       ctx.beginPath();
-      ctx.moveTo(robotX, robotY);
-      ctx.lineTo(
-        robotX + 20 * Math.cos(robotPosition.orientation || 0),
-        robotY - 20 * Math.sin(robotPosition.orientation || 0)
-      );
+      ctx.moveTo(pixelPos.x - size, pixelPos.y - size);
+      ctx.lineTo(pixelPos.x + size, pixelPos.y + size);
+      ctx.moveTo(pixelPos.x + size, pixelPos.y - size);
+      ctx.lineTo(pixelPos.x - size, pixelPos.y + size);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5 * zoom;
       ctx.stroke();
-      ctx.restore();
-      
-      // Draw path history if visible
-      const pathLayer = layers.find(layer => layer.id === 'path');
-      if (pathLayer && pathLayer.visible && pathHistory.length > 1) {
-        ctx.save();
-        ctx.strokeStyle = pathLayer.color;
-        ctx.lineWidth = 3;
+    });
+  }
+
+  // Draw annotations
+  function drawAnnotationLayer(ctx: CanvasRenderingContext2D, layer: MapLayer) {
+    if (!Array.isArray(layer.data)) return;
+    
+    // Annotations could be of different types (points, lines, polygons, text)
+    // For simplicity, we'll just draw points for now
+    layer.data.forEach((annotation: any) => {
+      if (annotation.type === 'point') {
+        const pixelPos = worldToPixel(annotation.position);
+        
         ctx.beginPath();
+        ctx.arc(pixelPos.x, pixelPos.y, annotation.size || 5 * zoom, 0, Math.PI * 2);
+        ctx.fillStyle = annotation.color || layer.color;
+        ctx.fill();
         
-        const firstPoint = pathHistory[0];
-        const firstX = (firstPoint.x - mapData.origin[0]) * (canvas.width / (mapData.size[0] * mapData.resolution));
-        const firstY = canvas.height - (firstPoint.y - mapData.origin[1]) * (canvas.height / (mapData.size[1] * mapData.resolution));
-        
-        ctx.moveTo(firstX, firstY);
-        
-        for (let i = 1; i < pathHistory.length; i++) {
-          const point = pathHistory[i];
-          const x = (point.x - mapData.origin[0]) * (canvas.width / (mapData.size[0] * mapData.resolution));
-          const y = canvas.height - (point.y - mapData.origin[1]) * (canvas.height / (mapData.size[1] * mapData.resolution));
-          
-          ctx.lineTo(x, y);
+        if (annotation.label) {
+          ctx.fillStyle = '#000000';
+          ctx.font = `${Math.max(10, 12 * zoom)}px sans-serif`;
+          ctx.fillText(annotation.label, pixelPos.x, pixelPos.y - 15 * zoom);
         }
-        
-        ctx.stroke();
-        ctx.restore();
       }
-    }
-  }, [mapData, robotPosition, lidarData, layers, pathHistory]);
+    });
+  }
 
-  // Handle layer visibility toggle
-  const toggleLayerVisibility = (layerId: string) => {
-    setLayers(prevLayers => 
-      prevLayers.map(layer => 
-        layer.id === layerId ? { ...layer, visible: !layer.visible } : layer
-      )
-    );
-  };
+  // Draw custom layer (placeholder)
+  function drawCustomLayer(ctx: CanvasRenderingContext2D, layer: MapLayer) {
+    // This is a placeholder for any custom layer types you want to add later
+  }
 
-  // Add a custom layer
-  const addCustomLayer = () => {
+  // Add a new layer to the map
+  function addLayer() {
+    if (!mapData) return;
+    
     const newLayer: MapLayer = {
       id: `custom-${Date.now()}`,
-      name: `Custom Layer ${layers.filter(l => l.type === 'custom').length + 1}`,
+      name: `Custom Layer ${mapData.layers.length + 1}`,
       visible: true,
       type: 'custom',
-      color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+      color: '#6366f1',
       data: []
     };
     
-    setLayers([...layers, newLayer]);
-    setSelectedLayer(newLayer.id);
-    
-    toast({
-      title: 'Layer Added',
-      description: `Added new ${newLayer.name}`,
+    setMapData({
+      ...mapData,
+      layers: [...mapData.layers, newLayer]
     });
-  };
+    
+    setActiveLayer(newLayer.id);
+  }
+
+  // Toggle layer visibility
+  function toggleLayerVisibility(layerId: string) {
+    if (!mapData) return;
+    
+    const updatedLayers = mapData.layers.map(layer => {
+      if (layer.id === layerId) {
+        return { ...layer, visible: !layer.visible };
+      }
+      return layer;
+    });
+    
+    setMapData({
+      ...mapData,
+      layers: updatedLayers
+    });
+  }
 
   // Delete a layer
-  const deleteLayer = (layerId: string) => {
-    if (['base', 'lidar', 'path', 'obstacles'].includes(layerId)) {
+  function deleteLayer(layerId: string) {
+    if (!mapData || mapData.layers.length <= 1) return;
+    
+    // Don't delete essential layers
+    if (['base-layer', 'lidar-layer', 'path-layer'].includes(layerId)) {
       toast({
-        title: 'Cannot Delete',
-        description: 'System layers cannot be deleted.',
-        variant: 'destructive',
+        title: "Cannot Delete Layer",
+        description: "Essential layers cannot be deleted.",
+        variant: "destructive"
       });
       return;
     }
     
-    setLayers(prevLayers => prevLayers.filter(layer => layer.id !== layerId));
-    if (selectedLayer === layerId) {
-      setSelectedLayer('lidar');
+    const updatedLayers = mapData.layers.filter(layer => layer.id !== layerId);
+    
+    setMapData({
+      ...mapData,
+      layers: updatedLayers
+    });
+    
+    if (activeLayer === layerId) {
+      setActiveLayer(updatedLayers[0].id);
     }
+  }
+
+  // Zoom in
+  function zoomIn() {
+    setZoom(prev => Math.min(prev + 0.2, 5));
+  }
+
+  // Zoom out
+  function zoomOut() {
+    setZoom(prev => Math.max(prev - 0.2, 0.2));
+  }
+
+  // Reset zoom
+  function resetZoom() {
+    setZoom(1);
+  }
+
+  // Save map as image
+  function saveAsImage() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // Create a link element
+    const link = document.createElement('a');
+    link.download = `${mapData?.name || 'robot-map'}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     
     toast({
-      title: 'Layer Deleted',
-      description: 'Layer has been removed',
+      title: "Map Saved",
+      description: "Map has been saved as an image."
     });
-  };
+  }
 
-  // Clear path history
-  const clearPathHistory = () => {
-    setPathHistory([]);
+  // Export map data as JSON
+  function exportMapData() {
+    if (!mapData) return;
+    
+    const dataStr = JSON.stringify(mapData, null, 2);
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+    
+    const link = document.createElement('a');
+    link.download = `${mapData.name || 'robot-map'}.json`;
+    link.href = dataUri;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     
     toast({
-      title: 'Path Cleared',
-      description: 'Path history has been cleared',
+      title: "Map Data Exported",
+      description: "Map data has been exported as JSON."
     });
-  };
-
-  // Export the layered map
-  const exportMap = () => {
-    if (!canvasRef.current) return;
-    
-    try {
-      const dataUrl = canvasRef.current.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `robot-map-${serialNumber}-${new Date().toISOString()}.png`;
-      link.click();
-      
-      toast({
-        title: 'Map Exported',
-        description: 'Map has been exported as PNG',
-      });
-    } catch (error) {
-      console.error('Error exporting map:', error);
-      toast({
-        title: 'Export Failed',
-        description: 'Could not export map',
-        variant: 'destructive',
-      });
-    }
-  };
+  }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/robots/${serialNumber}`}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Robot
-            </Link>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-4">
+        <Link href={`/robots/${serialNumber}`}>
+          <Button variant="outline" className="gap-1">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Robot Details
           </Button>
-          <h1 className="text-2xl font-bold flex items-center">
-            <Layers className="h-6 w-6 mr-2" />
-            Layered Map Builder
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={exportMap}>
-            <Save className="h-4 w-4 mr-1" />
-            Export Map
+        </Link>
+        
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={refreshData} className="gap-1">
+            <RotateCw className="h-4 w-4" />
+            Refresh Data
+          </Button>
+          
+          <Button variant="outline" onClick={saveAsImage} className="gap-1">
+            <Download className="h-4 w-4" />
+            Save Image
+          </Button>
+          
+          <Button variant="outline" onClick={exportMapData} className="gap-1">
+            <Save className="h-4 w-4" />
+            Export Data
           </Button>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar with controls */}
+      
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Sidebar */}
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <Target className="h-4 w-4 mr-2" />
-                Robot Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="animate-pulse space-y-2">
-                  <div className="h-4 bg-muted rounded"></div>
-                  <div className="h-4 bg-muted rounded w-3/4"></div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-1 text-sm">
-                  <div className="font-semibold">Serial:</div>
-                  <div>{serialNumber}</div>
-                  <div className="font-semibold">Model:</div>
-                  <div>{robotStatus?.model || 'N/A'}</div>
-                  <div className="font-semibold">Status:</div>
-                  <div>
-                    <Badge variant={robotStatus?.status === 'active' ? 'success' : 'secondary'}>
-                      {robotStatus?.status || 'Unknown'}
-                    </Badge>
-                  </div>
-                  <div className="font-semibold">Position:</div>
-                  <div>
-                    {robotPosition ? 
-                      `(${robotPosition.x.toFixed(2)}, ${robotPosition.y.toFixed(2)})` : 
-                      'Unknown'}
-                  </div>
-                  <div className="font-semibold">Battery:</div>
-                  <div>{sensors?.battery || 'N/A'}%</div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <Layers className="h-4 w-4 mr-2" />
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
                 Map Layers
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {layers.map(layer => (
-                  <div key={layer.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Checkbox 
-                        id={`layer-${layer.id}`}
-                        checked={layer.visible}
-                        onCheckedChange={() => toggleLayerVisibility(layer.id)}
-                      />
-                      <Label 
-                        htmlFor={`layer-${layer.id}`} 
-                        className="flex items-center cursor-pointer"
-                      >
-                        <div 
-                          className="w-3 h-3 rounded-full mr-2" 
-                          style={{ backgroundColor: layer.color }}
-                        ></div>
-                        {layer.name}
-                      </Label>
-                    </div>
+            <CardContent className="space-y-4">
+              {mapData?.layers.map(layer => (
+                <div key={layer.id} className="flex items-center justify-between space-x-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`layer-${layer.id}`}
+                      checked={layer.visible}
+                      onCheckedChange={() => toggleLayerVisibility(layer.id)}
+                    />
+                    <Label 
+                      htmlFor={`layer-${layer.id}`}
+                      className={activeLayer === layer.id ? "font-bold" : ""}
+                      onClick={() => setActiveLayer(layer.id)}
+                    >
+                      {layer.name}
+                    </Label>
+                  </div>
+                  <div className="flex items-center">
+                    <div 
+                      className="w-4 h-4 rounded-full mr-2" 
+                      style={{ backgroundColor: layer.color }}
+                    ></div>
                     <Button 
                       variant="ghost" 
                       size="icon" 
                       onClick={() => deleteLayer(layer.id)}
-                      disabled={['base', 'lidar', 'path', 'obstacles'].includes(layer.id)}
+                      className="h-8 w-8"
+                      disabled={['base-layer', 'lidar-layer', 'path-layer'].includes(layer.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                ))}
+                </div>
+              ))}
+              
+              <div className="pt-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full gap-1" 
+                  onClick={addLayer}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Layer
+                </Button>
               </div>
-              <Button className="w-full mt-3" size="sm" onClick={addCustomLayer}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Custom Layer
-              </Button>
             </CardContent>
           </Card>
-
+          
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <Route className="h-4 w-4 mr-2" />
-                Path Controls
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                Robot Status
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between">
+                <span>Connection:</span>
+                <span className={connectionState === 'connected' ? 'text-green-500' : 'text-red-500'}>
+                  {connectionState === 'connected' ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span>Position:</span>
+                <span className="font-mono text-sm">
+                  ({robotPosition?.x.toFixed(2) || '0.00'}, {robotPosition?.y.toFixed(2) || '0.00'})
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center pt-2">
+                <Label htmlFor="follow-robot">Follow Robot</Label>
+                <Switch 
+                  id="follow-robot" 
+                  checked={followRobot}
+                  onCheckedChange={setFollowRobot}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Crosshair className="h-5 w-5" />
+                Map Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="show-grid">Show Grid</Label>
+                <Switch 
+                  id="show-grid" 
+                  checked={showGrid}
+                  onCheckedChange={setShowGrid}
+                />
+              </div>
+              
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full" 
-                    onClick={clearPathHistory}
-                  >
-                    <RotateCcw className="h-4 w-4 mr-1" />
-                    Clear Path
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={() => {
-                      // Reset path to last 2 points
-                      if (pathHistory.length > 1) {
-                        setPathHistory(pathHistory.slice(-2));
-                      }
-                    }}
-                  >
-                    <Undo className="h-4 w-4 mr-1" />
-                    Reset Path
-                  </Button>
-                </div>
-                <div className="flex flex-col space-y-2">
-                  <Label htmlFor="refresh-rate">Refresh Rate: {refreshInterval}ms</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[500, 1000, 2000].map(interval => (
-                      <Button 
-                        key={interval}
-                        variant={refreshInterval === interval ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setRefreshInterval(interval)}
-                      >
-                        {interval}ms
-                      </Button>
-                    ))}
+                <div className="flex justify-between">
+                  <Label>Zoom: {zoom.toFixed(1)}x</Label>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-8 w-8"
+                      onClick={zoomOut}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={resetZoom}
+                    >
+                      <RotateCw className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={zoomIn}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
+                <Slider 
+                  value={[zoom]}
+                  min={0.2}
+                  max={5}
+                  step={0.1}
+                  onValueChange={(value) => setZoom(value[0])}
+                />
               </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5" />
+                Editing Tools
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="enable-editing">Enable Editing</Label>
+                <Switch 
+                  id="enable-editing" 
+                  checked={isEditing}
+                  onCheckedChange={setIsEditing}
+                />
+              </div>
+              
+              {isEditing && (
+                <>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button 
+                      variant={editTool === 'pencil' ? 'secondary' : 'outline'} 
+                      size="sm"
+                      onClick={() => setEditTool('pencil')}
+                      className="flex-1"
+                    >
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Pencil
+                    </Button>
+                    <Button 
+                      variant={editTool === 'eraser' ? 'secondary' : 'outline'} 
+                      size="sm"
+                      onClick={() => setEditTool('eraser')}
+                      className="flex-1"
+                    >
+                      <Eraser className="h-4 w-4 mr-1" />
+                      Eraser
+                    </Button>
+                    <Button 
+                      variant={editTool === 'rectangle' ? 'secondary' : 'outline'} 
+                      size="sm"
+                      onClick={() => setEditTool('rectangle')}
+                      className="flex-1"
+                    >
+                      <Square className="h-4 w-4 mr-1" />
+                      Rectangle
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2 pt-2">
+                    <Label>Color</Label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].map(color => (
+                        <button
+                          key={color}
+                          className={`w-6 h-6 rounded-full ${editColor === color ? 'ring-2 ring-offset-2 ring-black' : ''}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => setEditColor(color)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 pt-2">
+                    <Label>Size: {editSize}px</Label>
+                    <Slider 
+                      value={[editSize]}
+                      min={1}
+                      max={20}
+                      step={1}
+                      onValueChange={(value) => setEditSize(value[0])}
+                    />
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
-
-        {/* Main map canvas area */}
+        
+        {/* Main canvas area */}
         <div className="lg:col-span-3">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <MapIcon className="h-4 w-4 mr-2" />
-                Interactive Layered Map
-              </CardTitle>
-              <CardDescription>
-                View and manage multiple layers of map data
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="relative">
-              {isLoading ? (
-                <div className="w-full h-[600px] bg-muted rounded flex items-center justify-center">
-                  <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
-                </div>
-              ) : (
-                <canvas
+          <Card className="bg-white">
+            <CardContent className="p-0 overflow-hidden">
+              <div className="overflow-auto p-1 max-h-[calc(100vh-12rem)] flex items-center justify-center bg-gray-100">
+                <canvas 
                   ref={canvasRef}
-                  width={800}
-                  height={600}
-                  className="w-full h-[600px] border rounded"
-                />
-              )}
-              <div className="absolute top-2 right-2 space-x-1">
-                {layers.map(layer => (
-                  <Toggle
-                    key={layer.id}
-                    variant="outline"
-                    size="sm"
-                    pressed={layer.visible}
-                    onClick={() => toggleLayerVisibility(layer.id)}
-                    title={`Toggle ${layer.name}`}
-                  >
-                    {layer.visible ? (
-                      <Eye className="h-4 w-4" style={{ color: layer.color }} />
-                    ) : (
-                      <EyeOff className="h-4 w-4" />
-                    )}
-                  </Toggle>
-                ))}
+                  className="border border-gray-200 bg-white"
+                ></canvas>
               </div>
             </CardContent>
-            <CardFooter className="text-sm text-muted-foreground">
-              {pathHistory.length > 0 && (
-                <div>
-                  Path points: {pathHistory.length} | 
-                  Latest position: ({robotPosition?.x.toFixed(2)}, {robotPosition?.y.toFixed(2)})
-                </div>
-              )}
-            </CardFooter>
           </Card>
         </div>
       </div>
     </div>
   );
-};
-
-export default LayeredMapPage;
+}
