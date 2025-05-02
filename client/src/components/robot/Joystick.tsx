@@ -292,7 +292,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
             console.log('Continuous movement update:', normalizedX, -normalizedY);
             sendDirectCommand(normalizedX, -normalizedY);
           }
-        }, 700); // Send a new command every 700ms - adjust as needed for smoother movement
+        }, 400); // Send a new command every 400ms - reduced from 700ms for smoother continuous motion
       }
     } else if (moveIntervalRef.current && Math.abs(normalizedX) <= 0.05 && Math.abs(normalizedY) <= 0.05) {
       // If joystick is basically centered, clear the interval
@@ -378,8 +378,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       } 
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
-        // Use a somewhat smaller distance to prevent overshooting and improve control
-        const distance = yDir * speed * 1.2; // 1.2 meters at maximum deflection for better control
+        // Use a smaller distance to prevent overshooting and improve control
+        const distance = yDir * speed * 0.8; // Reduced from 1.2 to 0.8 meters for more precise control
         
         console.log('Current orientation:', currentOrientation); 
         // Calculate target coordinates using the current orientation vector
@@ -396,7 +396,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_ori: currentOrientation, // MAINTAIN EXACT orientation for forward/backward
           target_accuracy: 0.05,
           use_target_zone: true,
-          target_orientation_accuracy: 0.01, // Add very strict orientation accuracy (new property)
+          target_orientation_accuracy: 0.005, // Even more strict orientation accuracy (reduced from 0.01 to 0.005)
           properties: {
             // Keep orientation strictly fixed during forward/backward movement
             // Adding a comment for clarity, this disables in-place rotation 
