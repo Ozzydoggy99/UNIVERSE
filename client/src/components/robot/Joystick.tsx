@@ -280,9 +280,24 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     
     // Only send command if position has changed significantly
     if (isDragging && (Math.abs(normalizedX) > 0.05 || Math.abs(normalizedY) > 0.05)) {
-      // Send command immediately on joystick update - more responsive
+      // Send command immediately on joystick update for immediate response
       console.log('Direct joystick command:', normalizedX, -normalizedY);
       sendDirectCommand(normalizedX, -normalizedY);
+      
+      // Set up continuous movement if not already running
+      if (!moveIntervalRef.current) {
+        // Start a timer to continually send movement commands while joystick is held
+        moveIntervalRef.current = setInterval(() => {
+          if (isDragging && !isSendingCommand) {
+            console.log('Continuous movement update:', normalizedX, -normalizedY);
+            sendDirectCommand(normalizedX, -normalizedY);
+          }
+        }, 700); // Send a new command every 700ms - adjust as needed for smoother movement
+      }
+    } else if (moveIntervalRef.current && Math.abs(normalizedX) <= 0.05 && Math.abs(normalizedY) <= 0.05) {
+      // If joystick is basically centered, clear the interval
+      clearInterval(moveIntervalRef.current);
+      moveIntervalRef.current = null;
     }
   };
   
