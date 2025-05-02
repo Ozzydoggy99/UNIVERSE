@@ -171,6 +171,12 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
       setError(null);
       setMapProgress(0);
       
+      // Show a message to the user about what's happening
+      toast({
+        title: "Starting map creation",
+        description: "Connecting to the physical robot to begin mapping...",
+      });
+      
       // Notify user about the development mode override for connection status
       toast({
         title: "Development Mode",
@@ -188,19 +194,33 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
       try {
         // Start a new mapping session
         console.log('Sending mapping request to server...');
-        const response = await fetch(`/api/robots/start-mapping/${serialNumber}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            mapName: mapName
-          })
-        });
+        
+        // Add better error handling for network errors
+        let response;
+        try {
+          response = await fetch(`/api/robots/start-mapping/${serialNumber}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              mapName: mapName
+            })
+          });
+        } catch (networkError) {
+          console.error('Network error when connecting to server:', networkError);
+          throw new Error('Network error: Could not connect to the server. Please check your connection.');
+        }
         
         console.log('Start mapping API response status:', response.status, response.statusText);
         
         if (!response.ok) {
+          // Handle specific error codes
+          if (response.status === 502) {
+            console.error('502 Bad Gateway Error - likely a connectivity issue with the robot');
+            throw new Error('Unable to connect to the robot. Please check that the robot is powered on and connected to the network.');
+          }
+          
           let errorText = '';
           try {
             const errorData = await response.json();
@@ -601,6 +621,18 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
                   {error || 'Something went wrong while building the map.'}
                 </AlertDescription>
               </Alert>
+
+              {error && (error.toLowerCase().includes('502') || error.toLowerCase().includes('connect')) && (
+                <div className="bg-gray-50 p-4 rounded-lg border">
+                  <h5 className="font-medium text-sm mb-2">Troubleshooting Tips:</h5>
+                  <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+                    <li>Verify the robot is powered on and connected to the network</li>
+                    <li>Check that the robot's API service is running</li>
+                    <li>Ensure your network connection is stable</li>
+                    <li>Wait a moment and try again</li>
+                  </ul>
+                </div>
+              )}
               
               <Button 
                 onClick={resetMapBuilder} 
