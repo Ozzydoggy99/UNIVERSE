@@ -748,11 +748,18 @@ export function Map({
       queryClient.setQueryData(['/api/robots/map', robotStatus.serialNumber], updatedMap);
       
       // Also send the update to the server
-      apiRequest(`/api/robots/map/${robotStatus.serialNumber}`, {
+      fetch(`/api/robots/map/${robotStatus.serialNumber}`, {
         method: 'PUT',
-        data: updatedMap
+        headers: {
+          'Content-Type': 'application/json',
+          'Secret': import.meta.env.VITE_ROBOT_SECRET || ''
+        },
+        body: JSON.stringify(updatedMap)
       })
-        .then(() => {
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to update map: ${response.status} ${response.statusText}`);
+          }
           console.log('Map updated on server');
           setHasLocalChanges(false);
         })

@@ -68,7 +68,19 @@ export function TemplateManager() {
   // Create a new template
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const res = await apiRequest('POST', '/api/templates', data);
+      const res = await fetch('/api/templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `Failed to create template: ${res.status}`);
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -92,7 +104,19 @@ export function TemplateManager() {
   // Update an existing template
   const updateMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<UITemplate> }) => {
-      const res = await apiRequest('PUT', `/api/templates/${data.id}`, data.updates);
+      const res = await fetch(`/api/templates/${data.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data.updates)
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `Failed to update template: ${res.status}`);
+      }
+      
       return await res.json();
     },
     onSuccess: (data, variables) => {

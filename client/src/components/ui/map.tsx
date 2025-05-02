@@ -629,8 +629,18 @@ export function Map({
       
       // Also send the update to the server
       if (robotStatus.serialNumber) {
-        apiRequest('PUT', `/api/robots/map/${robotStatus.serialNumber}`, updatedMap)
-          .then(() => {
+        fetch(`/api/robots/map/${robotStatus.serialNumber}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': import.meta.env.VITE_ROBOT_SECRET || ''
+          },
+          body: JSON.stringify(updatedMap)
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to update map: ${response.status} ${response.statusText}`);
+            }
             console.log('Map updated on server');
             setHasLocalChanges(false);
           })
