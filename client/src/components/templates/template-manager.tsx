@@ -128,7 +128,18 @@ export function TemplateManager() {
   // Delete a template
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest('DELETE', `/api/templates/${id}`);
+      const res = await fetch(`/api/templates/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `Failed to delete template: ${res.status}`);
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -150,7 +161,19 @@ export function TemplateManager() {
   // Assign template to user
   const assignMutation = useMutation({
     mutationFn: async (data: { userId: number; templateId: number }) => {
-      const res = await apiRequest('PUT', `/api/users/${data.userId}/template`, { templateId: data.templateId });
+      const res = await fetch(`/api/users/${data.userId}/template`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ templateId: data.templateId })
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `Failed to assign template: ${res.status}`);
+      }
+      
       return await res.json();
     },
     onSuccess: () => {

@@ -287,8 +287,53 @@ export async function getRobotPosition(serialNumber?: string): Promise<RobotPosi
     }
   } else {
     // Use the general API endpoint
-    const response = await apiRequest(`${API_URL}/position`);
-    return response.json();
+    console.log(`Fetching general position data from: ${API_URL}/position`);
+    try {
+      const response = await fetch(`${API_URL}/position`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Secret': ROBOT_SECRET || ''
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Error fetching general position data: ${response.status} ${response.statusText}`);
+        return {
+          x: 0, 
+          y: 0, 
+          z: 0, 
+          orientation: 0,
+          speed: 0,
+          timestamp: new Date().toISOString(),
+          connectionStatus: "error",
+          currentTask: "Disconnected",
+          destination: { x: 0, y: 0, z: 0 },
+          distanceToTarget: 0
+        };
+      }
+      
+      console.log('General position data retrieved successfully');
+      const data = await response.json();
+      return {
+        ...data,
+        connectionStatus: 'connected'
+      };
+    } catch (error) {
+      console.error('Error in general position fetch:', error);
+      return {
+        x: 0, 
+        y: 0, 
+        z: 0, 
+        orientation: 0,
+        speed: 0,
+        timestamp: new Date().toISOString(),
+        connectionStatus: "error",
+        currentTask: "Disconnected",
+        destination: { x: 0, y: 0, z: 0 },
+        distanceToTarget: 0
+      };
+    }
   }
 }
 
@@ -332,10 +377,18 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
       
       // Fall back to the regular API
       try {
-        const response = await apiRequest(`/api/robots/sensors/${serialNumber}`);
+        console.log(`Fetching sensor data from API: /api/robots/sensors/${serialNumber}`);
+        const response = await fetch(`/api/robots/sensors/${serialNumber}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Secret': ROBOT_SECRET || ''
+          }
+        });
         
         // Check if response is OK before parsing
         if (!response.ok) {
+          console.error(`Error fetching sensor data: ${response.status} ${response.statusText}`);
           return {
             temperature: 0,
             humidity: 0,
@@ -351,6 +404,7 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
         }
         
         const data = await response.json();
+        console.log('Sensor data retrieved successfully');
         
         // Add connection status to the result
         return {
@@ -358,6 +412,7 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
           connectionStatus: 'connected'
         };
       } catch (apiError) {
+        console.error('Error in sensor data fetch:', apiError);
         // Return error state without console noise
         return {
           temperature: 0,
@@ -389,8 +444,53 @@ export async function getRobotSensorData(serialNumber?: string): Promise<RobotSe
     }
   } else {
     // Use the general API endpoint
-    const response = await apiRequest(`${API_URL}/sensors`);
-    return response.json();
+    console.log(`Fetching general sensor data from: ${API_URL}/sensors`);
+    try {
+      const response = await fetch(`${API_URL}/sensors`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Secret': ROBOT_SECRET || ''
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Error fetching general sensor data: ${response.status} ${response.statusText}`);
+        return {
+          temperature: 0,
+          humidity: 0,
+          proximity: [],
+          battery: 0,
+          timestamp: new Date().toISOString(),
+          connectionStatus: "error",
+          light: 0,
+          noise: 0,
+          charging: false,
+          power_supply_status: 'unknown'
+        };
+      }
+      
+      console.log('General sensor data retrieved successfully');
+      const data = await response.json();
+      return {
+        ...data,
+        connectionStatus: 'connected'
+      };
+    } catch (error) {
+      console.error('Error in general sensor data fetch:', error);
+      return {
+        temperature: 0,
+        humidity: 0,
+        proximity: [],
+        battery: 0,
+        timestamp: new Date().toISOString(),
+        connectionStatus: "error",
+        light: 0,
+        noise: 0,
+        charging: false,
+        power_supply_status: 'unknown'
+      };
+    }
   }
 }
 
