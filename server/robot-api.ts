@@ -113,12 +113,19 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
     
     // Debug information about the API URL and headers
     console.log(`Using robot API URL: ${ROBOT_API_URL}`);
-    console.log(`Full mapping API endpoint: ${ROBOT_API_URL}/maps/create`);
+    console.log(`Full mapping API endpoint: ${ROBOT_API_URL}/maps/`);
     console.log(`Secret header present: ${ROBOT_SECRET ? 'Yes' : 'No'}`);
     
+    // Create payload based on robot API documentation 
+    // See documentation: robot needs map_name (not name)
     const requestBody = { 
-      name: mapName,
-      type: "nav2",
+      map_name: mapName,
+      // Required fields according to documentation
+      carto_map: "", // Will be filled by robot during mapping
+      occupancy_grid: "", // Will be filled by robot during mapping
+      grid_origin_x: 0,
+      grid_origin_y: 0,
+      grid_resolution: 0.05,
       description: `Map ${mapName} created on ${new Date().toLocaleString()}`
     };
     
@@ -126,8 +133,8 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
     
     try {
       // Updated API endpoint to match robot's API specification
-      // The robot uses /maps/create to start creating a new map
-      const response = await fetch(`${ROBOT_API_URL}/maps/create`, {
+      // The robot uses /maps/ with POST to create a new map (not /maps/create)
+      const response = await fetch(`${ROBOT_API_URL}/maps/`, {
         method: 'POST',
         headers: {
           'Secret': ROBOT_SECRET || '',
