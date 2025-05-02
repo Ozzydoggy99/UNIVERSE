@@ -301,17 +301,19 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
 
-      // Create thresholds for different movement types, with more leeway for human control
-      // Wider threshold for detecting rotation - if x-axis movement is significant and y-axis is minimal
-      const isRotationCommand = Math.abs(xDir) > 0.15 && Math.abs(yDir) < 0.25;
-      // Wider threshold for forward/backward - if y-axis movement is significant and x-axis is less than 1/3
-      const isForwardCommand = Math.abs(yDir) > 0.15 && Math.abs(xDir) < 0.33;
+      // Updated control logic based on joystick position
+      // Make rotation detection stronger when joystick is moved left/right
+      const isRotationCommand = Math.abs(xDir) > 0.2 && Math.abs(yDir) < 0.15;
       
-      // For consistent movement patterns, if we previously determined the command type
-      // and we're only making small joystick adjustments, keep the same command type
+      // Make forward/backward detection stronger when joystick is moved up/down
+      const isForwardCommand = Math.abs(yDir) > 0.2 && Math.abs(xDir) < 0.15;
+      
+      // Default to combined mode when neither rotation nor forward is clearly indicated
       const currentCommandType = 
         isRotationCommand ? 'rotation' : 
         isForwardCommand ? 'forward' : 'combined';
+        
+      console.log('Joystick position:', {x: xDir, y: yDir}, 'Command type:', currentCommandType);
       
       console.log('Command mode:', currentCommandType);
       
@@ -352,8 +354,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            inplace_rotate: true, // Critical for pure rotation
-            no_rotate: false // Explicitly allow rotation in rotation mode
+            inplace_rotate: true // This is critical for pure rotation
           }
         };
         
@@ -380,9 +381,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // For forward/backward motion, need BOTH properties
-            inplace_rotate: false,
-            no_rotate: true // This was missing! Critical for straight-line movement
+            // According to API documentation, only inplace_rotate is a valid property
+            // The no_rotate property must be handled differently
+            inplace_rotate: false
           }
         };
         
@@ -418,9 +419,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // For combined movement we need BOTH properties
-            inplace_rotate: false,
-            no_rotate: true  // This was missing! Critical for controlling rotation in combined mode
+            // According to API documentation, only inplace_rotate is a valid property
+            inplace_rotate: false
           }
         };
         
