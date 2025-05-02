@@ -236,7 +236,7 @@ export default function RobotHub() {
               <span>{isRobotOnline ? 'Live Data Connected' : 'Connection Failed'}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Map className="h-3 w-3" />
+              <MapIcon className="h-3 w-3" />
               <span>View Detailed Dashboard</span>
             </div>
           </CardFooter>

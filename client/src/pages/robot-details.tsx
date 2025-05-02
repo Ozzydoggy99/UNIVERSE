@@ -737,7 +737,7 @@ export default function RobotDetails() {
                     className="w-full flex items-center gap-2"
                     disabled={!serialNumber}
                   >
-                    <Map className="h-4 w-4" />
+                    <MapIcon className="h-4 w-4" />
                     Open Layered Map View
                   </Button>
                 </Link>
