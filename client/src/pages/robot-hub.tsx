@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Bot, Map, Bluetooth, Cpu } from 'lucide-react';
+import { Loader2, Bot, Map as MapIcon, Bluetooth, Cpu } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { RobotTemplateAssignment } from '@shared/schema';
 import { RobotStatus, RobotPosition, RobotSensorData as RobotSensor, MapData, CameraData } from '@/types/robot';
@@ -345,7 +345,7 @@ export default function RobotHub() {
                     <span>Connected</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Map className="h-3 w-3" />
+                    <MapIcon className="h-3 w-3" />
                     <span>View Details</span>
                   </div>
                 </CardFooter>
