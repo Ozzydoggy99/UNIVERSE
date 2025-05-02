@@ -7,6 +7,7 @@ import {
   getRobotSensorData,
   getRobotMapData,
   getRobotCameraData,
+  getRobotLidarData,
   isRobotConnected
 } from './robot-websocket';
 
@@ -488,6 +489,35 @@ export function registerRobotApiRoutes(app: Express) {
     } catch (error) {
       console.error('Error updating robot map data:', error);
       res.status(500).json({ error: 'Failed to update robot map data' });
+    }
+  });
+
+  // Get LiDAR data for a specific robot
+  app.get('/api/robots/lidar/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Get LiDAR data from WebSocket cache
+      const lidarData = getRobotLidarData(serialNumber);
+      
+      if (lidarData) {
+        // Always return the LiDAR data - it will contain connection state information
+        res.json(lidarData);
+      } else {
+        // This should never happen now, but keeping as a fallback
+        return res.status(503).json({ 
+          error: 'Robot not available', 
+          message: 'The robot is not available. Please check the system configuration.'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching robot LiDAR data:', error);
+      res.status(500).json({ error: 'Failed to fetch robot LiDAR data' });
     }
   });
 

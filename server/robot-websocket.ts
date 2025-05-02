@@ -35,7 +35,8 @@ const TOPICS = {
   POSITION: ['/tracked_pose', '/robot/footprint'],
   SENSORS: ['/battery_state'],
   MAP: ['/map', '/slam/state'],
-  CAMERA: ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video']
+  CAMERA: ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video'],
+  LIDAR: ['/scan']
 };
 
 // Data caches
@@ -44,7 +45,8 @@ const robotDataCache = {
   position: new Map<string, any>(),
   sensors: new Map<string, any>(),
   map: new Map<string, any>(),
-  camera: new Map<string, any>()
+  camera: new Map<string, any>(),
+  lidar: new Map<string, any>()
 };
 
 // Event emitter for internal communication
@@ -69,6 +71,7 @@ let batteryDataLogged = false;
 let mapDataLogged = false;
 let slamDataLogged = false;
 let cameraDataLogged = false;
+let lidarDataLogged = false;
 
 /**
  * Initialize robot WebSocket connection
@@ -225,7 +228,8 @@ function enableRequiredTopics() {
     ...TOPICS.POSITION,
     ...TOPICS.SENSORS,
     ...TOPICS.MAP,
-    ...TOPICS.CAMERA
+    ...TOPICS.CAMERA,
+    ...TOPICS.LIDAR
   ];
   
   // Deduplicate topics - use Array.from to avoid TypeScript issues
@@ -330,6 +334,20 @@ function handleRobotMessage(messageData: string) {
         console.log('Robot camera data structure (without image data):', JSON.stringify(cameraInfo, null, 2));
         console.log('Camera data length:', data ? data.length : 0);
         cameraDataLogged = true;
+      }
+    }
+    else if (TOPICS.LIDAR.includes(topic)) {
+      // LiDAR data
+      robotDataCache.lidar.set(PHYSICAL_ROBOT_SERIAL, message);
+      robotEvents.emit('lidar_update', PHYSICAL_ROBOT_SERIAL, message);
+      
+      // Log LiDAR message once to see the structure (but not the full data as it might be large)
+      if (topic === '/scan' && !lidarDataLogged) {
+        const { intensities, ranges, ...lidarInfo } = message;
+        console.log('Robot LiDAR data structure (without ranges array):', JSON.stringify(lidarInfo, null, 2));
+        console.log('LiDAR ranges length:', ranges ? ranges.length : 0);
+        console.log('LiDAR intensities length:', intensities ? intensities.length : 0);
+        lidarDataLogged = true;
       }
     }
     else {
@@ -646,6 +664,71 @@ export function getRobotMapData(serialNumber: string) {
     resolution: mapData.resolution || 0.05,
     origin: mapData.origin || [0, 0],
     connectionStatus: 'connected'
+  };
+}
+
+/**
+ * Get the latest robot LiDAR data
+ */
+export function getRobotLidarData(serialNumber: string) {
+  // Check if we have data for this robot
+  if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+    return null;
+  }
+  
+  // If we're not connected to the robot, return a disconnected status
+  if (!isRobotConnected()) {
+    return {
+      ranges: [],
+      angle_min: 0,
+      angle_max: 0,
+      angle_increment: 0,
+      range_min: 0,
+      range_max: 0,
+      intensities: [],
+      timestamp: new Date().toISOString(),
+      connectionStatus: 'disconnected'
+    };
+  }
+  
+  const lidarData = robotDataCache.lidar.get(serialNumber);
+  
+  if (!lidarData) {
+    // We don't have LiDAR data yet, but we are connected
+    return {
+      ranges: [],
+      angle_min: 0,
+      angle_max: 0,
+      angle_increment: 0,
+      range_min: 0,
+      range_max: 0,
+      intensities: [],
+      timestamp: new Date().toISOString(),
+      connectionStatus: 'connecting'
+    };
+  }
+  
+  // Transform from robot format to our API format
+  return {
+    ranges: lidarData.ranges || [],
+    angle_min: lidarData.angle_min || 0,
+    angle_max: lidarData.angle_max || 0,
+    angle_increment: lidarData.angle_increment || 0,
+    range_min: lidarData.range_min || 0,
+    range_max: lidarData.range_max || 0,
+    intensities: lidarData.intensities || [],
+    timestamp: new Date().toISOString(),
+    connectionStatus: 'connected'
+  };
+}
+
+/**
+ * Subscribe to robot LiDAR updates
+ */
+export function subscribeToLidarUpdates(callback: (serialNumber: string, data: any) => void) {
+  robotEvents.on('lidar_update', callback);
+  return () => {
+    robotEvents.off('lidar_update', callback);
   };
 }
 
