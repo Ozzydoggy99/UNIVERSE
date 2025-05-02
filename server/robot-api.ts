@@ -90,7 +90,6 @@ interface MappingSession {
   status: 'active' | 'processing' | 'completed' | 'cancelled' | 'error';
   mapData?: any;
   error?: string;
-  isMock?: boolean; // Flag for mock sessions created during development
 }
 
 // In-memory storage for active mapping sessions
@@ -180,24 +179,8 @@ async function startMappingSession(serialNumber: string, mapName: string): Promi
       return sessionId;
     } catch (error) {
       console.error(`Error communicating with robot API: ${error}`);
-      
-      // For development purposes, create a mock session even if the robot API fails
-      console.log('Creating mock mapping session for development');
-      const mockSessionId = `mock_map_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-      
-      mappingSessions[mockSessionId] = {
-        id: mockSessionId,
-        serialNumber,
-        startTime: Date.now(),
-        mapName,
-        status: 'active',
-        isMock: true
-      };
-      
-      console.log(`Created mock mapping session with ID: ${mockSessionId}`);
-      
-      // In development mode, don't throw an error, just return the mock session ID
-      return mockSessionId;
+      // Don't use fallbacks or mock data, just propagate the error
+      throw new Error(`Failed to communicate with robot API: ${error}`);
     }
   } catch (error) {
     console.error('Error starting mapping session:', error);
@@ -241,15 +224,8 @@ async function getCurrentMapData(sessionId: string): Promise<any> {
     // Find the most recent map - assuming this is the one being built
     // We could also store the map ID in the session when starting mapping
     if (maps.length === 0) {
-      // If no maps found, return a basic empty map structure
-      return {
-        grid: '',
-        width: 100,
-        height: 100,
-        resolution: 0.05,
-        origin: { x: 0, y: 0, theta: 0 },
-        inProgress: true
-      };
+      // If no maps are found, we should throw an error rather than returning mock data
+      throw new Error('No maps found on the robot - mapping may not have started properly');
     }
     
     // Sort maps by creation time, newest first

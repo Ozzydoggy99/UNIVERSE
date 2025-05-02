@@ -161,10 +161,18 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
   
   // Start building a new map
   const startMapBuilding = async () => {
+    console.log("*** BUTTON CLICKED - START MAP BUILDING FUNCTION CALLED ***");
+    console.log("*** MAP NAME:", mapName);
+    console.log("*** SERIAL NUMBER:", serialNumber);
+
     try {
+      console.log("*** SETTING MAPPING STATUS TO PREPARING ***");
       setMapStatus(MAP_BUILDING_STATUS.PREPARING);
       setError(null);
       setMapProgress(0);
+      
+      // Alert to ensure the function is getting called
+      alert("Start mapping button clicked! Check console logs.");
       
       // Notify user about the development mode override for connection status
       toast({
