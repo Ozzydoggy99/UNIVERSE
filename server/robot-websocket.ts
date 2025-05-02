@@ -39,15 +39,25 @@ const TOPICS = {
   LIDAR: [
     '/scan', 
     '/scan_matched_points2',
-    '/pointcloud2',        // Try generic pointcloud topic
-    '/points',             // Another common pointcloud name
-    '/points2',            // Another variation
-    '/lidar/points',       // Namespaced variation
-    '/lidar/scan',         // Namespaced variation
-    '/lidar/pointcloud',   // Namespaced variation
-    '/lidar/scan_matched', // Namespaced variation
-    '/slam/points',        // SLAM might publish point cloud
-    '/raw/lidar'           // Raw LiDAR data
+    '/pointcloud2',           // Try generic pointcloud topic
+    '/points',                // Another common pointcloud name
+    '/points2',               // Another variation
+    '/lidar/points',          // Namespaced variation
+    '/lidar/scan',            // Namespaced variation
+    '/lidar/pointcloud',      // Namespaced variation
+    '/lidar/scan_matched',    // Namespaced variation
+    '/slam/points',           // SLAM might publish point cloud
+    '/raw/lidar',             // Raw LiDAR data
+    '/rb/lidar_pts',          // From Robot Admin UI
+    '/rb/costmap_l',          // Low resolution cost map
+    '/rb/costmap_h',          // High resolution cost map
+    '/rb/ematch_map',         // Environment matching map 
+    '/rb/bump_map',           // Bump map
+    '/rb/lidar/scan',         // Robot-specific LiDAR scan
+    '/rb/points',             // Robot-specific points
+    '/rb/scan',               // Robot-specific scan
+    '/rb/laser_scan',         // Robot-specific laser scan
+    '/rb/slam/points'         // Robot-specific SLAM points
   ]
 };
 
