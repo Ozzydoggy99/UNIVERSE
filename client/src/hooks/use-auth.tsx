@@ -43,10 +43,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("/api/login", {
+      const res = await fetch("/api/login", {
         method: "POST",
-        data: credentials
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(credentials),
+        credentials: 'include'
       });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `Login failed: ${res.status}`);
+      }
+      
       const userData = await res.json();
       return userData;
     },
@@ -68,10 +78,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterData) => {
-      const res = await apiRequest("/api/register", {
+      const res = await fetch("/api/register", {
         method: "POST",
-        data: data
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data),
+        credentials: 'include'
       });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `Registration failed: ${res.status}`);
+      }
+      
       const userData = await res.json();
       return userData;
     },
@@ -93,10 +113,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("/api/logout", {
+      const res = await fetch("/api/logout", {
         method: "POST",
-        data: {}
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
       });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `Logout failed: ${res.status}`);
+      }
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
