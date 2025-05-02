@@ -60,6 +60,12 @@ export interface MapData {
   originalData?: any;
   connectionStatus?: string;
   mapId?: string | number; // ID of the current map from the robot
+  enhancedVisualization?: boolean; // Whether to use enhanced visualization
+  visualTheme?: { // Color theme for map visualization
+    obstacles?: string;
+    pathways?: string;
+    unknown?: string;
+  };
 }
 
 export interface RobotStatus {
@@ -463,6 +469,28 @@ export function MapEnhanced({
               const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
               const data = imageData.data;
               
+              // Check if we have visual theme data from the server
+              console.log("Checking for visual theme data:", mapData.visualTheme);
+              const useEnhancedVisualization = mapData.enhancedVisualization === true;
+              
+              // Get theme colors if available
+              const obstacleColor = mapData.visualTheme?.obstacles === 'blue' 
+                ? { r: 65, g: 105, b: 225, a: 255 }  // Blue color for obstacles
+                : { r: 65, g: 105, b: 225, a: 255 }; // Default blue if not specified
+                
+              const pathwayColor = mapData.visualTheme?.pathways === 'white' 
+                ? { r: 255, g: 255, b: 255, a: 255 } // White for pathways
+                : { r: 255, g: 255, b: 255, a: 255 }; // Default white if not specified
+                
+              const unknownColor = mapData.visualTheme?.unknown === 'lightgray' 
+                ? { r: 220, g: 220, b: 220, a: 180 } // Light gray for unknown
+                : { r: 220, g: 220, b: 220, a: 180 }; // Default light gray if not specified
+                
+              console.log("Using enhanced visualization:", useEnhancedVisualization);
+              console.log("Obstacle color:", obstacleColor);
+              console.log("Pathway color:", pathwayColor);
+              console.log("Unknown color:", unknownColor);
+                
               // Process each pixel to match the reference image colors
               for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
@@ -471,24 +499,24 @@ export function MapEnhanced({
                 
                 // Dark areas (obstacles/walls) to blue
                 if (r < 100 && g < 100 && b < 100) {
-                  data[i] = 65;      // R
-                  data[i + 1] = 105;  // G
-                  data[i + 2] = 225;  // B
-                  data[i + 3] = 255;  // Alpha
+                  data[i] = obstacleColor.r;      // R
+                  data[i + 1] = obstacleColor.g;  // G
+                  data[i + 2] = obstacleColor.b;  // B
+                  data[i + 3] = obstacleColor.a;  // Alpha
                 }
                 // Gray areas (unknown) to light gray
                 else if (r > 100 && r < 200 && g > 100 && g < 200 && b > 100 && b < 200) {
-                  data[i] = 220;     // R
-                  data[i + 1] = 220;  // G
-                  data[i + 2] = 220;  // B
-                  data[i + 3] = 180;  // Alpha (semi-transparent)
+                  data[i] = unknownColor.r;     // R
+                  data[i + 1] = unknownColor.g;  // G
+                  data[i + 2] = unknownColor.b;  // B
+                  data[i + 3] = unknownColor.a;  // Alpha (semi-transparent)
                 }
                 // White areas (free space) keep white but enhance
                 else if (r > 200 && g > 200 && b > 200) {
-                  data[i] = 255;     // R
-                  data[i + 1] = 255;  // G
-                  data[i + 2] = 255;  // B
-                  data[i + 3] = 255;  // Alpha
+                  data[i] = pathwayColor.r;     // R
+                  data[i + 1] = pathwayColor.g;  // G
+                  data[i + 2] = pathwayColor.b;  // B
+                  data[i + 3] = pathwayColor.a;  // Alpha
                 }
               }
               
