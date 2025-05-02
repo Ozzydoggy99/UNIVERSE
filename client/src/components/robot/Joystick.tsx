@@ -351,121 +351,115 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       
       let moveData = {};
       
-      // Simplified approach - always use direct joystick control with a simpler model
-      // The more complex approach with different command types was causing issues
+      // Simplify to just four discrete directions like the keypad version
+      // Determine the primary direction based on joystick position
+      // This eliminates any combined movements for more predictable control
       
-      // Get magnitude of movement (0-1.0)
+      // Calculate basic movement magnitude (0-1.0)
       const magnitude = Math.min(1.0, Math.sqrt(xDir*xDir + yDir*yDir));
       
-      // Calculate a small, fixed target distance based on joystick position
-      // Use a much smaller distance for more precise control
-      const distance = magnitude * speed * 0.3; // Only move 0.3 meters at most per command
-      
-      // If joystick is pushed primarily left or right, do rotation in place
-      const isRotationPrimary = Math.abs(xDir) > 0.6 && Math.abs(yDir) < 0.3;
-      
-      if (isRotationPrimary) {
-        // Pure rotation mode - rotate in place
-        // When joystick is pushed left, robot should turn counterclockwise (positive orientation change)
-        // When joystick is pushed right, robot should turn clockwise (negative orientation change)
-        const rotationAmount = xDir * (Math.PI / 6); // Left is positive, right is negative, max 30 degrees
+      // Only process movement if joystick is moved significantly 
+      if (magnitude > 0.3) {
+        // Determine which direction has the strongest input
+        const absX = Math.abs(xDir);
+        const absY = Math.abs(yDir);
         
-        moveData = {
-          creator: "web_interface",
-          type: "standard",
-          target_x: currentX, // Stay in current position
-          target_y: currentY, // Stay in current position
-          target_z: 0,
-          target_ori: currentOrientation - rotationAmount, // IMPORTANT: The negative sign ensures left joystick = counterclockwise
-          target_accuracy: 0.05,
-          use_target_zone: true,
-          target_orientation_accuracy: 0.05,
-          properties: {
-            inplace_rotate: true // Essential for pure rotation
+        // Fixed distance for consistent movement
+        const distance = speed * 0.4; // 0.4 meters per command
+        
+        // A simple fixed rotation amount when turning
+        const rotationAmount = Math.PI / 12; // 15 degrees
+        
+        console.log('Direction inputs - X:', xDir, 'Y:', yDir);
+        console.log('Comparing absolute values - |X|:', absX, '|Y|:', absY);
+        
+        if (absX > absY) {
+          // LEFT or RIGHT movement (rotation in place)
+          if (xDir < 0) {
+            // LEFT: Robot turns counterclockwise
+            console.log('LEFT DIRECTION - Turn counterclockwise');
+            moveData = {
+              creator: "web_interface",
+              type: "standard", 
+              target_x: currentX,
+              target_y: currentY,
+              target_z: 0,
+              target_ori: currentOrientation + rotationAmount, // add positive angle for counterclockwise
+              target_accuracy: 0.05,
+              use_target_zone: true,
+              target_orientation_accuracy: 0.05,
+              properties: {
+                inplace_rotate: true
+              }
+            };
+          } else {
+            // RIGHT: Robot turns clockwise
+            console.log('RIGHT DIRECTION - Turn clockwise');
+            moveData = {
+              creator: "web_interface",
+              type: "standard",
+              target_x: currentX,
+              target_y: currentY, 
+              target_z: 0,
+              target_ori: currentOrientation - rotationAmount, // subtract angle for clockwise
+              target_accuracy: 0.05,
+              use_target_zone: true,
+              target_orientation_accuracy: 0.05,
+              properties: {
+                inplace_rotate: true
+              }
+            };
           }
-        };
-        
-        console.log('Sending pure rotation command, amount:', -rotationAmount, 'direction:', xDir < 0 ? 'LEFT/CCW' : 'RIGHT/CW');
-      }
-      else {
-        // Forward or combined movement
-        // Calculate vector components based on joystick direction
-        // Remember: y is inverted (up is negative)
-        
-        // Calculate the movement vector based on the joystick orientation
-        // But always move relative to the robot's current orientation
-        
-        // Let's take a completely different approach
-        // For forward/backward, use the robot's current orientation vector
-        // For left/right, use perpendicular vectors
-        
-        let targetX, targetY;
-        
-        // Pure forward movement if the joystick is pushed mostly forward
-        if (yDir > 0.6 && Math.abs(xDir) < 0.3) {
-            // Forward motion - use current orientation directly
-            targetX = currentX + Math.cos(currentOrientation) * distance;
-            targetY = currentY + Math.sin(currentOrientation) * distance;
-            console.log('Pure FORWARD movement');
-        } 
-        // Pure backward movement if the joystick is pushed mostly backward
-        else if (yDir < -0.6 && Math.abs(xDir) < 0.3) {
-            // Backward motion - opposite of current orientation
-            targetX = currentX - Math.cos(currentOrientation) * distance;
-            targetY = currentY - Math.sin(currentOrientation) * distance;
-            console.log('Pure BACKWARD movement');
-        }
-        // Otherwise, calculate a custom direction based on the joystick position
-        else {
-            // Forward/backward component using current orientation
-            let fwdX = 0, fwdY = 0;
-            if (Math.abs(yDir) > 0.1) {
-                fwdX = Math.cos(currentOrientation) * yDir * distance;
-                fwdY = Math.sin(currentOrientation) * yDir * distance;
-            }
+        } else {
+          // FORWARD or BACKWARD movement
+          if (yDir > 0) {
+            // FORWARD: Move in direction of current orientation
+            console.log('FORWARD DIRECTION');
+            const targetX = currentX + Math.cos(currentOrientation) * distance;
+            const targetY = currentY + Math.sin(currentOrientation) * distance;
             
-            // Left/right component using perpendicular vector to current orientation
-            let sideX = 0, sideY = 0;
-            if (Math.abs(xDir) > 0.1) {
-                // Right is negative X in robot coordinates
-                sideX = -Math.sin(currentOrientation) * xDir * distance * 0.7;
-                sideY = Math.cos(currentOrientation) * xDir * distance * 0.7;
-            }
+            moveData = {
+              creator: "web_interface",
+              type: "standard",
+              target_x: targetX,
+              target_y: targetY,
+              target_z: 0,
+              target_ori: currentOrientation, // maintain orientation
+              target_accuracy: 0.05,
+              use_target_zone: true,
+              target_orientation_accuracy: 0.01,
+              properties: {
+                inplace_rotate: false
+              }
+            };
+            console.log('Forward movement to:', {x: targetX, y: targetY});
+          } else {
+            // BACKWARD: Move opposite to current orientation
+            console.log('BACKWARD DIRECTION');
+            const targetX = currentX - Math.cos(currentOrientation) * distance;
+            const targetY = currentY - Math.sin(currentOrientation) * distance;
             
-            // Combine the movements
-            targetX = currentX + fwdX + sideX;
-            targetY = currentY + fwdY + sideY;
-            console.log('Combined movement - forward:', {fwdX, fwdY}, 'side:', {sideX, sideY});
-        }
-        
-        // Calculate orientation based on movement direction
-        let targetOrientation = currentOrientation;
-        
-        // Only adjust orientation if there's a significant side component
-        if (Math.abs(xDir) > 0.2) {
-          // Use the negative sign to ensure left joystick = counterclockwise rotation
-          // This matches the rotation direction from the pure rotation mode
-          const turnAmount = -xDir * (Math.PI / 12); // Max 15 degrees adjustment
-          targetOrientation = currentOrientation + turnAmount;
-          console.log('Adjusting orientation by', turnAmount, 'radians');
-        }
-        
-        moveData = {
-          creator: "web_interface",
-          type: "standard",
-          target_x: targetX,
-          target_y: targetY,
-          target_z: 0,
-          target_ori: targetOrientation,
-          target_accuracy: 0.05,
-          use_target_zone: true,
-          target_orientation_accuracy: 0.02,
-          properties: {
-            inplace_rotate: false
+            moveData = {
+              creator: "web_interface",
+              type: "standard",
+              target_x: targetX,
+              target_y: targetY,
+              target_z: 0,
+              target_ori: currentOrientation, // maintain orientation
+              target_accuracy: 0.05,
+              use_target_zone: true,
+              target_orientation_accuracy: 0.01,
+              properties: {
+                inplace_rotate: false
+              }
+            };
+            console.log('Backward movement to:', {x: targetX, y: targetY});
           }
-        };
-        
-        console.log('Sending movement command to:', {x: targetX, y: targetY}, 'ori:', targetOrientation);
+        }
+      } else {
+        // If joystick is too close to center, do nothing
+        console.log('Joystick too close to center - ignoring');
+        return;
       }
       
       // Use our server API instead of direct calls to avoid CORS issues
