@@ -8,7 +8,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
   // Base robot API URL (will be replaced with environment variable or config)
   const ROBOT_API_BASE_URL = 'http://47.180.91.99:8090';
   
-  // Separate function to handle cancel logic in the background
+  // Helper function to handle cancel logic in the background
   async function processCancelRequest(serialNumber: string, apiBaseUrl: string) {
     try {
       console.log(`Cancelling movement for robot ${serialNumber}`);
@@ -157,59 +157,4 @@ export function registerRobotMoveApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to cancel robot movement' });
     }
   });
-  
-  // Separate function to handle cancel logic in the background
-  async function processCancelRequest(serialNumber: string, apiBaseUrl: string) {
-    try {
-      console.log(`Cancelling movement for robot ${serialNumber}`);
-
-      // First check if there are any active moves
-      const movesResponse = await fetch(`${apiBaseUrl}/chassis/moves`);
-      const moves = await movesResponse.json();
-      
-      // Find any move in 'moving' state
-      const activeMove = Array.isArray(moves) ? moves.find((move: any) => move.state === 'moving') : null;
-      
-      if (activeMove) {
-        console.log(`Found active move with ID: ${activeMove.id}`);
-        
-        // Cancel the specific move by ID
-        const robotResponse = await fetch(`${apiBaseUrl}/chassis/moves/${activeMove.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ state: "cancelled" }),
-        });
-
-        if (!robotResponse.ok) {
-          const errorText = await robotResponse.text();
-          console.error(`Robot API error: ${robotResponse.status} - ${errorText}`);
-          return;
-        }
-
-        const data = await robotResponse.json();
-        console.log('Robot cancel response:', data);
-      } else {
-        // No active move found, try the /current endpoint as fallback
-        console.log('No active move found, trying to cancel current move');
-        const robotResponse = await fetch(`${apiBaseUrl}/chassis/moves/current`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ state: "cancelled" }),
-        });
-
-        if (robotResponse.ok) {
-          const message = await robotResponse.json();
-          console.log('Robot cancel response:', message);
-        } else {
-          console.log('No active moves to cancel');
-        }
-      }
-    } catch (error) {
-      console.error('Error in background cancel request:', error);
-    }
-  }
 }
