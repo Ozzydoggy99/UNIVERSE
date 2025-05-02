@@ -49,7 +49,7 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
-import { Map } from '@/components/ui/map';
+import { MapEnhanced } from '@/components/ui/map-enhanced';
 import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 import { RobotH264Stream } from '@/components/RobotH264Stream';
 import { DirectionalControl } from '@/components/robot/DirectionalControl';
@@ -749,35 +749,34 @@ export default function RobotDetails() {
                 <div className="h-[calc(100%-50px)]">
                   <TabsContent value="map" className="h-full m-0">
                     <div className="h-full relative border rounded-md p-1 bg-gray-50">
-                      {/* Map Component */}
-                      <Map 
+                      {/* Enhanced Map Component */}
+                      <MapEnhanced 
                         robotStatus={finalStatus} 
                         robotPosition={finalPosition} 
                         sensorData={finalSensors} 
-                        mapData={finalMapData}
+                        mapData={{
+                          ...finalMapData,
+                          // Add the required new fields for enhanced map
+                          waypoints: finalMapData.waypoints || [],
+                          pickupPoints: finalMapData.pickupPoints || [],
+                          dropoffPoints: finalMapData.dropoffPoints || []
+                        }}
                         editable={true}
                         onMapUpdate={(updatedMap) => {
                           console.log('Map updated', updatedMap);
                           // In a real implementation, we might want to refresh the data here
                           refreshData();
                         }}
+                        // Add available maps when we have them
+                        availableMaps={[
+                          { id: finalMapData.mapId || "1", name: "Current Map" }
+                        ]}
+                        onMapChange={(mapId) => {
+                          console.log('Map changed to', mapId);
+                          // Here we would load a different map if available
+                          refreshData();
+                        }}
                       />
-                      
-                      {/* Map Legend */}
-                      <div className="absolute bottom-2 right-2 bg-white/90 rounded-md p-2 text-xs space-y-1 shadow-sm">
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-primary"></div>
-                          <span>Robot Location</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded bg-red-500"></div>
-                          <span>Obstacle</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                          <span>Navigation Path</span>
-                        </div>
-                      </div>
                     </div>
                   </TabsContent>
                   
