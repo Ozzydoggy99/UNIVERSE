@@ -292,7 +292,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
             console.log('Continuous movement update:', normalizedX, -normalizedY);
             sendDirectCommand(normalizedX, -normalizedY);
           }
-        }, 800); // Use a longer interval (800ms) to give commands time to complete
+        }, 400); // Shorter interval (400ms) for more responsive continuous movement
       }
     } else if (moveIntervalRef.current && Math.abs(normalizedX) <= 0.05 && Math.abs(normalizedY) <= 0.05) {
       // If joystick is basically centered, clear the interval
@@ -358,17 +358,17 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       // Calculate basic movement magnitude (0-1.0)
       const magnitude = Math.min(1.0, Math.sqrt(xDir*xDir + yDir*yDir));
       
-      // Only process movement if joystick is moved significantly 
-      if (magnitude > 0.3) {
+      // Process movement with lower threshold for better responsiveness
+      if (magnitude > 0.2) { // Lowered from 0.3 to make joystick more sensitive
         // Determine which direction has the strongest input
         const absX = Math.abs(xDir);
         const absY = Math.abs(yDir);
         
-        // Fixed distance for consistent movement
-        const distance = speed * 0.4; // 0.4 meters per command
+        // Fixed distance for consistent movement - increased for more noticeable movement
+        const distance = speed * 1.0; // 1.0 meters per command (increased from 0.4)
         
-        // A simple fixed rotation amount when turning
-        const rotationAmount = Math.PI / 12; // 15 degrees
+        // A simple fixed rotation amount when turning - increased for more noticeable rotation
+        const rotationAmount = Math.PI / 6; // 30 degrees (increased from 15 degrees)
         
         console.log('Direction inputs - X:', xDir, 'Y:', yDir);
         console.log('Comparing absolute values - |X|:', absX, '|Y|:', absY);
@@ -479,10 +479,10 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
     } catch (error) {
       console.error('Error sending movement command:', error);
     } finally {
-      // Allow new commands after a longer delay to ensure the current command completes
+      // Use a shorter delay to allow more responsive controls
       setTimeout(() => {
         setIsSendingCommand(false);
-      }, 300); // Increased from 30ms to 300ms to prevent command overlap
+      }, 100); // Decreased to 100ms for more responsive control
     }
   };
 
