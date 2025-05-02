@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Card, 
   CardContent, 
@@ -85,7 +86,10 @@ export default function LayeredMapPage() {
     lidarData: wsLidarData,
     mapData: wsMapData,
     refreshData,
-    connectionState
+    connectionState,
+    connectWebSocket,
+    disconnectWebSocket,
+    isConnected
   } = useRobot();
 
   // Initialize map with layers when data is available
@@ -202,6 +206,27 @@ export default function LayeredMapPage() {
     }
   }, [wsRobotPosition, mapData]);
 
+  // Connect to WebSocket when component mounts
+  useEffect(() => {
+    if (serialNumber) {
+      // Connect to WebSocket for this specific robot
+      connectWebSocket();
+      
+      // Set up periodic data refresh
+      const refreshInterval = setInterval(() => {
+        if (isConnected()) {
+          refreshData();
+        }
+      }, 2000);
+      
+      // Clean up on unmount
+      return () => {
+        clearInterval(refreshInterval);
+        disconnectWebSocket();
+      };
+    }
+  }, [serialNumber, connectWebSocket, disconnectWebSocket, isConnected, refreshData]);
+  
   // Update LiDAR layer when data changes
   useEffect(() => {
     if (wsLidarData && mapData) {
@@ -614,49 +639,144 @@ export default function LayeredMapPage() {
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
-        <Link href={`/robots/${serialNumber}`}>
+        <Link href={`/robot-details/${serialNumber}`}>
           <Button variant="outline" className="gap-1">
             <ArrowLeft className="h-4 w-4" />
             Back to Robot Details
           </Button>
         </Link>
         
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={refreshData} className="gap-1">
-            <RotateCw className="h-4 w-4" />
-            Refresh Data
-          </Button>
+        <div className="flex items-center gap-3">
+          <Badge className={`${
+              connectionState === 'connected' ? 'bg-green-100 text-green-800 hover:bg-green-100' : 
+              connectionState === 'connecting' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100' : 
+              'bg-red-100 text-red-800 hover:bg-red-100'
+            }`}>
+            <div className={`h-2 w-2 rounded-full mr-1 ${
+              connectionState === 'connected' ? 'bg-green-500' : 
+              connectionState === 'connecting' ? 'bg-yellow-500' : 
+              'bg-red-500'
+            }`}></div>
+            {connectionState === 'connected' ? 'Connected' : 
+             connectionState === 'connecting' ? 'Connecting...' : 
+             'Disconnected'}
+          </Badge>
           
-          <Button variant="outline" onClick={saveAsImage} className="gap-1">
-            <Download className="h-4 w-4" />
-            Save Image
-          </Button>
-          
-          <Button variant="outline" onClick={exportMapData} className="gap-1">
-            <Save className="h-4 w-4" />
-            Export Data
-          </Button>
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Bot className="h-3.5 w-3.5" />
+            {serialNumber || 'No Robot Selected'}
+          </Badge>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Sidebar */}
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="md:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="h-5 w-5" />
+              <CardTitle className="text-base">Robot Data</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between">
+                <span>Position:</span>
+                <span className="font-mono text-sm">
+                  ({robotPosition?.x.toFixed(2) || '0.00'}, {robotPosition?.y.toFixed(2) || '0.00'})
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={refreshData} className="flex items-center justify-center gap-1">
+                  <RotateCw className="h-3.5 w-3.5" />
+                  Refresh
+                </Button>
+                <Button variant="outline" size="sm" onClick={saveAsImage} className="flex items-center justify-center gap-1">
+                  <Download className="h-3.5 w-3.5" />
+                  Save
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportMapData} className="flex items-center justify-center gap-1">
+                  <Save className="h-3.5 w-3.5" />
+                  Export
+                </Button>
+              </div>
+              
+              <Separator />
+              
+              <div className="flex justify-between items-center">
+                <Label htmlFor="show-grid">Show Grid</Label>
+                <Switch id="show-grid" checked={showGrid} onCheckedChange={setShowGrid} />
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <Label htmlFor="follow-robot">Follow Robot</Label>
+                <Switch id="follow-robot" checked={followRobot} onCheckedChange={setFollowRobot} />
+              </div>
+              
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <Label>Zoom: {zoom.toFixed(1)}x</Label>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="icon" className="h-6 w-6" onClick={zoomOut}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-6 w-6" onClick={resetZoom}>
+                      <RotateCw className="h-3 w-3" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-6 w-6" onClick={zoomIn}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                <Slider value={[zoom]} min={0.2} max={5} step={0.1} onValueChange={(value) => setZoom(value[0])} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="md:col-span-3">
+          <Card className="w-full h-[60vh]">
+            <CardHeader className="p-3 border-b">
+              <CardTitle className="text-base flex items-center">
+                <Layers className="h-4 w-4 mr-2" />
+                Layered Map
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 h-full">
+              <div className="relative w-full h-full overflow-auto">
+                {!mapData && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80">
+                    <div className="text-center">
+                      <RotateCw className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+                      <p className="text-sm text-gray-600">Loading map data...</p>
+                    </div>
+                  </div>
+                )}
+                <canvas
+                  ref={canvasRef}
+                  className="min-w-full min-h-full"
+                ></canvas>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="md:col-span-1">
+          <Card>
+            <CardHeader className="p-3">
+              <CardTitle className="text-base flex items-center">
+                <Layers className="h-4 w-4 mr-2" />
                 Map Layers
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-2">
               {mapData?.layers.map(layer => (
-                <div key={layer.id} className="flex items-center justify-between space-x-2">
-                  <div className="flex items-center space-x-2">
+                <div key={layer.id} className="flex items-center justify-between py-1">
+                  <div className="flex items-center">
                     <Checkbox 
                       id={`layer-${layer.id}`}
                       checked={layer.visible}
                       onCheckedChange={() => toggleLayerVisibility(layer.id)}
+                      className="mr-2"
                     />
                     <Label 
                       htmlFor={`layer-${layer.id}`}
@@ -666,136 +786,35 @@ export default function LayeredMapPage() {
                       {layer.name}
                     </Label>
                   </div>
-                  <div className="flex items-center">
-                    <div 
-                      className="w-4 h-4 rounded-full mr-2" 
-                      style={{ backgroundColor: layer.color }}
-                    ></div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => deleteLayer(layer.id)}
-                      className="h-8 w-8"
-                      disabled={['base-layer', 'lidar-layer', 'path-layer'].includes(layer.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <div 
+                    className="w-4 h-4 rounded-full" 
+                    style={{ backgroundColor: layer.color }}
+                  ></div>
                 </div>
               ))}
               
-              <div className="pt-2">
-                <Button 
-                  variant="outline" 
-                  className="w-full gap-1" 
-                  onClick={addLayer}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Layer
-                </Button>
-              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full mt-2" 
+                onClick={addLayer}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add Layer
+              </Button>
             </CardContent>
           </Card>
-          
+        </div>
+        
+        <div className="md:col-span-3">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5" />
-                Robot Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span>Connection:</span>
-                <span className={connectionState === 'connected' ? 'text-green-500' : 'text-red-500'}>
-                  {connectionState === 'connected' ? 'Connected' : 'Disconnected'}
-                </span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span>Position:</span>
-                <span className="font-mono text-sm">
-                  ({robotPosition?.x.toFixed(2) || '0.00'}, {robotPosition?.y.toFixed(2) || '0.00'})
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center pt-2">
-                <Label htmlFor="follow-robot">Follow Robot</Label>
-                <Switch 
-                  id="follow-robot" 
-                  checked={followRobot}
-                  onCheckedChange={setFollowRobot}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Crosshair className="h-5 w-5" />
-                Map Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="show-grid">Show Grid</Label>
-                <Switch 
-                  id="show-grid" 
-                  checked={showGrid}
-                  onCheckedChange={setShowGrid}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label>Zoom: {zoom.toFixed(1)}x</Label>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      className="h-8 w-8"
-                      onClick={zoomOut}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={resetZoom}
-                    >
-                      <RotateCw className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={zoomIn}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <Slider 
-                  value={[zoom]}
-                  min={0.2}
-                  max={5}
-                  step={0.1}
-                  onValueChange={(value) => setZoom(value[0])}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Pencil className="h-5 w-5" />
+            <CardHeader className="p-3">
+              <CardTitle className="text-base flex items-center">
+                <Pencil className="h-4 w-4 mr-2" />
                 Editing Tools
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label htmlFor="enable-editing">Enable Editing</Label>
                 <Switch 
@@ -806,44 +825,38 @@ export default function LayeredMapPage() {
               </div>
               
               {isEditing && (
-                <>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <Button 
-                      variant={editTool === 'pencil' ? 'secondary' : 'outline'} 
-                      size="sm"
-                      onClick={() => setEditTool('pencil')}
-                      className="flex-1"
-                    >
-                      <Pencil className="h-4 w-4 mr-1" />
-                      Pencil
-                    </Button>
-                    <Button 
-                      variant={editTool === 'eraser' ? 'secondary' : 'outline'} 
-                      size="sm"
-                      onClick={() => setEditTool('eraser')}
-                      className="flex-1"
-                    >
-                      <Eraser className="h-4 w-4 mr-1" />
-                      Eraser
-                    </Button>
-                    <Button 
-                      variant={editTool === 'rectangle' ? 'secondary' : 'outline'} 
-                      size="sm"
-                      onClick={() => setEditTool('rectangle')}
-                      className="flex-1"
-                    >
-                      <Square className="h-4 w-4 mr-1" />
-                      Rectangle
-                    </Button>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tools</Label>
+                    <div className="flex flex-wrap gap-1">
+                      <Button 
+                        variant={editTool === 'pencil' ? 'secondary' : 'outline'} 
+                        size="sm"
+                        onClick={() => setEditTool('pencil')}
+                        className="flex-1"
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1" />
+                        Pencil
+                      </Button>
+                      <Button 
+                        variant={editTool === 'eraser' ? 'secondary' : 'outline'} 
+                        size="sm"
+                        onClick={() => setEditTool('eraser')}
+                        className="flex-1"
+                      >
+                        <Eraser className="h-3.5 w-3.5 mr-1" />
+                        Eraser
+                      </Button>
+                    </div>
                   </div>
                   
-                  <div className="space-y-2 pt-2">
+                  <div className="space-y-2">
                     <Label>Color</Label>
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="grid grid-cols-5 gap-1">
                       {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].map(color => (
                         <button
                           key={color}
-                          className={`w-6 h-6 rounded-full ${editColor === color ? 'ring-2 ring-offset-2 ring-black' : ''}`}
+                          className={`w-5 h-5 rounded-full ${editColor === color ? 'ring-2 ring-offset-1 ring-black' : ''}`}
                           style={{ backgroundColor: color }}
                           onClick={() => setEditColor(color)}
                         />
@@ -851,7 +864,7 @@ export default function LayeredMapPage() {
                     </div>
                   </div>
                   
-                  <div className="space-y-2 pt-2">
+                  <div className="space-y-2 col-span-2">
                     <Label>Size: {editSize}px</Label>
                     <Slider 
                       value={[editSize]}
@@ -861,22 +874,8 @@ export default function LayeredMapPage() {
                       onValueChange={(value) => setEditSize(value[0])}
                     />
                   </div>
-                </>
+                </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Main canvas area */}
-        <div className="lg:col-span-3">
-          <Card className="bg-white">
-            <CardContent className="p-0 overflow-hidden">
-              <div className="overflow-auto p-1 max-h-[calc(100vh-12rem)] flex items-center justify-center bg-gray-100">
-                <canvas 
-                  ref={canvasRef}
-                  className="border border-gray-200 bg-white"
-                ></canvas>
-              </div>
             </CardContent>
           </Card>
         </div>
