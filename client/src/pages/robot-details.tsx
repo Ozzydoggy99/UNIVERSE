@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useLocation } from 'wouter';
+import { useParams, useLocation, useNavigate } from 'wouter';
 import { 
   Card, 
   CardContent, 
