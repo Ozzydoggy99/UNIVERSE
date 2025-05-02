@@ -309,9 +309,12 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       
       // For consistent movement patterns, if we previously determined the command type
       // and we're only making small joystick adjustments, keep the same command type
+      // For now, we'll force all movement to use the 'forward' mode with no_rotate
+      // to prevent any swinging issues. This basically disables combined mode temporarily.
       const currentCommandType = 
-        isRotationCommand ? 'rotation' : 
-        isForwardCommand ? 'forward' : 'combined';
+        isRotationCommand ? 'rotation' : 'forward'; // Treat all non-rotation as forward
+      
+      console.log('Command mode:', currentCommandType);
       
       // Special case: if we're in forward/backward mode, we want to be much stricter about
       // preventing any sideways (strafing) movement to ensure perfect straight line movement
@@ -349,7 +352,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            inplace_rotate: true // Critical for pure rotation
+            inplace_rotate: true, // Critical for pure rotation
+            no_rotate: false // Explicitly allow rotation in rotation mode
           }
         };
         
@@ -357,8 +361,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       } 
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
-        // Use a significantly larger distance increment for much more noticeable movement
-        const distance = yDir * speed * 1.0; // Doubled to a full meter equivalent at maximum deflection
+        // Use a moderate distance increment for smoother movement
+        const distance = yDir * speed * 0.3; // More moderate distance for better stability
         
         // Calculate target coordinates using the current orientation vector
         const targetX = currentX + Math.cos(currentOrientation) * distance;
@@ -387,8 +391,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       }
       else { // combined
         // Combined movement (both rotation and forward/backward)
-        // For combined movement, we'll use the same full-meter distance as forward mode
-        const distance = yDir * speed * 1.0; // Same full meter equivalent as forward mode
+        // For combined movement, use the same moderate distance as forward mode
+        const distance = yDir * speed * 0.3; // Same moderate distance as forward mode for consistency
         
         // REVERSE the direction (flip the sign) for rotation since controls are reversed
         const rotationDirection = xDir > 0 ? -1 : 1;
@@ -412,10 +416,10 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_accuracy: 0.05,
           use_target_zone: true,
           properties: {
-            // For forward movement, use extremely minimal rotation
-            // For backward movement, prevent rotation altogether
+            // Always use no_rotate for both forward and backward movements
+            // This ensures the robot won't swing or turn unexpectedly
             inplace_rotate: false,
-            no_rotate: yDir < 0 ? true : undefined
+            no_rotate: true
           }
         };
         
