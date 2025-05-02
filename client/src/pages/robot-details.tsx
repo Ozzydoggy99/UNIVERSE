@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useLocation, useNavigate, Link } from 'wouter';
+import { useParams, useLocation, Link } from 'wouter';
 import { 
   Card, 
   CardContent, 
@@ -18,7 +18,6 @@ import {
 import { 
   ArrowLeft, 
   Bot, 
-  Map,
   Map as MapIcon, 
   BarChart, 
   AlertCircle,
@@ -804,7 +803,7 @@ export default function RobotDetails() {
                   <TabsContent value="map" className="h-full m-0">
                     <div className="h-full relative border rounded-md p-1 bg-gray-50">
                       {/* Enhanced Map Component */}
-                      <Map 
+                      <MapComponent 
                         robotStatus={finalStatus} 
                         robotPosition={finalPosition} 
                         sensorData={finalSensors} 
