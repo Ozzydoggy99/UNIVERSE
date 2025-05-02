@@ -11,6 +11,9 @@ interface LidarData {
   range_min: number;
   range_max: number;
   intensities?: number[];
+  points?: number[][]; // 3D point cloud data [x,y,z]
+  topic?: string;      // Topic the data came from
+  source?: string;     // Source of the data (websocket, http, etc.)
   connectionStatus?: 'connected' | 'connecting' | 'disconnected';
   timestamp?: string;
 }
@@ -24,7 +27,7 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!data || !data.ranges || data.ranges.length === 0 || !canvasRef.current) return;
+    if (!data || (!data.ranges || data.ranges.length === 0) && (!data.points || data.points.length === 0) || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -38,8 +41,16 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
 
-    // Calculate scaling factor based on range_max with a padding
-    const maxRange = data.range_max || Math.max(...data.ranges.filter(r => isFinite(r)));
+    // Calculate scaling factor based on range_max or available data
+    let maxRange = 10; // Default max range
+    if (data.ranges && data.ranges.length > 0) {
+      maxRange = data.range_max || Math.max(...data.ranges.filter(r => isFinite(r))) || 10;
+    } else if (data.points && data.points.length > 0) {
+      // Calculate max range from point cloud data
+      const distances = data.points.map(p => Math.sqrt(p[0]*p[0] + p[1]*p[1]));
+      maxRange = Math.max(...distances) || 10;
+    }
+    
     const scale = (size / 2) * 0.8 / maxRange;
 
     // Draw background
@@ -90,25 +101,46 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
     // Draw LiDAR points
     ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
     
-    const { angle_min, angle_increment } = data;
-    
-    data.ranges.forEach((range, i) => {
-      if (!isFinite(range) || range <= 0) return;
+    // First try to render range data if available
+    if (data.ranges && data.ranges.length > 0) {
+      const { angle_min, angle_increment } = data;
       
-      // Calculate the angle for this range reading
-      const angle = angle_min + (angle_increment * i);
-      
-      // Convert to canvas coordinates
-      // Note: Adjusting for canvas Y-axis being flipped compared to standard coordinate system
-      // and adjusting for robot's forward direction (0 radians) pointing upward
-      const x = centerX + Math.sin(angle) * range * scale;
-      const y = centerY - Math.cos(angle) * range * scale;
-      
-      // Draw point
-      ctx.beginPath();
-      ctx.arc(x, y, 2, 0, Math.PI * 2);
-      ctx.fill();
-    });
+      data.ranges.forEach((range, i) => {
+        if (!isFinite(range) || range <= 0) return;
+        
+        // Calculate the angle for this range reading
+        const angle = angle_min + (angle_increment * i);
+        
+        // Convert to canvas coordinates
+        // Note: Adjusting for canvas Y-axis being flipped compared to standard coordinate system
+        // and adjusting for robot's forward direction (0 radians) pointing upward
+        const x = centerX + Math.sin(angle) * range * scale;
+        const y = centerY - Math.cos(angle) * range * scale;
+        
+        // Draw point
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    } 
+    // Then try to render point cloud data if available
+    else if (data.points && data.points.length > 0) {
+      // Draw points directly from the point cloud
+      data.points.forEach(point => {
+        if (!point || point.length < 2) return;
+        
+        const [x, y] = point;
+        
+        // Convert to canvas coordinates 
+        const canvasX = centerX + x * scale;
+        const canvasY = centerY - y * scale; // Flip Y for canvas coordinates
+        
+        // Draw point
+        ctx.beginPath();
+        ctx.arc(canvasX, canvasY, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
 
     // Draw a front direction indicator
     ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
@@ -149,7 +181,7 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
     );
   }
 
-  if (!data || !data.ranges || data.ranges.length === 0) {
+  if (!data || (!data.ranges || data.ranges.length === 0) && (!data.points || data.points.length === 0)) {
     return (
       <Card className="h-full">
         <CardHeader className="pb-2">
@@ -162,15 +194,19 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
           <div className="text-center">
             <AlertCircle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
             <p className="text-sm text-muted-foreground">No LiDAR data available</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Topic: {data.topic || 'None'} - Source: {data.source || 'None'}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Last update: {data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Never'}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Connection: {data.connectionStatus || 'Unknown'}
-            </p>
+            {data && (
+              <>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Topic: {data.topic || 'None'} - Source: {data.source || 'None'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Last update: {data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Never'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Connection: {data.connectionStatus || 'Unknown'}
+                </p>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -189,11 +225,34 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
   };
 
   // Calculate stats
-  const validRanges = data.ranges.filter(r => isFinite(r) && r > 0);
-  const avgRange = validRanges.length ? (validRanges.reduce((a, b) => a + b, 0) / validRanges.length).toFixed(2) : 'N/A';
-  const minRange = validRanges.length ? Math.min(...validRanges).toFixed(2) : 'N/A';
-  const maxRange = validRanges.length ? Math.max(...validRanges).toFixed(2) : 'N/A';
-  const pointCount = validRanges.length;
+  let pointCount = 0;
+  let avgRange = 'N/A';
+  let minRange = 'N/A';
+  let maxRange = 'N/A';
+
+  // First check if we have range data
+  if (data.ranges && data.ranges.length > 0) {
+    const validRanges = data.ranges.filter(r => isFinite(r) && r > 0);
+    avgRange = validRanges.length ? (validRanges.reduce((a, b) => a + b, 0) / validRanges.length).toFixed(2) : 'N/A';
+    minRange = validRanges.length ? Math.min(...validRanges).toFixed(2) : 'N/A';
+    maxRange = validRanges.length ? Math.max(...validRanges).toFixed(2) : 'N/A';
+    pointCount = validRanges.length;
+  } 
+  // Otherwise check if we have point cloud data
+  else if (data.points && data.points.length > 0) {
+    pointCount = data.points.length;
+    
+    // Calculate ranges from point cloud data
+    const distances = data.points
+      .filter(p => p && p.length >= 2)
+      .map(p => Math.sqrt(p[0]*p[0] + p[1]*p[1]));
+    
+    if (distances.length > 0) {
+      avgRange = (distances.reduce((a, b) => a + b, 0) / distances.length).toFixed(2);
+      minRange = Math.min(...distances).toFixed(2);
+      maxRange = Math.max(...distances).toFixed(2);
+    }
+  }
 
   return (
     <Card className="h-full">
@@ -225,6 +284,15 @@ export function LidarVisualization({ data, loading = false }: LidarVisualization
           
           <div className="text-muted-foreground">Max Range:</div>
           <div className="font-medium">{maxRange} m</div>
+
+          <div className="text-muted-foreground">Topic:</div>
+          <div className="font-medium text-xs truncate">{data.topic || 'None'}</div>
+          
+          <div className="text-muted-foreground">Source:</div>
+          <div className="font-medium">{data.source || 'Unknown'}</div>
+          
+          <div className="text-muted-foreground">Updated:</div>
+          <div className="font-medium">{data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Never'}</div>
         </div>
       </CardContent>
     </Card>

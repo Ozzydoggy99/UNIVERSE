@@ -373,7 +373,7 @@ function handleRobotMessage(messageData: string) {
           }
         }
       }
-      else if (topic === '/scan_matched_points2') {
+      else if (topic === '/scan_matched_points2' || topic.includes('/point') || topic.includes('/scan_matched')) {
         const { points, ...pointCloudInfo } = message;
         
         // Log the first time to see the structure
@@ -385,13 +385,29 @@ function handleRobotMessage(messageData: string) {
           }
           lidarDataLogged = true;
         } else {
-          // Periodic updates - log every 10 seconds to verify we're still getting data
+          // Periodic updates - log every 5 seconds to verify we're still getting data
           const now = Date.now();
-          if (!lastLidarLogTime || (now - lastLidarLogTime) > 10000) {
+          if (!lastLidarLogTime || (now - lastLidarLogTime) > 5000) {
             console.log(`Received Point Cloud update with ${points ? points.length : 0} points at ${new Date().toISOString()}`);
             lastLidarLogTime = now;
           }
         }
+        
+        // Create a base LiDAR data object even if no points are available
+        // This ensures we always provide detailed diagnostic information to the client
+        let lidarData = {
+          ranges: [],
+          angle_min: 0,
+          angle_max: 2 * Math.PI,
+          angle_increment: 2 * Math.PI / 360, // 1-degree increments
+          range_min: 0,
+          range_max: 10, // Arbitrary max range
+          intensities: [],
+          points: points || [],
+          topic: topic,
+          source: 'websocket',
+          timestamp: new Date().toISOString()
+        };
         
         // Convert the point cloud data to a format compatible with our LiDAR visualization
         // Points are in world frame as [x, y, z] coordinates
@@ -426,25 +442,15 @@ function handleRobotMessage(messageData: string) {
             syntheticRanges.push(minRange === Infinity ? 0 : minRange);
           }
           
-          // Create a synthetic scan message that's compatible with our existing visualization
-          const syntheticScan = {
-            ranges: syntheticRanges,
-            angle_min: angleMin,
-            angle_max: angleMax,
-            angle_increment: angleIncrement,
-            range_min: 0,
-            range_max: 10, // Arbitrary max range
-            intensities: [],
-            topic: '/scan_matched_points2',
-            timestamp: message.stamp || Date.now()
-          };
-          
-          // Store this synthetic scan message
-          robotDataCache.lidar.set(PHYSICAL_ROBOT_SERIAL, syntheticScan);
-          robotEvents.emit('lidar_update', PHYSICAL_ROBOT_SERIAL, syntheticScan);
+          // Update the lidarData with the synthetic ranges
+          lidarData.ranges = syntheticRanges;
           
           console.log(`Converted ${points.length} point cloud points to ${syntheticRanges.length} synthetic ranges`);
         }
+        
+        // Store the LiDAR data
+        robotDataCache.lidar.set(PHYSICAL_ROBOT_SERIAL, lidarData);
+        robotEvents.emit('lidar_update', PHYSICAL_ROBOT_SERIAL, lidarData);
       }
     }
     else {
