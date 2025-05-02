@@ -409,22 +409,16 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
               )}
               
               {mapStatus === MAP_BUILDING_STATUS.BUILDING && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <DirectionalControl 
-                      serialNumber={serialNumber} 
-                      disabled={false} 
-                      compact={true}
-                    />
-                  </div>
-                  <div className="space-y-4">
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground mb-1">
-                        Drive the robot around to all areas you want to map
-                      </p>
-                      <div className="text-xs font-medium text-amber-600 mb-2 bg-amber-50 p-1 rounded">
-                        Remember to return to the charging station before saving
-                      </div>
+                <div className="flex flex-col space-y-4">
+                  {/* Building instructions box */}
+                  <div className="bg-gray-50 border rounded-md p-3">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Drive the robot around to all areas you want to map
+                    </p>
+                    <div className="text-xs font-medium text-amber-600 mb-3 bg-amber-50 p-2 rounded">
+                      Remember to return to the charging station before saving
+                    </div>
+                    <div className="flex justify-center">
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -435,23 +429,37 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
                         Refresh Map
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button 
-                        onClick={saveMap} 
-                        className="flex items-center gap-1"
-                        variant="default"
-                      >
-                        <Save className="h-4 w-4" />
-                        Save Map
-                      </Button>
-                      <Button 
-                        onClick={cancelMapBuilding} 
-                        className="flex items-center gap-1"
-                        variant="outline"
-                      >
-                        <Square className="h-4 w-4" />
-                        Cancel
-                      </Button>
+                  </div>
+                  
+                  {/* Controls section */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <DirectionalControl 
+                        serialNumber={serialNumber} 
+                        disabled={false} 
+                        compact={true}
+                      />
+                    </div>
+                    
+                    <div className="flex flex-col justify-end">
+                      <div className="grid grid-cols-2 gap-2 mt-auto">
+                        <Button 
+                          onClick={saveMap} 
+                          className="flex items-center gap-1"
+                          variant="default"
+                        >
+                          <Save className="h-4 w-4" />
+                          Save Map
+                        </Button>
+                        <Button 
+                          onClick={cancelMapBuilding} 
+                          className="flex items-center gap-1"
+                          variant="outline"
+                        >
+                          <Square className="h-4 w-4" />
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
