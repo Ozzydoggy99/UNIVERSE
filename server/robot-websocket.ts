@@ -72,6 +72,7 @@ let mapDataLogged = false;
 let slamDataLogged = false;
 let cameraDataLogged = false;
 let lidarDataLogged = false;
+let lastLidarLogTime = 0;
 
 /**
  * Initialize robot WebSocket connection
@@ -341,13 +342,24 @@ function handleRobotMessage(messageData: string) {
       robotDataCache.lidar.set(PHYSICAL_ROBOT_SERIAL, message);
       robotEvents.emit('lidar_update', PHYSICAL_ROBOT_SERIAL, message);
       
-      // Log LiDAR message once to see the structure (but not the full data as it might be large)
-      if (topic === '/scan' && !lidarDataLogged) {
+      // Process LiDAR data
+      if (topic === '/scan') {
         const { intensities, ranges, ...lidarInfo } = message;
-        console.log('Robot LiDAR data structure (without ranges array):', JSON.stringify(lidarInfo, null, 2));
-        console.log('LiDAR ranges length:', ranges ? ranges.length : 0);
-        console.log('LiDAR intensities length:', intensities ? intensities.length : 0);
-        lidarDataLogged = true;
+        
+        // Log the first time to see the structure
+        if (!lidarDataLogged) {
+          console.log('Robot LiDAR data structure (without ranges array):', JSON.stringify(lidarInfo, null, 2));
+          console.log('LiDAR ranges length:', ranges ? ranges.length : 0);
+          console.log('LiDAR intensities length:', intensities ? intensities.length : 0);
+          lidarDataLogged = true;
+        } else {
+          // Periodic updates - log every 10 seconds to verify we're still getting data
+          const now = Date.now();
+          if (!lastLidarLogTime || (now - lastLidarLogTime) > 10000) {
+            console.log(`Received LiDAR update with ${ranges ? ranges.length : 0} range points at ${new Date().toISOString()}`);
+            lastLidarLogTime = now;
+          }
+        }
       }
     }
     else {
