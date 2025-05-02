@@ -353,8 +353,9 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_ori: currentOrientation + (rotationDirection * rotationAmount),
           target_accuracy: 0.05,
           use_target_zone: true,
+          target_orientation_accuracy: 0.05, // Less strict for rotation
           properties: {
-            inplace_rotate: true // This is critical for pure rotation
+            inplace_rotate: true // This is critical for pure rotation to happen at current position
           }
         };
         
@@ -362,8 +363,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       } 
       else if (lastCommandTypeRef.current === 'forward') {
         // Pure forward/backward movement with EXACT same orientation
-        // Use a much larger distance to ensure the robot responds to commands
-        const distance = yDir * speed * 2.0; // TWO meters at maximum deflection for better response
+        // Use a somewhat smaller distance to prevent overshooting and improve control
+        const distance = yDir * speed * 1.2; // 1.2 meters at maximum deflection for better control
         
         console.log('Current orientation:', currentOrientation); 
         // Calculate target coordinates using the current orientation vector
@@ -377,12 +378,13 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_x: targetX,
           target_y: targetY,
           target_z: 0,
-          target_ori: currentOrientation, // No rotation at all in forward/backward mode
+          target_ori: currentOrientation, // MAINTAIN EXACT orientation for forward/backward
           target_accuracy: 0.05,
           use_target_zone: true,
+          target_orientation_accuracy: 0.01, // Add very strict orientation accuracy (new property)
           properties: {
-            // According to API documentation, only inplace_rotate is a valid property
-            // The no_rotate property must be handled differently
+            // Keep orientation strictly fixed during forward/backward movement
+            // Adding a comment for clarity, this disables in-place rotation 
             inplace_rotate: false
           }
         };
@@ -418,6 +420,7 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
           target_ori: targetOrientation,
           target_accuracy: 0.05,
           use_target_zone: true,
+          target_orientation_accuracy: 0.03, // Medium-strict orientation tolerance for combined movement
           properties: {
             // According to API documentation, only inplace_rotate is a valid property
             inplace_rotate: false
