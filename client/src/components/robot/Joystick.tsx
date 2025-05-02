@@ -286,10 +286,11 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
 
-      // Create stricter thresholds for different movement types
-      // This helps ensure more precise command classifications
-      const isRotationCommand = Math.abs(xDir) > 0.15 && Math.abs(yDir) < 0.1;
-      const isForwardCommand = Math.abs(yDir) > 0.15 && Math.abs(xDir) < 0.1;
+      // Create thresholds for different movement types, with more leeway for human control
+      // Wider threshold for detecting rotation - if x-axis movement is significant and y-axis is minimal
+      const isRotationCommand = Math.abs(xDir) > 0.15 && Math.abs(yDir) < 0.25;
+      // Wider threshold for forward/backward - if y-axis movement is significant and x-axis is less than 1/3
+      const isForwardCommand = Math.abs(yDir) > 0.15 && Math.abs(xDir) < 0.33;
       
       // For consistent movement patterns, if we previously determined the command type
       // and we're only making small joystick adjustments, keep the same command type
@@ -305,7 +306,8 @@ export function Joystick({ serialNumber, disabled = false }: JoystickProps) {
         console.log('In forward/backward mode - removing any lateral/strafing component');
         
         // Only exit forward mode if there's almost no vertical input
-        if (Math.abs(yDir) < 0.05) {
+        // Give a bit more leeway here too to accommodate human joystick control
+        if (Math.abs(yDir) < 0.08) {
           lastCommandTypeRef.current = currentCommandType;
         }
       } else {
