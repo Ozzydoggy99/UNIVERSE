@@ -783,8 +783,11 @@ export function getRobotLidarData(serialNumber: string) {
       range_min: 0,
       range_max: 0,
       intensities: [],
+      points: [],
+      topic: 'none',
       timestamp: new Date().toISOString(),
-      connectionStatus: 'disconnected'
+      connectionStatus: 'disconnected',
+      source: 'websocket-disconnected'
     };
   }
   
@@ -800,10 +803,15 @@ export function getRobotLidarData(serialNumber: string) {
       range_min: 0,
       range_max: 0,
       intensities: [],
+      points: [],
+      topic: 'pending',
+      source: 'websocket',
       timestamp: new Date().toISOString(),
       connectionStatus: 'connecting'
     };
   }
+  
+  console.log(`Got LidarData - Topic: ${lidarData.topic || 'none'}, Ranges: ${lidarData.ranges?.length || 0}, Points: ${lidarData.points?.length || 0}`);
   
   // Transform from robot format to our API format
   return {
@@ -814,6 +822,9 @@ export function getRobotLidarData(serialNumber: string) {
     range_min: lidarData.range_min || 0,
     range_max: lidarData.range_max || 0,
     intensities: lidarData.intensities || [],
+    points: lidarData.points || [],
+    topic: lidarData.topic || 'unknown',
+    source: 'websocket',
     timestamp: new Date().toISOString(),
     connectionStatus: 'connected'
   };
