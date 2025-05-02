@@ -171,9 +171,6 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
       setError(null);
       setMapProgress(0);
       
-      // Alert to ensure the function is getting called
-      alert("Start mapping button clicked! Check console logs.");
-      
       // Notify user about the development mode override for connection status
       toast({
         title: "Development Mode",
