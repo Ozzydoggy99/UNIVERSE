@@ -90,6 +90,7 @@ interface MappingSession {
   status: 'active' | 'processing' | 'completed' | 'cancelled' | 'error';
   mapData?: any;
   error?: string;
+  isMock?: boolean; // Flag for mock sessions created during development
 }
 
 // In-memory storage for active mapping sessions

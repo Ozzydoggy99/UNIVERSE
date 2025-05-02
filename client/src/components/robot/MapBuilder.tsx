@@ -174,8 +174,15 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
       
       console.log(`Starting mapping with name: ${mapName} for robot: ${serialNumber}`);
       
+      // Add a notification about mapping
+      toast({
+        title: "Starting mapping operation",
+        description: "Connecting to robot to initialize mapping. This may take a moment.",
+      });
+      
       try {
         // Start a new mapping session
+        console.log('Sending mapping request to server...');
         const response = await fetch(`/api/robots/start-mapping/${serialNumber}`, {
           method: 'POST',
           headers: {
@@ -186,7 +193,7 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
           })
         });
         
-        console.log('Start mapping API response status:', response.status);
+        console.log('Start mapping API response status:', response.status, response.statusText);
         
         if (!response.ok) {
           let errorText = '';
@@ -195,23 +202,38 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
             console.error('Start mapping error response:', errorData);
             errorText = errorData.error || `Server returned ${response.status} ${response.statusText}`;
           } catch (e) {
-            errorText = await response.text();
-            console.error('Start mapping raw error response:', errorText);
+            try {
+              errorText = await response.text();
+              console.error('Start mapping raw error response:', errorText);
+            } catch (textError) {
+              console.error('Could not read error response body:', textError);
+              errorText = `Server error: ${response.status} ${response.statusText}`;
+            }
           }
           throw new Error(errorText || `Server returned ${response.status} ${response.statusText}`);
         }
         
-        const data = await response.json();
-        console.log('Start mapping API response data:', data);
+        console.log('Response OK, parsing JSON...');
+        let data = null;
+        try {
+          data = await response.json();
+          console.log('Start mapping API response data:', data);
+        } catch (jsonError) {
+          console.error('Error parsing response JSON:', jsonError);
+          throw new Error('Could not parse server response. Server may be experiencing issues.');
+        }
         
         if (data.error) {
+          console.error('Error in response data:', data.error);
           throw new Error(data.error);
         }
         
         if (!data.sessionId) {
+          console.error('No session ID in response:', data);
           throw new Error('No session ID returned from server');
         }
         
+        console.log(`Successfully received mapping session ID: ${data.sessionId}`);
         setMappingSessionId(data.sessionId);
         setMapStatus(MAP_BUILDING_STATUS.BUILDING);
         
