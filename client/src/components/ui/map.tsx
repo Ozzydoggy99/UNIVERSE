@@ -122,6 +122,12 @@ export interface MapData {
     freeSpaceColor?: string;
     unknownColor?: string;
     enhanceVisualization?: boolean;
+    mapBounds?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
   };
 }
 

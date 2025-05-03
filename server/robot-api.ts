@@ -1148,11 +1148,12 @@ export function registerRobotApiRoutes(app: Express) {
                   originalData: mapDetail,
                   connectionStatus: 'connected',
                   // Add visual enhancement flags for client-side rendering
-                  enhancedVisualization: true,
-                  visualTheme: {
-                    obstacles: 'blue',
-                    pathways: 'white',
-                    unknown: 'lightgray'
+                  visualizationHints: {
+                    dataType: "occupancy_grid",
+                    wallColor: "#1a237e",  // Deep indigo for walls
+                    freeSpaceColor: "#ffffff",  // White for free space
+                    unknownColor: "#888888",  // Gray for unknown
+                    enhanceVisualization: true
                   }
                 };
                 
