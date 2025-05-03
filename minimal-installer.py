@@ -14,7 +14,7 @@ from urllib.parse import urljoin
 ROBOT_IP = "192.168.4.31"
 ROBOT_PORT = 8090
 ROBOT_SECRET = "H3MN33L33E2CKNM37WQRZMR2KLAQECDD"  # Pre-filled with the actual secret
-INSTALL_DIR = "/home/robot/robot-ai"
+INSTALL_DIR = "/tmp/robot-ai"  # Using /tmp which is typically writable
 
 def print_status(message):
     """Print a status message with timestamp"""
@@ -85,7 +85,16 @@ def execute_command(command):
             timeout=10,
             verify=False
         )
-        return response.status_code == 200
+        if response.status_code == 200:
+            return True
+        else:
+            print_status(f"Command failed: {response.status_code}")
+            try:
+                error_info = response.json()
+                print_status(f"Error details: {error_info}")
+            except:
+                print_status("No detailed error information available")
+            return False
     except Exception as e:
         print_status(f"Error executing command: {e}")
         return False
@@ -387,23 +396,9 @@ def main():
         print_status("Connection failed. Please check your robot IP and secret key.")
         return False
     
-    # Create installation directory
-    print_status(f"Creating installation directory at {INSTALL_DIR}...")
-    if not execute_command(f"mkdir -p {INSTALL_DIR}"):
-        print_status("Failed to create installation directory.")
-        return False
+    print_status("Skipping directory creation - we'll upload files directly to the API endpoints")
     
-    # Create modules directory
-    print_status("Creating modules directory...")
-    if not execute_command(f"mkdir -p {INSTALL_DIR}/modules"):
-        print_status("Failed to create modules directory.")
-        return False
-    
-    # Create logs directory
-    print_status("Creating logs directory...")
-    if not execute_command(f"mkdir -p {INSTALL_DIR}/logs"):
-        print_status("Failed to create logs directory.")
-        return False
+    # Instead of creating directories through commands, we'll upload directly to API endpoints
     
     # Upload core module
     print_status("Uploading core module...")
