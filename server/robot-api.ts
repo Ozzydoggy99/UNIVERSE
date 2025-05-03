@@ -1639,8 +1639,11 @@ export function registerRobotApiRoutes(app: Express) {
       const { serialNumber } = req.params;
       const { action } = req.body;
       
+      console.log(`[LIDAR POWER REQUEST] ${new Date().toISOString()} - Received power control request: ${action} for ${serialNumber}`);
+      
       // Validate action is either 'power_on' or 'power_off'
       if (!action || (action !== LidarPowerAction.POWER_ON && action !== LidarPowerAction.POWER_OFF)) {
+        console.log(`[LIDAR POWER ERROR] Invalid action: ${action}`);
         return res.status(400).json({ 
           error: 'Invalid action', 
           message: "Action must be either 'power_on' or 'power_off'" 
@@ -1649,11 +1652,13 @@ export function registerRobotApiRoutes(app: Express) {
       
       // Only allow our specific robot
       if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        console.log(`[LIDAR POWER ERROR] Invalid robot serial: ${serialNumber}`);
         return res.status(404).json({ error: 'Robot not found' });
       }
       
       // Check if robot is connected
       if (!isRobotConnected()) {
+        console.log(`[LIDAR POWER ERROR] Robot not connected`);
         return res.status(503).json({ 
           error: 'Robot not connected', 
           message: 'The robot is not currently connected. Please check the connection.'
@@ -1661,16 +1666,42 @@ export function registerRobotApiRoutes(app: Express) {
       }
       
       // Send the power command to the robot API
-      console.log(`Sending ${action} command to LiDAR on robot ${serialNumber}`);
+      console.log(`[LIDAR POWER REQUEST] Sending ${action} command to LiDAR on robot ${serialNumber}`);
       
       try {
         // According to the documentation (lines 97-106), the correct endpoint is:
         // /services/baseboard/power_on_lidar
         // with the action parameter as 'power_on' or 'power_off'
         const apiUrl = `${ROBOT_API_URL}/services/baseboard/power_on_lidar`;
-        console.log(`Sending LiDAR power request to: ${apiUrl}`);
-        console.log(`Request body: ${JSON.stringify({ action })}`);
+        console.log(`[LIDAR POWER REQUEST] Sending LiDAR power request to: ${apiUrl}`);
+        console.log(`[LIDAR POWER REQUEST] Request body: ${JSON.stringify({ action })}`);
         
+        // Let's also check available services on the robot first
+        try {
+          console.log(`[LIDAR POWER DIAG] Checking available services on robot...`);
+          const servicesResponse = await fetch(`${ROBOT_API_URL}/services`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Secret': ROBOT_SECRET || ''
+            }
+          });
+          
+          if (servicesResponse.ok) {
+            const servicesData = await servicesResponse.json();
+            console.log(`[LIDAR POWER DIAG] Available services: ${JSON.stringify(servicesData)}`);
+            
+            // Check if LiDAR power service is in the list
+            const lidarServiceAvailable = servicesData.includes('/baseboard/power_on_lidar');
+            console.log(`[LIDAR POWER DIAG] LiDAR power service available: ${lidarServiceAvailable}`);
+          } else {
+            console.log(`[LIDAR POWER DIAG] Failed to get services list: ${servicesResponse.status} ${servicesResponse.statusText}`);
+          }
+        } catch (servicesError) {
+          console.error(`[LIDAR POWER DIAG] Error checking services:`, servicesError);
+        }
+        
+        // Now try to control LiDAR power
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
@@ -1681,37 +1712,98 @@ export function registerRobotApiRoutes(app: Express) {
         });
         
         const responseText = await response.text();
-        console.log(`LiDAR power API response (${response.status}): ${responseText}`);
+        console.log(`[LIDAR POWER RESPONSE] Status: ${response.status}, Body: ${responseText}`);
         
         if (!response.ok) {
           throw new Error(`Failed to ${action} LiDAR: ${response.status} ${response.statusText} - ${responseText}`);
         }
         
+        // Additional diagnostic: Check LiDAR data immediately after power command
+        setTimeout(async () => {
+          try {
+            console.log(`[LIDAR POWER DIAG] Checking LiDAR data 2 seconds after power command...`);
+            const lidarData = getRobotLidarData(serialNumber);
+            console.log(`[LIDAR POWER DIAG] Current LiDAR data: ${JSON.stringify({
+              hasData: !!lidarData,
+              rangesTotalLength: lidarData?.ranges?.length || 0,
+              pointsCount: lidarData?.points?.length || 0
+            })}`);
+          } catch (diagError) {
+            console.error(`[LIDAR POWER DIAG] Error during diagnostics:`, diagError);
+          }
+        }, 2000);
+        
         // Return success
         res.json({ 
           success: true, 
           message: `LiDAR ${action === LidarPowerAction.POWER_ON ? 'powered on' : 'powered off'} successfully`,
-          action
+          action,
+          diagnostics: {
+            timestamp: new Date().toISOString(),
+            robotConnected: isRobotConnected(),
+            apiEndpoint: apiUrl,
+            responseStatus: response.status,
+          }
         });
       } catch (apiError: any) {
-        console.error(`Error in LiDAR power API call:`, apiError);
+        console.error(`[LIDAR POWER ERROR] Error in LiDAR power API call:`, apiError);
         
         // Check for the specific ROS service unavailable error
         if (apiError.message && apiError.message.includes('ROS Service Exception: service [/baseboard/power_on_lidar] unavailable')) {
+          console.log(`[LIDAR POWER ERROR] LiDAR service unavailable on robot`);
+          
+          // Additional diagnostic: Check if other ROS services are available
+          try {
+            console.log(`[LIDAR POWER DIAG] Checking other robot services as a diagnostic...`);
+            const testResponse = await fetch(`${ROBOT_API_URL}/status`, {
+              method: 'GET',
+              headers: {
+                'Secret': ROBOT_SECRET || ''
+              }
+            });
+            
+            console.log(`[LIDAR POWER DIAG] Robot status API response: ${testResponse.status}`);
+            
+            if (testResponse.ok) {
+              console.log(`[LIDAR POWER DIAG] Robot API is working but LiDAR service is unavailable. This suggests a ROS service issue.`);
+            }
+          } catch (diagError) {
+            console.error(`[LIDAR POWER DIAG] Error during diagnostics:`, diagError);
+          }
+          
           return res.status(503).json({ 
             error: 'LiDAR service unavailable', 
-            message: `The LiDAR power control service is currently unavailable on the robot. The robot may need to be restarted or its services reconfigured.`
+            message: `The LiDAR power control service is currently unavailable on the robot. The robot may need to be restarted or its services reconfigured.`,
+            diagnostics: {
+              timestamp: new Date().toISOString(),
+              robotConnected: isRobotConnected(),
+              apiEndpoint: apiUrl,
+              detailedError: apiError.message,
+              suggestedAction: 'Restart the robot or check if ROS services are running properly.'
+            }
           });
         }
         
         return res.status(500).json({ 
           error: 'LiDAR power API error', 
-          message: `Failed to ${action} LiDAR. Check robot connectivity and try again.`
+          message: `Failed to ${action} LiDAR. Check robot connectivity and try again.`,
+          diagnostics: {
+            timestamp: new Date().toISOString(),
+            robotConnected: isRobotConnected(),
+            apiEndpoint: apiUrl,
+            detailedError: apiError.message
+          }
         });
       }
     } catch (error) {
-      console.error('Error controlling LiDAR power:', error);
-      res.status(500).json({ error: 'Failed to control LiDAR power' });
+      console.error('[LIDAR POWER ERROR] Unhandled error controlling LiDAR power:', error);
+      res.status(500).json({ 
+        error: 'Failed to control LiDAR power',
+        diagnostics: {
+          timestamp: new Date().toISOString(),
+          detailedError: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
     }
   });
   
