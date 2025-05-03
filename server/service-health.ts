@@ -215,9 +215,20 @@ export async function checkLidarPowerServiceHealth(): Promise<boolean> {
  */
 export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 'restart'): Promise<{success: boolean, message: string}> {
   try {
-    // Prevent multiple power cycles in a short period
     const now = Date.now();
+    
+    // Detailed initial logging
+    console.log(`[POWER CYCLE] Beginning power cycle process (method: ${method})`);
+    console.log(`[POWER CYCLE] Current state: ${JSON.stringify({
+      inProgress: powerCycleState.inProgress,
+      lastAttempt: powerCycleState.lastAttempt ? new Date(powerCycleState.lastAttempt).toISOString() : 'never',
+      cooldownRemaining: powerCycleState.lastAttempt ? 
+        Math.ceil((5 * 60 * 1000 - (now - powerCycleState.lastAttempt)) / 1000 / 60) : 0
+    })}`);
+    
+    // Prevent multiple power cycles in a short period
     if (powerCycleState.inProgress) {
+      console.log('[POWER CYCLE] Rejected: Power cycle already in progress');
       return {
         success: false,
         message: 'Power cycle already in progress'
@@ -228,6 +239,7 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
     const cooldownPeriod = 5 * 60 * 1000; // 5 minutes
     if (now - powerCycleState.lastAttempt < cooldownPeriod) {
       const remainingCooldown = Math.ceil((cooldownPeriod - (now - powerCycleState.lastAttempt)) / 1000 / 60);
+      console.log(`[POWER CYCLE] Rejected: Must wait ${remainingCooldown} more minutes before attempting another power cycle`);
       return {
         success: false,
         message: `Must wait ${remainingCooldown} more minutes before attempting another power cycle`
@@ -237,6 +249,11 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
     // Update state
     powerCycleState.inProgress = true;
     powerCycleState.lastAttempt = now;
+    powerCycleState.success = false; // Reset success state
+    powerCycleState.error = undefined; // Clear any previous errors
+    
+    // Check if robot is connected before attempting power cycle
+    console.log(`[POWER CYCLE] Robot connection status check: ${isRobotConnected() ? 'Connected' : 'Not Connected'}`);
     
     // Get the right endpoint based on method
     const endpoint = method === 'restart' ? '/services/restart_robot' : '/services/shutdown_robot';
@@ -244,6 +261,7 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
     console.log(`[POWER CYCLE] Attempting to ${method} robot via ${endpoint}`);
     
     // Try alternate endpoints if the primary one fails
+    // Added more possible endpoints based on common robot API patterns
     const alternateEndpoints = [
       `/services/${method}_robot`, 
       `/services/robot/${method}`,
@@ -252,8 +270,12 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
       `/api/system/reboot`,         // Common system API endpoint
       `/services/power/restart`,    // Another common power service endpoint
       `/api/robot/power/restart`,   // Newer robot API models
+      `/api/robot/restart`,         // Another common endpoint
+      `/services/robot/control/restart`, // Nested service endpoint
+      `/system/control/power/${method}`, // System control endpoint
       `/action/reboot`,             // Legacy robot endpoint
-      `/services/reboot`            // Last resort
+      `/services/reboot`,           // Common ROS service endpoint
+      `/system/power/${method}`     // System power command
     ];
     
     // First try the main endpoint
@@ -375,18 +397,54 @@ export function getPowerCycleStatus(): {
   success: boolean;
   error?: string;
   remainingTime?: number;
+  robotConnected?: boolean;
+  recoveryProgress?: number;
 } {
   const now = Date.now();
   const remainingTime = powerCycleState.expectedRecoveryTime 
     ? Math.max(0, Math.floor((powerCycleState.expectedRecoveryTime - now) / 1000))
     : undefined;
   
+  // Check if robot is connected
+  const robotConnected = isRobotConnected();
+  
+  // If robot comes back before the expected recovery time and power cycle is still marked as in progress
+  if (robotConnected && powerCycleState.inProgress && powerCycleState.expectedRecoveryTime && now < powerCycleState.expectedRecoveryTime) {
+    console.log(`[POWER CYCLE] Robot is back online before expected recovery time. Marking power cycle as completed.`);
+    
+    // Robot reconnected faster than expected, mark as success and complete
+    powerCycleState.inProgress = false;
+    powerCycleState.success = true;
+    
+    // Reset service health statuses
+    Object.keys(robotServiceHealth).forEach(serviceName => {
+      updateServiceHealth(serviceName, true);
+    });
+  }
+  
+  // Calculate recovery progress percentage if in progress
+  let recoveryProgress: number | undefined = undefined;
+  if (powerCycleState.inProgress && powerCycleState.expectedRecoveryTime && powerCycleState.lastAttempt) {
+    const totalRecoveryTime = powerCycleState.expectedRecoveryTime - powerCycleState.lastAttempt;
+    const elapsed = now - powerCycleState.lastAttempt;
+    recoveryProgress = Math.min(100, Math.floor((elapsed / totalRecoveryTime) * 100));
+  }
+  
+  console.log(`[POWER CYCLE] Current status: ${JSON.stringify({
+    inProgress: powerCycleState.inProgress,
+    success: powerCycleState.success,
+    remainingTime: remainingTime || 'N/A',
+    robotConnected
+  })}`);
+  
   return {
     inProgress: powerCycleState.inProgress,
     lastAttempt: powerCycleState.lastAttempt ? new Date(powerCycleState.lastAttempt).toISOString() : 'Never',
     success: powerCycleState.success,
     error: powerCycleState.error,
-    remainingTime
+    remainingTime,
+    robotConnected,
+    recoveryProgress
   };
 }
 
