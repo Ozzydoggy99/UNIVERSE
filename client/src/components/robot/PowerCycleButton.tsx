@@ -153,15 +153,27 @@ export function PowerCycleButton({
   
   return (
     <>
-      <Button 
-        variant={variant} 
-        className={className}
-        size={size}
-        onClick={() => setIsOpen(true)}
-      >
-        <Power className="h-4 w-4 mr-2" />
-        {buttonText}
-      </Button>
+      <div className="flex flex-col gap-2">
+        <Button 
+          variant={variant} 
+          className={className}
+          size={size}
+          onClick={() => setIsOpen(true)}
+        >
+          <Power className="h-4 w-4 mr-2" />
+          {buttonText}
+        </Button>
+        
+        {/* Test button for demonstrating the power cycle functionality */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs"
+          onClick={handleTestPowerCycle}
+        >
+          Test Power Cycle
+        </Button>
+      </div>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md">

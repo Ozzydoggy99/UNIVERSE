@@ -27,7 +27,8 @@ import {
   attemptServiceRecovery,
   checkLidarPowerServiceHealth,
   remotePowerCycleRobot,
-  getPowerCycleStatus
+  getPowerCycleStatus,
+  powerCycleState
 } from './service-health';
 
 // Enum for LiDAR power action
