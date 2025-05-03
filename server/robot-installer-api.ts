@@ -19,9 +19,11 @@ import type { Express } from 'express';
  */
 export async function executeInstaller(serialNumber: string, installerPath: string = '/tmp/robot-ai-minimal-installer.py') {
   console.log(`Executing Robot AI installer on robot ${serialNumber} at path ${installerPath}`);
+  console.log(`Robot API URL: ${ROBOT_API_URL}, Secret available: ${ROBOT_SECRET ? 'Yes' : 'No'}`);
   
   try {
     // First, make the installer executable
+    console.log(`Making installer executable: chmod +x ${installerPath}`);
     const chmodResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
       method: 'POST',
       headers: {
@@ -34,11 +36,16 @@ export async function executeInstaller(serialNumber: string, installerPath: stri
     });
     
     if (!chmodResponse.ok) {
-      const error = await chmodResponse.text();
-      throw new Error(`Failed to make installer executable: ${error}`);
+      const errorText = await chmodResponse.text();
+      console.error(`Chmod response error (${chmodResponse.status}): ${errorText}`);
+      throw new Error(`Failed to make installer executable: HTTP ${chmodResponse.status} - ${errorText}`);
     }
     
+    const chmodResult = await chmodResponse.json();
+    console.log('Chmod result:', chmodResult);
+    
     // Then execute the installer
+    console.log(`Executing installer: python3 ${installerPath}`);
     const executeResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
       method: 'POST',
       headers: {
@@ -51,11 +58,13 @@ export async function executeInstaller(serialNumber: string, installerPath: stri
     });
     
     if (!executeResponse.ok) {
-      const error = await executeResponse.text();
-      throw new Error(`Failed to execute installer: ${error}`);
+      const errorText = await executeResponse.text();
+      console.error(`Execute response error (${executeResponse.status}): ${errorText}`);
+      throw new Error(`Failed to execute installer: HTTP ${executeResponse.status} - ${errorText}`);
     }
     
     const result = await executeResponse.json();
+    console.log('Execution result:', result);
     
     return {
       success: true,

@@ -50,8 +50,7 @@ const InstallerButton: FC<InstallerButtonProps> = ({
       const response = await apiRequest(
         "POST",
         `/api/robots/${serialNumber}/execute-installer`,
-        { installerPath },
-        {}
+        { installerPath }
       );
       if (!response.ok) {
         throw new Error(`Failed to execute installer: ${response.statusText}`);

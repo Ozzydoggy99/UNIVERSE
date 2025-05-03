@@ -20,7 +20,7 @@ if (!ROBOT_API_URL || !ROBOT_WS_URL) {
 export const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
 
 // For testing with ngrok, we'll keep this option but it may not be needed
-export const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
+export const ROBOT_SECRET = process.env.ROBOT_SECRET || 'L382502104987ir-secret';
 
 // Allow updating the connection URLs at runtime
 export function updateRobotConnectionURLs(apiUrl: string, wsUrl: string) {
