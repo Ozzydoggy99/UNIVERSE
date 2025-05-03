@@ -912,12 +912,17 @@ export async function toggleRobotCamera(serialNumber: string, enabled: boolean):
 export async function getLidarData(serialNumber: string): Promise<LidarData> {
   console.log(`Getting LiDAR data for serial: ${serialNumber}`);
   try {
-    console.log(`Fetching LiDAR data from: /api/robots/lidar/${serialNumber}`);
-    const response = await fetch(`/api/robots/lidar/${serialNumber}`, {
+    // Add timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    console.log(`Fetching LiDAR data from: /api/robots/lidar/${serialNumber}?_nocache=${timestamp}`);
+    const response = await fetch(`/api/robots/lidar/${serialNumber}?_nocache=${timestamp}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Secret': ROBOT_SECRET || ''
+        'Secret': ROBOT_SECRET || '',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       }
     });
     
@@ -939,10 +944,12 @@ export async function getLidarData(serialNumber: string): Promise<LidarData> {
     const data = await response.json();
     console.log('LiDAR data retrieved successfully');
     
-    // Add connection status to the result
+    // Add connection status to the result and force a new timestamp
+    // to ensure React recognizes the change in data
     return {
       ...data,
-      connectionStatus: 'connected'
+      connectionStatus: 'connected',
+      timestamp: new Date().toISOString() // Force a timestamp update to trigger re-renders
     };
   } catch (error) {
     console.error('Error in getLidarData fetch:', error);

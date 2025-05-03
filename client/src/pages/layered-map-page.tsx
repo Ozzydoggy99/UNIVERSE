@@ -39,6 +39,8 @@ import {
 import { useRobot } from '@/providers/robot-provider';
 import { useToast } from "@/hooks/use-toast";
 import MapBuilder from '@/components/robot/MapBuilder';
+import { getLidarData } from '@/lib/api';
+import { LidarData } from '@/types/robot';
 
 interface Point {
   x: number;
