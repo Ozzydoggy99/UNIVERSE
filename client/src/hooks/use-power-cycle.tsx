@@ -11,6 +11,8 @@ export type PowerCycleStatus = {
   remainingTime?: number;
   robotConnected?: boolean;
   recoveryProgress?: number;
+  recoveryFailed?: boolean;
+  maxRecoveryTime?: number;
 };
 
 export type PowerCycleMethod = 'restart' | 'shutdown';

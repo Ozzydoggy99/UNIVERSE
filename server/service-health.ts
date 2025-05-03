@@ -19,7 +19,9 @@ interface PowerCycleStatus {
 export const powerCycleState: PowerCycleStatus = {
   inProgress: false,
   lastAttempt: 0,
-  success: false
+  success: false,
+  recoveryFailed: false,
+  maxRecoveryTime: 5 * 60 * 1000 // 5 minutes max recovery time
 };
 
 // Service health monitoring
@@ -341,13 +343,40 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
         // Set expected recovery time
         powerCycleState.expectedRecoveryTime = now + (method === 'restart' ? 2 * 60 * 1000 : 5 * 60 * 1000);
         powerCycleState.success = true;
+        powerCycleState.recoveryFailed = false;
         
-        // Reset service health statuses after restart
+        // Set a timeout to check if robot has reconnected
+        const recoveryTimeout = setTimeout(() => {
+          // If we reach this timeout and robot is still not back, mark as failed
+          if (powerCycleState.inProgress) {
+            console.error(`[POWER CYCLE] CRITICAL: Robot has not reconnected after ${method} within expected time (${powerCycleState.maxRecoveryTime}ms)`);
+            
+            // Mark as failed recovery
+            powerCycleState.recoveryFailed = true;
+            powerCycleState.inProgress = false;
+            powerCycleState.success = false;
+            powerCycleState.error = `Robot failed to reconnect after ${method}. Manual intervention required.`;
+            
+            // Log out all known information about the robot's last state
+            console.error('[POWER CYCLE] Robot connection status before timeout:', isRobotConnected() ? 'Connected' : 'Disconnected');
+            console.error('[POWER CYCLE] Full power cycle state:', JSON.stringify(powerCycleState));
+          }
+        }, powerCycleState.maxRecoveryTime);
+        
+        // Also set normal completion handler
         setTimeout(() => {
-          Object.keys(robotServiceHealth).forEach(serviceName => {
-            updateServiceHealth(serviceName, true);
-          });
-          powerCycleState.inProgress = false;
+          // This will run after expected recovery time - the robot should be back by now
+          // If robot is connected, clear the recovery failure timeout
+          if (isRobotConnected()) {
+            clearTimeout(recoveryTimeout);
+            
+            Object.keys(robotServiceHealth).forEach(serviceName => {
+              updateServiceHealth(serviceName, true);
+            });
+            powerCycleState.inProgress = false;
+            console.log('[POWER CYCLE] Robot successfully recovered from power cycle');
+          }
+          // If not connected, the recovery failure timeout will fire
         }, powerCycleState.expectedRecoveryTime - now);
         
         return {
@@ -383,13 +412,40 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
           // Set expected recovery time
           powerCycleState.expectedRecoveryTime = now + (method === 'restart' ? 2 * 60 * 1000 : 5 * 60 * 1000);
           powerCycleState.success = true;
+          powerCycleState.recoveryFailed = false;
           
-          // Reset service health statuses after restart
+          // Set a timeout to check if robot has reconnected
+          const recoveryTimeout = setTimeout(() => {
+            // If we reach this timeout and robot is still not back, mark as failed
+            if (powerCycleState.inProgress) {
+              console.error(`[POWER CYCLE] CRITICAL: Robot has not reconnected after ${method} within expected time (${powerCycleState.maxRecoveryTime}ms)`);
+              
+              // Mark as failed recovery
+              powerCycleState.recoveryFailed = true;
+              powerCycleState.inProgress = false;
+              powerCycleState.success = false;
+              powerCycleState.error = `Robot failed to reconnect after ${method}. Manual intervention required.`;
+              
+              // Log out all known information about the robot's last state
+              console.error('[POWER CYCLE] Robot connection status before timeout:', isRobotConnected() ? 'Connected' : 'Disconnected');
+              console.error('[POWER CYCLE] Full power cycle state:', JSON.stringify(powerCycleState));
+            }
+          }, powerCycleState.maxRecoveryTime);
+          
+          // Also set normal completion handler
           setTimeout(() => {
-            Object.keys(robotServiceHealth).forEach(serviceName => {
-              updateServiceHealth(serviceName, true);
-            });
-            powerCycleState.inProgress = false;
+            // This will run after expected recovery time - the robot should be back by now
+            // If robot is connected, clear the recovery failure timeout
+            if (isRobotConnected()) {
+              clearTimeout(recoveryTimeout);
+              
+              Object.keys(robotServiceHealth).forEach(serviceName => {
+                updateServiceHealth(serviceName, true);
+              });
+              powerCycleState.inProgress = false;
+              console.log('[POWER CYCLE] Robot successfully recovered from power cycle');
+            }
+            // If not connected, the recovery failure timeout will fire
           }, powerCycleState.expectedRecoveryTime - now);
           
           return {
@@ -440,6 +496,8 @@ export function getPowerCycleStatus(): {
   remainingTime?: number;
   robotConnected?: boolean;
   recoveryProgress?: number;
+  recoveryFailed?: boolean;
+  maxRecoveryTime?: number;
 } {
   const now = Date.now();
   const remainingTime = powerCycleState.expectedRecoveryTime 
@@ -485,7 +543,9 @@ export function getPowerCycleStatus(): {
     error: powerCycleState.error,
     remainingTime,
     robotConnected,
-    recoveryProgress
+    recoveryProgress,
+    recoveryFailed: powerCycleState.recoveryFailed,
+    maxRecoveryTime: powerCycleState.maxRecoveryTime
   };
 }
 
