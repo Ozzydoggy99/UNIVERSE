@@ -17,7 +17,7 @@ interface InstallerButtonProps {
  */
 const InstallerButton: FC<InstallerButtonProps> = ({
   serialNumber,
-  installerPath = "/tmp/robot-ai-minimal-installer.py",
+  installerPath = "/home/robot/robot-ai-minimal-installer.py",
   size = "default",
   className = "",
 }) => {
@@ -47,11 +47,13 @@ const InstallerButton: FC<InstallerButtonProps> = ({
     error,
   } = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest(
-        "POST",
-        `/api/robots/${serialNumber}/execute-installer`,
-        { installerPath }
-      );
+      const response = await fetch(`/api/robots/${serialNumber}/execute-installer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ installerPath })
+      });
       if (!response.ok) {
         throw new Error(`Failed to execute installer: ${response.statusText}`);
       }
