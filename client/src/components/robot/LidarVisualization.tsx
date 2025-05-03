@@ -36,6 +36,11 @@ interface LidarVisualizationProps {
   data: LidarData | null;
   loading?: boolean;
   serialNumber?: string;
+  robotPosition?: {
+    orientation: number;
+    x?: number;
+    y?: number;
+  };
 }
 
 // LiDAR power action enum - must match server-side enum
@@ -44,7 +49,7 @@ enum LidarPowerAction {
   POWER_OFF = 'power_off'
 }
 
-export function LidarVisualization({ data, loading = false, serialNumber }: LidarVisualizationProps) {
+export function LidarVisualization({ data, loading = false, serialNumber, robotPosition }: LidarVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
   
@@ -322,7 +327,7 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
 
   // Create a throttled render function to limit updates to once per ~33ms (30fps)
   // This function will only be recreated when data changes
-  const renderThrottled = useRef(throttle((data: LidarData, canvas: HTMLCanvasElement) => {
+  const renderThrottled = useRef(throttle((data: LidarData, canvas: HTMLCanvasElement, robotOrientation?: number) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
@@ -375,19 +380,37 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       ctx.fillText(`${i}m`, centerX + radius + 2, centerY);
     }
 
-    // Draw orientation axes
+    // Draw orientation axes - adjusted based on robot orientation
     ctx.strokeStyle = 'rgba(150, 150, 150, 0.6)';
     ctx.lineWidth = 1;
-    // Draw X axis
+    
+    // Get robot orientation if available
+    const robotOrientationRadians = robotOrientation || 0;
+    
+    // Save the current context state
+    ctx.save();
+    
+    // Translate to center
+    ctx.translate(centerX, centerY);
+    
+    // Rotate the context based on robot orientation
+    ctx.rotate(robotOrientationRadians);
+    
+    // Draw X and Y axes (now rotated with robot orientation)
+    // X axis
     ctx.beginPath();
-    ctx.moveTo(centerX - size/2 * 0.8, centerY);
-    ctx.lineTo(centerX + size/2 * 0.8, centerY);
+    ctx.moveTo(-size/2 * 0.8, 0);
+    ctx.lineTo(size/2 * 0.8, 0);
     ctx.stroke();
-    // Draw Y axis
+    
+    // Y axis
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY - size/2 * 0.8);
-    ctx.lineTo(centerX, centerY + size/2 * 0.8);
+    ctx.moveTo(0, -size/2 * 0.8);
+    ctx.lineTo(0, size/2 * 0.8);
     ctx.stroke();
+    
+    // Restore the context to original state
+    ctx.restore();
 
     // Draw robot at center
     ctx.fillStyle = 'rgba(25, 113, 194, 0.8)';
@@ -526,9 +549,11 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     
     // Instead of rendering immediately, use the throttled render function
     // This ensures consistent frame rate across all devices (30fps max)
-    renderThrottled(data, canvas);
+    // Pass the robot orientation if available
+    const robotOrientationValue = robotPosition?.orientation;
+    renderThrottled(data, canvas, robotOrientationValue);
     
-  }, [data, renderThrottled]);
+  }, [data, renderThrottled, robotPosition]);
 
   // Handle different states
   if (loading) {
