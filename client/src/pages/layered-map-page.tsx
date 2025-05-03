@@ -232,16 +232,34 @@ export default function LayeredMapPage() {
       // Connect to WebSocket for this specific robot
       connectWebSocket();
       
-      // Set up periodic data refresh
+      // Set up faster periodic data refresh for map page
+      // 500ms refresh ensures more responsive updates
       const refreshInterval = setInterval(() => {
         if (isConnected()) {
           refreshData();
+          console.log('Refreshing map data from API');
         }
-      }, 2000);
+      }, 500);
+      
+      // Also fetch LiDAR data more frequently for better real-time visualization
+      const lidarRefreshInterval = setInterval(() => {
+        if (isConnected()) {
+          // Direct API call to get latest LiDAR data
+          getLidarData(serialNumber).then(newLidarData => {
+            if (newLidarData && newLidarData.ranges && newLidarData.ranges.length > 0) {
+              console.log(`Direct LiDAR refresh: ${newLidarData.ranges.length} points`);
+              setWsLidarData(newLidarData);
+            }
+          }).catch(err => {
+            // Silently fail to avoid console spam
+          });
+        }
+      }, 250);
       
       // Clean up on unmount
       return () => {
         clearInterval(refreshInterval);
+        clearInterval(lidarRefreshInterval);
         disconnectWebSocket();
       };
     }
