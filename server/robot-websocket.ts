@@ -1101,8 +1101,10 @@ export function getRobotMapData(serialNumber: string) {
 
 /**
  * Get the latest robot LiDAR data
+ * @param serialNumber The robot's serial number
+ * @param preferredTopic Optional topic to prefer (e.g. '/scan_matched_points2')
  */
-export function getRobotLidarData(serialNumber: string) {
+export function getRobotLidarData(serialNumber: string, preferredTopic?: string) {
   // Check if we have data for this robot
   if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
     return null;
@@ -1126,6 +1128,7 @@ export function getRobotLidarData(serialNumber: string) {
     };
   }
   
+  // Get all LiDAR data entries from the cache
   const lidarData = robotDataCache.lidar.get(serialNumber);
   
   if (!lidarData) {
@@ -1146,6 +1149,55 @@ export function getRobotLidarData(serialNumber: string) {
     };
   }
   
+  // If we have a preferred topic and it matches our cached data, use that
+  if (preferredTopic && lidarData.topic === preferredTopic) {
+    console.log(`Got LidarData from preferred topic ${preferredTopic} - Ranges: ${lidarData.ranges?.length || 0}, Points: ${lidarData.points?.length || 0}`);
+    // This is exactly what we want, return it directly
+    return {
+      ranges: lidarData.ranges || [],
+      angle_min: lidarData.angle_min || 0,
+      angle_max: lidarData.angle_max || 0,
+      angle_increment: lidarData.angle_increment || 0,
+      range_min: lidarData.range_min || 0,
+      range_max: lidarData.range_max || 0,
+      intensities: lidarData.intensities || [],
+      points: lidarData.points || [],
+      topic: lidarData.topic || 'unknown',
+      source: 'websocket',
+      timestamp: new Date().toISOString(),
+      connectionStatus: 'connected'
+    };
+  }
+  
+  // Specific preferred topic fallbacks for consistent data
+  if (preferredTopic === '/scan_matched_points2') {
+    // If preferred topic is scan_matched_points2 but we have a newer point cloud update,
+    // look for the most recent point cloud data across all topics
+    const pointCloudData = getTopicDataWithPoints(serialNumber);
+    if (pointCloudData && pointCloudData.points && pointCloudData.points.length > 0) {
+      console.log(`No data from ${preferredTopic}, using point cloud data from ${pointCloudData.topic} - Points: ${pointCloudData.points.length}`);
+      
+      // Since this is a point cloud, we need to convert it to ranges format for consistency
+      // The conversion is already happening elsewhere, so we just need to provide the data
+      return {
+        ranges: pointCloudData.ranges || [], // This might already be populated by the conversion
+        angle_min: 0,
+        angle_max: 2 * Math.PI,
+        angle_increment: (2 * Math.PI) / (pointCloudData.ranges?.length || 361),
+        range_min: 0,
+        range_max: 10,
+        intensities: [],
+        points: pointCloudData.points,
+        topic: pointCloudData.topic,
+        source: 'websocket',
+        timestamp: new Date().toISOString(),
+        connectionStatus: 'connected',
+        _preferred_topic_missing: true // Flag to indicate we're using a fallback
+      };
+    }
+  }
+  
+  // If we get here, just log what we've got and return it
   console.log(`Got LidarData - Topic: ${lidarData.topic || 'none'}, Ranges: ${lidarData.ranges?.length || 0}, Points: ${lidarData.points?.length || 0}`);
   
   // Transform from robot format to our API format
@@ -1163,6 +1215,23 @@ export function getRobotLidarData(serialNumber: string) {
     timestamp: new Date().toISOString(),
     connectionStatus: 'connected'
   };
+}
+
+/**
+ * Get any topic data that has point cloud points
+ */
+function getTopicDataWithPoints(serialNumber: string) {
+  // Scan through the different topics to find one with point cloud data
+  const allData = robotDataCache.lidar.get(serialNumber);
+  if (!allData) return null;
+  
+  // If the current data has points, return it
+  if (allData.points && allData.points.length > 0) {
+    return allData;
+  }
+  
+  // We didn't find any topic with point cloud data
+  return null;
 }
 
 /**

@@ -912,17 +912,21 @@ export async function toggleRobotCamera(serialNumber: string, enabled: boolean):
 export async function getLidarData(serialNumber: string): Promise<LidarData> {
   console.log(`Getting LiDAR data for serial: ${serialNumber}`);
   try {
-    // Add timestamp to prevent caching
+    // Always use cache busting to ensure we get fresh data
+    // This is critical for consistency across all devices
     const timestamp = new Date().getTime();
-    console.log(`Fetching LiDAR data from: /api/robots/lidar/${serialNumber}?_nocache=${timestamp}`);
-    const response = await fetch(`/api/robots/lidar/${serialNumber}?_nocache=${timestamp}`, {
+    const url = `/api/robots/lidar/${serialNumber}?_nocache=${timestamp}&_preferTopic=scan_matched_points2`;
+    console.log(`Fetching LiDAR data from: ${url}`);
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Secret': ROBOT_SECRET || '',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
-        'Expires': '0'
+        'Expires': '0',
+        'X-Preferred-Topic': '/scan_matched_points2' // Explicitly request this topic
       }
     });
     

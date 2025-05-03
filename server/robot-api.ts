@@ -1398,6 +1398,7 @@ export function registerRobotApiRoutes(app: Express) {
   app.get('/api/robots/lidar/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
+      const preferredTopic = req.query._preferTopic || req.headers['x-preferred-topic'] || '/scan_matched_points2';
       
       // Only support our physical robot
       if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
@@ -1405,7 +1406,15 @@ export function registerRobotApiRoutes(app: Express) {
       }
       
       // Get LiDAR data from WebSocket cache
-      const lidarData = getRobotLidarData(serialNumber);
+      // When a preferred topic is specified, we'll try to get data from that topic first
+      const lidarData = getRobotLidarData(serialNumber, preferredTopic as string);
+      
+      // Set cache control headers to ensure fresh data across all clients
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
       
       if (lidarData) {
         // Always return the LiDAR data - it will contain connection state information
