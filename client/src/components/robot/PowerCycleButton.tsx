@@ -91,6 +91,49 @@ export function PowerCycleButton({
     // Don't close dialog immediately, wait for response
   };
   
+  // Test mode for demo purposes
+  const handleTestPowerCycle = async () => {
+    try {
+      const res = await fetch(`/api/robots/${serialNumber}/test-power-cycle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to start test power cycle: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log('Test power cycle initiated:', data);
+      
+      toast({
+        title: 'Test Power Cycle',
+        description: 'Test power cycle initiated. UI will update in real-time.',
+        variant: 'default',
+      });
+      
+      // Start checking status
+      const checkInterval = setInterval(() => {
+        checkStatus();
+      }, 2000);
+      
+      // Clear after 40 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval);
+      }, 40 * 1000);
+      
+    } catch (error) {
+      console.error('Error starting test power cycle:', error);
+      toast({
+        title: 'Test Failed',
+        description: error instanceof Error ? error.message : 'Failed to start test power cycle',
+        variant: 'destructive',
+      });
+    }
+  };
+  
   useEffect(() => {
     // Close dialog automatically if power cycle is successful
     if (status?.success && !status?.inProgress) {
@@ -152,9 +195,31 @@ export function PowerCycleButton({
                         <span className="font-mono">{formatTime(timer)}</span>
                       </div>
                       <Progress 
-                        value={100 - (timer / (selectedMethod === 'restart' ? 120 : 300) * 100)} 
+                        value={status?.recoveryProgress !== undefined 
+                          ? status.recoveryProgress 
+                          : 100 - (timer / (selectedMethod === 'restart' ? 120 : 300) * 100)} 
                         className="h-2"
                       />
+                      
+                      {/* Connection status indicator */}
+                      <div className="flex justify-between items-center mt-2 text-xs">
+                        <div>
+                          Robot: {status?.robotConnected ? (
+                            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                              Connected
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
+                              Reconnecting...
+                            </Badge>
+                          )}
+                        </div>
+                        <div>
+                          Progress: {status?.recoveryProgress !== undefined ? 
+                            `${status.recoveryProgress}%` : 
+                            `${Math.round(100 - (timer / (selectedMethod === 'restart' ? 120 : 300) * 100))}%`}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

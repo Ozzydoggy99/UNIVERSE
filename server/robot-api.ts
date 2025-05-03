@@ -2057,4 +2057,45 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to get power cycle status' });
     }
   });
+  
+  /**
+   * Test power cycle functionality
+   * This endpoint simulates a power cycle by setting the appropriate state values
+   * without actually sending robot restart commands - helpful for UI testing
+   */
+  app.post('/api/robots/:serialNumber/test-power-cycle', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      console.log(`Starting TEST power cycle for robot ${serialNumber}`);
+      
+      // Set the power cycle state to "in progress"
+      const now = Date.now();
+      powerCycleState.inProgress = true;
+      powerCycleState.lastAttempt = now;
+      powerCycleState.success = false;
+      powerCycleState.expectedRecoveryTime = now + (2 * 60 * 1000); // 2 minutes
+      
+      // Return the initial state
+      const status = getPowerCycleStatus();
+      
+      // Simulate completion after 30 seconds
+      setTimeout(() => {
+        console.log(`TEST power cycle for robot ${serialNumber} completed`);
+        powerCycleState.inProgress = false;
+        powerCycleState.success = true;
+      }, 30 * 1000);
+      
+      res.json({ 
+        success: true, 
+        message: 'Test power cycle initiated',
+        status
+      });
+    } catch (error) {
+      console.error('Error during test power cycle:', error);
+      res.status(500).json({ 
+        error: 'Failed to initiate test power cycle',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 }
