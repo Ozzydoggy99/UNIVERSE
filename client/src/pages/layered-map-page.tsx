@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +43,7 @@ import MapBuilder from '@/components/robot/MapBuilder';
 interface Point {
   x: number;
   y: number;
+  orientation?: number; // Added orientation field to the Point interface
 }
 
 interface PathPoint extends Point {
