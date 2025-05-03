@@ -2067,28 +2067,66 @@ export function registerRobotApiRoutes(app: Express) {
   app.post('/api/robots/:serialNumber/test-power-cycle', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
-      console.log(`Starting TEST power cycle for robot ${serialNumber}`);
+      const { simulateFailure } = req.body;
+      
+      console.log(`Starting TEST power cycle for robot ${serialNumber} ${simulateFailure ? '(with failure simulation)' : ''}`);
       
       // Set the power cycle state to "in progress"
       const now = Date.now();
       powerCycleState.inProgress = true;
       powerCycleState.lastAttempt = now;
       powerCycleState.success = false;
-      powerCycleState.expectedRecoveryTime = now + (2 * 60 * 1000); // 2 minutes
+      powerCycleState.error = undefined;
+      powerCycleState.recoveryFailed = false;
+      powerCycleState.robotConnected = false;
+      powerCycleState.recoveryProgress = 0;
+      powerCycleState.maxRecoveryTime = 30 * 1000; // 30 seconds for test (shortened from real 5 min)
+      powerCycleState.expectedRecoveryTime = now + 30 * 1000; // 30 seconds for test
       
       // Return the initial state
       const status = getPowerCycleStatus();
       
-      // Simulate completion after 30 seconds
-      setTimeout(() => {
-        console.log(`TEST power cycle for robot ${serialNumber} completed`);
-        powerCycleState.inProgress = false;
-        powerCycleState.success = true;
-      }, 30 * 1000);
+      if (simulateFailure) {
+        // Simulate a failed recovery where robot doesn't come back
+        setTimeout(() => {
+          console.log(`TEST power cycle for robot ${serialNumber} - simulating FAILURE`);
+          powerCycleState.inProgress = false;
+          powerCycleState.success = false;
+          powerCycleState.robotConnected = false;
+          powerCycleState.recoveryProgress = 100;
+          powerCycleState.recoveryFailed = true;
+          powerCycleState.error = 'Robot failed to reconnect after restart. Manual intervention required.';
+        }, 30 * 1000);
+      } else {
+        // Simulate a successful recovery
+        setTimeout(() => {
+          console.log(`TEST power cycle for robot ${serialNumber} completed successfully`);
+          powerCycleState.inProgress = false;
+          powerCycleState.success = true;
+          powerCycleState.robotConnected = true;
+          powerCycleState.recoveryProgress = 100;
+        }, 30 * 1000);
+      }
+      
+      // Simulate progressive recovery
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 10;
+        powerCycleState.recoveryProgress = progress;
+        
+        // When we reach 50%, simulate connection status based on success/failure scenario
+        if (progress >= 50 && !simulateFailure) {
+          powerCycleState.robotConnected = true;
+        }
+        
+        if (progress >= 100) {
+          clearInterval(progressInterval);
+        }
+      }, 3000);
       
       res.json({ 
         success: true, 
-        message: 'Test power cycle initiated',
+        message: `Test power cycle initiated ${simulateFailure ? '(with simulated failure)' : ''}`,
         status
       });
     } catch (error) {
