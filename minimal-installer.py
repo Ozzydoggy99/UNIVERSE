@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 # Configuration
 ROBOT_IP = "192.168.4.31"
 ROBOT_PORT = 8090
-ROBOT_SECRET = ""  # Will prompt if empty
+ROBOT_SECRET = "H3MN33L33E2CKNM37WQRZMR2KLAQECDD"  # Pre-filled with the actual secret
 INSTALL_DIR = "/home/robot/robot-ai"
 
 def print_status(message):
@@ -379,17 +379,8 @@ def main():
     print("=" * 60)
     print("Minimal Robot AI Installer")
     print("=" * 60)
-    print("\nIMPORTANT: You will need your robot's secret key to continue.")
-    print("This is the authentication key provided by your robot manufacturer.")
-    print("The key is typically found in your robot documentation or admin panel.")
+    print("\nThe robot secret key has been pre-configured.")
     print("=" * 60)
-    
-    # Ask for robot secret if not provided
-    if not ROBOT_SECRET:
-        ROBOT_SECRET = input("\nPlease enter your robot secret key: ").strip()
-        if not ROBOT_SECRET:
-            print_status("No secret key provided. Installation cannot continue.")
-            return False
     
     # Test connection
     if not test_connection():
