@@ -20,6 +20,14 @@ import {
   ROBOT_SECRET
 } from './robot-constants';
 
+// Import service health monitoring
+import {
+  robotServiceHealth,
+  updateServiceHealth,
+  attemptServiceRecovery,
+  checkLidarPowerServiceHealth
+} from './service-health';
+
 // Enum for LiDAR power action
 enum LidarPowerAction {
   POWER_ON = 'power_on',
@@ -28,31 +36,6 @@ enum LidarPowerAction {
 
 // Cache for system settings
 let systemSettingsCache: any = null;
-
-// Service health monitoring
-interface ServiceHealth {
-  available: boolean;
-  lastChecked: number;
-  consecutiveFailures: number;
-  recoveryAttempted: boolean;
-  lastError?: string;
-}
-
-// Robot services health status
-const robotServiceHealth: Record<string, ServiceHealth> = {
-  lidarPowerService: {
-    available: true,  // Assume available until proven otherwise
-    lastChecked: 0,
-    consecutiveFailures: 0,
-    recoveryAttempted: false
-  },
-  resetLocalizationService: {
-    available: true,
-    lastChecked: 0,
-    consecutiveFailures: 0,
-    recoveryAttempted: false
-  }
-};
 let lastSettingsFetchTime = 0;
 const SETTINGS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
