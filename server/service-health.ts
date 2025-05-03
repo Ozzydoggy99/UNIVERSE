@@ -1,6 +1,22 @@
 import fetch from 'node-fetch';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 
+// Track power cycle status
+interface PowerCycleStatus {
+  inProgress: boolean;
+  lastAttempt: number;
+  success: boolean;
+  error?: string;
+  expectedRecoveryTime?: number;
+}
+
+// Power cycle state
+export const powerCycleState: PowerCycleStatus = {
+  inProgress: false,
+  lastAttempt: 0,
+  success: false
+};
+
 // Service health monitoring
 export interface ServiceHealth {
   available: boolean;
@@ -190,6 +206,174 @@ export async function checkLidarPowerServiceHealth(): Promise<boolean> {
     console.warn(`[SERVICE HEALTH] LiDAR power service check failed with exception: ${errorMessage}`);
     return false;
   }
+}
+
+/**
+ * Remote power cycle the robot
+ * @param method The power cycle method to use ('restart' or 'shutdown')
+ * @returns Promise with result of power cycle attempt
+ */
+export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 'restart'): Promise<{success: boolean, message: string}> {
+  try {
+    // Prevent multiple power cycles in a short period
+    const now = Date.now();
+    if (powerCycleState.inProgress) {
+      return {
+        success: false,
+        message: 'Power cycle already in progress'
+      };
+    }
+    
+    // Enforce cooldown period (at least 5 minutes between attempts)
+    const cooldownPeriod = 5 * 60 * 1000; // 5 minutes
+    if (now - powerCycleState.lastAttempt < cooldownPeriod) {
+      const remainingCooldown = Math.ceil((cooldownPeriod - (now - powerCycleState.lastAttempt)) / 1000 / 60);
+      return {
+        success: false,
+        message: `Must wait ${remainingCooldown} more minutes before attempting another power cycle`
+      };
+    }
+    
+    // Update state
+    powerCycleState.inProgress = true;
+    powerCycleState.lastAttempt = now;
+    
+    // Get the right endpoint based on method
+    const endpoint = method === 'restart' ? '/services/restart_robot' : '/services/shutdown_robot';
+    
+    console.log(`[POWER CYCLE] Attempting to ${method} robot via ${endpoint}`);
+    
+    // Try alternate endpoints if the primary one fails
+    const alternateEndpoints = [
+      `/services/${method}_robot`, 
+      `/services/robot/${method}`,
+      `/services/system/${method}`,
+      `/services/reboot` // Last resort
+    ];
+    
+    // First try the main endpoint
+    try {
+      const response = await fetch(`${ROBOT_API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Secret': ROBOT_SECRET || '',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({}) // Most restart endpoints don't need parameters
+      });
+      
+      if (response.ok) {
+        console.log(`[POWER CYCLE] Successfully initiated ${method} via ${endpoint}`);
+        
+        // Set expected recovery time
+        powerCycleState.expectedRecoveryTime = now + (method === 'restart' ? 2 * 60 * 1000 : 5 * 60 * 1000);
+        powerCycleState.success = true;
+        
+        // Reset service health statuses after restart
+        setTimeout(() => {
+          Object.keys(robotServiceHealth).forEach(serviceName => {
+            updateServiceHealth(serviceName, true);
+          });
+          powerCycleState.inProgress = false;
+        }, powerCycleState.expectedRecoveryTime - now);
+        
+        return {
+          success: true,
+          message: `Robot ${method} initiated successfully. Expected recovery in ${method === 'restart' ? '2' : '5'} minutes.`
+        };
+      }
+    } catch (error) {
+      console.warn(`[POWER CYCLE] Primary ${method} endpoint failed:`, error);
+      // Continue to alternates
+    }
+    
+    // Try alternate endpoints
+    for (const altEndpoint of alternateEndpoints) {
+      try {
+        console.log(`[POWER CYCLE] Trying alternate endpoint: ${altEndpoint}`);
+        const response = await fetch(`${ROBOT_API_URL}${altEndpoint}`, {
+          method: 'POST',
+          headers: {
+            'Secret': ROBOT_SECRET || '',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+        
+        if (response.ok) {
+          console.log(`[POWER CYCLE] Successfully initiated ${method} via alternate endpoint ${altEndpoint}`);
+          
+          // Set expected recovery time
+          powerCycleState.expectedRecoveryTime = now + (method === 'restart' ? 2 * 60 * 1000 : 5 * 60 * 1000);
+          powerCycleState.success = true;
+          
+          // Reset service health statuses after restart
+          setTimeout(() => {
+            Object.keys(robotServiceHealth).forEach(serviceName => {
+              updateServiceHealth(serviceName, true);
+            });
+            powerCycleState.inProgress = false;
+          }, powerCycleState.expectedRecoveryTime - now);
+          
+          return {
+            success: true,
+            message: `Robot ${method} initiated successfully via alternate method. Expected recovery in ${method === 'restart' ? '2' : '5'} minutes.`
+          };
+        }
+      } catch (error) {
+        // Just log and continue to next alternate
+        console.warn(`[POWER CYCLE] Alternate ${method} endpoint ${altEndpoint} failed:`, error);
+      }
+    }
+    
+    // If we get here, all attempts failed
+    powerCycleState.inProgress = false;
+    powerCycleState.success = false;
+    powerCycleState.error = 'All power cycle attempts failed';
+    
+    return {
+      success: false,
+      message: 'Failed to power cycle robot. All remote restart methods failed.'
+    };
+    
+  } catch (error) {
+    // Reset state in case of unexpected error
+    powerCycleState.inProgress = false;
+    powerCycleState.success = false;
+    powerCycleState.error = error instanceof Error ? error.message : String(error);
+    
+    console.error('[POWER CYCLE] Unexpected error during power cycle attempt:', error);
+    
+    return {
+      success: false,
+      message: `Unexpected error during power cycle attempt: ${powerCycleState.error}`
+    };
+  }
+}
+
+/**
+ * Get current power cycle status
+ * @returns Current power cycle status
+ */
+export function getPowerCycleStatus(): {
+  inProgress: boolean;
+  lastAttempt: string;
+  success: boolean;
+  error?: string;
+  remainingTime?: number;
+} {
+  const now = Date.now();
+  const remainingTime = powerCycleState.expectedRecoveryTime 
+    ? Math.max(0, Math.floor((powerCycleState.expectedRecoveryTime - now) / 1000))
+    : undefined;
+  
+  return {
+    inProgress: powerCycleState.inProgress,
+    lastAttempt: powerCycleState.lastAttempt ? new Date(powerCycleState.lastAttempt).toISOString() : 'Never',
+    success: powerCycleState.success,
+    error: powerCycleState.error,
+    remainingTime
+  };
 }
 
 // Initialize the service health check
