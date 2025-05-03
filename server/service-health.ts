@@ -248,11 +248,17 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
       `/services/${method}_robot`, 
       `/services/robot/${method}`,
       `/services/system/${method}`,
-      `/services/reboot` // Last resort
+      `/api/reboot`,                // AxBot API endpoint
+      `/api/system/reboot`,         // Common system API endpoint
+      `/services/power/restart`,    // Another common power service endpoint
+      `/api/robot/power/restart`,   // Newer robot API models
+      `/action/reboot`,             // Legacy robot endpoint
+      `/services/reboot`            // Last resort
     ];
     
     // First try the main endpoint
     try {
+      console.log(`[POWER CYCLE] Sending ${method} request to ${ROBOT_API_URL}${endpoint}`);
       const response = await fetch(`${ROBOT_API_URL}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -261,6 +267,10 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
         },
         body: JSON.stringify({}) // Most restart endpoints don't need parameters
       });
+      
+      console.log(`[POWER CYCLE] Response status: ${response.status} ${response.statusText}`);
+      const responseText = await response.text();
+      console.log(`[POWER CYCLE] Response body: ${responseText.substring(0, 200)}`);
       
       if (response.ok) {
         console.log(`[POWER CYCLE] Successfully initiated ${method} via ${endpoint}`);
@@ -290,7 +300,7 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
     // Try alternate endpoints
     for (const altEndpoint of alternateEndpoints) {
       try {
-        console.log(`[POWER CYCLE] Trying alternate endpoint: ${altEndpoint}`);
+        console.log(`[POWER CYCLE] Trying alternate endpoint: ${ROBOT_API_URL}${altEndpoint}`);
         const response = await fetch(`${ROBOT_API_URL}${altEndpoint}`, {
           method: 'POST',
           headers: {
@@ -299,6 +309,10 @@ export async function remotePowerCycleRobot(method: 'restart' | 'shutdown' = 're
           },
           body: JSON.stringify({})
         });
+        
+        console.log(`[POWER CYCLE] Alternate endpoint response status: ${response.status} ${response.statusText}`);
+        const responseText = await response.text();
+        console.log(`[POWER CYCLE] Alternate endpoint response body: ${responseText.substring(0, 200)}`);
         
         if (response.ok) {
           console.log(`[POWER CYCLE] Successfully initiated ${method} via alternate endpoint ${altEndpoint}`);

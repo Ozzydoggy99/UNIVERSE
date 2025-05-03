@@ -19,16 +19,31 @@ export function usePowerCycle(serialNumber: string) {
   
   const powerCycleMutation = useMutation({
     mutationFn: async (method: PowerCycleMethod) => {
-      const res = await fetch(`/api/robots/${serialNumber}/power-cycle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ method })
-      });
-      return await res.json();
+      try {
+        console.log(`Initiating power cycle (${method}) for robot ${serialNumber}`);
+        
+        const res = await fetch(`/api/robots/${serialNumber}/power-cycle`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ method })
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Power cycle API error response:', errorText);
+          throw new Error(`Server returned ${res.status}: ${errorText}`);
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error('Power cycle request failed:', error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
+      console.log('Power cycle API response:', data);
       setStatus(data.status);
       
       if (data.success) {
@@ -37,6 +52,16 @@ export function usePowerCycle(serialNumber: string) {
           description: data.message,
           variant: 'default',
         });
+        
+        // Schedule status checks
+        const checkInterval = setInterval(() => {
+          checkStatusMutation.mutate();
+        }, 10000); // Check every 10 seconds
+        
+        // Clear interval after 3 minutes (after expected recovery)
+        setTimeout(() => {
+          clearInterval(checkInterval);
+        }, 3 * 60 * 1000);
       } else {
         toast({
           title: 'Power cycle failed',
@@ -46,9 +71,18 @@ export function usePowerCycle(serialNumber: string) {
       }
     },
     onError: (error: Error) => {
+      console.error('Power cycle mutation error:', error);
+      
+      // Set a generic error status
+      setStatus((prev) => ({
+        ...prev || { inProgress: false, lastAttempt: new Date().toISOString(), success: false },
+        error: error.message || 'Failed to send power cycle command to the robot',
+        success: false,
+      }));
+      
       toast({
         title: 'Power cycle failed',
-        description: error.message,
+        description: error.message || 'An unexpected error occurred',
         variant: 'destructive',
       });
     },
@@ -56,11 +90,46 @@ export function usePowerCycle(serialNumber: string) {
   
   const checkStatusMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/robots/${serialNumber}/power-cycle-status`);
-      return await res.json();
+      try {
+        console.log('Checking power cycle status...');
+        const res = await fetch(`/api/robots/${serialNumber}/power-cycle-status`);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Power cycle status API error:', errorText);
+          throw new Error(`Failed to check power cycle status: ${res.status}`);
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error('Error checking power cycle status:', error);
+        throw error;
+      }
     },
     onSuccess: (data: PowerCycleStatus) => {
+      console.log('Power cycle status:', data);
       setStatus(data);
+      
+      // If the power cycle was in progress but is now complete
+      if (status?.inProgress && !data.inProgress) {
+        if (data.success) {
+          toast({
+            title: 'Power cycle completed',
+            description: 'The robot has successfully restarted and is now online.',
+            variant: 'default',
+          });
+        } else {
+          toast({
+            title: 'Power cycle failed',
+            description: data.error || 'The robot failed to restart properly.',
+            variant: 'destructive',
+          });
+        }
+      }
+    },
+    onError: (error) => {
+      console.error('Failed to check power cycle status:', error);
+      // Don't update the status here to avoid overwriting existing status
     }
   });
   
