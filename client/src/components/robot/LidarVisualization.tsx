@@ -101,11 +101,21 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       }
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Error powering on LiDAR',
-        description: error.message,
-        variant: 'destructive',
-      });
+      // Check for the specific service unavailable error
+      if (error.message?.includes('LiDAR service unavailable')) {
+        toast({
+          title: 'LiDAR Service Unavailable',
+          description: 'The robot\'s LiDAR power control service is currently unavailable. The robot may need to be restarted.',
+          variant: 'destructive',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Error powering on LiDAR',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     },
     onSettled: () => {
       setPowerOnInProgress(false);
@@ -156,11 +166,21 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       }
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Error powering off LiDAR',
-        description: error.message,
-        variant: 'destructive',
-      });
+      // Check for the specific service unavailable error
+      if (error.message?.includes('LiDAR service unavailable')) {
+        toast({
+          title: 'LiDAR Service Unavailable',
+          description: 'The robot\'s LiDAR power control service is currently unavailable. The robot may need to be restarted.',
+          variant: 'destructive',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Error powering off LiDAR',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     },
     onSettled: () => {
       setPowerOffInProgress(false);
@@ -226,11 +246,21 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       }
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Error power cycling LiDAR',
-        description: error.message,
-        variant: 'destructive',
-      });
+      // Check for the specific service unavailable error
+      if (error.message?.includes('LiDAR service unavailable')) {
+        toast({
+          title: 'LiDAR Service Unavailable',
+          description: 'The robot\'s LiDAR power control service is currently unavailable. The robot may need to be restarted.',
+          variant: 'destructive',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Error power cycling LiDAR',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     },
     onSettled: () => {
       setPowerCycleInProgress(false);

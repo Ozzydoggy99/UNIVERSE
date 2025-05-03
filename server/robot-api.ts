@@ -1693,8 +1693,17 @@ export function registerRobotApiRoutes(app: Express) {
           message: `LiDAR ${action === LidarPowerAction.POWER_ON ? 'powered on' : 'powered off'} successfully`,
           action
         });
-      } catch (apiError) {
+      } catch (apiError: any) {
         console.error(`Error in LiDAR power API call:`, apiError);
+        
+        // Check for the specific ROS service unavailable error
+        if (apiError.message && apiError.message.includes('ROS Service Exception: service [/baseboard/power_on_lidar] unavailable')) {
+          return res.status(503).json({ 
+            error: 'LiDAR service unavailable', 
+            message: `The LiDAR power control service is currently unavailable on the robot. The robot may need to be restarted or its services reconfigured.`
+          });
+        }
+        
         return res.status(500).json({ 
           error: 'LiDAR power API error', 
           message: `Failed to ${action} LiDAR. Check robot connectivity and try again.`
