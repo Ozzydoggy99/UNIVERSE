@@ -97,6 +97,47 @@ const robotDataCache = {
 // Event emitter for internal communication
 const robotEvents = new EventEmitter();
 
+/**
+ * Converts point cloud data into synthetic ranges for LiDAR visualization
+ * @param points Array of [x,y,z] point cloud data
+ * @returns Array of range values from 0 to 360 degrees
+ */
+function convertPointCloudToRanges(points: number[][]): number[] {
+  // Create an array of 361 ranges (0 to 360 degrees)
+  const ranges: number[] = new Array(361).fill(0);
+  
+  if (!points || points.length === 0) {
+    return ranges;
+  }
+
+  // Process each point in the point cloud
+  for (const point of points) {
+    if (!point || point.length < 2) continue;
+    
+    const [x, y] = point;
+    
+    // Calculate angle in radians
+    const angle = Math.atan2(y, x);
+    
+    // Convert to degrees and normalize to 0-360
+    let degrees = (angle * 180 / Math.PI) + 180;
+    
+    // Ensure degrees is between 0 and 360
+    degrees = Math.max(0, Math.min(360, Math.round(degrees)));
+    
+    // Calculate range (distance from origin)
+    const range = Math.sqrt(x * x + y * y);
+    
+    // Only update if the range is better (closer) than the existing value
+    // or if the existing value is 0 (uninitialized)
+    if (ranges[degrees] === 0 || range < ranges[degrees]) {
+      ranges[degrees] = range;
+    }
+  }
+  
+  return ranges;
+}
+
 // WebSocket client instance
 let robotWs: WebSocket | null = null;
 let reconnectAttempts = 0;
