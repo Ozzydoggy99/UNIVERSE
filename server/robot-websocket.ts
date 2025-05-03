@@ -1105,6 +1105,9 @@ export function getRobotMapData(serialNumber: string) {
  * @param preferredTopic Optional topic to prefer (e.g. '/scan_matched_points2')
  */
 export function getRobotLidarData(serialNumber: string, preferredTopic?: string) {
+  // Always set a default preferred topic if none is provided
+  const effectivePreferredTopic = preferredTopic || '/scan_matched_points2';
+  
   // Check if we have data for this robot
   if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
     return null;
@@ -1149,28 +1152,44 @@ export function getRobotLidarData(serialNumber: string, preferredTopic?: string)
     };
   }
   
-  // If we have a preferred topic and it matches our cached data, use that
-  if (preferredTopic && lidarData.topic === preferredTopic) {
-    console.log(`Got LidarData from preferred topic ${preferredTopic} - Ranges: ${lidarData.ranges?.length || 0}, Points: ${lidarData.points?.length || 0}`);
+  // First, explicitly look for data from the preferred topic
+  // For consistent cross-computer handling, we ALWAYS try to get data from the preferred topic first
+  const allLidarEntries = Array.from(robotDataCache.lidar.entries());
+  
+  // Find any entry that matches our preferred topic
+  const preferredTopicEntry = allLidarEntries.find(([_, data]) => 
+    data.topic === effectivePreferredTopic && data.points && data.points.length > 0
+  );
+  
+  if (preferredTopicEntry) {
+    const [_, preferredData] = preferredTopicEntry;
+    console.log(`Got LidarData from preferred topic ${effectivePreferredTopic} - Ranges: ${preferredData.ranges?.length || 0}, Points: ${preferredData.points?.length || 0}`);
+    
+    // Always convert points to ranges if needed for consistency
+    if (preferredData.points && preferredData.points.length > 0 && (!preferredData.ranges || preferredData.ranges.length === 0)) {
+      const syntheticRanges = convertPointCloudToRanges(preferredData.points);
+      console.log(`Converted ${preferredData.points.length} point cloud points to ${syntheticRanges.length} synthetic ranges`);
+      preferredData.ranges = syntheticRanges;
+    }
+    
     // This is exactly what we want, return it directly
     return {
-      ranges: lidarData.ranges || [],
-      angle_min: lidarData.angle_min || 0,
-      angle_max: lidarData.angle_max || 0,
-      angle_increment: lidarData.angle_increment || 0,
-      range_min: lidarData.range_min || 0,
-      range_max: lidarData.range_max || 0,
-      intensities: lidarData.intensities || [],
-      points: lidarData.points || [],
-      topic: lidarData.topic || 'unknown',
+      ranges: preferredData.ranges || [],
+      angle_min: preferredData.angle_min || 0,
+      angle_max: preferredData.angle_max || 0,
+      angle_increment: preferredData.angle_increment || 0,
+      range_min: preferredData.range_min || 0,
+      range_max: preferredData.range_max || 0,
+      intensities: preferredData.intensities || [],
+      points: preferredData.points || [],
+      topic: effectivePreferredTopic, // Use the preferred topic name for consistency
       source: 'websocket',
       timestamp: new Date().toISOString(),
       connectionStatus: 'connected'
     };
   }
   
-  // Always check for any good point cloud data, regardless of topic
-  // This is critical for consistency across all devices
+  // If we couldn't find preferred topic data, look for any point cloud data
   const pointCloudData = getTopicDataWithPoints(serialNumber);
   if (pointCloudData && pointCloudData.points && pointCloudData.points.length > 0) {
     // If we have any point cloud data with good points, use it
@@ -1187,7 +1206,7 @@ export function getRobotLidarData(serialNumber: string, preferredTopic?: string)
       range_max: 10,
       intensities: [],
       points: pointCloudData.points,
-      topic: pointCloudData.topic || '/scan_matched_points2', // Force consistent topic name
+      topic: effectivePreferredTopic, // Force preferred topic name for consistency
       source: 'websocket',
       timestamp: new Date().toISOString(),
       connectionStatus: 'connected',
@@ -1231,33 +1250,62 @@ function getTopicDataByName(serialNumber: string, category: keyof typeof robotDa
  * Get any topic data that has point cloud points
  * Searches the robot data cache for any topic that has point cloud data
  * and returns the most recent one with valid points.
+ * Priority is given to '/scan_matched_points2' topic for consistency.
  */
 function getTopicDataWithPoints(serialNumber: string) {
-  // Get the global point cloud variable first
+  // Define topic priorities - ALWAYS check /scan_matched_points2 first to ensure consistency
   const pointCloudTopics = [
-    '/scan_matched_points2',
+    '/scan_matched_points2', // Highest priority - always use this if available
     '/lidar/scan',
     '/scan'
   ];
+
+  // Special check just for '/scan_matched_points2' (the preferred topic)
+  // This is crucial for consistent behavior across different clients
+  const preferredTopicData = getTopicDataByName(serialNumber, 'lidar', '/scan_matched_points2');
+  if (preferredTopicData && preferredTopicData.points && preferredTopicData.points.length > 0) {
+    console.log(`Found preferred point cloud data in topic /scan_matched_points2 with ${preferredTopicData.points.length} points`);
+    // Ensure it has ranges for consistent display
+    if (!preferredTopicData.ranges || preferredTopicData.ranges.length === 0) {
+      const syntheticRanges = convertPointCloudToRanges(preferredTopicData.points);
+      console.log(`Converted ${preferredTopicData.points.length} point cloud points to ${syntheticRanges.length} synthetic ranges`);
+      preferredTopicData.ranges = syntheticRanges;
+    }
+    return preferredTopicData;
+  }
   
-  // Check each topic we know might have point cloud data
+  // If preferred topic isn't available, check other topics
   for (const topic of pointCloudTopics) {
+    // Skip the preferred topic as we already checked it
+    if (topic === '/scan_matched_points2') continue;
+    
     const topicData = getTopicDataByName(serialNumber, 'lidar', topic);
     if (topicData && topicData.points && topicData.points.length > 0) {
+      console.log(`Found point cloud data in topic ${topic} with ${topicData.points.length} points`);
       // If we found a topic with points, ensure it has proper ranges
       if (!topicData.ranges || topicData.ranges.length === 0) {
-        // If there are no ranges but there are points, we need to convert
-        // the points to ranges - the conversion happens in the robot API
-        console.log(`Found point cloud data in topic ${topic} but no ranges - ensuring synthetic conversion`);
+        const syntheticRanges = convertPointCloudToRanges(topicData.points);
+        console.log(`Converted ${topicData.points.length} point cloud points to ${syntheticRanges.length} synthetic ranges`);
+        topicData.ranges = syntheticRanges;
       }
       return topicData;
     }
   }
   
-  // Fallback: check if there's any cache entry with point data
-  const allData = robotDataCache.lidar.get(serialNumber);
-  if (allData && allData.points && allData.points.length > 0) {
-    return allData;
+  // Check all entries in the lidar data cache for any point cloud data
+  // This is a fallback if specific topics don't have what we need
+  const allLidarEntries = Array.from(robotDataCache.lidar.entries());
+  for (const [_, lidarData] of allLidarEntries) {
+    if (lidarData && lidarData.points && lidarData.points.length > 0) {
+      console.log(`Found point cloud data in alternate topic ${lidarData.topic} with ${lidarData.points.length} points`);
+      // Make sure it has proper ranges for visualization
+      if (!lidarData.ranges || lidarData.ranges.length === 0) {
+        const syntheticRanges = convertPointCloudToRanges(lidarData.points);
+        console.log(`Converted ${lidarData.points.length} point cloud points to ${syntheticRanges.length} synthetic ranges`);
+        lidarData.ranges = syntheticRanges;
+      }
+      return lidarData;
+    }
   }
   
   // We didn't find any topic with point cloud data

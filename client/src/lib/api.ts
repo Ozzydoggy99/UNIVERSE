@@ -915,7 +915,9 @@ export async function getLidarData(serialNumber: string): Promise<LidarData> {
     // Always use cache busting to ensure we get fresh data
     // This is critical for consistency across all devices
     const timestamp = new Date().getTime();
-    const url = `/api/robots/lidar/${serialNumber}?_nocache=${timestamp}&_preferTopic=scan_matched_points2`;
+    // Explicitly request the /scan_matched_points2 topic with correct formatting
+    const preferredTopic = '/scan_matched_points2';
+    const url = `/api/robots/lidar/${serialNumber}?_nocache=${timestamp}&_preferTopic=${encodeURIComponent(preferredTopic)}`;
     console.log(`Fetching LiDAR data from: ${url}`);
     
     const response = await fetch(url, {
@@ -926,7 +928,7 @@ export async function getLidarData(serialNumber: string): Promise<LidarData> {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
-        'X-Preferred-Topic': '/scan_matched_points2' // Explicitly request this topic
+        'X-Preferred-Topic': preferredTopic // Explicitly request this topic
       }
     });
     
