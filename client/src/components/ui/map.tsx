@@ -348,7 +348,15 @@ export function Map({
       ctx.fill();
       
       // Draw orientation line
-      const angle = (robotPosition.orientation * Math.PI) / 180;
+      // First convert orientation to proper format if needed
+      let orientation = robotPosition.orientation;
+      if (orientation > Math.PI * 2) {
+        // Convert from degrees to radians if value is too large
+        orientation = (orientation * Math.PI) / 180;
+      }
+      
+      // Apply 90-degree rotation correction
+      const angle = orientation + Math.PI / 2;
       const orientationLength = 20;
       
       ctx.strokeStyle = '#4caf50';
@@ -658,9 +666,18 @@ export function Map({
       ctx.save();
       
       // Calculate orientation angle in radians
-      // The orientation is given in degrees where 0 is east, and positive is counterclockwise
-      // Need to convert to radians and adjust for canvas coordinate system
-      const angleInRadians = (robotPosition.orientation * Math.PI) / 180;
+      // The API returns orientation in radians where 1.57 (π/2) is north
+      // Add 90 degrees (π/2 radians) to adjust orientation to match the layered map component
+      
+      // First convert orientation to proper format if needed
+      let orientation = robotPosition.orientation;
+      if (orientation > Math.PI * 2) {
+        // Convert from degrees to radians if value is too large
+        orientation = (orientation * Math.PI) / 180;
+      }
+      
+      // Apply 90-degree rotation correction
+      const angleInRadians = orientation + Math.PI / 2;
       
       // Draw orientation triangle
       // First translate to robot position
