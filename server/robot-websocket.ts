@@ -693,8 +693,17 @@ export function getRobotStatus(serialNumber: string) {
   };
 }
 
+// Last valid position cache to handle intermittent connection issues
+const lastValidPositionCache = new Map<string, {
+  data: any,
+  timestamp: number
+}>();
+
+// Maximum age for the cached position data in milliseconds (10 seconds)
+const MAX_POSITION_CACHE_AGE = 10000;
+
 /**
- * Get the latest robot position data
+ * Get the latest robot position data with optimized caching for better responsiveness
  */
 export function getRobotPosition(serialNumber: string) {
   // Check if we have data for this robot
@@ -702,8 +711,24 @@ export function getRobotPosition(serialNumber: string) {
     return null;
   }
   
-  // If we're not connected to the robot, return a disconnected status
+  // Get current time for cache age checking
+  const now = Date.now();
+  
+  // If we're not connected to the robot, check for cached position
   if (!isRobotConnected()) {
+    const cachedPosition = lastValidPositionCache.get(serialNumber);
+    
+    // If we have a recent enough cached position, use it
+    if (cachedPosition && (now - cachedPosition.timestamp) < MAX_POSITION_CACHE_AGE) {
+      return {
+        ...cachedPosition.data,
+        connectionStatus: 'disconnected',
+        cacheAge: now - cachedPosition.timestamp,
+        timestamp: new Date().toISOString()
+      };
+    }
+    
+    // Otherwise return a disconnected status
     return {
       x: 0,
       y: 0,
@@ -722,6 +747,19 @@ export function getRobotPosition(serialNumber: string) {
   
   if (!positionData) {
     // We don't have position data yet, but we are connected
+    // Check for cached position first
+    const cachedPosition = lastValidPositionCache.get(serialNumber);
+    
+    // If we have a recent enough cached position, use it while connecting
+    if (cachedPosition && (now - cachedPosition.timestamp) < MAX_POSITION_CACHE_AGE) {
+      return {
+        ...cachedPosition.data,
+        connectionStatus: 'connecting',
+        cacheAge: now - cachedPosition.timestamp,
+        timestamp: new Date().toISOString()
+      };
+    }
+    
     return {
       x: 0,
       y: 0,
@@ -736,7 +774,7 @@ export function getRobotPosition(serialNumber: string) {
   }
   
   // Transform from robot format to our API format
-  return {
+  const position = {
     x: positionData.pos?.[0] || 0,
     y: positionData.pos?.[1] || 0,
     z: 0, // Z coordinate not provided in /tracked_pose
@@ -747,6 +785,22 @@ export function getRobotPosition(serialNumber: string) {
     timestamp: new Date().toISOString(),
     connectionStatus: 'connected'
   };
+  
+  // Update cache with valid position data
+  lastValidPositionCache.set(serialNumber, {
+    data: {
+      x: position.x,
+      y: position.y,
+      z: position.z,
+      orientation: position.orientation,
+      speed: position.speed,
+      footprint: position.footprint,
+      covariance: position.covariance
+    },
+    timestamp: now
+  });
+  
+  return position;
 }
 
 /**
