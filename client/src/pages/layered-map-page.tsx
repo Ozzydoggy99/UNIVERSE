@@ -165,66 +165,19 @@ export default function LayeredMapPage() {
     }
   }, [serialNumber, wsMapData, wsLidarData]);
 
-  // Track network errors to dynamically adjust polling rate
-  const [networkErrors, setNetworkErrors] = useState({
-    count: 0,
-    lastErrorTime: 0
-  });
-  
-  // Enhanced refreshData function with error tracking
-  const enhancedRefreshData = useCallback(async () => {
-    try {
-      await refreshData();
-      
-      // Reset error count after successful calls if it's been more than 10 seconds
-      if (networkErrors.count > 0 && Date.now() - networkErrors.lastErrorTime > 10000) {
-        setNetworkErrors({
-          count: 0,
-          lastErrorTime: 0
-        });
-      }
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-      // Increment error count and record timestamp
-      setNetworkErrors(prev => ({
-        count: prev.count + 1,
-        lastErrorTime: Date.now()
-      }));
-    }
-  }, [refreshData, networkErrors]);
-  
   // Set up a more frequent polling interval specifically for the map view
-  // with adaptive polling rate based on network conditions
   useEffect(() => {
     if (!serialNumber) return;
     
-    // Determine polling interval based on error frequency
-    let pollingInterval = 300; // Default is 300ms for responsive updates
-    
-    if (networkErrors.count > 10) {
-      // Many errors - significantly reduce polling frequency
-      pollingInterval = 2000;
-      console.warn(`Network errors detected (${networkErrors.count}), reducing polling rate to 2000ms`);
-    } else if (networkErrors.count > 5) {
-      // Several errors - reduce polling frequency
-      pollingInterval = 1000;
-      console.warn(`Network errors detected (${networkErrors.count}), reducing polling rate to 1000ms`);
-    } else if (networkErrors.count > 0) {
-      // Few errors - slightly reduce polling frequency
-      pollingInterval = 500;
-      console.warn(`Network errors detected (${networkErrors.count}), reducing polling rate to 500ms`);
-    }
-    
-    // Create polling interval with adaptive rate
+    // Poll every 100ms for faster map updates 
     const fastPollingInterval = setInterval(() => {
-      enhancedRefreshData();
-    }, pollingInterval);
+      refreshData();
+    }, 100); // Very fast polling for immediate updates
     
-    // Clean up interval on unmount
     return () => {
       clearInterval(fastPollingInterval);
     };
-  }, [serialNumber, enhancedRefreshData, networkErrors.count]);
+  }, [serialNumber, refreshData]);
 
   // Update robot position when it changes
   useEffect(() => {
