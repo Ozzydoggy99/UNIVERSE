@@ -216,7 +216,11 @@ export function PowerCycleButton({
                       {/* Connection status indicator */}
                       <div className="flex justify-between items-center mt-2 text-xs">
                         <div>
-                          Robot: {status?.robotConnected ? (
+                          Robot: {status?.recoveryFailed ? (
+                            <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+                              Failed to Reconnect
+                            </Badge>
+                          ) : status?.robotConnected ? (
                             <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
                               Connected
                             </Badge>
@@ -232,6 +236,27 @@ export function PowerCycleButton({
                             `${Math.round(100 - (timer / (selectedMethod === 'restart' ? 120 : 300) * 100))}%`}
                         </div>
                       </div>
+                      
+                      {/* Recovery failure warning */}
+                      {status?.recoveryFailed && (
+                        <div className="mt-4 rounded-md bg-red-50 p-3 border border-red-200">
+                          <div className="flex">
+                            <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+                            <div className="ml-3">
+                              <h4 className="text-sm font-medium text-red-800">Recovery Failed</h4>
+                              <p className="text-xs text-red-700 mt-1">
+                                The robot could not be contacted after the power cycle operation.
+                                Manual intervention may be required to restore the robot.
+                              </p>
+                              <div className="mt-2">
+                                <Button variant="outline" size="sm" className="text-xs h-7 bg-white" onClick={() => setIsOpen(false)}>
+                                  Close
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

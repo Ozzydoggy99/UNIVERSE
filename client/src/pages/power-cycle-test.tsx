@@ -66,41 +66,103 @@ export default function PowerCycleTestPage() {
         </AlertDescription>
       </Alert>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Power className="h-5 w-5 text-primary" />
-              Using PowerCycleButton Component
+              Standard Test
             </CardTitle>
             <CardDescription>
-              Test the complete power cycle UI flow with status updates using the component
+              Test the normal power cycle flow where the robot successfully restarts
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-start gap-2">
               <p className="text-sm text-muted-foreground mb-4">
-                This test uses the PowerCycleButton component, which gives a complete
-                UI experience including confirmation, progress tracking, and status updates.
+                This test simulates a successful power cycle where the robot restarts and reconnects properly.
               </p>
               
               <PowerCycleButton 
                 serialNumber={serialNumber}
                 variant="outline"
-                buttonText="Test Power Cycle"
+                buttonText="Test Normal Restart"
               />
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border-amber-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-amber-500" />
+              Recovery Failure Test
+            </CardTitle>
+            <CardDescription>
+              Test what happens when the robot fails to reconnect after restarting
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-start gap-2">
+              <p className="text-sm text-muted-foreground mb-4">
+                This test simulates a scenario where the robot shuts down but doesn't successfully reconnect,
+                triggering the recovery failure detection after maximum timeout.
+              </p>
+              
+              <Button 
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/robots/${serialNumber}/test-power-cycle`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ simulateFailure: true })
+                    });
+                    
+                    if (!res.ok) {
+                      throw new Error(`Failed to start test: ${res.status}`);
+                    }
+                    
+                    toast({
+                      title: "Recovery Failure Test",
+                      description: "Simulating a power cycle where the robot fails to reconnect.",
+                      variant: "default",
+                    });
+                  } catch (error) {
+                    toast({
+                      title: "Test Error",
+                      description: error instanceof Error ? error.message : "Failed to run test",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                variant="outline"
+                className="border-amber-200 hover:bg-amber-50"
+              >
+                Test Recovery Failure
+              </Button>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-start">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                This will simulate the case where the robot's system has shut down but fails to 
+                restart or reconnect to the network, requiring manual intervention.
+              </p>
+            </div>
+          </CardFooter>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-blue-500" />
               Direct API Call
             </CardTitle>
             <CardDescription>
-              Call the test API endpoint directly to trigger the power cycle state
+              Call the test API endpoint directly
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -139,6 +201,11 @@ export default function PowerCycleTestPage() {
             The system tracks the robot's connection status and shows a real-time recovery progress
             percentage during restart. It also includes automatic service recovery for critical
             services like the LiDAR.
+          </p>
+          <p>
+            The enhanced power cycle functionality now includes recovery failure detection. If the robot
+            fails to reconnect within 5 minutes after a restart, the system will mark the recovery as failed
+            and alert administrators that manual intervention is needed.
           </p>
           <p>
             For safety, the system enforces a 5-minute cooldown period between power cycle attempts

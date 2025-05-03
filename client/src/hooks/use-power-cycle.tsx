@@ -122,6 +122,12 @@ export function usePowerCycle(serialNumber: string) {
             description: 'The robot has successfully restarted and is now online.',
             variant: 'default',
           });
+        } else if (data.recoveryFailed) {
+          toast({
+            title: 'Power cycle recovery failed',
+            description: 'The robot failed to reconnect after the power cycle operation. Manual intervention required.',
+            variant: 'destructive',
+          });
         } else {
           toast({
             title: 'Power cycle failed',
@@ -129,6 +135,15 @@ export function usePowerCycle(serialNumber: string) {
             variant: 'destructive',
           });
         }
+      }
+      
+      // If we newly detect a recovery failure
+      if (!status?.recoveryFailed && data.recoveryFailed) {
+        toast({
+          title: 'Critical Error',
+          description: 'Robot failed to reconnect after maximum recovery time. Physical inspection required.',
+          variant: 'destructive',
+        });
       }
     },
     onError: (error) => {
