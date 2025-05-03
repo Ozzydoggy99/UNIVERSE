@@ -167,9 +167,10 @@ export default function LayeredMapPage() {
   // Update robot position when it changes
   useEffect(() => {
     if (wsRobotPosition) {
-      const newPosition: Point = {
+      const newPosition: Point & { orientation?: number } = {
         x: wsRobotPosition.x,
-        y: wsRobotPosition.y
+        y: wsRobotPosition.y,
+        orientation: wsRobotPosition.orientation // Store orientation with the position
       };
       
       setRobotPosition(newPosition);
@@ -339,11 +340,14 @@ export default function LayeredMapPage() {
   }
 
   // Draw robot as a triangle pointing in the direction of travel
-  function drawRobot(ctx: CanvasRenderingContext2D, position: Point) {
+  function drawRobot(ctx: CanvasRenderingContext2D, position: Point & { orientation?: number }) {
     const pixelPos = worldToPixel(position);
     
     // Robot size in pixels
     const robotSize = 10 * zoom;
+    
+    // Save canvas state before transformations
+    ctx.save();
     
     // Draw robot circle
     ctx.beginPath();
@@ -351,15 +355,32 @@ export default function LayeredMapPage() {
     ctx.fillStyle = '#0ea5e9';
     ctx.fill();
     
-    // Draw direction indicator
+    // Get orientation in radians (default to 0 if not provided)
+    const orientationDegrees = position.orientation || 0;
+    const orientationRadians = (orientationDegrees * Math.PI) / 180;
+    
+    // Apply transformations to draw orientation triangle
+    ctx.translate(pixelPos.x, pixelPos.y);
+    ctx.rotate(-orientationRadians); // Negative because canvas Y is flipped
+    
+    // Draw orientation triangle
+    ctx.fillStyle = '#00796b'; // Darker green for orientation
     ctx.beginPath();
-    ctx.moveTo(pixelPos.x + robotSize, pixelPos.y);
-    ctx.lineTo(pixelPos.x + robotSize * 2, pixelPos.y);
-    ctx.strokeStyle = '#0ea5e9';
-    ctx.lineWidth = 2;
+    ctx.moveTo(0, -robotSize - 5); // Point at the top (robot's front)
+    ctx.lineTo(-robotSize/2, -robotSize/2); // Bottom left corner
+    ctx.lineTo(robotSize/2, -robotSize/2); // Bottom right corner
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw outline for better visibility
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
     ctx.stroke();
     
-    // Draw robot label
+    // Restore canvas state
+    ctx.restore();
+    
+    // Draw robot label (after restore so it's not rotated)
     ctx.fillStyle = '#ffffff';
     ctx.font = `${Math.max(10, 12 * zoom)}px sans-serif`;
     ctx.textAlign = 'center';
@@ -402,6 +423,10 @@ export default function LayeredMapPage() {
     const pixelRobot = worldToPixel(robotPosition);
     ctx.fillStyle = layer.color;
     
+    // Get robot orientation in radians
+    const robotOrientation = robotPosition.orientation || 0;
+    const robotOrientationRad = (robotOrientation * Math.PI) / 180;
+    
     // Draw each LiDAR point
     const ranges = layer.data;
     const numRanges = ranges.length;
@@ -414,6 +439,13 @@ export default function LayeredMapPage() {
       
       console.log(`Rendering ${numRanges} LiDAR points with angle range ${angleMin} to ${angleMax}`);
       
+      // Save the current canvas state
+      ctx.save();
+      
+      // Translate to robot position and apply rotation for all LiDAR points
+      ctx.translate(pixelRobot.x, pixelRobot.y);
+      ctx.rotate(-robotOrientationRad); // Negative because canvas Y is flipped
+      
       for (let i = 0; i < numRanges; i++) {
         const range = ranges[i];
         if (range <= 0) continue; // Skip invalid ranges
@@ -421,17 +453,20 @@ export default function LayeredMapPage() {
         const angle = angleMin + i * angleIncrement;
         const distance = range * 20 * zoom; // Scale for visualization
         
-        // Draw point in correct orientation
-        // Note: In standard coordinates, 0° is to the right (east), 
-        // and angles increase counterclockwise
-        const x = pixelRobot.x + Math.sin(angle) * distance;
-        const y = pixelRobot.y - Math.cos(angle) * distance; // Flip Y for canvas coordinates
+        // Calculate points in robot's coordinate frame, where 0° is robot's forward direction
+        // With the canvas translation and rotation applied, we're drawing relative to the robot's
+        // position and orientation now
+        const x = Math.sin(angle) * distance;
+        const y = -Math.cos(angle) * distance; // Negative because canvas Y is flipped
         
         // Draw LiDAR point
         ctx.beginPath();
         ctx.arc(x, y, 2 * zoom, 0, Math.PI * 2);
         ctx.fill();
       }
+      
+      // Restore the canvas state
+      ctx.restore();
     }
   }
 
