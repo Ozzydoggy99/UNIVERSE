@@ -722,7 +722,8 @@ export default function RobotDetails() {
               <LidarVisualization 
                 data={finalLidarData} 
                 loading={lidarLoading} 
-                serialNumber={serialNumber} 
+                serialNumber={serialNumber}
+                robotPosition={finalPosition}
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-3">
                 <span>Last LiDAR Update:</span>

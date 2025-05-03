@@ -432,6 +432,9 @@ export function LidarVisualization({ data, loading = false, serialNumber, robotP
                               data.angle_increment : 
                               (angle_max - angle_min) / data.ranges.length;
       
+      // Get robot orientation for proper alignment
+      const robotOrientationRadians = robotOrientation || 0;
+      
       // Batch all points in a single path for maximum performance
       ctx.beginPath();
       
@@ -443,13 +446,16 @@ export function LidarVisualization({ data, loading = false, serialNumber, robotP
         // Calculate the angle for this range reading
         const angle = angle_min + (angle_increment * i);
         
-        // Convert to canvas coordinates with robot's orientation
-        // For correct orientation: 
-        // 1. The robot's forward direction on LiDAR is along positive X axis (0 radians)
-        // 2. Visualization needs to match other visualizations (robot forward is right/east)
-        const adjustedAngle = -angle; // Invert the angle to match conventional orientation
-        const x = centerX + Math.cos(adjustedAngle) * range * scale;
-        const y = centerY + Math.sin(adjustedAngle) * range * scale;
+        // Apply robot orientation to the LiDAR angles
+        // LiDAR data is in the robot's coordinate frame, so we need to rotate
+        // by the robot's orientation to get the world coordinate frame
+        const worldAngle = angle + robotOrientationRadians;
+        
+        // Convert to canvas coordinates
+        // In canvas, positive x is right, positive y is down
+        // We need to invert the y-direction due to canvas coordinate system
+        const x = centerX + Math.cos(worldAngle) * range * scale;
+        const y = centerY - Math.sin(worldAngle) * range * scale;
         
         // Add to the current path instead of creating a new path for each point
         ctx.moveTo(x + 2, y);
@@ -468,18 +474,30 @@ export function LidarVisualization({ data, loading = false, serialNumber, robotP
       // Point cloud data from the robot is in its coordinate frame
       // where +X is forward, +Y is left, +Z is up
       
+      // Get robot orientation for proper alignment
+      const robotOrientationRadians = robotOrientation || 0;
+      
       // Use loop instead of forEach for better performance
       for (let i = 0; i < data.points.length; i++) {
         const point = data.points[i];
         if (!point || point.length < 2) continue;
         
-        const [x, y] = point;
+        const [xRobot, yRobot] = point;
         
-        // Convert to canvas coordinates with consistent orientation 
-        // Point cloud comes from the robot in its own coordinate frame (X forward, Y left)
-        // Need to convert to match the visualization orientation (forward is right/east)
-        const canvasX = centerX + x * scale; // Forward is along positive X axis (to the right)
-        const canvasY = centerY - y * scale; // Invert Y to match canvas coordinate system
+        // Apply rotation based on robot orientation
+        // We need to rotate the point by the robot's orientation
+        // x' = x*cos(θ) - y*sin(θ)
+        // y' = x*sin(θ) + y*cos(θ)
+        const cosTheta = Math.cos(robotOrientationRadians);
+        const sinTheta = Math.sin(robotOrientationRadians);
+        
+        const xRotated = xRobot * cosTheta - yRobot * sinTheta;
+        const yRotated = xRobot * sinTheta + yRobot * cosTheta;
+        
+        // Convert to canvas coordinates with proper orientation
+        // In canvas: positive X is right, positive Y is down
+        const canvasX = centerX + xRotated * scale;
+        const canvasY = centerY - yRotated * scale; // Invert Y for canvas coordinates
         
         // Add to the current path instead of creating a new path for each point
         ctx.moveTo(canvasX + 2, canvasY);
@@ -521,23 +539,34 @@ export function LidarVisualization({ data, loading = false, serialNumber, robotP
       ctx.fillText('Topic: ' + (data.topic || 'unknown'), centerX, centerY - 15);
     }
 
-    // Draw a front direction indicator
-    // Robot forward is facing right (opposite of data points)
+    // Draw a front direction indicator that shows the robot's orientation
+    // Save context for rotation
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(robotOrientationRadians);
+    
+    // Draw the direction arrow (now rotated with robot orientation)
+    const arrowLength = size/2 * 0.2;
+    
+    // Arrow shaft
     ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(centerX + size/2 * 0.2, centerY); // Arrow pointing right
+    ctx.moveTo(0, 0);
+    ctx.lineTo(arrowLength, 0); // Arrow pointing in direction of orientation
     ctx.stroke();
     
     // Add a small arrowhead
     ctx.fillStyle = 'rgba(0, 100, 255, 0.8)';
     ctx.beginPath();
-    ctx.moveTo(centerX + size/2 * 0.25, centerY); // Tip of arrow pointing right
-    ctx.lineTo(centerX + size/2 * 0.2, centerY - 5); // Top of arrow
-    ctx.lineTo(centerX + size/2 * 0.2, centerY + 5); // Bottom of arrow
+    ctx.moveTo(arrowLength + 5, 0); // Tip of arrow
+    ctx.lineTo(arrowLength, -5); // Top of arrow
+    ctx.lineTo(arrowLength, 5); // Bottom of arrow
     ctx.closePath();
     ctx.fill();
+    
+    // Restore context
+    ctx.restore();
   }, 33)).current;
   
   useEffect(() => {
