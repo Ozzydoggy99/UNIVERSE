@@ -379,10 +379,14 @@ def main():
     print("=" * 60)
     print("Minimal Robot AI Installer")
     print("=" * 60)
+    print("\nIMPORTANT: You will need your robot's secret key to continue.")
+    print("This is the authentication key provided by your robot manufacturer.")
+    print("The key is typically found in your robot documentation or admin panel.")
+    print("=" * 60)
     
     # Ask for robot secret if not provided
     if not ROBOT_SECRET:
-        ROBOT_SECRET = input("Enter robot secret key: ").strip()
+        ROBOT_SECRET = input("\nPlease enter your robot secret key: ").strip()
         if not ROBOT_SECRET:
             print_status("No secret key provided. Installation cannot continue.")
             return False
