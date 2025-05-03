@@ -9,6 +9,8 @@ export type PowerCycleStatus = {
   success: boolean;
   error?: string;
   remainingTime?: number;
+  robotConnected?: boolean;
+  recoveryProgress?: number;
 };
 
 export type PowerCycleMethod = 'restart' | 'shutdown';
