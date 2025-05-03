@@ -355,9 +355,9 @@ export default function LayeredMapPage() {
     ctx.fillStyle = '#0ea5e9';
     ctx.fill();
     
-    // Get orientation in radians (default to 0 if not provided)
-    const orientationDegrees = position.orientation || 0;
-    const orientationRadians = (orientationDegrees * Math.PI) / 180;
+    // The orientation is already in radians (API returns 1.57 which is pi/2 or 90 degrees)
+    // Default to 0 if not provided
+    const orientationRadians = position.orientation || 0;
     
     // Apply transformations to draw orientation triangle
     ctx.translate(pixelPos.x, pixelPos.y);
@@ -423,9 +423,8 @@ export default function LayeredMapPage() {
     const pixelRobot = worldToPixel(robotPosition);
     ctx.fillStyle = layer.color;
     
-    // Get robot orientation in radians
-    const robotOrientation = robotPosition.orientation || 0;
-    const robotOrientationRad = (robotOrientation * Math.PI) / 180;
+    // Robot orientation is already in radians
+    const robotOrientationRad = robotPosition.orientation || 0;
     
     // Draw each LiDAR point
     const ranges = layer.data;
