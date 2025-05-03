@@ -232,18 +232,91 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
     const canvas = canvasRef.current;
     if (!canvas || !mapData?.grid) return;
     
+    console.log('Drawing map with size:', mapData.size, 'resolution:', mapData.resolution);
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw the map grid
+    // Get visualization hints if available
+    const visualHints = mapData.visualizationHints || {
+      dataType: 'occupancy_grid',
+      wallColor: '#000000',
+      freeSpaceColor: '#ffffff',
+      unknownColor: '#888888'
+    };
+    
+    // Draw the map grid - check data type to apply processing
     const imgData = new Image();
+    
+    // Set up image loading event
     imgData.onload = () => {
+      // Set canvas size to match the image
       canvas.width = imgData.width;
       canvas.height = imgData.height;
+      
+      // First, draw the base image
       ctx.drawImage(imgData, 0, 0);
+      
+      // Apply color enhancements for better visualization if requested
+      if (visualHints.enhanceVisualization) {
+        try {
+          // Get image data for processing
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Process each pixel to enhance walls and free space
+          for (let i = 0; i < data.length; i += 4) {
+            // Detect walls (dark pixels) and make them more visible
+            if (data[i] < 50 && data[i+1] < 50 && data[i+2] < 50) {
+              // Make walls blue for better visibility
+              data[i] = 0;     // R
+              data[i+1] = 0;   // G
+              data[i+2] = 255; // B
+              data[i+3] = 255; // A
+            } 
+            // Enhance free space (light pixels)
+            else if (data[i] > 200 && data[i+1] > 200 && data[i+2] > 200) {
+              // Make free space bright white
+              data[i] = 255;   // R
+              data[i+1] = 255; // G
+              data[i+2] = 255; // B
+              data[i+3] = 255; // A
+            }
+          }
+          
+          // Put the processed image data back
+          ctx.putImageData(imageData, 0, 0);
+          
+          console.log('Map visualization enhanced for better wall visibility');
+        } catch (err) {
+          console.error('Error enhancing map visualization:', err);
+        }
+      }
+      
+      // Draw position quality indicator if available
+      if (visualHints.showPositionQuality && mapData.position_quality !== undefined) {
+        const quality = mapData.position_quality;
+        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = quality > 0.7 ? 'green' : quality > 0.4 ? 'orange' : 'red';
+        ctx.fillText(`Position Quality: ${Math.round(quality * 100)}%`, 10, 30);
+      }
+      
+      // Draw reliability indicator if available
+      if (mapData.reliable !== undefined) {
+        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = mapData.reliable ? 'green' : 'red';
+        ctx.fillText(`Map Reliable: ${mapData.reliable ? 'Yes' : 'No'}`, 10, 60);
+      }
+      
+      // Draw data source if available
+      if (mapData.source) {
+        ctx.font = '12px Arial';
+        ctx.fillStyle = 'black';
+        ctx.fillText(`Source: ${mapData.source}`, 10, canvas.height - 10);
+      }
       
       // Draw robot position if available
       if (positionData) {
@@ -255,27 +328,86 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
         const robotX = (positionData.x - originX) / scale;
         const robotY = canvas.height - (positionData.y - originY) / scale;
         
-        // Draw robot position
+        // Draw robot with improved visibility
+        // First a larger halo for visibility
         ctx.beginPath();
-        ctx.arc(robotX, robotY, 10, 0, 2 * Math.PI);
-        ctx.fillStyle = 'red';
+        ctx.arc(robotX, robotY, 12, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.5)'; // Yellow halo
         ctx.fill();
         
-        // Draw robot orientation line
+        // Then the robot position marker
         ctx.beginPath();
-        ctx.moveTo(robotX, robotY);
+        ctx.arc(robotX, robotY, 8, 0, 2 * Math.PI);
+        ctx.fillStyle = 'red'; // Red center
+        ctx.fill();
+        
+        // Draw robot orientation line with arrow
         const orientation = positionData.orientation || 0;
-        const lineLength = 20;
+        const lineLength = 25;
         const endX = robotX + lineLength * Math.cos(orientation);
         const endY = robotY - lineLength * Math.sin(orientation);
+        
+        // Draw the direction line
+        ctx.beginPath();
+        ctx.moveTo(robotX, robotY);
         ctx.lineTo(endX, endY);
         ctx.strokeStyle = 'blue';
         ctx.lineWidth = 3;
         ctx.stroke();
+        
+        // Draw arrowhead
+        const arrowSize = 8;
+        const arrowAngle = Math.PI / 6; // 30 degrees
+        
+        // Calculate arrowhead points
+        const arrowX1 = endX - arrowSize * Math.cos(orientation - arrowAngle);
+        const arrowY1 = endY + arrowSize * Math.sin(orientation - arrowAngle);
+        const arrowX2 = endX - arrowSize * Math.cos(orientation + arrowAngle);
+        const arrowY2 = endY + arrowSize * Math.sin(orientation + arrowAngle);
+        
+        // Draw arrowhead
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(arrowX1, arrowY1);
+        ctx.lineTo(arrowX2, arrowY2);
+        ctx.closePath();
+        ctx.fillStyle = 'blue';
+        ctx.fill();
+        
+        // Display coordinates near the robot
+        ctx.font = '12px Arial';
+        ctx.fillStyle = 'black';
+        ctx.fillText(`(${positionData.x.toFixed(2)}, ${positionData.y.toFixed(2)})`, robotX + 15, robotY);
       }
     };
     
-    imgData.src = `data:image/png;base64,${mapData.grid}`;
+    // Handle image loading errors
+    imgData.onerror = (err) => {
+      console.error('Error loading map image:', err);
+      
+      // Draw a placeholder to show the error
+      ctx.fillStyle = '#ffeeee';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.font = '16px Arial';
+      ctx.fillStyle = 'red';
+      ctx.fillText('Error loading map image', 20, 50);
+      
+      // Show grid data info for debugging
+      ctx.fillStyle = 'black';
+      ctx.font = '12px Arial';
+      ctx.fillText(`Grid data length: ${mapData.grid ? mapData.grid.length : 0}`, 20, 80);
+      ctx.fillText(`Map size: ${mapData.size ? JSON.stringify(mapData.size) : 'undefined'}`, 20, 100);
+    };
+    
+    // Set image source to the base64 encoded PNG
+    try {
+      // Add timestamp to prevent caching if map data has timestamp
+      const cacheBuster = mapData.timestamp ? `?t=${new Date(mapData.timestamp).getTime()}` : '';
+      imgData.src = `data:image/png;base64,${mapData.grid}${cacheBuster}`;
+    } catch (err) {
+      console.error('Error setting image source:', err);
+    }
   };
   
   // Start building a new map

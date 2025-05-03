@@ -444,19 +444,48 @@ function handleRobotMessage(messageData: string) {
       }
     }
     else if (TOPICS.MAP.includes(topic)) {
-      // Map data
-      robotDataCache.map.set(PHYSICAL_ROBOT_SERIAL, message);
-      robotEvents.emit('map_update', PHYSICAL_ROBOT_SERIAL, message);
+      // Enhance map data for better visualization
+      const enhancedMessage = {
+        ...message,
+        // Add visualization hints for client-side rendering
+        visualizationHints: {
+          dataType: 'occupancy_grid',
+          wallColor: '#000000',
+          freeSpaceColor: '#ffffff',
+          unknownColor: '#888888',
+          enhanceVisualization: true
+        }
+      };
+      
+      // Add additional metadata for time-based updates
+      if (!enhancedMessage.timestamp) {
+        enhancedMessage.timestamp = Date.now() / 1000;
+      }
+      
+      // Store enhanced map data in cache
+      robotDataCache.map.set(PHYSICAL_ROBOT_SERIAL, enhancedMessage);
+      
+      // Emit event for real-time updates with the enhanced data
+      robotEvents.emit('map_update', PHYSICAL_ROBOT_SERIAL, enhancedMessage);
       
       // Log map message once to see the structure (but not the full data as it might be large)
       if (topic === '/map' && !mapDataLogged) {
-        const { data, ...mapInfo } = message;
+        const { data, ...mapInfo } = enhancedMessage;
         console.log('Robot map data structure (without full data array):', JSON.stringify(mapInfo, null, 2));
         console.log('Map data length:', data ? data.length : 0);
         mapDataLogged = true;
       } else if (topic === '/slam/state' && !slamDataLogged) {
-        console.log('Robot SLAM state data structure:', JSON.stringify(message, null, 2));
+        console.log('Robot SLAM state data structure:', JSON.stringify(enhancedMessage, null, 2));
         slamDataLogged = true;
+      }
+      
+      // Additional logging for debugging map visualization
+      if (topic === '/map' && enhancedMessage.data) {
+        const now = Date.now();
+        if (!lastMapLogTime || (now - lastMapLogTime) > 10000) {
+          console.log(`Received map update with data length: ${enhancedMessage.data.length}, resolution: ${enhancedMessage.resolution}, size: ${JSON.stringify(enhancedMessage.size)}`);
+          lastMapLogTime = now;
+        }
       }
     }
     else if (TOPICS.CAMERA.includes(topic)) {
@@ -842,27 +871,70 @@ export function getRobotMapData(serialNumber: string) {
   // }
   
   if (mapData.topic === '/map') {
+    // Enhanced processing for occupancy grid map data
     console.log('Processing map data from WebSocket topic /map');
-    // Transform from robot format to our API format
+    
+    // Check if we have valid map data - proper occupancy grid requires data, size, and resolution
+    const hasValidData = mapData.data && 
+                         mapData.data.length > 0 && 
+                         mapData.size && 
+                         mapData.size.length === 2 && 
+                         mapData.resolution > 0;
+    
+    if (!hasValidData) {
+      console.warn('Map data is incomplete or invalid:', 
+                  !mapData.data ? 'No data' : 
+                  !mapData.size ? 'No size' : 
+                  'Invalid parameters');
+      
+      // Return a placeholder with connection status
+      return {
+        grid: [],
+        obstacles: [],
+        paths: [],
+        size: [0, 0],
+        resolution: 0.05,
+        origin: [0, 0],
+        connectionStatus: 'connected',
+        dataStatus: 'incomplete'
+      };
+    }
+    
+    // Include stamp/timestamp for freshness checking
+    const timestamp = mapData.stamp ? new Date(mapData.stamp * 1000).toISOString() : new Date().toISOString();
+    
+    // Enhanced result with clear wall visualization support
     return {
-      grid: mapData.data || [], // This is a base64 encoded PNG
-      obstacles: [], // Not in this data
-      paths: [], // Not in this data
+      grid: mapData.data || [], // This is a base64 encoded PNG of the occupancy grid
+      obstacles: [], // Not included in basic map data 
+      paths: [], // Not included in basic map data
       size: mapData.size || [0, 0],
       resolution: mapData.resolution || 0.05,
       origin: mapData.origin || [0, 0],
-      connectionStatus: 'connected'
+      connectionStatus: 'connected',
+      dataStatus: 'complete',
+      timestamp,
+      // Add visualization metadata to help client process the grid correctly
+      visualizationHints: {
+        dataType: 'occupancy_grid',
+        wallColor: '#000000',
+        freeSpaceColor: '#ffffff',
+        unknownColor: '#888888'
+      }
     };
   }
   
   // For topic '/slam/state' we don't have map data but we might have position quality
   if (mapData.topic === '/slam/state') {
-    // For SLAM state, we'd need to combine with actual map data
-    // Just return basic info - this will be enhanced when combined with map data
+    // For SLAM state, we need to combine with actual map data
     const otherMapData = getTopicData(serialNumber, 'map', '/map');
     
     if (otherMapData && otherMapData.topic === '/map') {
-      // We have both SLAM state and map data
+      // We have both SLAM state and map data - combine them for a richer visualization
+      const timestamp = otherMapData.stamp ? 
+        new Date(otherMapData.stamp * 1000).toISOString() : 
+        new Date().toISOString();
+      
       return {
         grid: otherMapData.data || [],
         obstacles: [],
@@ -873,7 +945,18 @@ export function getRobotMapData(serialNumber: string) {
         position_quality: mapData.position_quality || 0,
         reliable: mapData.reliable || false,
         lidar_reliable: mapData.lidar_reliable || false,
-        connectionStatus: 'connected'
+        connectionStatus: 'connected',
+        dataStatus: 'complete',
+        timestamp,
+        // Add visualization metadata
+        visualizationHints: {
+          dataType: 'occupancy_grid',
+          wallColor: '#000000',
+          freeSpaceColor: '#ffffff',
+          unknownColor: '#888888',
+          showPositionQuality: true,
+          qualityValue: mapData.position_quality || 0
+        }
       };
     }
     
@@ -888,7 +971,59 @@ export function getRobotMapData(serialNumber: string) {
       position_quality: mapData.position_quality || 0,
       reliable: mapData.reliable || false,
       lidar_reliable: mapData.lidar_reliable || false,
-      connectionStatus: 'connected'
+      connectionStatus: 'connected',
+      dataStatus: 'slam_only'
+    };
+  }
+  
+  // Try specifically for detailed map topics
+  if (mapData.topic === '/maps/5cm/1hz' || mapData.topic === '/maps/1cm/1hz' || mapData.topic === '/map_v2') {
+    console.log(`Processing detailed map data from topic ${mapData.topic}`);
+    
+    // These topics often contain more detailed grid information
+    // First check if the data format is what we expect
+    const hasValidData = mapData.data && 
+                         mapData.data.length > 0 && 
+                         (mapData.size || mapData.width && mapData.height);
+    
+    if (!hasValidData) {
+      return {
+        grid: [],
+        obstacles: [],
+        paths: [],
+        size: [0, 0],
+        resolution: 0.05,
+        origin: [0, 0],
+        connectionStatus: 'connected',
+        dataStatus: 'incomplete'
+      };
+    }
+    
+    // Get size info - different topics might use different formats
+    const size = mapData.size || [mapData.width, mapData.height];
+    const timestamp = mapData.stamp ? 
+      new Date(mapData.stamp * 1000).toISOString() : 
+      new Date().toISOString();
+    
+    return {
+      grid: mapData.data,
+      obstacles: [],
+      paths: [],
+      size: size,
+      resolution: mapData.resolution || 0.05,
+      origin: mapData.origin || [0, 0],
+      connectionStatus: 'connected',
+      dataStatus: 'complete',
+      timestamp,
+      source: mapData.topic,
+      // Add visualization metadata specific to high-res maps
+      visualizationHints: {
+        dataType: 'detailed_grid',
+        wallColor: '#000000',
+        freeSpaceColor: '#ffffff',
+        unknownColor: '#888888',
+        enhancedResolution: true
+      }
     };
   }
   
@@ -901,7 +1036,8 @@ export function getRobotMapData(serialNumber: string) {
     size: mapData.size || [0, 0],
     resolution: mapData.resolution || 0.05,
     origin: mapData.origin || [0, 0],
-    connectionStatus: 'connected'
+    connectionStatus: 'connected',
+    source: mapData.topic
   };
 }
 
