@@ -8,6 +8,7 @@
 import { Request, Response } from 'express';
 import fetch from 'node-fetch';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import type { Express } from 'express';
 
 /**
  * Execute the Robot AI installer script on a robot

@@ -8,6 +8,7 @@ import { setupVite } from './vite';
 import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
+import { registerRobotInstallerRoutes } from './robot-installer-api';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -27,6 +28,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register robot movement API routes
   registerRobotMoveApiRoutes(app);
+  
+  // Register robot installer API routes
+  registerRobotInstallerRoutes(app);
   
   // User-related endpoints
   app.get('/api/templates', async (req: Request, res: Response) => {
