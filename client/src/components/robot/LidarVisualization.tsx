@@ -5,6 +5,7 @@ import { AlertCircle, Loader2, PowerIcon, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { throttle } from 'lodash';
 
 interface LidarData {
   // Legacy 2D range-based LiDAR data format
@@ -289,12 +290,9 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     },
   });
 
-  useEffect(() => {
-    // Don't require data to have points - if it has none, we'll show the empty state
-    // This allows the empty visualization to appear properly
-    if (!data || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
+  // Create a throttled render function to limit updates to once per ~33ms (30fps)
+  // This function will only be recreated when data changes
+  const renderThrottled = useRef(throttle((data: LidarData, canvas: HTMLCanvasElement) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
@@ -380,8 +378,6 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       const angle_increment = data.angle_increment !== undefined ? 
                               data.angle_increment : 
                               (angle_max - angle_min) / data.ranges.length;
-      
-      console.log(`Rendering ${data.ranges.length} LiDAR points with angle range ${angle_min} to ${angle_max}`);
       
       // Batch all points in a single path for maximum performance
       ctx.beginPath();
@@ -487,7 +483,20 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     ctx.lineTo(centerX + size/2 * 0.2, centerY + 5); // Bottom of arrow
     ctx.closePath();
     ctx.fill();
-  }, [data]);
+  }, 33)).current;
+  
+  useEffect(() => {
+    // Don't require data to have points - if it has none, we'll show the empty state
+    // This allows the empty visualization to appear properly
+    if (!data || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    
+    // Instead of rendering immediately, use the throttled render function
+    // This ensures consistent frame rate across all devices (30fps max)
+    renderThrottled(data, canvas);
+    
+  }, [data, renderThrottled]);
 
   // Handle different states
   if (loading) {
