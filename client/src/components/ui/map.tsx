@@ -378,51 +378,172 @@ export function Map({
     if (hasGridData) {
       // Check if the grid data is a base64 encoded image (from physical robot)
       if (typeof mapData.grid === 'string' && mapData.grid.startsWith('iVBOR')) {
-        console.log('Rendering base64 encoded PNG map from physical robot');
+        console.log('Creating enhanced custom map visualization from robot data');
         
-        // Create an image element to load the base64 data
+        // Draw a stylish background for the map
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#f8f9fa');
+        gradient.addColorStop(1, '#e9ecef');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw a subtle grid pattern
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.lineWidth = 0.5;
+        const gridSize = 20 * scale;
+        
+        for (let x = 0; x <= canvas.width; x += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
+          ctx.stroke();
+        }
+        
+        for (let y = 0; y <= canvas.height; y += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
+        }
+        
+        // Create an image element to load the base64 data for analysis
         const img = new Image();
         img.onload = () => {
           if (!ctx) return;
           
-          // Once the image is loaded, draw it on the canvas
-          // Center the image and scale it to fit
-          const imgWidth = img.width;
-          const imgHeight = img.height;
+          // Once the image is loaded, create a temporary canvas to extract pixel data
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+          if (!tempCtx) return;
           
-          // Calculate the scale to fit the image in the canvas
+          // Set dimensions to match the image
+          tempCanvas.width = img.width;
+          tempCanvas.height = img.height;
+          
+          // Draw the image on the temp canvas
+          tempCtx.drawImage(img, 0, 0);
+          
+          // Get the image data to process pixel-by-pixel
+          const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
+          const data = imageData.data;
+          
+          // Calculate the scale to fit the map in the canvas
           // while maintaining aspect ratio
-          const scaleX = canvas.width / imgWidth;
-          const scaleY = canvas.height / imgHeight;
-          const imageScale = Math.min(scaleX, scaleY) * 0.9; // 90% to add some margin
+          const scaleX = canvas.width / img.width;
+          const scaleY = canvas.height / img.height;
+          const mapScale = Math.min(scaleX, scaleY) * 0.9; // 90% to add some margin
           
           // Calculate centered position
-          const x = (canvas.width - imgWidth * imageScale) / 2;
-          const y = (canvas.height - imgHeight * imageScale) / 2;
+          const startX = (canvas.width - img.width * mapScale) / 2;
+          const startY = (canvas.height - img.height * mapScale) / 2;
           
-          // Draw the image with potential contrast enhancement
-          if (mapData.visualizationHints?.enhanceVisualization) {
-            // Enhanced rendering - apply a stronger contrast to make walls more visible
-            ctx.save();
-            ctx.filter = 'contrast(1.3) brightness(1.1)';
-            ctx.drawImage(img, x, y, imgWidth * imageScale, imgHeight * imageScale);
-            ctx.restore();
-            
-            // Add legend for enhanced visualization
-            ctx.font = '12px Arial';
-            ctx.fillStyle = mapData.visualizationHints?.wallColor || '#000';
-            ctx.fillText('■ Walls', 10, 20);
-            ctx.fillStyle = mapData.visualizationHints?.freeSpaceColor || '#fff';
-            ctx.fillText('■ Free Space', 10, 40);
-            ctx.fillStyle = mapData.visualizationHints?.unknownColor || '#888';
-            ctx.fillText('■ Unknown', 10, 60);
-          } else {
-            // Standard rendering
-            ctx.drawImage(img, x, y, imgWidth * imageScale, imgHeight * imageScale);
+          // Define wall and space colors with enhanced visibility
+          const wallColor = '#1a237e';  // Deep indigo for walls
+          const spaceColor = 'rgba(252, 252, 252, 0.7)';  // Almost white for free space
+          const unknownColor = 'rgba(200, 200, 200, 0.1)';  // Light gray for unknown
+          
+          // Process the image data to draw a more visually appealing map
+          const cellSize = mapScale * 1.5;  // Slightly larger than pixel scale for better visibility
+          
+          for (let y = 0; y < img.height; y++) {
+            for (let x = 0; x < img.width; x++) {
+              const idx = (y * img.width + x) * 4;
+              const r = data[idx];
+              const g = data[idx + 1];
+              const b = data[idx + 2];
+              const a = data[idx + 3];
+              
+              // Skip transparent pixels
+              if (a === 0) continue;
+              
+              // Determine pixel type based on grayscale value
+              // Typically dark pixels (r,g,b close to 0) are walls
+              // White pixels (r,g,b close to 255) are free space
+              // Gray pixels are unknown areas
+              const brightness = (r + g + b) / 3;
+              
+              if (brightness < 100) {
+                // Wall pixel (dark) - draw as a filled rectangle
+                ctx.fillStyle = wallColor;
+                ctx.fillRect(
+                  startX + x * mapScale,
+                  startY + y * mapScale,
+                  cellSize,
+                  cellSize
+                );
+              } else if (brightness > 200) {
+                // Free space pixel (bright) - draw as a lighter rectangle
+                ctx.fillStyle = spaceColor;
+                ctx.fillRect(
+                  startX + x * mapScale,
+                  startY + y * mapScale,
+                  cellSize,
+                  cellSize
+                );
+              } else {
+                // Unknown area (mid-gray) - either skip or draw very lightly
+                ctx.fillStyle = unknownColor;
+                ctx.fillRect(
+                  startX + x * mapScale,
+                  startY + y * mapScale,
+                  cellSize,
+                  cellSize
+                );
+              }
+            }
           }
           
-          // Draw the robot position, obstacles, and paths on top
-          // Will be handled outside this callback
+          // Add a border around the map
+          ctx.strokeStyle = '#343a40';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(
+            startX - 5, 
+            startY - 5, 
+            img.width * mapScale + 10, 
+            img.height * mapScale + 10
+          );
+          
+          // Add legend with a nice styled box
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          ctx.fillRect(10, 10, 130, 100);
+          ctx.strokeStyle = '#343a40';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(10, 10, 130, 100);
+          
+          // Add legend text
+          ctx.font = 'bold 14px Arial';
+          ctx.fillStyle = '#212529';
+          ctx.fillText('Map Legend:', 20, 30);
+          
+          ctx.font = '12px Arial';
+          // Wall indicator
+          ctx.fillStyle = wallColor;
+          ctx.fillRect(20, 40, 15, 15);
+          ctx.fillStyle = '#212529';
+          ctx.fillText('Walls/Obstacles', 45, 52);
+          
+          // Free space indicator
+          ctx.fillStyle = spaceColor;
+          ctx.fillRect(20, 65, 15, 15);
+          ctx.fillStyle = '#212529';
+          ctx.fillText('Free Space', 45, 77);
+          
+          // Unknown area indicator
+          ctx.fillStyle = unknownColor;
+          ctx.fillRect(20, 90, 15, 15);
+          ctx.fillStyle = '#212529';
+          ctx.fillText('Unknown Area', 45, 102);
+          
+          // Store map bounds for future reference
+          mapData.visualizationHints = {
+            ...mapData.visualizationHints,
+            mapBounds: {
+              x: startX,
+              y: startY,
+              width: img.width * mapScale,
+              height: img.height * mapScale
+            }
+          };
         };
         
         // Set the source of the image to the base64 data
