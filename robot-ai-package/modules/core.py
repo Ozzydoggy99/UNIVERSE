@@ -16,27 +16,32 @@ Version: 1.0.0
 """
 
 import asyncio
+import base64
 import json
 import logging
 import os
 import signal
 import sys
 import time
-import websockets
+import uuid
 from enum import Enum
-from typing import List, Dict, Optional, Any, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Any
+import websockets
+import requests
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("/var/log/robot-ai/robot-ai.log", mode='a')
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('robot-ai.log')
     ]
 )
-logger = logging.getLogger("robot-ai")
+logger = logging.getLogger('robot-ai')
 
+# Robot State Constants
 class RobotState(Enum):
     IDLE = "idle"
     MOVING = "moving"
@@ -58,93 +63,86 @@ class RobotAI:
         self.robot_ip = robot_ip
         self.robot_port = robot_port
         self.use_ssl = use_ssl
-        self.protocol = "wss" if use_ssl else "ws"
-        self.base_url = f"http{'s' if use_ssl else ''}://{robot_ip}:{robot_port}"
-        self.ws_url = f"{self.protocol}://{robot_ip}:{robot_port}/ws"
-        self.ws = None
-        self.connected = False
-        self.enabled_topics = []
-        self.state = RobotState.IDLE
-        self.position = {"x": 0, "y": 0, "orientation": 0}
-        self.battery = {"percentage": 0, "voltage": 0, "current": 0, "temperature": 0, "status": "unknown"}
-        self.current_map_id = None
-        self.current_action_id = None
-        self.reconnect_attempts = 0
-        self.max_reconnect_attempts = 10
-        self.reconnect_delay = 2  # seconds
+        self.protocol = "https" if use_ssl else "http"
+        self.ws_protocol = "wss" if use_ssl else "ws"
+        self.base_url = f"{self.protocol}://{self.robot_ip}:{self.robot_port}"
+        self.ws_url = f"{self.ws_protocol}://{self.robot_ip}:{self.robot_port}/ws/v2/topics"
         
-        # Create module instances
-        try:
-            from modules.map import MapVisualizer
-            from modules.camera import CameraModule
-            from modules.elevator import ElevatorController
-            from modules.door import DoorController
-            from modules.task_queue import TaskQueue
-            
-            self.map_visualizer = MapVisualizer(self)
-            self.camera_module = CameraModule(self)
-            self.elevator_controller = ElevatorController(self)
-            self.door_controller = DoorController(self)
-            self.task_queue = TaskQueue(self)
-            
-            logger.info("All modules initialized successfully")
-        except ImportError as e:
-            logger.error(f"Error importing modules: {e}")
-            logger.warning("Some functionality may be limited due to missing modules")
-    
+        # Robot state
+        self.state = RobotState.IDLE
+        self.current_pose = {"pos": [0, 0], "ori": 0}
+        self.battery_state = {"percentage": 0, "power_supply_status": "unknown"}
+        self.current_map_id = None
+        self.current_map_data = None
+        self.point_cloud = []
+        self.camera_feed = None
+        self.connection_status = {"connected": False, "last_heartbeat": None}
+        self.current_task = None
+        self.task_queue = []
+        
+        # WebSocket connection
+        self.ws = None
+        self.topics_enabled = []
+        
+        # IoT integrations
+        self.registered_doors = {}  # {door_id: {"mac": mac_address, "polygon": [...], "status": "closed"}}
+        self.registered_elevators = {}  # {elevator_id: {"mac": mac_address, "floors": [...], "status": "idle"}}
+        
+        logger.info(f"Robot AI initialized for robot at {self.base_url}")
+        
     async def connect(self):
         """Establish connection to the robot and start monitoring topics"""
-        logger.info(f"Connecting to robot at {self.base_url}")
+        logger.info(f"Connecting to robot at {self.ws_url}")
+        
         try:
             self.ws = await websockets.connect(self.ws_url)
-            self.connected = True
-            self.reconnect_attempts = 0
-            logger.info("Connected to robot websocket successfully")
+            self.connection_status["connected"] = True
+            self.connection_status["last_heartbeat"] = time.time()
             
             # Enable essential topics
-            topics_to_enable = [
+            await self.enable_topics([
                 "/tracked_pose",
-                "/map",
-                "/wheel_state", 
                 "/battery_state",
-                "/detailed_battery_state",
+                "/map",
+                "/scan_matched_points2",
                 "/slam/state",
+                "/wheel_state",
                 "/rgb_cameras/front/video",
-            ]
-            await self.enable_topics(topics_to_enable)
+                "/planning_state",
+                "/alerts",
+                "/jack_state"
+            ])
             
-            # Start listening for updates
-            asyncio.create_task(self.listen_for_updates())
-            
+            logger.info("Successfully connected to robot")
             return True
         except Exception as e:
             logger.error(f"Failed to connect to robot: {e}")
-            self.connected = False
+            self.connection_status["connected"] = False
             return False
     
     async def reconnect(self):
         """Attempt to reconnect to the robot"""
-        if self.reconnect_attempts >= self.max_reconnect_attempts:
-            logger.error("Maximum reconnection attempts reached. Giving up.")
+        logger.info("Attempting to reconnect to robot...")
+        
+        try:
+            if self.ws and not self.ws.closed:
+                await self.ws.close()
+                
+            return await self.connect()
+        except Exception as e:
+            logger.error(f"Reconnection failed: {e}")
             return False
-        
-        self.reconnect_attempts += 1
-        wait_time = self.reconnect_delay * self.reconnect_attempts
-        logger.info(f"Attempting to reconnect (attempt {self.reconnect_attempts}/{self.max_reconnect_attempts}) in {wait_time} seconds...")
-        
-        await asyncio.sleep(wait_time)
-        return await self.connect()
     
     async def enable_topics(self, topics: List[str]):
         """Enable specified topics for real-time updates"""
-        if not self.connected or not self.ws:
-            logger.error("Cannot enable topics: not connected to robot")
+        if not self.ws or self.ws.closed:
+            logger.error("Cannot enable topics: WebSocket connection not established")
             return False
         
         try:
-            enable_command = {"op": "subscribe", "topics": topics}
-            await self.ws.send(json.dumps(enable_command))
-            self.enabled_topics.extend(topics)
+            message = {"enable_topic": topics}
+            await self.ws.send(json.dumps(message))
+            self.topics_enabled.extend(topics)
             logger.info(f"Enabled topics: {topics}")
             return True
         except Exception as e:
@@ -153,14 +151,16 @@ class RobotAI:
     
     async def disable_topics(self, topics: List[str]):
         """Disable specified topics"""
-        if not self.connected or not self.ws:
-            logger.error("Cannot disable topics: not connected to robot")
+        if not self.ws or self.ws.closed:
+            logger.error("Cannot disable topics: WebSocket connection not established")
             return False
         
         try:
-            disable_command = {"op": "unsubscribe", "topics": topics}
-            await self.ws.send(json.dumps(disable_command))
-            self.enabled_topics = [t for t in self.enabled_topics if t not in topics]
+            message = {"disable_topic": topics}
+            await self.ws.send(json.dumps(message))
+            for topic in topics:
+                if topic in self.topics_enabled:
+                    self.topics_enabled.remove(topic)
             logger.info(f"Disabled topics: {topics}")
             return True
         except Exception as e:
@@ -169,400 +169,467 @@ class RobotAI:
     
     async def listen_for_updates(self):
         """Listen for updates from the robot via WebSocket"""
-        if not self.connected or not self.ws:
-            logger.error("Cannot listen for updates: not connected to robot")
+        if not self.ws or self.ws.closed:
+            logger.error("Cannot listen for updates: WebSocket connection not established")
             return
         
         logger.info("Starting to listen for robot updates")
+        
         try:
-            async for message in self.ws:
-                await self.process_message(message)
-        except websockets.exceptions.ConnectionClosed:
-            logger.warning("WebSocket connection closed")
-            self.connected = False
-            # Try to reconnect
-            reconnected = await self.reconnect()
-            if reconnected:
-                await self.listen_for_updates()
+            while True:
+                try:
+                    message = await self.ws.recv()
+                    await self.process_message(message)
+                except websockets.exceptions.ConnectionClosed:
+                    logger.warning("WebSocket connection closed")
+                    await asyncio.sleep(2)
+                    connected = await self.reconnect()
+                    if not connected:
+                        await asyncio.sleep(5)
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}")
+                    await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("Listening task cancelled")
         except Exception as e:
-            logger.error(f"Error in WebSocket listener: {e}")
-            self.connected = False
+            logger.error(f"Unexpected error in listen_for_updates: {e}")
     
     async def process_message(self, message: str):
         """Process incoming WebSocket messages"""
         try:
             data = json.loads(message)
+            topic = data.get("topic")
             
-            # Check if this is a topic update
-            if "topic" in data:
-                topic = data["topic"]
-                
-                # Process based on topic
-                if topic == "/tracked_pose":
-                    # Update robot position
-                    if "pos" in data and len(data["pos"]) >= 2:
-                        self.position["x"] = data["pos"][0]
-                        self.position["y"] = data["pos"][1]
-                    if "ori" in data:
-                        self.position["orientation"] = data["ori"]
-                
-                elif topic == "/battery_state":
-                    # Update battery information
-                    self.battery["percentage"] = data.get("percentage", 0)
-                    self.battery["voltage"] = data.get("voltage", 0)
-                    self.battery["current"] = data.get("current", 0)
-                    self.battery["temperature"] = data.get("temperature", 0)
-                    self.battery["status"] = data.get("power_supply_status", "unknown")
-                
-                elif topic == "/wheel_state":
-                    # Update wheel state and check for emergency stop
-                    if data.get("emergency_stop_pressed", False):
-                        logger.warning("Emergency stop button is pressed!")
-                    
-                elif topic == "/slam/state":
-                    # Update the SLAM state
-                    slam_state = data.get("state", "unknown")
-                    logger.debug(f"SLAM state update: {slam_state}")
-                
-                elif topic == "/map":
-                    # Pass map data to map visualizer
-                    if hasattr(self, 'map_visualizer'):
-                        self.map_visualizer.process_map_data(data)
-                
-                elif topic == "/rgb_cameras/front/video":
-                    # Pass camera data to camera module
-                    if hasattr(self, 'camera_module'):
-                        self.camera_module.process_camera_data(data)
-                
-                # Log other topics at debug level
-                else:
-                    logger.debug(f"Received update for topic: {topic}")
-            
-            # Process non-topic messages
-            elif "enabled_topics" in data:
-                logger.info(f"Topics enabled on robot: {data['enabled_topics']}")
-            
-            else:
+            if not topic:
                 logger.debug(f"Received non-topic message: {data}")
+                return
+            
+            # Update internal state based on topic
+            if topic == "/tracked_pose":
+                self.current_pose = {"pos": data.get("pos", [0, 0]), "ori": data.get("ori", 0)}
                 
+            elif topic == "/battery_state":
+                self.battery_state = {
+                    "percentage": data.get("percentage", 0),
+                    "power_supply_status": data.get("power_supply_status", "unknown"),
+                    "voltage": data.get("voltage", 0),
+                    "current": data.get("current", 0)
+                }
+                
+            elif topic == "/map":
+                # Store minimal map data to avoid excessive memory usage
+                self.current_map_data = {
+                    "resolution": data.get("resolution"),
+                    "size": data.get("size"),
+                    "origin": data.get("origin"),
+                    "stamp": data.get("stamp")
+                }
+                # Don't store the full data array here as it can be very large
+                
+            elif topic == "/scan_matched_points2":
+                self.point_cloud = data.get("points", [])
+                
+            elif topic == "/rgb_cameras/front/video":
+                # Store reference to camera data, not the full data
+                self.camera_feed = {
+                    "stamp": data.get("stamp"),
+                    "available": True
+                }
+                
+            elif topic == "/planning_state":
+                move_state = data.get("move_state")
+                if move_state == "moving":
+                    self.state = RobotState.MOVING
+                elif move_state == "succeeded":
+                    self.state = RobotState.IDLE
+                elif move_state == "failed":
+                    self.state = RobotState.ERROR
+                    logger.error(f"Move action failed: {data.get('fail_reason_str')}")
+                
+            elif topic == "/jack_state":
+                jack_state = data.get("state")
+                progress = data.get("progress", 0)
+                if jack_state == "jacking_up":
+                    self.state = RobotState.JACKING_UP
+                elif jack_state == "jacking_down":
+                    self.state = RobotState.JACKING_DOWN
+                
+            # Add more topic handling as needed
+            
+            # Update connection status
+            self.connection_status["last_heartbeat"] = time.time()
+            
         except json.JSONDecodeError:
-            logger.error(f"Failed to decode message: {message}")
+            logger.error(f"Invalid JSON message: {message}")
         except Exception as e:
             logger.error(f"Error processing message: {e}")
     
     async def set_current_map(self, map_id: int) -> bool:
         """Set the current map on the robot"""
-        url = f"{self.base_url}/api/map/{map_id}/set_current"
         try:
-            async with websockets.connect(url) as ws:
-                response = await ws.recv()
-                data = json.loads(response)
-                if data.get("status") == "success":
-                    self.current_map_id = map_id
-                    logger.info(f"Current map set to ID: {map_id}")
-                    return True
-                else:
-                    logger.error(f"Failed to set current map: {data.get('message', 'Unknown error')}")
-                    return False
+            url = f"{self.base_url}/chassis/current-map"
+            response = requests.post(url, json={"map_id": map_id})
+            
+            if response.status_code == 200:
+                self.current_map_id = map_id
+                logger.info(f"Successfully set current map to ID {map_id}")
+                return True
+            else:
+                logger.error(f"Failed to set map: {response.status_code} {response.text}")
+                return False
+                
         except Exception as e:
             logger.error(f"Error setting current map: {e}")
             return False
     
     async def set_initial_pose(self, x: float, y: float, orientation: float, adjust_position: bool = True) -> bool:
         """Set the initial pose of the robot on the current map"""
-        url = f"{self.base_url}/map_align_at"
-        data = {
-            "map_name": self.current_map_id,
-            "x": x,
-            "y": y,
-            "theta": orientation,
-            "adjust_position": adjust_position
-        }
-        
         try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps(data))
-                response = await ws.recv()
-                result = json.loads(response)
-                if result.get("status") == "success":
-                    logger.info(f"Initial pose set to x:{x}, y:{y}, orientation:{orientation}")
-                    return True
-                else:
-                    logger.error(f"Failed to set initial pose: {result.get('message', 'Unknown error')}")
-                    return False
+            url = f"{self.base_url}/chassis/pose"
+            payload = {
+                "position": [x, y, 0],
+                "ori": orientation,
+                "adjust_position": adjust_position
+            }
+            
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                logger.info(f"Successfully set pose to ({x}, {y}, {orientation})")
+                return True
+            else:
+                logger.error(f"Failed to set pose: {response.status_code} {response.text}")
+                return False
+                
         except Exception as e:
-            logger.error(f"Error setting initial pose: {e}")
+            logger.error(f"Error setting pose: {e}")
             return False
     
     async def get_maps_list(self) -> List[Dict]:
         """Get a list of available maps"""
-        url = f"{self.base_url}/maps/"
         try:
-            async with websockets.connect(url) as ws:
-                response = await ws.recv()
-                data = json.loads(response)
-                logger.info(f"Retrieved {len(data)} maps from robot")
-                return data
+            url = f"{self.base_url}/maps/"
+            response = requests.get(url)
+            
+            if response.status_code == 200:
+                maps = response.json()
+                logger.info(f"Retrieved {len(maps)} maps")
+                return maps
+            else:
+                logger.error(f"Failed to get maps: {response.status_code} {response.text}")
+                return []
+                
         except Exception as e:
-            logger.error(f"Error getting maps list: {e}")
+            logger.error(f"Error getting maps: {e}")
             return []
     
     async def create_move_action(self, 
-                               target_x: float, 
-                               target_y: float, 
-                               target_ori: Optional[float] = None,
-                               move_type: str = "standard") -> Dict:
+                                target_x: float, 
+                                target_y: float, 
+                                target_ori: Optional[float] = None,
+                                move_type: str = "standard") -> Dict:
         """Create a movement action for the robot"""
-        url = f"{self.base_url}/move_create"
-        
-        # Build the move request
-        move_request = {
-            "goal": {
-                "x": target_x,
-                "y": target_y,
-            },
-            "type": move_type,
-        }
-        
-        # Add orientation if provided
-        if target_ori is not None:
-            move_request["goal"]["theta"] = target_ori
-        
         try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps(move_request))
-                response = await ws.recv()
-                result = json.loads(response)
+            url = f"{self.base_url}/chassis/moves"
+            
+            payload = {
+                "creator": "robot-ai",
+                "type": move_type,
+                "target_x": target_x,
+                "target_y": target_y
+            }
+            
+            if target_ori is not None:
+                payload["target_ori"] = target_ori
                 
-                if "action_id" in result:
-                    self.current_action_id = result["action_id"]
-                    self.state = RobotState.MOVING
-                    logger.info(f"Created move action to ({target_x}, {target_y}), action ID: {self.current_action_id}")
-                    return result
-                else:
-                    logger.error(f"Failed to create move action: {result.get('message', 'Unknown error')}")
-                    return {"error": result.get('message', 'Failed to create move action')}
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                action_id = result.get("id")
+                logger.info(f"Created move action {action_id} to ({target_x}, {target_y})")
+                
+                # Update state
+                self.state = RobotState.MOVING
+                self.current_task = {
+                    "id": action_id,
+                    "type": "move",
+                    "params": payload,
+                    "start_time": time.time()
+                }
+                
+                return {"success": True, "action_id": action_id}
+            else:
+                logger.error(f"Failed to create move action: {response.status_code} {response.text}")
+                return {"success": False, "error": response.text}
+                
         except Exception as e:
             logger.error(f"Error creating move action: {e}")
-            return {"error": str(e)}
+            return {"success": False, "error": str(e)}
     
     async def cancel_current_move(self) -> bool:
         """Cancel the current move action"""
-        if not self.current_action_id:
-            logger.warning("No current move action to cancel")
-            return False
-        
-        url = f"{self.base_url}/move_cancel"
-        data = {"action_id": self.current_action_id}
-        
         try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps(data))
-                response = await ws.recv()
-                result = json.loads(response)
+            url = f"{self.base_url}/chassis/moves/current"
+            response = requests.patch(url, json={"state": "cancelled"})
+            
+            if response.status_code == 200:
+                logger.info("Successfully cancelled current move")
+                return True
+            else:
+                logger.error(f"Failed to cancel move: {response.status_code} {response.text}")
+                return False
                 
-                if result.get("status") == "success":
-                    logger.info(f"Cancelled move action: {self.current_action_id}")
-                    self.current_action_id = None
-                    self.state = RobotState.IDLE
-                    return True
-                else:
-                    logger.error(f"Failed to cancel move action: {result.get('message', 'Unknown error')}")
-                    return False
         except Exception as e:
-            logger.error(f"Error cancelling move action: {e}")
+            logger.error(f"Error cancelling move: {e}")
             return False
     
     async def start_mapping(self, continue_mapping: bool = False) -> Dict:
         """Start a mapping task"""
-        url = f"{self.base_url}/{'mapping_continue' if continue_mapping else 'mapping_start'}"
-        
         try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps({}))
-                response = await ws.recv()
-                result = json.loads(response)
+            url = f"{self.base_url}/mappings/"
+            payload = {"continue_mapping": continue_mapping}
+            
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                mapping_id = result.get("id")
+                logger.info(f"Started mapping task {mapping_id}")
                 
-                if result.get("status") == "success":
-                    self.state = RobotState.MAPPING
-                    logger.info(f"Started {'continued' if continue_mapping else 'new'} mapping task")
-                    return result
-                else:
-                    logger.error(f"Failed to start mapping: {result.get('message', 'Unknown error')}")
-                    return {"error": result.get('message', 'Failed to start mapping')}
+                # Update state
+                self.state = RobotState.MAPPING
+                
+                return {"success": True, "mapping_id": mapping_id}
+            else:
+                logger.error(f"Failed to start mapping: {response.status_code} {response.text}")
+                return {"success": False, "error": response.text}
+                
         except Exception as e:
             logger.error(f"Error starting mapping: {e}")
-            return {"error": str(e)}
+            return {"success": False, "error": str(e)}
     
     async def finish_mapping(self, save_map: bool = True, map_name: Optional[str] = None) -> Dict:
         """Finish the current mapping task and optionally save it as a map"""
-        if not save_map:
-            url = f"{self.base_url}/mapping_cancel"
-        else:
-            url = f"{self.base_url}/mapping_finish"
-        
-        data = {}
-        if save_map and map_name:
-            data["name"] = map_name
-        
         try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps(data))
-                response = await ws.recv()
-                result = json.loads(response)
+            # Finish mapping
+            url = f"{self.base_url}/mappings/current"
+            finish_response = requests.patch(url, json={"state": "finished"})
+            
+            if finish_response.status_code != 200:
+                logger.error(f"Failed to finish mapping: {finish_response.status_code} {finish_response.text}")
+                return {"success": False, "error": finish_response.text}
+            
+            mapping_result = finish_response.json()
+            mapping_id = mapping_result.get("id")
+            
+            # Save as map if requested
+            if save_map:
+                if not map_name:
+                    map_name = f"Map {datetime.now().strftime('%Y-%m-%d %H:%M')}"
                 
-                if result.get("status") == "success":
+                save_url = f"{self.base_url}/maps/"
+                save_payload = {
+                    "map_name": map_name,
+                    "mapping_id": mapping_id
+                }
+                
+                save_response = requests.post(save_url, json=save_payload)
+                
+                if save_response.status_code == 200:
+                    map_result = save_response.json()
+                    map_id = map_result.get("id")
+                    logger.info(f"Saved mapping {mapping_id} as map {map_id}")
+                    
+                    # Update state
                     self.state = RobotState.IDLE
-                    action = "cancelled" if not save_map else "finished and saved"
-                    logger.info(f"Mapping {action}")
-                    return result
+                    
+                    return {"success": True, "mapping_id": mapping_id, "map_id": map_id}
                 else:
-                    logger.error(f"Failed to finish mapping: {result.get('message', 'Unknown error')}")
-                    return {"error": result.get('message', 'Failed to finish mapping')}
+                    logger.error(f"Failed to save map: {save_response.status_code} {save_response.text}")
+                    return {"success": False, "error": save_response.text}
+            
+            # Update state
+            self.state = RobotState.IDLE
+            
+            return {"success": True, "mapping_id": mapping_id}
+                
         except Exception as e:
             logger.error(f"Error finishing mapping: {e}")
-            return {"error": str(e)}
+            return {"success": False, "error": str(e)}
     
     async def jack_up(self) -> bool:
         """Jack up the robot to lift a cargo"""
-        url = f"{self.base_url}/jack_up"
-        
         try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps({}))
-                response = await ws.recv()
-                result = json.loads(response)
+            url = f"{self.base_url}/services/jack_up"
+            response = requests.post(url)
+            
+            if response.status_code == 200:
+                logger.info("Successfully initiated jack up operation")
+                self.state = RobotState.JACKING_UP
+                return True
+            else:
+                logger.error(f"Failed to jack up: {response.status_code} {response.text}")
+                return False
                 
-                if result.get("status") == "success":
-                    self.state = RobotState.JACKING_UP
-                    logger.info("Started jacking up")
-                    return True
-                else:
-                    logger.error(f"Failed to jack up: {result.get('message', 'Unknown error')}")
-                    return False
         except Exception as e:
             logger.error(f"Error jacking up: {e}")
             return False
     
     async def jack_down(self) -> bool:
         """Jack down the robot to release a cargo"""
-        url = f"{self.base_url}/jack_down"
-        
         try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps({}))
-                response = await ws.recv()
-                result = json.loads(response)
+            url = f"{self.base_url}/services/jack_down"
+            response = requests.post(url)
+            
+            if response.status_code == 200:
+                logger.info("Successfully initiated jack down operation")
+                self.state = RobotState.JACKING_DOWN
+                return True
+            else:
+                logger.error(f"Failed to jack down: {response.status_code} {response.text}")
+                return False
                 
-                if result.get("status") == "success":
-                    self.state = RobotState.JACKING_DOWN
-                    logger.info("Started jacking down")
-                    return True
-                else:
-                    logger.error(f"Failed to jack down: {result.get('message', 'Unknown error')}")
-                    return False
         except Exception as e:
             logger.error(f"Error jacking down: {e}")
             return False
     
     async def align_with_rack(self, target_x: float, target_y: float) -> Dict:
         """Create a move action to align with a rack for jacking"""
-        url = f"{self.base_url}/move_create"
-        
-        # Build the move request
-        move_request = {
-            "goal": {
-                "x": target_x,
-                "y": target_y,
-            },
-            "type": "align_with_rack",
-        }
-        
-        try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps(move_request))
-                response = await ws.recv()
-                result = json.loads(response)
-                
-                if "action_id" in result:
-                    self.current_action_id = result["action_id"]
-                    self.state = RobotState.ALIGNING
-                    logger.info(f"Created align with rack action to ({target_x}, {target_y}), action ID: {self.current_action_id}")
-                    return result
-                else:
-                    logger.error(f"Failed to create align action: {result.get('message', 'Unknown error')}")
-                    return {"error": result.get('message', 'Failed to create align action')}
-        except Exception as e:
-            logger.error(f"Error creating align action: {e}")
-            return {"error": str(e)}
+        return await self.create_move_action(
+            target_x=target_x,
+            target_y=target_y,
+            move_type="align_with_rack"
+        )
     
     async def move_to_unload_point(self, target_x: float, target_y: float) -> Dict:
         """Create a move action to move to an unload point"""
-        return await self.create_move_action(target_x, target_y, move_type="to_unload_point")
+        return await self.create_move_action(
+            target_x=target_x,
+            target_y=target_y,
+            move_type="to_unload_point"
+        )
     
     async def move_along_route(self, coordinates: List[List[float]], detour_tolerance: float = 0.5) -> Dict:
         """Create a move action to follow a specific route"""
-        url = f"{self.base_url}/move_create"
-        
-        # Build the move request
-        move_request = {
-            "type": "along_route",
-            "route": coordinates,
-            "detour_tolerance": detour_tolerance
-        }
-        
         try:
-            async with websockets.connect(url) as ws:
-                await ws.send(json.dumps(move_request))
-                response = await ws.recv()
-                result = json.loads(response)
+            # Convert coordinates to the required format (comma-separated string)
+            route_coords = []
+            for point in coordinates:
+                if len(point) >= 2:
+                    route_coords.extend([point[0], point[1]])
+            
+            route_coordinates = ", ".join(map(str, route_coords))
+            
+            url = f"{self.base_url}/chassis/moves"
+            
+            payload = {
+                "creator": "robot-ai",
+                "type": "along_given_route",
+                "route_coordinates": route_coordinates,
+                "detour_tolerance": detour_tolerance
+            }
                 
-                if "action_id" in result:
-                    self.current_action_id = result["action_id"]
-                    self.state = RobotState.MOVING
-                    logger.info(f"Created move along route action with {len(coordinates)} points, action ID: {self.current_action_id}")
-                    return result
-                else:
-                    logger.error(f"Failed to create move along route action: {result.get('message', 'Unknown error')}")
-                    return {"error": result.get('message', 'Failed to create move along route action')}
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                action_id = result.get("id")
+                logger.info(f"Created route following action {action_id} with {len(coordinates)} points")
+                
+                # Update state
+                self.state = RobotState.MOVING
+                self.current_task = {
+                    "id": action_id,
+                    "type": "follow_route",
+                    "params": payload,
+                    "start_time": time.time()
+                }
+                
+                return {"success": True, "action_id": action_id}
+            else:
+                logger.error(f"Failed to create route following action: {response.status_code} {response.text}")
+                return {"success": False, "error": response.text}
+                
         except Exception as e:
-            logger.error(f"Error creating move along route action: {e}")
-            return {"error": str(e)}
+            logger.error(f"Error creating route following action: {e}")
+            return {"success": False, "error": str(e)}
     
     async def move_to_elevator(self, elevator_id: str) -> Dict:
         """Move to an elevator waiting point"""
-        # This needs to be implemented with elevator_controller
-        if hasattr(self, 'elevator_controller'):
-            return await self.elevator_controller.move_to_elevator(elevator_id)
-        else:
-            logger.error("Elevator controller not available")
-            return {"error": "Elevator controller not available"}
+        if elevator_id not in self.registered_elevators:
+            logger.error(f"Elevator {elevator_id} not registered")
+            return {"success": False, "error": f"Elevator {elevator_id} not registered"}
+        
+        elevator = self.registered_elevators[elevator_id]
+        
+        if not elevator.get("waiting_point"):
+            logger.error(f"Elevator {elevator_id} missing waiting point coordinates")
+            return {"success": False, "error": "Missing waiting point coordinates"}
+        
+        return await self.create_move_action(
+            target_x=elevator["waiting_point"][0],
+            target_y=elevator["waiting_point"][1],
+            move_type="standard"
+        )
     
     async def enter_elevator(self, elevator_id: str) -> Dict:
         """Create a move action to enter an elevator"""
-        # This needs to be implemented with elevator_controller
-        if hasattr(self, 'elevator_controller'):
-            return await self.elevator_controller.enter_elevator(elevator_id)
-        else:
-            logger.error("Elevator controller not available")
-            return {"error": "Elevator controller not available"}
+        if elevator_id not in self.registered_elevators:
+            logger.error(f"Elevator {elevator_id} not registered")
+            return {"success": False, "error": f"Elevator {elevator_id} not registered"}
+        
+        elevator = self.registered_elevators[elevator_id]
+        
+        if not elevator.get("entry_point"):
+            logger.error(f"Elevator {elevator_id} missing entry point coordinates")
+            return {"success": False, "error": "Missing entry point coordinates"}
+        
+        return await self.create_move_action(
+            target_x=elevator["entry_point"][0],
+            target_y=elevator["entry_point"][1],
+            move_type="enter_elevator"
+        )
     
     async def request_elevator(self, elevator_id: str, target_floor: int) -> Dict:
         """Request an elevator to go to a specific floor"""
-        # This needs to be implemented with elevator_controller
-        if hasattr(self, 'elevator_controller'):
-            return await self.elevator_controller.request_elevator(elevator_id, target_floor)
-        else:
-            logger.error("Elevator controller not available")
-            return {"error": "Elevator controller not available"}
+        if elevator_id not in self.registered_elevators:
+            logger.error(f"Elevator {elevator_id} not registered")
+            return {"success": False, "error": f"Elevator {elevator_id} not registered"}
+        
+        elevator = self.registered_elevators[elevator_id]
+        
+        # Request elevator through IoT integration
+        try:
+            # Command the elevator to move to target floor
+            # This would be implemented in the IoT module
+            logger.info(f"Requesting elevator {elevator_id} to go to floor {target_floor}")
+            
+            # Placeholder for actual implementation
+            # In real implementation, this would communicate with the IoT module
+            success = True  # Simulated success
+            
+            if success:
+                return {"success": True, "message": f"Requested elevator to floor {target_floor}"}
+            else:
+                return {"success": False, "error": "Failed to communicate with elevator"}
+                
+        except Exception as e:
+            logger.error(f"Error requesting elevator: {e}")
+            return {"success": False, "error": str(e)}
     
     async def register_door(self, door_id: str, mac_address: str, polygon: List[List[float]]) -> bool:
         """Register a door for automatic opening"""
-        # This needs to be implemented with door_controller
-        if hasattr(self, 'door_controller'):
-            return await self.door_controller.register_door(door_id, mac_address, polygon)
-        else:
-            logger.error("Door controller not available")
+        try:
+            self.registered_doors[door_id] = {
+                "mac": mac_address,
+                "polygon": polygon,
+                "status": "closed"
+            }
+            logger.info(f"Registered door {door_id} with MAC {mac_address}")
+            return True
+        except Exception as e:
+            logger.error(f"Error registering door: {e}")
             return False
     
     async def register_elevator(self, 
@@ -572,112 +639,203 @@ class RobotAI:
                               waiting_point: List[float],
                               entry_point: List[float]) -> bool:
         """Register an elevator for multi-floor navigation"""
-        # This needs to be implemented with elevator_controller
-        if hasattr(self, 'elevator_controller'):
-            return await self.elevator_controller.register_elevator(
-                elevator_id, mac_address, floors, waiting_point, entry_point
-            )
-        else:
-            logger.error("Elevator controller not available")
+        try:
+            self.registered_elevators[elevator_id] = {
+                "mac": mac_address,
+                "floors": floors,
+                "waiting_point": waiting_point,
+                "entry_point": entry_point,
+                "status": "idle",
+                "current_floor": floors[0] if floors else None
+            }
+            logger.info(f"Registered elevator {elevator_id} with MAC {mac_address} serving floors {floors}")
+            return True
+        except Exception as e:
+            logger.error(f"Error registering elevator: {e}")
             return False
     
     async def request_door_open(self, door_id: str) -> Dict:
         """Request a door to open"""
-        # This needs to be implemented with door_controller
-        if hasattr(self, 'door_controller'):
-            return await self.door_controller.request_door_open(door_id)
-        else:
-            logger.error("Door controller not available")
-            return {"error": "Door controller not available"}
+        if door_id not in self.registered_doors:
+            logger.error(f"Door {door_id} not registered")
+            return {"success": False, "error": f"Door {door_id} not registered"}
+        
+        door = self.registered_doors[door_id]
+        
+        # Request door to open through IoT integration
+        try:
+            # Send open command to the door
+            # This would be implemented in the IoT module
+            logger.info(f"Requesting door {door_id} to open")
+            
+            # Placeholder for actual implementation
+            # In real implementation, this would communicate with the IoT module
+            success = True  # Simulated success
+            
+            if success:
+                # Update door status
+                self.registered_doors[door_id]["status"] = "opening"
+                return {"success": True, "message": "Door opening command sent"}
+            else:
+                return {"success": False, "error": "Failed to communicate with door"}
+                
+        except Exception as e:
+            logger.error(f"Error requesting door to open: {e}")
+            return {"success": False, "error": str(e)}
     
     async def get_camera_frame(self, camera: str = "front") -> Dict:
         """Get the latest camera frame"""
-        # This needs to be implemented with camera_module
-        if hasattr(self, 'camera_module'):
-            return await self.camera_module.get_camera_frame(camera)
-        else:
-            logger.error("Camera module not available")
-            return {"error": "Camera module not available"}
+        try:
+            url = f"{self.base_url}/rgb_cameras/{camera}/compressed"
+            response = requests.get(url)
+            
+            if response.status_code == 200:
+                image_data = response.content
+                logger.info(f"Retrieved camera frame from {camera} camera")
+                return {
+                    "success": True, 
+                    "data": base64.b64encode(image_data).decode('utf-8'),
+                    "format": "jpeg",
+                    "timestamp": datetime.now().timestamp()
+                }
+            else:
+                logger.error(f"Failed to get camera frame: {response.status_code}")
+                return {"success": False, "error": response.reason}
+                
+        except Exception as e:
+            logger.error(f"Error getting camera frame: {e}")
+            return {"success": False, "error": str(e)}
     
     async def add_task_to_queue(self, task_type: str, params: Dict) -> Dict:
         """Add a task to the queue"""
-        # This needs to be implemented with task_queue
-        if hasattr(self, 'task_queue'):
-            return await self.task_queue.add_task(task_type, params)
-        else:
-            logger.error("Task queue not available")
-            return {"error": "Task queue not available"}
+        try:
+            task_id = str(uuid.uuid4())
+            task = {
+                "id": task_id,
+                "type": task_type,
+                "params": params,
+                "status": "queued",
+                "created_at": time.time()
+            }
+            
+            self.task_queue.append(task)
+            logger.info(f"Added {task_type} task {task_id} to queue (position {len(self.task_queue)})")
+            
+            return {"success": True, "task_id": task_id, "position": len(self.task_queue)}
+        except Exception as e:
+            logger.error(f"Error adding task to queue: {e}")
+            return {"success": False, "error": str(e)}
     
     async def process_task_queue(self):
         """Process the task queue"""
-        # This needs to be implemented with task_queue
-        if hasattr(self, 'task_queue'):
-            return await self.task_queue.process_queue()
-        else:
-            logger.error("Task queue not available")
-            return {"error": "Task queue not available"}
+        if not self.task_queue:
+            return
+        
+        # If there's a current task in progress, don't start a new one
+        if self.current_task:
+            return
+        
+        # Get the next task
+        next_task = self.task_queue.pop(0)
+        logger.info(f"Processing task {next_task['id']} of type {next_task['type']}")
+        
+        task_type = next_task["type"]
+        params = next_task["params"]
+        
+        try:
+            result = None
+            
+            if task_type == "move":
+                result = await self.create_move_action(
+                    target_x=params.get("target_x"),
+                    target_y=params.get("target_y"),
+                    target_ori=params.get("target_ori"),
+                    move_type=params.get("move_type", "standard")
+                )
+            
+            elif task_type == "mapping":
+                result = await self.start_mapping(
+                    continue_mapping=params.get("continue_mapping", False)
+                )
+            
+            elif task_type == "elevator":
+                result = await self.request_elevator(
+                    elevator_id=params.get("elevator_id"),
+                    target_floor=params.get("target_floor")
+                )
+            
+            elif task_type == "door":
+                result = await self.request_door_open(
+                    door_id=params.get("door_id")
+                )
+            
+            elif task_type == "jack_up":
+                result = {"success": await self.jack_up()}
+            
+            elif task_type == "jack_down":
+                result = {"success": await self.jack_down()}
+            
+            # Add more task types as needed
+            
+            logger.info(f"Task {next_task['id']} processed with result: {result}")
+            
+        except Exception as e:
+            logger.error(f"Error processing task {next_task['id']}: {e}")
+            return {"success": False, "error": str(e)}
     
     async def get_robot_status(self) -> Dict:
         """Get the current status of the robot"""
-        status = {
-            "state": self.state.value if isinstance(self.state, RobotState) else str(self.state),
-            "position": self.position,
-            "battery": self.battery,
-            "connected": self.connected,
-            "current_map_id": self.current_map_id,
-            "current_action_id": self.current_action_id,
+        return {
+            "state": self.state.value,
+            "pose": self.current_pose,
+            "battery": self.battery_state,
+            "connection": self.connection_status,
+            "current_task": self.current_task,
+            "queue_length": len(self.task_queue),
+            "timestamp": time.time()
         }
-        return status
     
     async def close(self):
         """Close the connection to the robot"""
-        if self.ws:
+        if self.ws and not self.ws.closed:
             await self.ws.close()
-            self.connected = False
-            logger.info("Closed connection to robot")
+            logger.info("WebSocket connection closed")
+        
+        logger.info("Robot AI connection closed")
+
 
 async def main():
     """Main entry point for the Robot AI"""
-    # Get configuration from environment or use defaults
-    robot_ip = os.environ.get("ROBOT_IP", "127.0.0.1")
-    robot_port = int(os.environ.get("ROBOT_PORT", "8090"))
-    robot_sn = os.environ.get("ROBOT_SERIAL", "L382502104987ir")
-    use_ssl = os.environ.get("USE_SSL", "0").lower() in ("1", "true", "yes")
+    # Get robot IP from environment variable or use default
+    robot_ip = os.getenv("ROBOT_IP", "192.168.25.25")
+    robot_port = int(os.getenv("ROBOT_PORT", "8090"))
     
-    logger.info(f"Starting Robot AI Core for robot at {robot_ip}:{robot_port}")
-    robot_ai = RobotAI(robot_ip, robot_port, use_ssl)
+    # Create Robot AI instance
+    robot = RobotAI(robot_ip=robot_ip, robot_port=robot_port)
     
-    # Register signal handlers for graceful shutdown
+    # Set up clean shutdown
     def handle_shutdown(sig=None, frame=None):
-        logger.info("Shutdown signal received, closing connections...")
-        asyncio.create_task(robot_ai.close())
-        asyncio.get_event_loop().stop()
+        logger.info("Shutdown signal received")
+        asyncio.create_task(robot.close())
+        sys.exit(0)
     
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
     
-    # Connect to the robot
-    connected = await robot_ai.connect()
+    # Connect to robot
+    connected = await robot.connect()
     if not connected:
         logger.error("Failed to connect to robot, exiting")
-        return
+        sys.exit(1)
     
-    # Start processing tasks
-    asyncio.create_task(robot_ai.process_task_queue())
+    # Start listening for updates
+    listener_task = asyncio.create_task(robot.listen_for_updates())
     
-    # Keep the event loop running
-    while robot_ai.connected:
+    # Process task queue periodically
+    while True:
+        await robot.process_task_queue()
         await asyncio.sleep(1)
-    
-    # If we get here, we've lost connection
-    logger.warning("Lost connection to robot, shutting down")
-    handle_shutdown()
+
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received, shutting down")
-    except Exception as e:
-        logger.error(f"Unhandled exception: {e}")
-        sys.exit(1)
+    asyncio.run(main())

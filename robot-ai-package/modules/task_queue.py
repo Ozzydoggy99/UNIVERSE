@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """
-Robot AI - Task Queue Module
-This module provides a prioritized FIFO task queue system for 
-efficiently managing multiple tasks and automated operations.
+Robot AI - Task Queue Management Module
+This module provides task queue management for the robot, including:
+- Task creation and prioritization
+- FIFO queue management
+- Task scheduling and execution
+- Progress tracking and reporting
+- Error handling and recovery
 
 Author: AI Assistant
 Version: 1.0.0
@@ -11,32 +15,37 @@ Version: 1.0.0
 import asyncio
 import json
 import logging
-import math
 import os
+import signal
+import sys
 import time
 import uuid
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Dict, Optional, Any, Tuple, Union, Callable
+from typing import Dict, List, Optional, Tuple, Any, Union, Callable
+import requests
+import websockets
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("/var/log/robot-ai/task_queue.log", mode='a')
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('robot-ai-tasks.log')
     ]
 )
-logger = logging.getLogger("robot-ai-task-queue")
+logger = logging.getLogger('robot-ai-tasks')
 
 class TaskState(Enum):
     """Task state enum"""
-    PENDING = "pending"
-    RUNNING = "running"
+    QUEUED = "queued"
+    PREPARING = "preparing"
+    IN_PROGRESS = "in_progress"
+    PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-    PAUSED = "paused"
 
 class TaskPriority(Enum):
     """Task priority enum"""
@@ -45,779 +54,1005 @@ class TaskPriority(Enum):
     HIGH = 2
     CRITICAL = 3
 
+class TaskType(Enum):
+    """Task type enum"""
+    MOVE = "move"
+    MAPPING = "mapping"
+    ELEVATOR = "elevator"
+    DOOR = "door"
+    JACK_UP = "jack_up"
+    JACK_DOWN = "jack_down"
+    CHARGE = "charge"
+    FOLLOW_ROUTE = "follow_route"
+    CUSTOM = "custom"
+
+@dataclass
 class Task:
     """Task data class"""
-    def __init__(self, task_id: str, task_type: str, params: Dict[str, Any], 
-                priority: TaskPriority = TaskPriority.NORMAL):
-        self.id = task_id
-        self.type = task_type
-        self.params = params
-        self.priority = priority
-        self.state = TaskState.PENDING
-        self.created_at = time.time()
-        self.started_at = None
-        self.completed_at = None
-        self.result = None
-        self.error = None
-        self.progress = 0.0  # 0.0 to 1.0
-        self.dependencies = []  # List of task IDs that must complete before this one
+    id: str
+    type: TaskType
+    params: Dict[str, Any]
+    priority: TaskPriority
+    state: TaskState
+    created_at: float
+    started_at: Optional[float] = None
+    completed_at: Optional[float] = None
+    progress: float = 0.0
+    error: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+    dependencies: List[str] = field(default_factory=list)
+    callbacks: List[Callable] = field(default_factory=list)
+    retry_count: int = 0
+    max_retries: int = 3
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert task to dictionary for serialization"""
+        result = {
+            "id": self.id,
+            "type": self.type.value,
+            "params": self.params,
+            "priority": self.priority.value,
+            "state": self.state.value,
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "progress": self.progress,
+            "error": self.error,
+            "result": self.result,
+            "dependencies": self.dependencies,
+            "retry_count": self.retry_count,
+            "max_retries": self.max_retries
+        }
+        # Callbacks can't be serialized, so we exclude them
+        return result
 
-class TaskQueue:
-    """Task queue for efficient task management"""
+class TaskQueueManager:
+    """Task Queue Manager for Robot AI"""
     
-    def __init__(self, robot_ai):
-        """Initialize the Task Queue with a reference to the Robot AI"""
-        self.robot_ai = robot_ai
-        self.tasks = {}  # Dictionary of task_id -> Task
-        self.queue = []  # List of task_ids in queue order
-        self.active_task_id = None
-        self.running = False
-        self.task_handlers = {}  # Dictionary of task_type -> handler function
-        self.persist_path = "/var/log/robot-ai/tasks.json"
+    def __init__(self, robot_ip: str, robot_port: int = 8090, robot_sn: str = None, use_ssl: bool = False):
+        """Initialize the Task Queue Manager with connection details"""
+        self.robot_ip = robot_ip
+        self.robot_port = robot_port
+        self.robot_sn = robot_sn
+        self.use_ssl = use_ssl
+        self.protocol = "https" if use_ssl else "http"
+        self.ws_protocol = "wss" if use_ssl else "ws"
+        self.base_url = f"{self.protocol}://{self.robot_ip}:{self.robot_port}"
+        self.ws_url = f"{self.ws_protocol}://{self.robot_ip}:{self.robot_port}/ws/v2/topics"
         
-        # Register task handlers
-        self._register_task_handlers()
+        # Task queues
+        self.task_queue: List[Task] = []  # FIFO queue
+        self.current_task: Optional[Task] = None
+        self.completed_tasks: List[Task] = []
+        self.failed_tasks: List[Task] = []
         
-        # Load persisted tasks
-        self._load_tasks()
-    
-    def _register_task_handlers(self):
-        """Register handlers for different task types"""
-        # Movement tasks
-        self.task_handlers["move_to_position"] = self._handle_move_to_position
-        self.task_handlers["move_along_route"] = self._handle_move_along_route
+        # Queue processing
+        self.processing_enabled = False
+        self.queue_processing_interval = 1.0  # seconds
         
-        # Mapping tasks
-        self.task_handlers["start_mapping"] = self._handle_start_mapping
-        self.task_handlers["finish_mapping"] = self._handle_finish_mapping
-        
-        # Elevator tasks
-        self.task_handlers["use_elevator"] = self._handle_use_elevator
-        
-        # Door tasks
-        self.task_handlers["open_door"] = self._handle_open_door
-        
-        # Cargo tasks
-        self.task_handlers["pick_up_cargo"] = self._handle_pick_up_cargo
-        self.task_handlers["deliver_cargo"] = self._handle_deliver_cargo
-        
-        # Camera tasks
-        self.task_handlers["capture_video"] = self._handle_capture_video
-        
-        # System tasks
-        self.task_handlers["update_system"] = self._handle_update_system
-        
-        logger.info(f"Registered {len(self.task_handlers)} task handlers")
-    
-    def _load_tasks(self):
-        """Load persisted tasks from disk"""
-        try:
-            if os.path.exists(self.persist_path):
-                with open(self.persist_path, 'r') as f:
-                    data = json.load(f)
-                    
-                    for task_data in data.get("tasks", []):
-                        # Create task instance
-                        task_id = task_data.get("id")
-                        task_type = task_data.get("type")
-                        params = task_data.get("params", {})
-                        
-                        # Skip if missing required fields
-                        if not task_id or not task_type:
-                            continue
-                        
-                        # Get priority
-                        priority_value = task_data.get("priority", 1)
-                        try:
-                            priority = TaskPriority(priority_value)
-                        except ValueError:
-                            priority = TaskPriority.NORMAL
-                        
-                        # Create task
-                        task = Task(task_id, task_type, params, priority)
-                        
-                        # Set task properties
-                        task.state = TaskState(task_data.get("state", "pending"))
-                        task.created_at = task_data.get("created_at", time.time())
-                        task.started_at = task_data.get("started_at")
-                        task.completed_at = task_data.get("completed_at")
-                        task.result = task_data.get("result")
-                        task.error = task_data.get("error")
-                        task.progress = task_data.get("progress", 0.0)
-                        task.dependencies = task_data.get("dependencies", [])
-                        
-                        # Add to tasks dictionary
-                        self.tasks[task_id] = task
-                        
-                        # Add to queue if pending
-                        if task.state == TaskState.PENDING:
-                            self.queue.append(task_id)
-                
-                # Sort queue by priority
-                self._sort_queue()
-                
-                logger.info(f"Loaded {len(self.tasks)} tasks from persistence, {len(self.queue)} in queue")
-        except Exception as e:
-            logger.error(f"Error loading tasks: {e}")
-    
-    def _persist_tasks(self):
-        """Persist tasks to disk"""
-        try:
-            # Create directory if it doesn't exist
-            os.makedirs(os.path.dirname(self.persist_path), exist_ok=True)
-            
-            # Prepare data
-            tasks_data = []
-            for task_id, task in self.tasks.items():
-                task_data = {
-                    "id": task.id,
-                    "type": task.type,
-                    "params": task.params,
-                    "priority": task.priority.value,
-                    "state": task.state.value,
-                    "created_at": task.created_at,
-                    "started_at": task.started_at,
-                    "completed_at": task.completed_at,
-                    "result": task.result,
-                    "error": task.error,
-                    "progress": task.progress,
-                    "dependencies": task.dependencies
-                }
-                tasks_data.append(task_data)
-            
-            data = {
-                "tasks": tasks_data,
-                "version": "1.0.0",
-                "timestamp": time.time()
-            }
-            
-            # Write to file
-            with open(self.persist_path, 'w') as f:
-                json.dump(data, f, indent=2)
-            
-            logger.debug(f"Persisted {len(self.tasks)} tasks to disk")
-        except Exception as e:
-            logger.error(f"Error persisting tasks: {e}")
-    
-    def _sort_queue(self):
-        """Sort the queue by priority (highest first) and then by creation time (oldest first)"""
-        if not self.queue:
-            return
-        
-        # Sort by priority (descending) and creation time (ascending)
-        self.queue.sort(key=lambda task_id: (
-            -self.tasks[task_id].priority.value,  # Negative for descending
-            self.tasks[task_id].created_at
-        ))
-    
-    async def add_task(self, task_type: str, params: Dict[str, Any], 
-                      priority: TaskPriority = TaskPriority.NORMAL,
-                      dependencies: List[str] = None) -> Dict[str, Any]:
-        """Add a task to the queue"""
-        try:
-            # Check if task type is supported
-            if task_type not in self.task_handlers:
-                err_msg = f"Unsupported task type: {task_type}"
-                logger.error(err_msg)
-                return {"success": False, "error": err_msg}
-            
-            # Generate task ID
-            task_id = str(uuid.uuid4())
-            
-            # Create task
-            task = Task(task_id, task_type, params, priority)
-            
-            # Set dependencies if provided
-            if dependencies:
-                task.dependencies = dependencies
-            
-            # Add to tasks dictionary
-            self.tasks[task_id] = task
-            
-            # Add to queue
-            self.queue.append(task_id)
-            
-            # Sort queue
-            self._sort_queue()
-            
-            # Persist tasks
-            self._persist_tasks()
-            
-            logger.info(f"Added task {task_id} of type {task_type} with priority {priority.name}")
-            
-            # Start processing if not already running
-            if not self.running:
-                asyncio.create_task(self.process_queue())
-            
-            return {
-                "success": True,
-                "task_id": task_id,
-                "position": self.queue.index(task_id) + 1,
-                "queue_length": len(self.queue)
-            }
-        except Exception as e:
-            logger.error(f"Error adding task: {e}")
-            return {"success": False, "error": str(e)}
-    
-    async def cancel_task(self, task_id: str) -> Dict[str, Any]:
-        """Cancel a pending or running task"""
-        if task_id not in self.tasks:
-            err_msg = f"Unknown task: {task_id}"
-            logger.error(err_msg)
-            return {"success": False, "error": err_msg}
-        
-        task = self.tasks[task_id]
-        
-        # Check if task can be cancelled
-        if task.state not in [TaskState.PENDING, TaskState.RUNNING, TaskState.PAUSED]:
-            err_msg = f"Cannot cancel task in state {task.state.value}"
-            logger.error(err_msg)
-            return {"success": False, "error": err_msg}
-        
-        try:
-            # If task is running and it's the active task
-            if task.state == TaskState.RUNNING and self.active_task_id == task_id:
-                # Perform cancellation based on task type
-                if task.type == "move_to_position" or task.type == "move_along_route":
-                    # Cancel move action
-                    await self.robot_ai.cancel_current_move()
-            
-            # Update task state
-            task.state = TaskState.CANCELLED
-            task.completed_at = time.time()
-            
-            # Remove from queue if pending
-            if task_id in self.queue:
-                self.queue.remove(task_id)
-            
-            # Clear active task if this is it
-            if self.active_task_id == task_id:
-                self.active_task_id = None
-            
-            # Persist tasks
-            self._persist_tasks()
-            
-            logger.info(f"Cancelled task {task_id}")
-            return {"success": True, "task_id": task_id}
-        except Exception as e:
-            logger.error(f"Error cancelling task: {e}")
-            return {"success": False, "error": str(e)}
-    
-    async def process_queue(self):
-        """Process the task queue"""
-        if self.running:
-            logger.debug("Task queue processor already running")
-            return
-        
-        try:
-            self.running = True
-            logger.info("Starting task queue processor")
-            
-            while self.queue and self.running:
-                # Get next task
-                task_id = self.queue[0]
-                task = self.tasks[task_id]
-                
-                # Check dependencies
-                if task.dependencies:
-                    # Check if any dependencies are not completed
-                    incomplete_deps = []
-                    for dep_id in task.dependencies:
-                        if dep_id not in self.tasks:
-                            logger.warning(f"Dependency {dep_id} not found for task {task_id}")
-                            incomplete_deps.append(dep_id)
-                        elif self.tasks[dep_id].state != TaskState.COMPLETED:
-                            incomplete_deps.append(dep_id)
-                    
-                    if incomplete_deps:
-                        logger.info(f"Task {task_id} has incomplete dependencies: {incomplete_deps}")
-                        
-                        # Move to end of queue at same priority level
-                        self.queue.remove(task_id)
-                        self.queue.append(task_id)
-                        
-                        # Sleep briefly before checking next task
-                        await asyncio.sleep(1)
-                        continue
-                
-                # Remove from queue
-                self.queue.pop(0)
-                
-                # Set as active task
-                self.active_task_id = task_id
-                
-                # Update task state
-                task.state = TaskState.RUNNING
-                task.started_at = time.time()
-                task.progress = 0.0
-                
-                # Log task start
-                logger.info(f"Processing task {task_id} of type {task.type}")
-                
-                try:
-                    # Get task handler
-                    handler = self.task_handlers.get(task.type)
-                    
-                    if not handler:
-                        raise ValueError(f"No handler for task type: {task.type}")
-                    
-                    # Execute task handler
-                    result = await handler(task)
-                    
-                    # Update task on success
-                    task.state = TaskState.COMPLETED
-                    task.completed_at = time.time()
-                    task.result = result
-                    task.progress = 1.0
-                    
-                    logger.info(f"Completed task {task_id} successfully")
-                except Exception as e:
-                    # Update task on failure
-                    task.state = TaskState.FAILED
-                    task.completed_at = time.time()
-                    task.error = str(e)
-                    
-                    logger.error(f"Task {task_id} failed: {e}")
-                
-                # Clear active task
-                self.active_task_id = None
-                
-                # Persist tasks
-                self._persist_tasks()
-            
-            logger.info("Task queue processor finished")
-        except Exception as e:
-            logger.error(f"Error in task queue processor: {e}")
-        finally:
-            self.running = False
-    
-    def get_task(self, task_id: str) -> Dict[str, Any]:
-        """Get details of a specific task"""
-        if task_id not in self.tasks:
-            return {"error": f"Unknown task: {task_id}"}
-        
-        task = self.tasks[task_id]
-        
-        return {
-            "id": task.id,
-            "type": task.type,
-            "state": task.state.value,
-            "priority": task.priority.value,
-            "progress": task.progress,
-            "created_at": task.created_at,
-            "started_at": task.started_at,
-            "completed_at": task.completed_at,
-            "result": task.result,
-            "error": task.error,
-            "dependencies": task.dependencies,
-            "params": task.params,
+        # Task execution handlers
+        self.task_handlers = {
+            TaskType.MOVE: self._handle_move_task,
+            TaskType.MAPPING: self._handle_mapping_task,
+            TaskType.ELEVATOR: self._handle_elevator_task,
+            TaskType.DOOR: self._handle_door_task,
+            TaskType.JACK_UP: self._handle_jack_task,
+            TaskType.JACK_DOWN: self._handle_jack_task,
+            TaskType.CHARGE: self._handle_charge_task,
+            TaskType.FOLLOW_ROUTE: self._handle_follow_route_task,
+            TaskType.CUSTOM: self._handle_custom_task
         }
+        
+        # Robot state
+        self.robot_position = [0, 0]
+        self.robot_orientation = 0
+        self.battery_state = {"percentage": 0, "power_supply_status": "unknown"}
+        
+        # WebSocket connection
+        self.ws = None
+        
+        # Background tasks
+        self.queue_processor = None
+        self.websocket_listener = None
+        
+        logger.info(f"Task Queue Manager initialized for robot at {self.base_url}")
     
-    def get_queue_status(self) -> Dict[str, Any]:
-        """Get status of the task queue"""
-        pending_tasks = [task_id for task_id in self.queue]
-        active_task = self.active_task_id
+    async def connect(self):
+        """Establish connection to the robot"""
+        logger.info(f"Connecting to robot at {self.ws_url}")
         
-        # Count tasks by state
-        task_counts = {state.value: 0 for state in TaskState}
-        for task in self.tasks.values():
-            task_counts[task.state.value] += 1
-        
-        return {
-            "queue_length": len(self.queue),
-            "pending_tasks": pending_tasks,
-            "active_task": active_task,
-            "task_counts": task_counts
-        }
+        try:
+            self.ws = await websockets.connect(self.ws_url)
+            
+            # Enable essential topics
+            message = {"enable_topic": [
+                "/tracked_pose",
+                "/battery_state",
+                "/planning_state"
+            ]}
+            await self.ws.send(json.dumps(message))
+            
+            logger.info("Successfully connected to robot")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to connect to robot: {e}")
+            return False
     
-    def update_task_progress(self, task_id: str, progress: float) -> bool:
-        """Update progress of a task"""
-        if task_id not in self.tasks:
-            logger.error(f"Unknown task: {task_id}")
-            return False
+    async def start(self):
+        """Start the task queue manager"""
+        # Connect to robot if not already connected
+        if not self.ws or self.ws.closed:
+            connected = await self.connect()
+            if not connected:
+                logger.error("Failed to connect to robot, can't start task queue manager")
+                return False
         
-        task = self.tasks[task_id]
+        # Start WebSocket listener
+        self.websocket_listener = asyncio.create_task(self._websocket_listener())
         
-        # Check if task is running
-        if task.state != TaskState.RUNNING:
-            logger.warning(f"Cannot update progress for task in state {task.state.value}")
-            return False
+        # Enable queue processing
+        self.processing_enabled = True
+        self.queue_processor = asyncio.create_task(self._process_queue())
         
-        # Update progress
-        task.progress = max(0.0, min(1.0, progress))  # Clamp to [0.0, 1.0]
-        
-        logger.debug(f"Updated progress for task {task_id}: {task.progress:.2f}")
+        logger.info("Task Queue Manager started")
         return True
     
-    # Task handlers
+    async def stop(self):
+        """Stop the task queue manager"""
+        # Disable queue processing
+        self.processing_enabled = False
+        
+        # Cancel background tasks
+        if self.queue_processor and not self.queue_processor.done():
+            self.queue_processor.cancel()
+        
+        if self.websocket_listener and not self.websocket_listener.done():
+            self.websocket_listener.cancel()
+        
+        # Close WebSocket connection
+        if self.ws and not self.ws.closed:
+            await self.ws.close()
+            logger.info("WebSocket connection closed")
+        
+        logger.info("Task Queue Manager stopped")
     
-    async def _handle_move_to_position(self, task: Task) -> Dict[str, Any]:
-        """Handle a move_to_position task"""
-        # Extract parameters
-        x = task.params.get("x")
-        y = task.params.get("y")
-        orientation = task.params.get("orientation")
-        
-        if x is None or y is None:
-            raise ValueError("Missing required parameters x and y")
-        
-        # Create move action
-        result = await self.robot_ai.create_move_action(x, y, orientation)
-        
-        if "error" in result:
-            raise ValueError(result["error"])
-        
-        # Wait for move to complete
-        action_id = result.get("action_id")
-        
-        while self.robot_ai.current_action_id == action_id:
-            # Update progress based on distance
-            if hasattr(self.robot_ai, "position"):
-                start_x = task.params.get("start_x", self.robot_ai.position.get("x", 0))
-                start_y = task.params.get("start_y", self.robot_ai.position.get("y", 0))
+    async def _websocket_listener(self):
+        """Listen for WebSocket messages and update robot state"""
+        try:
+            while True:
+                try:
+                    message = await self.ws.recv()
+                    await self._process_websocket_message(message)
+                except websockets.exceptions.ConnectionClosed:
+                    logger.warning("WebSocket connection closed")
+                    await asyncio.sleep(2)
+                    # Try to reconnect
+                    connected = await self.connect()
+                    if not connected:
+                        await asyncio.sleep(5)
+                except Exception as e:
+                    logger.error(f"Error processing WebSocket message: {e}")
+                    await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("WebSocket listener cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in websocket_listener: {e}")
+    
+    async def _process_websocket_message(self, message: str):
+        """Process incoming WebSocket messages"""
+        try:
+            data = json.loads(message)
+            topic = data.get("topic")
+            
+            if not topic:
+                return
+            
+            # Process based on topic
+            if topic == "/tracked_pose":
+                # Update robot position
+                self.robot_position = data.get("pos", [0, 0])
+                self.robot_orientation = data.get("ori", 0)
                 
-                total_distance = math.sqrt((x - start_x) ** 2 + (y - start_y) ** 2)
-                current_x = self.robot_ai.position.get("x", 0)
-                current_y = self.robot_ai.position.get("y", 0)
+            elif topic == "/battery_state":
+                # Update battery state
+                self.battery_state = {
+                    "percentage": data.get("percentage", 0),
+                    "power_supply_status": data.get("power_supply_status", "unknown"),
+                    "voltage": data.get("voltage", 0),
+                    "current": data.get("current", 0)
+                }
                 
-                if total_distance > 0:
-                    remaining_distance = math.sqrt((x - current_x) ** 2 + (y - current_y) ** 2)
-                    progress = 1.0 - (remaining_distance / total_distance)
-                    self.update_task_progress(task.id, progress)
-            
-            await asyncio.sleep(0.5)
+            elif topic == "/planning_state":
+                # Update movement state
+                if not self.current_task:
+                    return
+                
+                move_state = data.get("move_state")
+                action_id = data.get("action_id")
+                
+                # Only process updates for move-related tasks
+                if self.current_task.type not in [TaskType.MOVE, TaskType.FOLLOW_ROUTE, 
+                                                  TaskType.ELEVATOR, TaskType.CHARGE]:
+                    return
+                
+                # Check if this update is for our current task
+                task_action_id = self.current_task.params.get("action_id")
+                if not task_action_id or task_action_id != action_id:
+                    return
+                
+                if move_state == "moving":
+                    # Update progress based on remaining distance
+                    remaining_distance = data.get("remaining_distance", 0)
+                    if "total_distance" in self.current_task.params:
+                        total_distance = self.current_task.params["total_distance"]
+                        progress = max(0, min(1, 1 - (remaining_distance / total_distance)))
+                        self.current_task.progress = progress
+                
+                elif move_state == "succeeded":
+                    await self._complete_current_task({"status": "success"})
+                
+                elif move_state == "failed":
+                    fail_reason = data.get("fail_reason_str", "Unknown")
+                    await self._fail_current_task(f"Move action failed: {fail_reason}")
+                
+                elif move_state == "cancelled":
+                    await self._cancel_current_task("Move action cancelled")
         
-        # Check if move was successful
-        if self.robot_ai.state.value != "idle":
-            raise ValueError(f"Move failed, robot state: {self.robot_ai.state.value}")
-        
-        return {
-            "x": x,
-            "y": y,
-            "orientation": orientation,
-            "action_id": action_id
-        }
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON message: {message}")
+        except Exception as e:
+            logger.error(f"Error processing WebSocket message: {e}")
     
-    async def _handle_move_along_route(self, task: Task) -> Dict[str, Any]:
-        """Handle a move_along_route task"""
-        # Extract parameters
-        route = task.params.get("route")
-        
-        if not route or not isinstance(route, list) or len(route) < 2:
-            raise ValueError("Invalid route parameter")
-        
-        # Create move action
-        result = await self.robot_ai.move_along_route(route)
-        
-        if "error" in result:
-            raise ValueError(result["error"])
-        
-        # Wait for move to complete
-        action_id = result.get("action_id")
-        
-        while self.robot_ai.current_action_id == action_id:
-            # We could update progress based on waypoints reached
-            # For now, just wait
-            await asyncio.sleep(0.5)
-        
-        # Check if move was successful
-        if self.robot_ai.state.value != "idle":
-            raise ValueError(f"Move failed, robot state: {self.robot_ai.state.value}")
-        
-        return {
-            "route": route,
-            "action_id": action_id
-        }
+    async def _process_queue(self):
+        """Process the task queue"""
+        try:
+            while self.processing_enabled:
+                # If there's no current task and the queue is not empty, start the next task
+                if not self.current_task and self.task_queue:
+                    # Sort queue by priority (higher value = higher priority)
+                    self.task_queue.sort(key=lambda t: t.priority.value, reverse=True)
+                    
+                    # Get next task that has all dependencies satisfied
+                    next_task = None
+                    for task in self.task_queue:
+                        # Check if all dependencies are completed
+                        deps_satisfied = True
+                        for dep_id in task.dependencies:
+                            # Check if dependency is in completed tasks
+                            if not any(t.id == dep_id and t.state == TaskState.COMPLETED 
+                                      for t in self.completed_tasks):
+                                deps_satisfied = False
+                                break
+                        
+                        if deps_satisfied:
+                            next_task = task
+                            break
+                    
+                    if next_task:
+                        # Remove from queue and set as current task
+                        self.task_queue.remove(next_task)
+                        self.current_task = next_task
+                        
+                        # Start task execution
+                        self.current_task.state = TaskState.PREPARING
+                        self.current_task.started_at = time.time()
+                        
+                        # Execute task in a separate task to avoid blocking the queue processor
+                        asyncio.create_task(self._execute_task(self.current_task))
+                
+                await asyncio.sleep(self.queue_processing_interval)
+                
+        except asyncio.CancelledError:
+            logger.info("Queue processor cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in process_queue: {e}")
     
-    async def _handle_start_mapping(self, task: Task) -> Dict[str, Any]:
-        """Handle a start_mapping task"""
-        # Extract parameters
-        continue_mapping = task.params.get("continue_mapping", False)
+    async def _execute_task(self, task: Task):
+        """Execute a task"""
+        logger.info(f"Executing task {task.id} of type {task.type.value}")
         
-        # Start mapping
-        result = await self.robot_ai.start_mapping(continue_mapping)
-        
-        if "error" in result:
-            raise ValueError(result["error"])
-        
-        # Mapping is started, but not waiting for completion
-        # It will need to be finished with a finish_mapping task
-        
-        return result
+        try:
+            # Set task state to in progress
+            task.state = TaskState.IN_PROGRESS
+            
+            # Call the appropriate handler for this task type
+            if task.type in self.task_handlers:
+                handler = self.task_handlers[task.type]
+                await handler(task)
+            else:
+                await self._fail_current_task(f"No handler for task type {task.type.value}")
+                
+        except Exception as e:
+            logger.error(f"Error executing task {task.id}: {e}")
+            await self._fail_current_task(str(e))
     
-    async def _handle_finish_mapping(self, task: Task) -> Dict[str, Any]:
-        """Handle a finish_mapping task"""
-        # Extract parameters
-        save_map = task.params.get("save_map", True)
-        map_name = task.params.get("map_name")
+    async def _complete_current_task(self, result: Dict[str, Any] = None):
+        """Complete the current task"""
+        if not self.current_task:
+            return
         
-        # Finish mapping
-        result = await self.robot_ai.finish_mapping(save_map, map_name)
+        task = self.current_task
+        task.state = TaskState.COMPLETED
+        task.completed_at = time.time()
+        task.progress = 1.0
+        task.result = result
         
-        if "error" in result:
-            raise ValueError(result["error"])
+        logger.info(f"Task {task.id} completed")
         
-        return result
+        # Call task callbacks
+        for callback in task.callbacks:
+            try:
+                callback(task)
+            except Exception as e:
+                logger.error(f"Error in task callback: {e}")
+        
+        # Move to completed tasks
+        self.completed_tasks.append(task)
+        self.current_task = None
     
-    async def _handle_use_elevator(self, task: Task) -> Dict[str, Any]:
-        """Handle a use_elevator task"""
-        # Extract parameters
-        elevator_id = task.params.get("elevator_id")
-        target_floor = task.params.get("target_floor")
+    async def _fail_current_task(self, error: str):
+        """Fail the current task"""
+        if not self.current_task:
+            return
         
-        if not elevator_id:
-            raise ValueError("Missing required parameter elevator_id")
+        task = self.current_task
+        task.error = error
         
-        if target_floor is None:
-            raise ValueError("Missing required parameter target_floor")
-        
-        # Use elevator
-        if hasattr(self.robot_ai, "elevator_controller"):
-            # 1. Move to elevator
-            logger.info(f"Moving to elevator {elevator_id}")
-            move_result = await self.robot_ai.elevator_controller.move_to_elevator(elevator_id)
+        # Check if we should retry
+        if task.retry_count < task.max_retries:
+            logger.info(f"Task {task.id} failed, retrying ({task.retry_count + 1}/{task.max_retries}): {error}")
             
-            if not move_result.get("success", False):
-                raise ValueError(f"Failed to move to elevator: {move_result.get('error')}")
-            
-            # Wait until we're at the elevator
-            while self.robot_ai.elevator_controller.robot_elevator_state.value == "moving_to_elevator":
-                self.update_task_progress(task.id, 0.1)
-                await asyncio.sleep(0.5)
-            
-            # 2. Request elevator
-            logger.info(f"Requesting elevator {elevator_id} to floor {target_floor}")
-            request_result = await self.robot_ai.elevator_controller.request_elevator(elevator_id, target_floor)
-            
-            if not request_result.get("success", False):
-                raise ValueError(f"Failed to request elevator: {request_result.get('error')}")
-            
-            # 3. Wait for elevator
-            logger.info("Waiting for elevator to arrive")
-            while self.robot_ai.elevator_controller.robot_elevator_state.value == "waiting_for_elevator":
-                self.update_task_progress(task.id, 0.2)
-                await asyncio.sleep(0.5)
-            
-            # 4. Wait for door to open
-            logger.info("Waiting for elevator door to open")
-            while self.robot_ai.elevator_controller.robot_elevator_state.value == "waiting_for_door":
-                self.update_task_progress(task.id, 0.3)
-                await asyncio.sleep(0.5)
-            
-            # 5. Enter elevator
-            logger.info("Entering elevator")
-            enter_result = await self.robot_ai.elevator_controller.enter_elevator(elevator_id)
-            
-            if not enter_result.get("success", False):
-                raise ValueError(f"Failed to enter elevator: {enter_result.get('error')}")
-            
-            # Wait until we're inside the elevator
-            while self.robot_ai.elevator_controller.robot_elevator_state.value == "entering_elevator":
-                self.update_task_progress(task.id, 0.4)
-                await asyncio.sleep(0.5)
-            
-            # 6. Wait to arrive at floor
-            logger.info(f"Waiting to arrive at floor {target_floor}")
-            while (self.robot_ai.elevator_controller.robot_elevator_state.value == "inside_elevator" and 
-                  self.robot_ai.elevator_controller.current_floor != target_floor):
-                self.update_task_progress(task.id, 0.6)
-                await asyncio.sleep(0.5)
-            
-            # 7. Exit elevator
-            logger.info("Exiting elevator")
-            exit_result = await self.robot_ai.elevator_controller.exit_elevator(elevator_id)
-            
-            if not exit_result.get("success", False):
-                raise ValueError(f"Failed to exit elevator: {exit_result.get('error')}")
-            
-            # Wait until we've exited
-            while self.robot_ai.elevator_controller.robot_elevator_state.value == "exiting_elevator":
-                self.update_task_progress(task.id, 0.8)
-                await asyncio.sleep(0.5)
-            
-            # Wait until we've fully left
-            while self.robot_ai.elevator_controller.robot_elevator_state.value == "leaving_elevator":
-                self.update_task_progress(task.id, 0.9)
-                await asyncio.sleep(0.5)
-            
-            # Done!
-            logger.info(f"Successfully used elevator to reach floor {target_floor}")
-            
-            return {
-                "elevator_id": elevator_id,
-                "target_floor": target_floor,
-                "current_floor": self.robot_ai.elevator_controller.current_floor
-            }
+            # Increment retry count and requeue
+            task.retry_count += 1
+            task.state = TaskState.QUEUED
+            self.task_queue.append(task)
+            self.current_task = None
         else:
-            raise ValueError("Elevator controller not available")
+            logger.error(f"Task {task.id} failed after {task.retry_count} retries: {error}")
+            
+            task.state = TaskState.FAILED
+            task.completed_at = time.time()
+            
+            # Call task callbacks
+            for callback in task.callbacks:
+                try:
+                    callback(task)
+                except Exception as e:
+                    logger.error(f"Error in task callback: {e}")
+            
+            # Move to failed tasks
+            self.failed_tasks.append(task)
+            self.current_task = None
     
-    async def _handle_open_door(self, task: Task) -> Dict[str, Any]:
-        """Handle an open_door task"""
+    async def _cancel_current_task(self, reason: str):
+        """Cancel the current task"""
+        if not self.current_task:
+            return
+        
+        task = self.current_task
+        task.state = TaskState.CANCELLED
+        task.completed_at = time.time()
+        task.error = reason
+        
+        logger.info(f"Task {task.id} cancelled: {reason}")
+        
+        # Call task callbacks
+        for callback in task.callbacks:
+            try:
+                callback(task)
+            except Exception as e:
+                logger.error(f"Error in task callback: {e}")
+        
+        # Move to failed tasks (cancelled tasks are also considered failed)
+        self.failed_tasks.append(task)
+        self.current_task = None
+    
+    async def create_task(self, 
+                        task_type: TaskType, 
+                        params: Dict[str, Any], 
+                        priority: TaskPriority = TaskPriority.NORMAL,
+                        dependencies: List[str] = None,
+                        callbacks: List[Callable] = None,
+                        max_retries: int = 3) -> str:
+        """
+        Create a new task and add it to the queue
+        
+        Args:
+            task_type: Type of task to create
+            params: Parameters for the task
+            priority: Priority level for the task
+            dependencies: List of task IDs that must complete before this task
+            callbacks: List of callback functions to call when task completes or fails
+            max_retries: Maximum number of times to retry the task on failure
+            
+        Returns:
+            str: ID of the created task
+        """
+        task_id = str(uuid.uuid4())
+        
+        task = Task(
+            id=task_id,
+            type=task_type,
+            params=params,
+            priority=priority,
+            state=TaskState.QUEUED,
+            created_at=time.time(),
+            dependencies=dependencies or [],
+            callbacks=callbacks or [],
+            max_retries=max_retries
+        )
+        
+        self.task_queue.append(task)
+        logger.info(f"Created task {task_id} of type {task_type.value} with priority {priority.value}")
+        
+        return task_id
+    
+    def get_task(self, task_id: str) -> Optional[Task]:
+        """Get a task by ID"""
+        # Check current task
+        if self.current_task and self.current_task.id == task_id:
+            return self.current_task
+        
+        # Check queued tasks
+        for task in self.task_queue:
+            if task.id == task_id:
+                return task
+        
+        # Check completed tasks
+        for task in self.completed_tasks:
+            if task.id == task_id:
+                return task
+        
+        # Check failed tasks
+        for task in self.failed_tasks:
+            if task.id == task_id:
+                return task
+        
+        return None
+    
+    def get_task_status(self, task_id: str) -> Dict[str, Any]:
+        """Get the status of a task"""
+        task = self.get_task(task_id)
+        
+        if not task:
+            return {"error": f"Task {task_id} not found"}
+        
+        return task.to_dict()
+    
+    def get_queue_status(self) -> Dict[str, Any]:
+        """Get the status of the task queue"""
+        return {
+            "current_task": self.current_task.to_dict() if self.current_task else None,
+            "queue_length": len(self.task_queue),
+            "completed_tasks": len(self.completed_tasks),
+            "failed_tasks": len(self.failed_tasks),
+            "processing_enabled": self.processing_enabled
+        }
+    
+    async def cancel_task(self, task_id: str) -> bool:
+        """Cancel a task by ID"""
+        # Check if it's the current task
+        if self.current_task and self.current_task.id == task_id:
+            # For move tasks, we need to cancel the robot's move action
+            if self.current_task.type in [TaskType.MOVE, TaskType.FOLLOW_ROUTE, 
+                                         TaskType.ELEVATOR, TaskType.CHARGE]:
+                await self._cancel_robot_move()
+            
+            await self._cancel_current_task("Cancelled by user")
+            return True
+        
+        # Check queued tasks
+        for task in self.task_queue:
+            if task.id == task_id:
+                task.state = TaskState.CANCELLED
+                task.completed_at = time.time()
+                task.error = "Cancelled by user"
+                
+                # Call task callbacks
+                for callback in task.callbacks:
+                    try:
+                        callback(task)
+                    except Exception as e:
+                        logger.error(f"Error in task callback: {e}")
+                
+                # Remove from queue and add to failed tasks
+                self.task_queue.remove(task)
+                self.failed_tasks.append(task)
+                
+                logger.info(f"Cancelled queued task {task_id}")
+                return True
+        
+        logger.warning(f"Task {task_id} not found for cancellation")
+        return False
+    
+    async def pause_queue(self) -> bool:
+        """Pause the task queue"""
+        if not self.processing_enabled:
+            logger.warning("Task queue is already paused")
+            return False
+        
+        self.processing_enabled = False
+        logger.info("Task queue paused")
+        return True
+    
+    async def resume_queue(self) -> bool:
+        """Resume the task queue"""
+        if self.processing_enabled:
+            logger.warning("Task queue is already running")
+            return False
+        
+        self.processing_enabled = True
+        
+        # Restart queue processor if needed
+        if not self.queue_processor or self.queue_processor.done():
+            self.queue_processor = asyncio.create_task(self._process_queue())
+        
+        logger.info("Task queue resumed")
+        return True
+    
+    async def clear_queue(self) -> int:
+        """Clear all queued tasks"""
+        count = len(self.task_queue)
+        
+        # Cancel all queued tasks
+        for task in self.task_queue:
+            task.state = TaskState.CANCELLED
+            task.completed_at = time.time()
+            task.error = "Queue cleared"
+            
+            # Call task callbacks
+            for callback in task.callbacks:
+                try:
+                    callback(task)
+                except Exception as e:
+                    logger.error(f"Error in task callback: {e}")
+            
+            # Add to failed tasks
+            self.failed_tasks.append(task)
+        
+        # Clear the queue
+        self.task_queue = []
+        
+        logger.info(f"Cleared {count} tasks from queue")
+        return count
+    
+    async def _cancel_robot_move(self) -> bool:
+        """Cancel the current robot move action"""
+        try:
+            url = f"{self.base_url}/chassis/moves/current"
+            response = requests.patch(url, json={"state": "cancelled"})
+            
+            if response.status_code == 200:
+                logger.info("Successfully cancelled robot move action")
+                return True
+            else:
+                logger.error(f"Failed to cancel move: {response.status_code} {response.text}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error cancelling robot move: {e}")
+            return False
+    
+    # Task handlers
+    async def _handle_move_task(self, task: Task):
+        """Handle a move task"""
+        params = task.params
+        
         # Extract parameters
-        door_id = task.params.get("door_id")
+        target_x = params.get("target_x")
+        target_y = params.get("target_y")
+        target_ori = params.get("target_ori")  # Optional
+        move_type = params.get("move_type", "standard")
+        
+        if target_x is None or target_y is None:
+            await self._fail_current_task("Missing target coordinates")
+            return
+        
+        try:
+            # Create move action
+            url = f"{self.base_url}/chassis/moves"
+            
+            payload = {
+                "creator": "task-manager",
+                "type": move_type,
+                "target_x": target_x,
+                "target_y": target_y
+            }
+            
+            if target_ori is not None:
+                payload["target_ori"] = target_ori
+                
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                action_id = result.get("id")
+                logger.info(f"Created move action {action_id} to ({target_x}, {target_y})")
+                
+                # Store action ID in task params for tracking
+                task.params["action_id"] = action_id
+                
+                # Calculate approximate total distance for progress tracking
+                current_x, current_y = self.robot_position
+                distance = ((target_x - current_x) ** 2 + (target_y - current_y) ** 2) ** 0.5
+                task.params["total_distance"] = distance
+                
+                # The task will be completed by the WebSocket message handler
+                # when the move action succeeds or fails
+            else:
+                await self._fail_current_task(f"Failed to create move action: {response.status_code} {response.text}")
+                
+        except Exception as e:
+            await self._fail_current_task(f"Error creating move action: {e}")
+    
+    async def _handle_mapping_task(self, task: Task):
+        """Handle a mapping task"""
+        params = task.params
+        
+        # Extract parameters
+        continue_mapping = params.get("continue_mapping", False)
+        map_name = params.get("map_name")
+        
+        try:
+            # Start mapping
+            url = f"{self.base_url}/mappings/"
+            payload = {"continue_mapping": continue_mapping}
+            
+            start_response = requests.post(url, json=payload)
+            
+            if start_response.status_code != 200:
+                await self._fail_current_task(f"Failed to start mapping: {start_response.status_code} {start_response.text}")
+                return
+            
+            mapping_result = start_response.json()
+            mapping_id = mapping_result.get("id")
+            logger.info(f"Started mapping task {mapping_id}")
+            
+            # Store mapping ID in task params
+            task.params["mapping_id"] = mapping_id
+            
+            # Wait for mapping to complete (this would be controlled by the user in reality)
+            # Here we use a timeout as a safety measure
+            timeout = params.get("timeout", 300)  # 5 minutes default
+            start_time = time.time()
+            
+            while time.time() - start_time < timeout:
+                # Check if task was cancelled
+                if task.state == TaskState.CANCELLED:
+                    return
+                
+                # Update progress based on elapsed time
+                progress = min(0.99, (time.time() - start_time) / timeout)
+                task.progress = progress
+                
+                # Check for mapping completion signal
+                if params.get("_mapping_completed", False):
+                    break
+                
+                await asyncio.sleep(1)
+            
+            # Finish mapping
+            url = f"{self.base_url}/mappings/current"
+            finish_response = requests.patch(url, json={"state": "finished"})
+            
+            if finish_response.status_code != 200:
+                await self._fail_current_task(f"Failed to finish mapping: {finish_response.status_code} {finish_response.text}")
+                return
+            
+            # Save as map if requested
+            if map_name:
+                save_url = f"{self.base_url}/maps/"
+                save_payload = {
+                    "map_name": map_name,
+                    "mapping_id": mapping_id
+                }
+                
+                save_response = requests.post(save_url, json=save_payload)
+                
+                if save_response.status_code == 200:
+                    map_result = save_response.json()
+                    map_id = map_result.get("id")
+                    logger.info(f"Saved mapping {mapping_id} as map {map_id}")
+                    
+                    await self._complete_current_task({
+                        "mapping_id": mapping_id,
+                        "map_id": map_id,
+                        "map_name": map_name
+                    })
+                else:
+                    await self._fail_current_task(f"Failed to save map: {save_response.status_code} {save_response.text}")
+            else:
+                await self._complete_current_task({"mapping_id": mapping_id})
+                
+        except Exception as e:
+            await self._fail_current_task(f"Error during mapping: {e}")
+    
+    async def _handle_elevator_task(self, task: Task):
+        """Handle an elevator task"""
+        params = task.params
+        
+        # Extract parameters
+        elevator_id = params.get("elevator_id")
+        target_floor = params.get("target_floor")
+        
+        if not elevator_id or target_floor is None:
+            await self._fail_current_task("Missing elevator ID or target floor")
+            return
+        
+        try:
+            # Create multi-floor navigation sequence
+            # This would involve a sequence of move actions and API calls
+            # For demonstration, we'll use a move action to simulate elevator navigation
+            url = f"{self.base_url}/chassis/moves"
+            
+            # Use target coordinates from params if available,
+            # otherwise use a placeholder destination
+            target_x = params.get("target_x", 0.0)
+            target_y = params.get("target_y", 0.0)
+            
+            payload = {
+                "creator": "task-manager",
+                "type": "standard",  # In reality, would use elevator-specific move types
+                "target_x": target_x,
+                "target_y": target_y
+            }
+                
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                action_id = result.get("id")
+                logger.info(f"Created elevator navigation action {action_id} to floor {target_floor}")
+                
+                # Store action ID in task params for tracking
+                task.params["action_id"] = action_id
+                
+                # The task will be completed by the WebSocket message handler
+                # when the move action succeeds or fails
+            else:
+                await self._fail_current_task(f"Failed to create elevator navigation: {response.status_code} {response.text}")
+                
+        except Exception as e:
+            await self._fail_current_task(f"Error creating elevator navigation: {e}")
+    
+    async def _handle_door_task(self, task: Task):
+        """Handle a door task"""
+        params = task.params
+        
+        # Extract parameters
+        door_id = params.get("door_id")
         
         if not door_id:
-            raise ValueError("Missing required parameter door_id")
-        
-        # Open door
-        if hasattr(self.robot_ai, "door_controller"):
-            result = await self.robot_ai.door_controller.request_door_open(door_id)
-            
-            if not result.get("success", False):
-                raise ValueError(f"Failed to open door: {result.get('error')}")
-            
-            # Wait for door to open (could be implemented with a timeout)
-            await asyncio.sleep(2)
-            
-            return result
-        else:
-            raise ValueError("Door controller not available")
-    
-    async def _handle_pick_up_cargo(self, task: Task) -> Dict[str, Any]:
-        """Handle a pick_up_cargo task"""
-        # Extract parameters
-        cargo_id = task.params.get("cargo_id")
-        position_x = task.params.get("position_x")
-        position_y = task.params.get("position_y")
-        
-        if not cargo_id:
-            raise ValueError("Missing required parameter cargo_id")
-        
-        if position_x is None or position_y is None:
-            raise ValueError("Missing required parameters position_x and position_y")
+            await self._fail_current_task("Missing door ID")
+            return
         
         try:
-            # 1. Move to cargo position
-            move_result = await self.robot_ai.create_move_action(position_x, position_y)
+            # Send door open command via ESP-NOW
+            # This would require integration with the IoT module
+            # For demonstration, we'll simulate success
+            logger.info(f"Requesting door {door_id} to open")
             
-            if "error" in move_result:
-                raise ValueError(f"Failed to move to cargo position: {move_result['error']}")
+            # Simulate door open request
+            await asyncio.sleep(1)
             
-            # Wait for move to complete
-            action_id = move_result.get("action_id")
-            
-            while self.robot_ai.current_action_id == action_id:
-                self.update_task_progress(task.id, 0.3)
-                await asyncio.sleep(0.5)
-            
-            # 2. Align with rack
-            align_result = await self.robot_ai.align_with_rack(position_x, position_y)
-            
-            if "error" in align_result:
-                raise ValueError(f"Failed to align with rack: {align_result['error']}")
-            
-            # Wait for alignment to complete
-            action_id = align_result.get("action_id")
-            
-            while self.robot_ai.current_action_id == action_id:
-                self.update_task_progress(task.id, 0.6)
-                await asyncio.sleep(0.5)
-            
-            # 3. Jack up to pick up cargo
-            await self.robot_ai.jack_up()
-            
-            # Wait for jacking to complete
-            while self.robot_ai.state.value == "jacking_up":
-                self.update_task_progress(task.id, 0.8)
-                await asyncio.sleep(0.5)
-            
-            # 4. Update task progress and complete
-            self.update_task_progress(task.id, 1.0)
-            
-            return {
-                "cargo_id": cargo_id,
-                "position": [position_x, position_y],
-                "status": "picked_up"
-            }
+            # Complete the task
+            await self._complete_current_task({"door_id": door_id, "status": "opening"})
+                
         except Exception as e:
-            logger.error(f"Error picking up cargo: {e}")
-            raise
+            await self._fail_current_task(f"Error requesting door to open: {e}")
     
-    async def _handle_deliver_cargo(self, task: Task) -> Dict[str, Any]:
-        """Handle a deliver_cargo task"""
-        # Extract parameters
-        cargo_id = task.params.get("cargo_id")
-        position_x = task.params.get("position_x")
-        position_y = task.params.get("position_y")
-        
-        if not cargo_id:
-            raise ValueError("Missing required parameter cargo_id")
-        
-        if position_x is None or position_y is None:
-            raise ValueError("Missing required parameters position_x and position_y")
+    async def _handle_jack_task(self, task: Task):
+        """Handle a jack up/down task"""
+        jack_action = "jack_up" if task.type == TaskType.JACK_UP else "jack_down"
         
         try:
-            # 1. Move to delivery position
-            move_result = await self.robot_ai.move_to_unload_point(position_x, position_y)
+            # Call jack service
+            url = f"{self.base_url}/services/{jack_action}"
+            response = requests.post(url)
             
-            if "error" in move_result:
-                raise ValueError(f"Failed to move to delivery position: {move_result['error']}")
-            
-            # Wait for move to complete
-            action_id = move_result.get("action_id")
-            
-            while self.robot_ai.current_action_id == action_id:
-                self.update_task_progress(task.id, 0.5)
-                await asyncio.sleep(0.5)
-            
-            # 2. Jack down to deliver cargo
-            await self.robot_ai.jack_down()
-            
-            # Wait for jacking to complete
-            while self.robot_ai.state.value == "jacking_down":
-                self.update_task_progress(task.id, 0.8)
-                await asyncio.sleep(0.5)
-            
-            # 3. Update task progress and complete
-            self.update_task_progress(task.id, 1.0)
-            
-            return {
-                "cargo_id": cargo_id,
-                "position": [position_x, position_y],
-                "status": "delivered"
-            }
+            if response.status_code == 200:
+                logger.info(f"Successfully initiated {jack_action} operation")
+                
+                # Wait for jack operation to complete
+                max_wait = 30  # seconds
+                start_time = time.time()
+                
+                while time.time() - start_time < max_wait:
+                    # Check if task was cancelled
+                    if task.state == TaskState.CANCELLED:
+                        return
+                    
+                    # Update progress based on elapsed time
+                    progress = min(0.99, (time.time() - start_time) / max_wait)
+                    task.progress = progress
+                    
+                    # In reality, we would check the jack state from WebSocket
+                    # Here we'll just wait a bit
+                    await asyncio.sleep(1)
+                
+                await self._complete_current_task({"action": jack_action, "status": "completed"})
+            else:
+                await self._fail_current_task(f"Failed to {jack_action}: {response.status_code} {response.text}")
+                
         except Exception as e:
-            logger.error(f"Error delivering cargo: {e}")
-            raise
+            await self._fail_current_task(f"Error during {jack_action}: {e}")
     
-    async def _handle_capture_video(self, task: Task) -> Dict[str, Any]:
-        """Handle a capture_video task"""
-        # Extract parameters
-        camera_type = task.params.get("camera", "front")
-        duration = task.params.get("duration", 10)
-        filename = task.params.get("filename")
+    async def _handle_charge_task(self, task: Task):
+        """Handle a charge task"""
+        params = task.params
         
-        if hasattr(self.robot_ai, "camera_module"):
-            # Start video capture
-            result = await self.robot_ai.camera_module.capture_video(camera_type, duration, filename)
+        try:
+            # Create charge move action
+            url = f"{self.base_url}/chassis/moves"
             
-            if not result:
-                raise ValueError("Failed to capture video")
-            
-            return {
-                "camera": camera_type,
-                "duration": duration,
-                "filename": filename
+            payload = {
+                "creator": "task-manager",
+                "type": "charge"
             }
-        else:
-            raise ValueError("Camera module not available")
+            
+            # Add optional parameters if provided
+            if "charge_retry_count" in params:
+                payload["charge_retry_count"] = params["charge_retry_count"]
+                
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                action_id = result.get("id")
+                logger.info(f"Created charge action {action_id}")
+                
+                # Store action ID in task params for tracking
+                task.params["action_id"] = action_id
+                
+                # The task will be completed by the WebSocket message handler
+                # when the move action succeeds or fails
+            else:
+                await self._fail_current_task(f"Failed to create charge action: {response.status_code} {response.text}")
+                
+        except Exception as e:
+            await self._fail_current_task(f"Error creating charge action: {e}")
     
-    async def _handle_update_system(self, task: Task) -> Dict[str, Any]:
-        """Handle a system update task"""
+    async def _handle_follow_route_task(self, task: Task):
+        """Handle a follow route task"""
+        params = task.params
+        
         # Extract parameters
-        component = task.params.get("component", "all")
-        version = task.params.get("version", "latest")
+        coordinates = params.get("coordinates")
+        detour_tolerance = params.get("detour_tolerance", 0.5)
         
-        # Simulate update process
-        logger.info(f"Updating {component} to version {version}")
+        if not coordinates or len(coordinates) < 2:
+            await self._fail_current_task("Invalid route coordinates")
+            return
         
-        # Simulate progress
-        for i in range(10):
-            self.update_task_progress(task.id, i / 10.0)
-            await asyncio.sleep(0.5)
+        try:
+            # Convert coordinates to the required format (comma-separated string)
+            route_coords = []
+            for point in coordinates:
+                if len(point) >= 2:
+                    route_coords.extend([point[0], point[1]])
+            
+            route_coordinates = ", ".join(map(str, route_coords))
+            
+            # Create move action
+            url = f"{self.base_url}/chassis/moves"
+            
+            payload = {
+                "creator": "task-manager",
+                "type": "along_given_route",
+                "route_coordinates": route_coordinates,
+                "detour_tolerance": detour_tolerance
+            }
+                
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                action_id = result.get("id")
+                logger.info(f"Created route following action {action_id} with {len(coordinates)} points")
+                
+                # Store action ID in task params for tracking
+                task.params["action_id"] = action_id
+                
+                # Calculate approximate total distance for progress tracking
+                total_distance = 0
+                for i in range(len(coordinates) - 1):
+                    x1, y1 = coordinates[i]
+                    x2, y2 = coordinates[i + 1]
+                    segment_distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+                    total_distance += segment_distance
+                
+                task.params["total_distance"] = total_distance
+                
+                # The task will be completed by the WebSocket message handler
+                # when the move action succeeds or fails
+            else:
+                await self._fail_current_task(f"Failed to create route following action: {response.status_code} {response.text}")
+                
+        except Exception as e:
+            await self._fail_current_task(f"Error creating route following action: {e}")
+    
+    async def _handle_custom_task(self, task: Task):
+        """Handle a custom task"""
+        params = task.params
         
-        return {
-            "component": component,
-            "version": version,
-            "status": "updated"
-        }
+        # Extract parameters
+        handler_function = params.get("handler")
+        
+        if not handler_function or not callable(handler_function):
+            await self._fail_current_task("Invalid custom task handler")
+            return
+        
+        try:
+            # Call the custom handler function
+            result = await handler_function(task, self)
+            
+            if result.get("success", False):
+                await self._complete_current_task(result)
+            else:
+                await self._fail_current_task(result.get("error", "Custom task failed"))
+                
+        except Exception as e:
+            await self._fail_current_task(f"Error executing custom task: {e}")
+
+
+async def main():
+    """Main entry point for the Task Queue Manager"""
+    # Get robot IP and SN from environment variables or use defaults
+    robot_ip = os.getenv("ROBOT_IP", "192.168.25.25")
+    robot_port = int(os.getenv("ROBOT_PORT", "8090"))
+    robot_sn = os.getenv("ROBOT_SN", "L382502104987ir")
+    
+    # Create task queue manager instance
+    manager = TaskQueueManager(robot_ip=robot_ip, robot_port=robot_port, robot_sn=robot_sn)
+    
+    # Set up clean shutdown
+    def handle_shutdown(sig=None, frame=None):
+        logger.info("Shutdown signal received")
+        asyncio.create_task(manager.stop())
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, handle_shutdown)
+    signal.signal(signal.SIGTERM, handle_shutdown)
+    
+    # Start the task queue manager
+    started = await manager.start()
+    if not started:
+        logger.error("Failed to start task queue manager, exiting")
+        sys.exit(1)
+    
+    # Create example tasks
+    move_task_id = await manager.create_task(
+        task_type=TaskType.MOVE,
+        params={
+            "target_x": 1.0,
+            "target_y": 2.0
+        },
+        priority=TaskPriority.NORMAL
+    )
+    
+    # Wait for tasks to complete
+    try:
+        while True:
+            # Check if there are any tasks still in the queue or in progress
+            if (not manager.task_queue and 
+                not manager.current_task and 
+                len(manager.completed_tasks) > 0):
+                logger.info("All tasks completed")
+                
+                # In a real application, we would keep running or wait for new tasks
+                # Here we'll exit after a short delay
+                await asyncio.sleep(2)
+                break
+            
+            await asyncio.sleep(1)
+            
+    except KeyboardInterrupt:
+        logger.info("Task Queue Manager interrupted, shutting down")
+    finally:
+        await manager.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

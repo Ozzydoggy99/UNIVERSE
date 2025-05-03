@@ -1,434 +1,279 @@
 #!/usr/bin/env python3
 """
-Robot AI - Installation Script
-This script installs the Robot AI package on a robot, setting up
-necessary directories, dependencies, and systemd services.
+Robot AI Package Installer
+This script handles installation and setup of the Robot AI package on the robot.
 
 Author: AI Assistant
 Version: 1.0.0
 """
 
-import argparse
-import json
-import logging
 import os
+import sys
+import json
+import time
+import logging
 import shutil
 import subprocess
-import sys
-import time
+import argparse
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('robot-ai-install.log')
+    ]
 )
-logger = logging.getLogger("robot-ai-installer")
+logger = logging.getLogger('robot-ai-installer')
 
-# Constants
-PACKAGE_VERSION = "1.0.0"
-INSTALL_DIR = "/opt/robot-ai"
-CONFIG_DIR = "/etc/robot-ai"
-LOG_DIR = "/var/log/robot-ai"
-SERVICE_NAME = "robot-ai"
-DEPENDENCIES = [
-    "python3",
-    "python3-pip",
-    "python3-venv",
-    "python3-dev",
-]
-PIP_PACKAGES = [
-    "websockets>=10.0",
-    "requests>=2.26.0",
-    "numpy>=1.20.0",
-    "pillow>=8.3.0",
-    "aiohttp>=3.8.0"
-]
+# Installation paths
+INSTALL_DIR = "/home/robot/robot-ai"
+MODULE_DIR = f"{INSTALL_DIR}/modules"
+LOG_DIR = f"{INSTALL_DIR}/logs"
 
-def parse_args():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description='Install Robot AI package')
-    parser.add_argument('--robot-ip', default='127.0.0.1', help='Robot IP address')
-    parser.add_argument('--robot-port', type=int, default=8090, help='Robot port')
-    parser.add_argument('--robot-sn', default=None, help='Robot serial number')
-    parser.add_argument('--use-ssl', action='store_true', help='Use SSL for connections')
-    parser.add_argument('--no-systemd', action='store_true', help='Do not install systemd service')
-    parser.add_argument('--dev-mode', action='store_true', help='Install in development mode')
-    parser.add_argument('--uninstall', action='store_true', help='Uninstall Robot AI')
+def print_banner():
+    """Print installer banner"""
+    print("=" * 60)
+    print("Robot AI Package Installer")
+    print("=" * 60)
+    print("This script will install the Robot AI package on your robot.")
+    print("Version: 1.0.0")
+    print("=" * 60)
     
-    return parser.parse_args()
-
-def check_dependencies():
-    """Check if dependencies are installed"""
-    logger.info("Checking dependencies...")
-    missing = []
-    
-    for dep in DEPENDENCIES:
-        try:
-            result = subprocess.run(['which', dep.split()[0]], 
-                                    stdout=subprocess.PIPE, 
-                                    stderr=subprocess.PIPE)
-            if result.returncode != 0:
-                missing.append(dep)
-        except Exception as e:
-            logger.error(f"Error checking dependency {dep}: {e}")
-            missing.append(dep)
-    
-    return missing
-
-def install_dependencies(missing_deps):
-    """Install missing dependencies"""
-    if not missing_deps:
-        logger.info("All dependencies are already installed")
-        return True
-    
-    logger.info(f"Installing missing dependencies: {', '.join(missing_deps)}")
+def create_directories():
+    """Create installation directories"""
+    logger.info(f"Creating installation directories at {INSTALL_DIR}")
     
     try:
-        # Detect package manager
-        if os.path.exists('/usr/bin/apt'):
-            # Debian/Ubuntu
-            logger.info("Using apt package manager")
-            cmd = ['sudo', 'apt', 'update']
-            subprocess.run(cmd, check=True)
-            
-            cmd = ['sudo', 'apt', 'install', '-y'] + missing_deps
-            subprocess.run(cmd, check=True)
-        elif os.path.exists('/usr/bin/yum'):
-            # CentOS/RHEL
-            logger.info("Using yum package manager")
-            cmd = ['sudo', 'yum', 'install', '-y'] + missing_deps
-            subprocess.run(cmd, check=True)
-        elif os.path.exists('/usr/bin/dnf'):
-            # Fedora
-            logger.info("Using dnf package manager")
-            cmd = ['sudo', 'dnf', 'install', '-y'] + missing_deps
-            subprocess.run(cmd, check=True)
-        else:
-            logger.error("Unsupported package manager")
-            return False
-        
-        logger.info("Dependencies installed successfully")
-        return True
-    except Exception as e:
-        logger.error(f"Error installing dependencies: {e}")
-        return False
-
-def create_directories(args):
-    """Create necessary directories"""
-    logger.info("Creating directories...")
-    
-    dirs = [INSTALL_DIR, CONFIG_DIR, LOG_DIR]
-    
-    try:
-        for dir_path in dirs:
-            if args.dev_mode:
-                os.makedirs(dir_path, exist_ok=True)
-            else:
-                cmd = ['sudo', 'mkdir', '-p', dir_path]
-                subprocess.run(cmd, check=True)
+        # Create main directories
+        os.makedirs(INSTALL_DIR, exist_ok=True)
+        os.makedirs(MODULE_DIR, exist_ok=True)
+        os.makedirs(LOG_DIR, exist_ok=True)
         
         logger.info("Directories created successfully")
         return True
     except Exception as e:
-        logger.error(f"Error creating directories: {e}")
+        logger.error(f"Failed to create directories: {e}")
         return False
 
-def copy_files(args):
-    """Copy files to installation directory"""
-    logger.info("Copying files...")
+def install_modules():
+    """Install Robot AI modules"""
+    logger.info("Installing Robot AI modules")
     
     try:
-        # Get current directory (where install.py is located)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        # Create module directory
-        module_dir = os.path.join(INSTALL_DIR, 'modules')
-        if args.dev_mode:
-            os.makedirs(module_dir, exist_ok=True)
-        else:
-            cmd = ['sudo', 'mkdir', '-p', module_dir]
-            subprocess.run(cmd, check=True)
-        
-        # Copy module files
+        # Copy module files from package
         module_files = [
-            os.path.join(current_dir, 'modules', 'core.py'),
-            os.path.join(current_dir, 'modules', 'map.py'),
-            os.path.join(current_dir, 'modules', 'camera.py'),
-            os.path.join(current_dir, 'modules', 'door.py'),
-            os.path.join(current_dir, 'modules', 'elevator.py'),
-            os.path.join(current_dir, 'modules', 'task_queue.py')
+            "core.py",
+            "camera.py",
+            "door.py",
+            "elevator.py",
+            "map.py",
+            "task_queue.py"
         ]
         
-        for file_path in module_files:
-            if args.dev_mode:
-                shutil.copy(file_path, os.path.join(module_dir, os.path.basename(file_path)))
-            else:
-                cmd = ['sudo', 'cp', file_path, os.path.join(module_dir, os.path.basename(file_path))]
-                subprocess.run(cmd, check=True)
+        package_dir = Path(__file__).parent
         
-        # Create config
-        config = {
-            "robot_ip": args.robot_ip,
-            "robot_port": args.robot_port,
-            "robot_sn": args.robot_sn,
-            "use_ssl": args.use_ssl,
-            "version": PACKAGE_VERSION,
-            "installed_at": time.time()
-        }
-        
-        config_path = os.path.join(CONFIG_DIR, 'config.json')
-        if args.dev_mode:
-            with open(config_path, 'w') as f:
-                json.dump(config, f, indent=2)
-        else:
-            # Write config to a temporary file then move it
-            with open('/tmp/robot-ai-config.json', 'w') as f:
-                json.dump(config, f, indent=2)
+        for module in module_files:
+            source = package_dir / "modules" / module
+            destination = Path(MODULE_DIR) / module
             
-            cmd = ['sudo', 'mv', '/tmp/robot-ai-config.json', config_path]
-            subprocess.run(cmd, check=True)
-            
-            # Set permissions
-            cmd = ['sudo', 'chmod', '644', config_path]
-            subprocess.run(cmd, check=True)
+            logger.info(f"Installing {module}")
+            shutil.copy(source, destination)
         
-        logger.info("Files copied successfully")
+        # Copy dashboard
+        dashboard_source = package_dir / "dashboard.html"
+        dashboard_dest = Path(INSTALL_DIR) / "dashboard.html"
+        shutil.copy(dashboard_source, dashboard_dest)
+        
+        logger.info("All modules installed successfully")
         return True
     except Exception as e:
-        logger.error(f"Error copying files: {e}")
+        logger.error(f"Failed to install modules: {e}")
         return False
 
-def create_virtual_env(args):
-    """Create Python virtual environment"""
-    logger.info("Creating virtual environment...")
-    
-    try:
-        venv_path = os.path.join(INSTALL_DIR, 'venv')
-        
-        # Create virtual environment
-        if args.dev_mode:
-            cmd = [sys.executable, '-m', 'venv', venv_path]
-        else:
-            cmd = ['sudo', sys.executable, '-m', 'venv', venv_path]
-        
-        subprocess.run(cmd, check=True)
-        
-        # Install requirements
-        pip_path = os.path.join(venv_path, 'bin', 'pip')
-        
-        for package in PIP_PACKAGES:
-            if args.dev_mode:
-                cmd = [pip_path, 'install', package]
-            else:
-                cmd = ['sudo', pip_path, 'install', package]
-            
-            subprocess.run(cmd, check=True)
-        
-        logger.info("Virtual environment created successfully")
-        return True
-    except Exception as e:
-        logger.error(f"Error creating virtual environment: {e}")
-        return False
-
-def create_startup_script(args):
+def create_startup_script():
     """Create startup script"""
-    logger.info("Creating startup script...")
+    logger.info("Creating startup script")
     
     try:
-        script_path = os.path.join(INSTALL_DIR, 'start.sh')
-        script_content = f"""#!/bin/bash
-# Robot AI startup script
-cd {INSTALL_DIR}
-source {INSTALL_DIR}/venv/bin/activate
+        startup_script = f"""#!/bin/bash
+# Robot AI Startup Script
+# Start the Robot AI service
 
-# Set environment variables
-export ROBOT_IP="{args.robot_ip}"
-export ROBOT_PORT="{args.robot_port}"
-export ROBOT_SERIAL="{args.robot_sn or 'L382502104987ir'}"
-export USE_SSL="{1 if args.use_ssl else 0}"
+SCRIPT_DIR="{INSTALL_DIR}"
+LOG_DIR="{LOG_DIR}"
 
-# Start the Robot AI
-python -m modules.core
+# Create log directory if it doesn't exist
+mkdir -p "$LOG_DIR"
+
+# Start Python server for web dashboard
+cd "$SCRIPT_DIR"
+python3 -m http.server 8080 > "$LOG_DIR/web.log" 2>&1 &
+echo $! > "$SCRIPT_DIR/web.pid"
+
+# Start core module
+cd "$SCRIPT_DIR"
+python3 -m modules.core > "$LOG_DIR/core.log" 2>&1 &
+echo $! > "$SCRIPT_DIR/core.pid"
+
+echo "Robot AI services started"
+echo "Web dashboard available at: http://localhost:8080/dashboard.html"
 """
         
-        if args.dev_mode:
-            with open(script_path, 'w') as f:
-                f.write(script_content)
-            os.chmod(script_path, 0o755)
-        else:
-            # Write script to a temporary file then move it
-            with open('/tmp/robot-ai-start.sh', 'w') as f:
-                f.write(script_content)
-            
-            cmd = ['sudo', 'mv', '/tmp/robot-ai-start.sh', script_path]
-            subprocess.run(cmd, check=True)
-            
-            # Set permissions
-            cmd = ['sudo', 'chmod', '755', script_path]
-            subprocess.run(cmd, check=True)
+        startup_path = Path(INSTALL_DIR) / "start.sh"
+        with open(startup_path, "w") as f:
+            f.write(startup_script)
+        
+        # Make executable
+        os.chmod(startup_path, 0o755)
         
         logger.info("Startup script created successfully")
         return True
     except Exception as e:
-        logger.error(f"Error creating startup script: {e}")
+        logger.error(f"Failed to create startup script: {e}")
         return False
 
-def create_systemd_service(args):
-    """Create systemd service"""
-    if args.no_systemd or args.dev_mode:
-        logger.info("Skipping systemd service installation")
-        return True
-    
-    logger.info("Creating systemd service...")
+def create_shutdown_script():
+    """Create shutdown script"""
+    logger.info("Creating shutdown script")
     
     try:
-        service_path = f"/etc/systemd/system/{SERVICE_NAME}.service"
-        service_content = f"""[Unit]
-Description=Robot AI Service
-After=network.target
+        shutdown_script = f"""#!/bin/bash
+# Robot AI Shutdown Script
+# Stop the Robot AI service
 
-[Service]
-Type=simple
-User=root
-ExecStart={INSTALL_DIR}/start.sh
-Restart=on-failure
-RestartSec=5
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=robot-ai
+SCRIPT_DIR="{INSTALL_DIR}"
 
-[Install]
-WantedBy=multi-user.target
+# Stop web server
+if [ -f "$SCRIPT_DIR/web.pid" ]; then
+    kill $(cat "$SCRIPT_DIR/web.pid") 2>/dev/null || true
+    rm "$SCRIPT_DIR/web.pid"
+fi
+
+# Stop core module
+if [ -f "$SCRIPT_DIR/core.pid" ]; then
+    kill $(cat "$SCRIPT_DIR/core.pid") 2>/dev/null || true
+    rm "$SCRIPT_DIR/core.pid"
+fi
+
+echo "Robot AI services stopped"
 """
         
-        # Write service to a temporary file then move it
-        with open('/tmp/robot-ai.service', 'w') as f:
-            f.write(service_content)
+        shutdown_path = Path(INSTALL_DIR) / "stop.sh"
+        with open(shutdown_path, "w") as f:
+            f.write(shutdown_script)
         
-        cmd = ['sudo', 'mv', '/tmp/robot-ai.service', service_path]
-        subprocess.run(cmd, check=True)
+        # Make executable
+        os.chmod(shutdown_path, 0o755)
         
-        # Reload systemd, enable and start service
-        cmd = ['sudo', 'systemctl', 'daemon-reload']
-        subprocess.run(cmd, check=True)
-        
-        cmd = ['sudo', 'systemctl', 'enable', SERVICE_NAME]
-        subprocess.run(cmd, check=True)
-        
-        cmd = ['sudo', 'systemctl', 'start', SERVICE_NAME]
-        subprocess.run(cmd, check=True)
-        
-        logger.info("Systemd service created and started successfully")
+        logger.info("Shutdown script created successfully")
         return True
     except Exception as e:
-        logger.error(f"Error creating systemd service: {e}")
+        logger.error(f"Failed to create shutdown script: {e}")
         return False
 
-def uninstall(args):
-    """Uninstall Robot AI"""
-    logger.info("Uninstalling Robot AI...")
+def create_config():
+    """Create configuration file"""
+    logger.info("Creating configuration file")
     
     try:
-        # Stop and disable service if it exists
-        if not args.dev_mode and os.path.exists(f"/etc/systemd/system/{SERVICE_NAME}.service"):
-            try:
-                cmd = ['sudo', 'systemctl', 'stop', SERVICE_NAME]
-                subprocess.run(cmd, check=True)
-                
-                cmd = ['sudo', 'systemctl', 'disable', SERVICE_NAME]
-                subprocess.run(cmd, check=True)
-                
-                cmd = ['sudo', 'rm', f"/etc/systemd/system/{SERVICE_NAME}.service"]
-                subprocess.run(cmd, check=True)
-                
-                cmd = ['sudo', 'systemctl', 'daemon-reload']
-                subprocess.run(cmd, check=True)
-                
-                logger.info("Systemd service removed")
-            except Exception as e:
-                logger.error(f"Error removing systemd service: {e}")
+        config = {
+            "version": "1.0.0",
+            "robot_ip": "localhost",
+            "robot_port": 8090,
+            "use_ssl": False,
+            "web_port": 8080,
+            "log_level": "INFO",
+            "enable_camera": True,
+            "enable_lidar": True,
+            "enable_door_control": True,
+            "enable_elevator_control": True,
+            "enable_task_queue": True
+        }
         
-        # Remove directories
-        if args.dev_mode:
-            if os.path.exists(INSTALL_DIR):
-                shutil.rmtree(INSTALL_DIR)
-            if os.path.exists(CONFIG_DIR):
-                shutil.rmtree(CONFIG_DIR)
-            # Keep logs in case user wants to review them
-        else:
-            if os.path.exists(INSTALL_DIR):
-                cmd = ['sudo', 'rm', '-rf', INSTALL_DIR]
-                subprocess.run(cmd, check=True)
-            
-            if os.path.exists(CONFIG_DIR):
-                cmd = ['sudo', 'rm', '-rf', CONFIG_DIR]
-                subprocess.run(cmd, check=True)
-            
-            # Keep logs in case user wants to review them
+        config_path = Path(INSTALL_DIR) / "config.json"
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=4)
         
-        logger.info("Robot AI uninstalled successfully")
+        logger.info("Configuration file created successfully")
         return True
     except Exception as e:
-        logger.error(f"Error uninstalling Robot AI: {e}")
+        logger.error(f"Failed to create configuration file: {e}")
+        return False
+
+def start_services():
+    """Start Robot AI services"""
+    logger.info("Starting Robot AI services")
+    
+    try:
+        startup_script = Path(INSTALL_DIR) / "start.sh"
+        result = subprocess.run([str(startup_script)], check=True, shell=True)
+        
+        if result.returncode == 0:
+            logger.info("Robot AI services started successfully")
+            return True
+        else:
+            logger.error(f"Failed to start services: Return code {result.returncode}")
+            return False
+    except Exception as e:
+        logger.error(f"Failed to start services: {e}")
         return False
 
 def main():
-    """Main entry point"""
-    args = parse_args()
-    
-    logger.info(f"Robot AI Installer v{PACKAGE_VERSION}")
-    logger.info(f"Target robot: {args.robot_ip}:{args.robot_port}")
-    
-    if args.robot_sn:
-        logger.info(f"Robot serial number: {args.robot_sn}")
-    
-    if args.uninstall:
-        return uninstall(args)
-    
-    # Check and install dependencies
-    missing_deps = check_dependencies()
-    if missing_deps and not install_dependencies(missing_deps):
-        logger.error("Failed to install dependencies")
-        return False
+    """Main installation function"""
+    print_banner()
     
     # Create directories
-    if not create_directories(args):
-        logger.error("Failed to create directories")
+    if not create_directories():
+        logger.error("Failed to create directories. Installation aborted.")
         return False
     
-    # Copy files
-    if not copy_files(args):
-        logger.error("Failed to copy files")
-        return False
-    
-    # Create virtual environment
-    if not create_virtual_env(args):
-        logger.error("Failed to create virtual environment")
+    # Install modules
+    if not install_modules():
+        logger.error("Failed to install modules. Installation aborted.")
         return False
     
     # Create startup script
-    if not create_startup_script(args):
-        logger.error("Failed to create startup script")
+    if not create_startup_script():
+        logger.error("Failed to create startup script. Installation aborted.")
         return False
     
-    # Create systemd service
-    if not args.no_systemd and not args.dev_mode:
-        if not create_systemd_service(args):
-            logger.error("Failed to create systemd service")
-            return False
+    # Create shutdown script
+    if not create_shutdown_script():
+        logger.error("Failed to create shutdown script. Installation aborted.")
+        return False
     
-    logger.info(f"Robot AI v{PACKAGE_VERSION} installed successfully")
+    # Create configuration file
+    if not create_config():
+        logger.error("Failed to create configuration file. Installation aborted.")
+        return False
     
-    if args.dev_mode or args.no_systemd:
-        logger.info(f"To start Robot AI, run: {INSTALL_DIR}/start.sh")
-    else:
-        logger.info("Robot AI service is running")
-        logger.info("To check status: sudo systemctl status robot-ai")
-        logger.info("To stop: sudo systemctl stop robot-ai")
-        logger.info("To start: sudo systemctl start robot-ai")
+    # Start services
+    start_services()
+    
+    print("\nInstallation completed successfully!")
+    print(f"Robot AI dashboard is available at: http://localhost:8080/dashboard.html")
+    print(f"Installation directory: {INSTALL_DIR}")
+    print("\nTo start Robot AI manually, run:")
+    print(f"  {INSTALL_DIR}/start.sh")
+    print("\nTo stop Robot AI, run:")
+    print(f"  {INSTALL_DIR}/stop.sh")
     
     return True
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    parser = argparse.ArgumentParser(description="Robot AI Package Installer")
+    parser.add_argument("--no-start", action="store_true", help="Do not start services after installation")
+    args = parser.parse_args()
+    
+    try:
+        success = main()
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\nInstallation cancelled by user.")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Unhandled exception: {e}")
+        sys.exit(1)
