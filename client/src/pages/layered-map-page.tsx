@@ -359,8 +359,8 @@ export default function LayeredMapPage() {
     // Default to 0 if not provided
     const orientationRadians = position.orientation || 0;
     
-    // Add 90 degrees (π/2 radians) to rotate arrow clockwise
-    const adjustedOrientation = orientationRadians + Math.PI/2;
+    // Subtract 90 degrees (π/2 radians) to rotate arrow counterclockwise (opposite direction)
+    const adjustedOrientation = orientationRadians - Math.PI/2;
     
     // Apply transformations to draw orientation triangle
     ctx.translate(pixelPos.x, pixelPos.y);
@@ -429,8 +429,8 @@ export default function LayeredMapPage() {
     // Robot orientation is already in radians
     const robotOrientationRad = robotPosition.orientation || 0;
     
-    // Add 90 degrees (π/2 radians) to rotate LiDAR points consistently with robot arrow
-    const adjustedOrientation = robotOrientationRad + Math.PI/2;
+    // Use the robot orientation directly for LiDAR points
+    const adjustedOrientation = robotOrientationRad;
     
     // Draw each LiDAR point
     const ranges = layer.data;
