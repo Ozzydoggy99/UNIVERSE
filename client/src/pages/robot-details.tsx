@@ -534,9 +534,12 @@ export default function RobotDetails() {
                   <Bot className="h-5 w-5 text-primary" />
                   {displayAssignment?.name || `Robot ${serialNumber}`}
                 </CardTitle>
-                <Badge className={getStatusColor(finalStatus.status)}>
-                  {finalStatus.status?.toUpperCase() || 'UNKNOWN'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <PowerCycleButton serialNumber={serialNumber} size="sm" />
+                  <Badge className={getStatusColor(finalStatus.status)}>
+                    {finalStatus.status?.toUpperCase() || 'UNKNOWN'}
+                  </Badge>
+                </div>
               </div>
               <CardDescription>
                 {displayTemplate?.name || `Template #${displayAssignment?.templateId}`}
