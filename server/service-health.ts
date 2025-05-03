@@ -9,6 +9,8 @@ interface PowerCycleStatus {
   success: boolean;
   error?: string;
   expectedRecoveryTime?: number;
+  robotConnected?: boolean;
+  recoveryProgress?: number;
 }
 
 // Power cycle state
