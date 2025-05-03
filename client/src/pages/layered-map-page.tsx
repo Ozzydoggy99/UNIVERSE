@@ -250,9 +250,19 @@ export default function LayeredMapPage() {
   // Update LiDAR layer when data changes
   useEffect(() => {
     if (wsLidarData && mapData) {
+      console.log(`Received new LiDAR data with ${wsLidarData.ranges?.length || 0} points`);
+      
+      // Force deep clone the LiDAR data to ensure React detects the change
+      const lidarRanges = [...(wsLidarData.ranges || [])];
+      
       const updatedLayers = mapData.layers.map(layer => {
         if (layer.id === 'lidar-layer') {
-          return { ...layer, data: wsLidarData.ranges || [] };
+          return { 
+            ...layer, 
+            data: lidarRanges,
+            // Add timestamp to force re-render
+            timestamp: new Date().getTime()
+          };
         }
         return layer;
       });
@@ -441,11 +451,12 @@ export default function LayeredMapPage() {
     const pixelRobot = worldToPixel(robotPosition);
     ctx.fillStyle = layer.color;
     
-    // Robot orientation is already in radians
+    // Robot orientation is already in radians (API returns 1.57 which is pi/2 or 90 degrees)
     const robotOrientationRad = robotPosition.orientation || 0;
     
-    // Use the robot orientation directly for LiDAR points
-    const adjustedOrientation = robotOrientationRad;
+    // Apply the same -90 degree offset we use for the robot arrow
+    // This aligns LiDAR visualization with robot's forward direction
+    const adjustedOrientation = robotOrientationRad - Math.PI/2;
     
     // Draw each LiDAR point
     const ranges = layer.data;
@@ -464,7 +475,7 @@ export default function LayeredMapPage() {
       
       // Translate to robot position and apply rotation for all LiDAR points
       ctx.translate(pixelRobot.x, pixelRobot.y);
-      ctx.rotate(-adjustedOrientation); // Use the adjusted orientation with 90° rotation
+      ctx.rotate(-adjustedOrientation); // The negative is because canvas Y is flipped
       
       for (let i = 0; i < numRanges; i++) {
         const range = ranges[i];
@@ -473,9 +484,7 @@ export default function LayeredMapPage() {
         const angle = angleMin + i * angleIncrement;
         const distance = range * 20 * zoom; // Scale for visualization
         
-        // Calculate points in robot's coordinate frame, where 0° is robot's forward direction
-        // With the canvas translation and rotation applied, we're drawing relative to the robot's
-        // position and orientation now
+        // Calculate points in robot's coordinate frame
         const x = Math.sin(angle) * distance;
         const y = -Math.cos(angle) * distance; // Negative because canvas Y is flipped
         
