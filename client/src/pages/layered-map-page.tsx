@@ -414,13 +414,36 @@ export default function LayeredMapPage() {
     return { x: pixelX, y: pixelY };
   }
 
-  // Use a React ref to store the last valid orientation
+  // Use React refs to store orientation data for smoothing
   const lastValidOrientationRef = useRef<number>(0);
+  const orientationHistoryRef = useRef<number[]>([]);
+  const ORIENTATION_HISTORY_SIZE = 10; // Number of samples to keep for smoother orientation
+  const ORIENTATION_SMOOTHING_FACTOR = 0.3; // Exponential smoothing factor (0-1, lower = smoother)
+  
+  // Smooths the orientation value using exponential smoothing to reduce fluctuations
+  function smoothOrientation(newOrientation: number): number {
+    if (isNaN(newOrientation) || !isFinite(newOrientation)) {
+      return lastValidOrientationRef.current;
+    }
+    
+    // Normalize angle differences to prevent jumps between -π and π
+    const normalizedDiff = ((newOrientation - lastValidOrientationRef.current + Math.PI) % (Math.PI * 2)) - Math.PI;
+    
+    // Apply exponential smoothing
+    const smoothedOrientation = 
+      lastValidOrientationRef.current + ORIENTATION_SMOOTHING_FACTOR * normalizedDiff;
+    
+    // Update history buffer for tracking trends
+    orientationHistoryRef.current.push(smoothedOrientation);
+    if (orientationHistoryRef.current.length > ORIENTATION_HISTORY_SIZE) {
+      orientationHistoryRef.current.shift(); // Remove oldest value
+    }
+    
+    return smoothedOrientation;
+  }
   
   // Draw robot as a triangle pointing in the direction of travel
   function drawRobot(ctx: CanvasRenderingContext2D, position: Point & { orientation?: number }) {
-    // Last valid orientation is accessible via the ref
-    
     const pixelPos = worldToPixel(position);
     
     // Robot size in pixels
@@ -436,22 +459,16 @@ export default function LayeredMapPage() {
     ctx.fill();
     
     // The orientation is already in radians (API returns 1.57 which is pi/2 or 90 degrees)
-    // Default to last known orientation if not provided or is invalid
-    let orientationRadians: number = position.orientation || 0;
+    // Process the orientation with smoothing to prevent fluctuations
+    const rawOrientation = position.orientation || 0;
+    const smoothedOrientation = smoothOrientation(rawOrientation);
     
-    if (isNaN(orientationRadians)) {
-      // Use last known orientation if the current one is invalid
-      orientationRadians = lastValidOrientationRef.current;
-      console.log('Using cached orientation:', orientationRadians);
-    } else {
-      // Only update last valid orientation if this one is valid
-      // This prevents jitter when we get intermittent bad values
-      lastValidOrientationRef.current = orientationRadians;
-    }
+    // Update our reference for future comparisons
+    lastValidOrientationRef.current = smoothedOrientation;
     
     // Subtract 90 degrees (π/2 radians) to rotate arrow counterclockwise
     // This aligns with the LiDAR visualization and standard coordinate systems
-    const adjustedOrientation = orientationRadians - Math.PI/2;
+    const adjustedOrientation = smoothedOrientation - Math.PI/2;
     
     // Apply transformations to draw orientation triangle
     ctx.translate(pixelPos.x, pixelPos.y);
@@ -485,7 +502,7 @@ export default function LayeredMapPage() {
     ctx.fillStyle = '#666';
     ctx.font = '10px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(`Orientation: ${(orientationRadians * (180/Math.PI)).toFixed(2)}°`, 10, canvasRef.current!.height - 25);
+    ctx.fillText(`Orientation: ${(smoothedOrientation * (180/Math.PI)).toFixed(2)}°`, 10, canvasRef.current!.height - 25);
   }
 
   // Draw base map layer

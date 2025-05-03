@@ -421,9 +421,10 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         const angle = angle_min + (angle_increment * i);
         
         // Convert to canvas coordinates with robot's orientation
-        // We need to rotate 180 degrees to match the robot's actual orientation
-        // This rotates the entire LiDAR visualization to face the right direction
-        const adjustedAngle = angle + Math.PI; // Rotate 180 degrees
+        // For correct orientation: 
+        // 1. The robot's forward direction on LiDAR is along positive X axis (0 radians)
+        // 2. Visualization needs to match other visualizations (robot forward is right/east)
+        const adjustedAngle = -angle; // Invert the angle to match conventional orientation
         const x = centerX + Math.cos(adjustedAngle) * range * scale;
         const y = centerY + Math.sin(adjustedAngle) * range * scale;
         
@@ -451,10 +452,11 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         
         const [x, y] = point;
         
-        // Convert to canvas coordinates - optimized transformation with 180 degree rotation
-        // We need to rotate the entire visualization 180 degrees to match orientation
-        const canvasX = centerX + x * scale; // Flip X direction (180 degree rotation)
-        const canvasY = centerY + y * scale; // Flip Y direction (180 degree rotation)
+        // Convert to canvas coordinates with consistent orientation 
+        // Point cloud comes from the robot in its own coordinate frame (X forward, Y left)
+        // Need to convert to match the visualization orientation (forward is right/east)
+        const canvasX = centerX + x * scale; // Forward is along positive X axis (to the right)
+        const canvasY = centerY - y * scale; // Invert Y to match canvas coordinate system
         
         // Add to the current path instead of creating a new path for each point
         ctx.moveTo(canvasX + 2, canvasY);
