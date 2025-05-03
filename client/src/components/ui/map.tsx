@@ -115,6 +115,14 @@ export interface MapData {
   stamp?: number;
   originalData?: any;
   connectionStatus?: string;
+  // Added for enhanced visualization
+  visualizationHints?: {
+    dataType?: string;
+    wallColor?: string;
+    freeSpaceColor?: string;
+    unknownColor?: string;
+    enhanceVisualization?: boolean;
+  };
 }
 
 export interface RobotStatus {
@@ -392,11 +400,29 @@ export function Map({
           const x = (canvas.width - imgWidth * imageScale) / 2;
           const y = (canvas.height - imgHeight * imageScale) / 2;
           
-          // Draw the image
-          ctx.drawImage(img, x, y, imgWidth * imageScale, imgHeight * imageScale);
+          // Draw the image with potential contrast enhancement
+          if (mapData.visualizationHints?.enhanceVisualization) {
+            // Enhanced rendering - apply a stronger contrast to make walls more visible
+            ctx.save();
+            ctx.filter = 'contrast(1.3) brightness(1.1)';
+            ctx.drawImage(img, x, y, imgWidth * imageScale, imgHeight * imageScale);
+            ctx.restore();
+            
+            // Add legend for enhanced visualization
+            ctx.font = '12px Arial';
+            ctx.fillStyle = mapData.visualizationHints?.wallColor || '#000';
+            ctx.fillText('■ Walls', 10, 20);
+            ctx.fillStyle = mapData.visualizationHints?.freeSpaceColor || '#fff';
+            ctx.fillText('■ Free Space', 10, 40);
+            ctx.fillStyle = mapData.visualizationHints?.unknownColor || '#888';
+            ctx.fillText('■ Unknown', 10, 60);
+          } else {
+            // Standard rendering
+            ctx.drawImage(img, x, y, imgWidth * imageScale, imgHeight * imageScale);
+          }
           
           // Draw the robot position, obstacles, and paths on top
-          // The drawMap function will handle those
+          // Will be handled outside this callback
         };
         
         // Set the source of the image to the base64 data
