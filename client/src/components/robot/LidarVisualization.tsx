@@ -415,8 +415,9 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         // Convert to canvas coordinates
         // In robot coordinates: +X is forward, +Y is left
         // In canvas: up is -Y, right is +X
-        // We need the robot's forward direction (X) to face LEFT on the visualization
-        const canvasX = centerX - x * scale; // Robot forward (X) is left on screen
+        // The robot points are displayed with the robot facing LEFT on screen, 
+        // but the robot's actual forward direction is to the RIGHT
+        const canvasX = centerX - x * scale; // Robot forward (X) looks left on screen
         const canvasY = centerY - y * scale; // Robot left (Y) is up on screen
         
         // Draw point
@@ -452,20 +453,20 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     }
 
     // Draw a front direction indicator
-    // We need to show the correct orientation with front of robot facing left
+    // Robot forward is facing right (opposite of data points)
     ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
-    ctx.lineTo(centerX - size/2 * 0.2, centerY); // Arrow pointing left
+    ctx.lineTo(centerX + size/2 * 0.2, centerY); // Arrow pointing right
     ctx.stroke();
     
     // Add a small arrowhead
     ctx.fillStyle = 'rgba(0, 100, 255, 0.8)';
     ctx.beginPath();
-    ctx.moveTo(centerX - size/2 * 0.25, centerY); // Tip of arrow pointing left
-    ctx.lineTo(centerX - size/2 * 0.2, centerY - 5); // Top of arrow
-    ctx.lineTo(centerX - size/2 * 0.2, centerY + 5); // Bottom of arrow
+    ctx.moveTo(centerX + size/2 * 0.25, centerY); // Tip of arrow pointing right
+    ctx.lineTo(centerX + size/2 * 0.2, centerY - 5); // Top of arrow
+    ctx.lineTo(centerX + size/2 * 0.2, centerY + 5); // Bottom of arrow
     ctx.closePath();
     ctx.fill();
 
