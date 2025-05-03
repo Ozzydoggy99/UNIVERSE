@@ -1,8 +1,9 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect, useCallback } from "react";
 import {
   useQuery,
   useMutation,
   UseMutationResult,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { User } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
@@ -15,6 +16,7 @@ type AuthContextType = {
   loginMutation: UseMutationResult<User, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<User, Error, RegisterData>;
+  refreshAuth: () => Promise<User | null>;
 };
 
 type LoginData = {
@@ -32,6 +34,57 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const localQueryClient = useQueryClient();
+  
+  // Function to refresh auth state - can be called after app restart
+  const refreshAuth = useCallback(async (): Promise<User | null> => {
+    try {
+      const response = await fetch('/api/user', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          localQueryClient.setQueryData(["/api/user"], null);
+          return null;
+        }
+        throw new Error(`Auth refresh failed: ${response.status}`);
+      }
+      
+      const userData = await response.json();
+      localQueryClient.setQueryData(["/api/user"], userData);
+      return userData;
+    } catch (error) {
+      console.error('Auth refresh error:', error);
+      return null;
+    }
+  }, [localQueryClient]);
+  
+  // Add an effect to refresh auth on window focus
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshAuth();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshAuth]);
+  
+  // Add periodic refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshAuth();
+    }, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [refreshAuth]);
+  
   const {
     data: user,
     error,
@@ -39,6 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const loginMutation = useMutation({
@@ -142,6 +198,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Run an immediate auth refresh when the component mounts
+  useEffect(() => {
+    refreshAuth();
+  }, []);
+  
   return (
     <AuthContext.Provider
       value={{
@@ -151,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginMutation,
         logoutMutation,
         registerMutation,
+        refreshAuth,
       }}
     >
       {children}
