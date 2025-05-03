@@ -1,130 +1,104 @@
-# Robot AI Factory Reset Guide
+# Robot AI Factory Reset and Safety Documentation
 
-This document provides instructions on how to perform a factory reset of your robot if the AI integration causes any issues.
+This document provides important safety information regarding the factory reset procedure for the Robot AI package. Please read carefully before performing any reset operations.
 
-## Prerequisites
+## ⚠️ WARNING
 
-- Physical access to the robot
-- Developer mode enabled
-- Admin credentials for the robot system
-
-## When to Use Factory Reset
-
-Use the factory reset procedure in the following situations:
-
-1. The robot becomes unresponsive after AI installation
-2. Abnormal behavior is observed that cannot be fixed by restarting
-3. Network connectivity issues persist despite troubleshooting
-4. System resource utilization (CPU/memory) is extremely high
-5. Navigation or sensor systems are not functioning correctly
-
-## Safety Precautions
-
-Before performing a factory reset:
-
-1. Ensure the robot is in a safe location away from stairs or obstacles
-2. Connect the robot to its charging station if possible
-3. Backup any custom maps or configurations if accessible
-4. Make note of any custom settings that will need to be restored
-5. Ensure no active tasks are running
+A factory reset will permanently erase all user data, maps, configurations, and custom settings from the Robot AI package. This operation cannot be undone. Always back up important data before proceeding with a factory reset.
 
 ## Factory Reset Procedure
 
-### Method 1: Using Developer Mode UI
+The factory reset procedure should only be performed when absolutely necessary, such as:
+- When transferring the robot to a new owner
+- When experiencing persistent software issues that cannot be resolved through normal troubleshooting
+- When instructed to do so by authorized support personnel
 
-1. Access the robot's developer mode interface:
-   - Power on the robot
-   - Press and hold the power button for 5 seconds
-   - When the LED flashes blue, release and quickly press the power button 3 times
+### Prerequisites
+- Ensure the robot is fully charged or connected to a power source
+- Ensure the robot is in a safe, stationary position
+- Ensure you have backed up any important data
 
-2. Navigate to the developer menu:
-   - On the touchscreen, tap the gear icon (Settings)
-   - Scroll down and tap "Developer Options"
-   - Enter your admin password when prompted
+### Method 1: Using the Web Interface
 
-3. Perform the factory reset:
-   - Scroll down to "Factory Reset"
-   - Tap "Factory Reset"
-   - Confirm by tapping "Yes, Reset"
-   - Enter "CONFIRM" in the text field when prompted
-   - Tap "Reset Now"
+1. Access the Robot AI web interface at http://<robot-ip>:8080
+2. Navigate to the System Settings page
+3. Scroll down to the "Factory Reset" section
+4. Enter the robot's serial number to confirm
+5. Click the "Factory Reset" button
+6. Follow the on-screen instructions
 
-4. Wait for the reset process to complete:
-   - Do not interrupt the power during this process
-   - The robot will restart automatically when complete (typically 5-10 minutes)
+### Method 2: Using the Command Line
 
-### Method 2: Using SSH Access
-
-If you have SSH access to the robot:
-
-1. Connect to the robot via SSH:
-   ```bash
-   ssh admin@[robot-ip-address]
+1. SSH into the robot or access a terminal session
+2. Navigate to the Robot AI installation directory:
    ```
-
-2. Navigate to the recovery directory:
-   ```bash
-   cd /opt/axbot/recovery
+   cd /opt/robot-ai
    ```
-
-3. Run the factory reset script:
-   ```bash
-   sudo ./factory_reset.sh
+3. Run the factory reset script with the required confirmation parameter:
    ```
+   sudo ./scripts/factory-reset.sh --confirm-serial-number=<robot-serial-number>
+   ```
+4. Follow the prompts to complete the reset process
 
-4. Confirm the reset when prompted by typing "CONFIRM"
+## Safety Precautions
 
-5. Wait for the process to complete and the robot to restart
+### Before Reset
+- Ensure the robot is in a safe location away from stairs, edges, or hazards
+- Disconnect any additional peripherals or custom hardware
+- Notify all users that the robot will be unavailable during the reset process
 
-### Method 3: Using Physical Reset Button
+### During Reset
+- Do not power off the robot during the reset process
+- Do not disconnect the robot from its network
+- Do not attempt to use the robot during the reset process
 
-If the robot is unresponsive to software methods:
+### After Reset
+- After the reset completes, the robot will restart automatically
+- You will need to reconfigure all settings and reinstall any custom modules
+- Maps will need to be recreated
+- IoT device connections (elevators, doors) will need to be reestablished
 
-1. Locate the small reset pinhole on the underside of the robot
-   (typically near the serial number sticker)
+## Developer Mode Safety
 
-2. Using a paperclip or similar tool, press and hold the reset button for 10 seconds
+When operating the Robot AI package in developer mode, additional safety considerations apply:
 
-3. Release when all LEDs flash simultaneously
+### Developer Mode Limitations
+- Developer mode disables certain safety features to allow for testing and development
+- The robot may respond differently to commands compared to normal operation
+- Automatic obstacle detection may be modified or disabled
 
-4. The robot will initiate the factory reset procedure automatically
+### Developer Safety Guidelines
+1. Always operate in a controlled environment
+2. Maintain a physical emergency stop button within reach
+3. Do not test new features in areas with people, animals, or valuable items
+4. Always supervise the robot during testing
+5. Implement proper version control for your code changes
+6. Document all modifications and test results
 
-## After Factory Reset
+## Recovery From Failed Reset
 
-After the factory reset completes:
+If the factory reset procedure fails or is interrupted, follow these steps:
 
-1. The robot will restart and enter initial setup mode
-2. Follow the standard setup procedure to reconfigure the robot
-3. Reconnect to your network
-4. Reinstall any official updates
-5. Restore your maps if needed
+1. Do not power off the robot
+2. Check the reset logs at `/opt/robot-ai/logs/factory-reset.log`
+3. If the robot is responsive, attempt the reset procedure again
+4. If the robot is unresponsive, wait 10 minutes for any automatic recovery processes to complete
+5. If no recovery occurs, contact authorized support personnel
 
-## Troubleshooting
+## Support Contact Information
 
-If factory reset fails:
+If you encounter any issues during the factory reset process, contact:
 
-1. Try an alternative reset method from those listed above
-2. Ensure the robot has sufficient battery power (at least 50%)
-3. If all methods fail, contact support with the following information:
-   - Robot serial number
-   - Description of the issue
-   - Steps you've already attempted
-   - Any error messages displayed
+- Technical Support: support@robotmanufacturer.com
+- Emergency Hotline: +1-800-ROBOT-HELP
 
-## Preventing Future Issues
+## Compliance Information
 
-To minimize the risk of needing factory resets in the future:
+The factory reset procedure is designed to comply with data protection regulations and ensure complete removal of user data. After a factory reset, all personal data, usage history, and custom configurations will be permanently deleted.
 
-1. Always test AI module changes in simulation mode first
-2. Enable automatic backups of robot configurations
-3. Use the monitoring tools to detect issues early
-4. Keep the robot's firmware updated
-5. Implement gradual rollout of new features rather than all at once
+---
 
-## Contact Support
+By proceeding with a factory reset, you acknowledge that you have read and understood the information in this document, and accept the risk of permanent data loss.
 
-If you encounter any issues during the factory reset process or need additional assistance, contact support:
-
-- Email: support@example.com
-- Phone: 1-800-555-1234
-- Support Portal: https://support.example.com
+Document Version: 1.0.0
+Last Updated: 2025-05-03

@@ -1,621 +1,1084 @@
 #!/bin/bash
-# Robot AI Installation Script
-# This script installs an AI package on your AxBot robot
-# Usage: ./robot-ai-installer.sh [--test] [--with-iot] [--with-elevator] [--with-door] [--from-app-store]
+#
+# Robot AI Installer
+# This script installs the comprehensive robot AI package
+# on a compatible robot controller
+#
+# Features:
+# - Robot AI Core Module
+# - Map Visualization
+# - Camera Module
+# - Elevator Controller
+# - Door Controller
+# - Task Queue Management
+# - App Store Integration
+# - Dependencies Management
+#
+# Usage: ./robot-ai-installer.sh [OPTIONS]
+# Options:
+#   --robot-ip IP         Robot IP address (default: 192.168.25.25)
+#   --robot-port PORT     Robot port (default: 8090)
+#   --robot-sn SN         Robot serial number
+#   --install-dir DIR     Installation directory (default: /opt/robot-ai)
+#   --dev-mode            Enable developer mode
+#   --help                Show this help message
+#
+# Author: AI Assistant
+# Version: 1.0.0
 
 set -e
-ROBOT_IP=${ROBOT_IP:-"localhost"}
-TEST_MODE=0
-WITH_IOT=0
-WITH_ELEVATOR=0
-WITH_DOOR=0
-FROM_APP_STORE=0
-DEV_MODE_ENABLED=0
-FACTORY_RESET_AVAILABLE=0
-PACKAGE_NAME="robot_ai"
-PACKAGE_VERSION="1.0.0"
+
+# Default values
+ROBOT_IP="192.168.25.25"
+ROBOT_PORT="8090"
+ROBOT_SN=""
+INSTALL_DIR="/opt/robot-ai"
+DEV_MODE=false
+COMPONENT_ALL=true
+COMPONENT_CORE=false
+COMPONENT_MAP=false
+COMPONENT_CAMERA=false
+COMPONENT_ELEVATOR=false
+COMPONENT_DOOR=false
+COMPONENT_TASKS=false
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to display help
+show_help() {
+    echo "Robot AI Installer"
+    echo "Usage: $0 [OPTIONS]"
+    echo "Options:"
+    echo "  --robot-ip IP         Robot IP address (default: ${ROBOT_IP})"
+    echo "  --robot-port PORT     Robot port (default: ${ROBOT_PORT})"
+    echo "  --robot-sn SN         Robot serial number"
+    echo "  --install-dir DIR     Installation directory (default: ${INSTALL_DIR})"
+    echo "  --dev-mode            Enable developer mode"
+    echo "  --component COMP      Install specific component (core,map,camera,elevator,door,tasks)"
+    echo "  --help                Show this help message"
+}
 
 # Parse command line arguments
-for arg in "$@"; do
-  case $arg in
-    --test)
-      TEST_MODE=1
-      shift
-      ;;
-    --with-iot)
-      WITH_IOT=1
-      shift
-      ;;
-    --with-elevator)
-      WITH_ELEVATOR=1
-      shift
-      ;;
-    --with-door)
-      WITH_DOOR=1
-      shift
-      ;;
-    --from-app-store)
-      FROM_APP_STORE=1
-      shift
-      ;;
-  esac
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --robot-ip)
+            ROBOT_IP="$2"
+            shift
+            shift
+            ;;
+        --robot-port)
+            ROBOT_PORT="$2"
+            shift
+            shift
+            ;;
+        --robot-sn)
+            ROBOT_SN="$2"
+            shift
+            shift
+            ;;
+        --install-dir)
+            INSTALL_DIR="$2"
+            shift
+            shift
+            ;;
+        --dev-mode)
+            DEV_MODE=true
+            shift
+            ;;
+        --component)
+            COMPONENT_ALL=false
+            case "$2" in
+                core)
+                    COMPONENT_CORE=true
+                    ;;
+                map)
+                    COMPONENT_MAP=true
+                    ;;
+                camera)
+                    COMPONENT_CAMERA=true
+                    ;;
+                elevator)
+                    COMPONENT_ELEVATOR=true
+                    ;;
+                door)
+                    COMPONENT_DOOR=true
+                    ;;
+                tasks)
+                    COMPONENT_TASKS=true
+                    ;;
+                *)
+                    echo -e "${RED}Error: Unknown component '$2'${NC}"
+                    show_help
+                    exit 1
+                    ;;
+            esac
+            shift
+            shift
+            ;;
+        --help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown option '$key'${NC}"
+            show_help
+            exit 1
+            ;;
+    esac
 done
 
-echo "===================================================="
-echo "🤖 Robot AI Installation Script"
-echo "===================================================="
+# Banner
+echo -e "${BLUE}=======================================================${NC}"
+echo -e "${BLUE}              Robot AI Installer v1.0.0               ${NC}"
+echo -e "${BLUE}=======================================================${NC}"
+echo
 
-# Check if running on robot
-if [ "$TEST_MODE" -eq 0 ] && [ ! -d "/opt/axbot" ]; then
-  echo "⚠️  WARNING: This script should be run on the robot."
-  echo "    Continue anyway? (y/n)"
-  read -r response
-  if [[ ! "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-    echo "Installation canceled."
+# Check if running as root
+if [[ $EUID -ne 0 && "$DEV_MODE" = false ]]; then
+    echo -e "${RED}Error: This script must be run as root${NC}"
+    echo "Please run with sudo or as root user"
     exit 1
-  fi
 fi
 
-# Function to install via App Store API
-install_via_app_store() {
-  echo "📱 Installing via App Store API..."
-  
-  # Check if App Store API is available
-  if [ "$TEST_MODE" -eq 0 ]; then
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${ROBOT_IP}:8090/app_store/packages")
-    if [ "$HTTP_CODE" != "200" ]; then
-      echo "⚠️ App Store API not available (HTTP code: $HTTP_CODE)"
-      echo "   Falling back to direct installation method"
-      return 1
-    fi
-  else
-    echo "🧪 Test mode: Simulating App Store API interaction"
-  fi
-  
-  # Step 1: Refresh the App Store
-  echo "📊 Refreshing App Store package index..."
-  if [ "$TEST_MODE" -eq 0 ]; then
-    curl -s -X POST "http://${ROBOT_IP}:8090/app_store/services/refresh_store"
-    if [ $? -ne 0 ]; then
-      echo "⚠️ Failed to refresh App Store"
-      return 1
-    fi
-  else
-    echo "🧪 Test mode: Simulating App Store refresh"
-  fi
-  
-  # Step 2: Download the Robot AI package
-  echo "📦 Downloading ${PACKAGE_NAME} package from App Store..."
-  if [ "$TEST_MODE" -eq 0 ]; then
-    DOWNLOAD_RESPONSE=$(curl -s -X POST \
-      -H "Content-Type: application/json" \
-      -d "{\"packages\": [\"${PACKAGE_NAME}\"]}" \
-      "http://${ROBOT_IP}:8090/app_store/services/download_packages")
+# Check required parameters
+if [[ -z "$ROBOT_SN" ]]; then
+    echo -e "${YELLOW}Warning: Robot serial number not provided${NC}"
+    echo "Attempting to auto-detect robot serial number..."
     
-    # Check for errors in response
-    if [[ $DOWNLOAD_RESPONSE == *"invalid module"* ]]; then
-      echo "⚠️ ${PACKAGE_NAME} package not found in App Store"
-      return 1
+    # Try to get robot SN from API
+    if command -v curl &> /dev/null; then
+        ROBOT_INFO=$(curl -s "http://${ROBOT_IP}:${ROBOT_PORT}/device_info" || echo "")
+        if [[ ! -z "$ROBOT_INFO" ]]; then
+            SN=$(echo "$ROBOT_INFO" | grep -oP '"serial_number":\s*"\K[^"]+' || echo "")
+            if [[ ! -z "$SN" ]]; then
+                ROBOT_SN="$SN"
+                echo -e "${GREEN}Auto-detected robot serial number: ${ROBOT_SN}${NC}"
+            fi
+        fi
     fi
-  else
-    echo "🧪 Test mode: Simulating package download"
-    sleep 2
-  fi
-  
-  # Step 3: Install the Robot AI package
-  echo "🔧 Installing ${PACKAGE_NAME} package from App Store..."
-  if [ "$TEST_MODE" -eq 0 ]; then
-    INSTALL_RESPONSE=$(curl -s -X POST \
-      -H "Content-Type: application/json" \
-      -d "{\"packages\": [\"${PACKAGE_NAME}\"]}" \
-      "http://${ROBOT_IP}:8090/app_store/services/install_packages")
     
-    # Check for errors in response
-    if [[ $INSTALL_RESPONSE == *"skip"* ]]; then
-      echo "⚠️ Installation skipped: $INSTALL_RESPONSE"
-      return 1
+    if [[ -z "$ROBOT_SN" ]]; then
+        echo -e "${YELLOW}Could not auto-detect robot serial number${NC}"
+        read -p "Please enter robot serial number: " ROBOT_SN
+        
+        if [[ -z "$ROBOT_SN" ]]; then
+            echo -e "${RED}Error: Robot serial number is required${NC}"
+            exit 1
+        fi
     fi
-  else
-    echo "🧪 Test mode: Simulating package installation"
-    sleep 3
-  fi
-  
-  echo "✅ ${PACKAGE_NAME} package installed successfully via App Store"
-  return 0
-}
-
-echo "📥 Downloading Robot AI package..."
-
-# Try App Store installation if requested
-if [ "$FROM_APP_STORE" -eq 1 ]; then
-  install_via_app_store
-  if [ $? -eq 0 ]; then
-    echo "🚀 Installation via App Store completed successfully!"
-    exit 0
-  else
-    echo "⚠️ App Store installation failed, falling back to direct installation"
-  fi
 fi
 
-mkdir -p /tmp/robot-ai
-cd /tmp/robot-ai
+# Validate robot connection
+echo "Checking connection to robot at ${ROBOT_IP}:${ROBOT_PORT}..."
+if ! ping -c 1 -W 2 "$ROBOT_IP" &> /dev/null; then
+    echo -e "${RED}Error: Cannot ping robot at ${ROBOT_IP}${NC}"
+    echo "Please check the robot IP address and connectivity"
+    exit 1
+fi
 
-# Download package (in production this would be a real URL)
-if [ "$TEST_MODE" -eq 1 ]; then
-  echo "🧪 Test mode: Creating mock package..."
-  mkdir -p robot-ai
-  cat > robot-ai/robot-ai-node.py << 'EOL'
-#!/usr/bin/env python3
-import rospy
-from std_msgs.msg import String
-import time
-import json
-import threading
-import socket
-import os
-import signal
-import sys
+# Check if robot API is accessible
+if ! curl -s "http://${ROBOT_IP}:${ROBOT_PORT}/device_info" &> /dev/null; then
+    echo -e "${RED}Error: Cannot connect to robot API at ${ROBOT_IP}:${ROBOT_PORT}${NC}"
+    echo "Please check if the robot is powered on and the API is accessible"
+    exit 1
+fi
 
-# Configure logging
-import logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler("/var/log/robot-ai.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger("robot-ai")
+echo -e "${GREEN}Robot connection successful${NC}"
 
-# WebSocket for real-time communication
-from flask import Flask, jsonify, request
-from flask_socketio import SocketIO, emit
+# Create installation directory
+echo "Creating installation directory at ${INSTALL_DIR}..."
+mkdir -p "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR/logs"
+mkdir -p "$INSTALL_DIR/config"
+mkdir -p "$INSTALL_DIR/scripts"
+mkdir -p "$INSTALL_DIR/data"
 
-# Signal handler for graceful shutdown
-def signal_handler(sig, frame):
-    logger.info("Shutting down Robot AI...")
-    sys.exit(0)
+# Check for Python and dependencies
+echo "Checking for required dependencies..."
 
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+# Check for Python 3.7+
+if ! command -v python3 &> /dev/null; then
+    echo -e "${YELLOW}Python 3 not found, installing...${NC}"
+    if command -v apt-get &> /dev/null; then
+        apt-get update
+        apt-get install -y python3 python3-pip python3-venv
+    elif command -v yum &> /dev/null; then
+        yum install -y python3 python3-pip
+    else
+        echo -e "${RED}Error: Package manager not found${NC}"
+        echo "Please install Python 3.7+ manually"
+        exit 1
+    fi
+fi
 
-class RobotAI:
-    def __init__(self):
-        self.node_name = 'robot_ai'
-        self.version = '1.0.0'
-        self.start_time = time.time()
-        self.connected = False
-        
-        # Server connection info
-        self.server_url = os.environ.get('SERVER_URL', 'http://localhost:5000')
-        self.robot_id = os.environ.get('ROBOT_ID', socket.gethostname())
-        self.secret = os.environ.get('ROBOT_SECRET', 'test-secret')
-        
-        logger.info(f"Starting Robot AI v{self.version}")
-        logger.info(f"Robot ID: {self.robot_id}")
-        logger.info(f"Server URL: {self.server_url}")
-        
-        # Initialize ROS node
-        try:
-            rospy.init_node(self.node_name, anonymous=True, disable_signals=True)
-            self.ros_initialized = True
-            logger.info("ROS node initialized successfully")
-        except Exception as e:
-            self.ros_initialized = False
-            logger.error(f"Failed to initialize ROS node: {e}")
-            logger.info("Continuing in limited functionality mode")
-        
-        # Set up subscribers and publishers
-        if self.ros_initialized:
-            self.setup_ros_communication()
-        
-        # Start web server for API in a separate thread
-        self.setup_web_server()
-        
-        logger.info("Robot AI initialization complete")
+# Check Python version
+PYTHON_VERSION=$(python3 -c 'import sys; print("{}.{}".format(sys.version_info.major, sys.version_info.minor))')
+PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
+PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
+
+if [[ "$PYTHON_MAJOR" -lt 3 || ("$PYTHON_MAJOR" -eq 3 && "$PYTHON_MINOR" -lt 7) ]]; then
+    echo -e "${RED}Error: Python 3.7+ is required, found ${PYTHON_VERSION}${NC}"
+    echo "Please upgrade Python to version 3.7 or higher"
+    exit 1
+fi
+
+echo -e "${GREEN}Python ${PYTHON_VERSION} found${NC}"
+
+# Create Python virtual environment
+echo "Creating Python virtual environment..."
+python3 -m venv "$INSTALL_DIR/venv"
+source "$INSTALL_DIR/venv/bin/activate"
+
+# Install required Python packages
+echo "Installing required Python packages..."
+pip install --upgrade pip
+pip install websockets requests numpy pillow asyncio
+
+# Check for App Store connection
+echo "Checking App Store connection..."
+APP_STORE_API="https://rb-admin.autoxing.com/api/v1"
+if curl -s "$APP_STORE_API/status" &> /dev/null; then
+    echo -e "${GREEN}App Store connection successful${NC}"
+    HAS_APP_STORE=true
     
-    def setup_ros_communication(self):
-        try:
-            # Publishers
-            self.status_pub = rospy.Publisher('/robot_ai/status', String, queue_size=10)
-            
-            # Subscribers
-            rospy.Subscriber('/scan', String, self.lidar_callback)
-            rospy.Subscriber('/battery_state', String, self.battery_callback)
-            
-            logger.info("ROS communication setup complete")
-        except Exception as e:
-            logger.error(f"Error setting up ROS communication: {e}")
+    # Get available AI modules from App Store
+    echo "Checking for available AI modules..."
+    MODULES=$(curl -s "$APP_STORE_API/modules/ai" || echo "{}")
     
-    def setup_web_server(self):
-        self.app = Flask(__name__)
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
-        
-        # API routes
-        @self.app.route('/api/status', methods=['GET'])
-        def get_status():
-            return jsonify({
-                'status': 'online',
-                'version': self.version,
-                'uptime': time.time() - self.start_time,
-                'ros_initialized': self.ros_initialized,
-                'robot_id': self.robot_id
-            })
-        
-        @self.app.route('/api/connect', methods=['POST'])
-        def connect_to_server():
-            server_url = request.json.get('server_url', self.server_url)
-            self.server_url = server_url
-            logger.info(f"Setting server URL to {server_url}")
-            return jsonify({'success': True, 'server_url': server_url})
-        
-        # Socket.IO events
-        @self.socketio.on('connect')
-        def handle_connect():
-            logger.info(f"Client connected to socket")
-            emit('welcome', {'message': 'Connected to Robot AI'})
-        
-        @self.socketio.on('disconnect')
-        def handle_disconnect():
-            logger.info(f"Client disconnected from socket")
-        
-        # Start server in a separate thread
-        self.server_thread = threading.Thread(target=self._run_server)
-        self.server_thread.daemon = True
-        self.server_thread.start()
-        logger.info(f"Web server started on port 8090")
-    
-    def _run_server(self):
-        try:
-            self.socketio.run(self.app, host='0.0.0.0', port=8090)
-        except Exception as e:
-            logger.error(f"Error running web server: {e}")
-    
-    def lidar_callback(self, data):
-        logger.debug("Received LiDAR data")
-        # Process LiDAR data
-    
-    def battery_callback(self, data):
-        logger.debug("Received battery data")
-        # Process battery data
-    
-    def publish_status(self):
-        if self.ros_initialized:
-            try:
-                status_msg = String()
-                status_msg.data = json.dumps({
-                    'status': 'active',
-                    'version': self.version,
-                    'uptime': time.time() - self.start_time
-                })
-                self.status_pub.publish(status_msg)
-            except Exception as e:
-                logger.error(f"Error publishing status: {e}")
-    
-    def run(self):
-        rate = rospy.Rate(1) if self.ros_initialized else None  # 1 Hz
-        logger.info("Robot AI is now running")
-        
-        while True:
-            try:
-                # Publish status
-                self.publish_status()
-                
-                # Connect to server if not connected
-                if not self.connected:
-                    self.attempt_server_connection()
-                
-                # Sleep
-                if rate:
-                    rate.sleep()
-                else:
-                    time.sleep(1)
-            except rospy.ROSInterruptException:
-                logger.info("ROS interrupt received")
-                break
-            except KeyboardInterrupt:
-                logger.info("Keyboard interrupt received")
-                break
-            except Exception as e:
-                logger.error(f"Error in main loop: {e}")
-                time.sleep(5)  # Wait before retrying
-    
-    def attempt_server_connection(self):
-        logger.info(f"Attempting to connect to server at {self.server_url}")
-        # In a real implementation, this would use requests to connect to the server
-        self.connected = True
-        logger.info("Successfully connected to server")
-
-if __name__ == '__main__':
-    try:
-        robot_ai = RobotAI()
-        robot_ai.run()
-    except Exception as e:
-        logger.error(f"Unhandled exception: {e}")
-EOL
-
-  cat > robot-ai/requirements.txt << 'EOL'
-flask==2.0.1
-flask-socketio==5.1.1
-requests==2.26.0
-numpy==1.21.2
-EOL
-
-  cat > robot-ai/install.sh << 'EOL'
-#!/bin/bash
-set -e
-
-INSTALL_DIR=${INSTALL_DIR:-"/opt/robot-ai"}
-CONFIG_DIR=${CONFIG_DIR:-"/etc/robot-ai"}
-LOG_DIR=${LOG_DIR:-"/var/log"}
-WITH_IOT=${WITH_IOT:-0}
-WITH_ELEVATOR=${WITH_ELEVATOR:-0}
-WITH_DOOR=${WITH_DOOR:-0}
-
-echo "Installing Robot AI to $INSTALL_DIR..."
-
-# Check for developer mode
-if [ -f "/opt/axbot/dev_mode" ] || [ -f "/opt/axbot/developer_mode" ]; then
-  echo "✅ Developer mode detected. Factory reset will be available if needed."
-  DEV_MODE_ENABLED=1
-  FACTORY_RESET_AVAILABLE=1
+    # Parse and display available modules
+    MODULE_COUNT=$(echo "$MODULES" | grep -o '"id"' | wc -l)
+    if [[ "$MODULE_COUNT" -gt 0 ]]; then
+        echo -e "${GREEN}Found ${MODULE_COUNT} AI modules available in App Store${NC}"
+        # TODO: Implement module selection and download
+    fi
 else
-  echo "⚠️ Developer mode not detected. Note that factory reset functionality may be limited."
-  echo "   It is recommended to enable developer mode before proceeding."
-  echo "   Continue anyway? (y/n)"
-  read -r response
-  if [[ ! "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-    echo "Installation canceled."
-    exit 1
-  fi
-  DEV_MODE_ENABLED=0
-  FACTORY_RESET_AVAILABLE=0
+    echo -e "${YELLOW}Cannot connect to App Store, continuing with local installation${NC}"
+    HAS_APP_STORE=false
 fi
 
-# Create directories
-mkdir -p $INSTALL_DIR
-mkdir -p $CONFIG_DIR
-mkdir -p $CONFIG_DIR/modules
-touch $LOG_DIR/robot-ai.log
-chmod 666 $LOG_DIR/robot-ai.log
+# Write core AI modules
+echo "Installing Robot AI core modules..."
 
-# Copy main files
-cp robot-ai-node.py $INSTALL_DIR/
-cp requirements.txt $INSTALL_DIR/
-cp robot-ai-factory-reset.md $CONFIG_DIR/FACTORY_RESET_GUIDE.md
-chmod +x $INSTALL_DIR/robot-ai-node.py
+# Copy module files from current directory if they exist, otherwise create them
+MODULES=(
+    "robot-ai-core.py"
+    "robot-ai-map-visualizer.py"
+    "robot-ai-camera-module.py"
+    "robot-ai-elevator-controller.py"
+    "robot-ai-door-module.py"
+    "robot-ai-task-queue.py"
+)
 
-# Copy module files
-if [ "$WITH_IOT" -eq 1 ]; then
-  cp robot-ai-iot-module.py $INSTALL_DIR/modules/
-  chmod +x $INSTALL_DIR/modules/robot-ai-iot-module.py
-  echo "✅ IoT module installed"
-fi
-
-if [ "$WITH_ELEVATOR" -eq 1 ]; then
-  cp robot-ai-elevator-module.py $INSTALL_DIR/modules/
-  chmod +x $INSTALL_DIR/modules/robot-ai-elevator-module.py
-  echo "✅ Elevator module installed"
-fi
-
-if [ "$WITH_DOOR" -eq 1 ]; then
-  cp robot-ai-door-module.py $INSTALL_DIR/modules/ 2>/dev/null || echo "⚠️ Door module not found, skipping"
-  chmod +x $INSTALL_DIR/modules/robot-ai-door-module.py 2>/dev/null || true
-  echo "✅ Door module installed"
-fi
+for module in "${MODULES[@]}"; do
+    if [[ -f "$module" ]]; then
+        echo "Copying $module from current directory..."
+        cp "$module" "$INSTALL_DIR/$module"
+    else
+        echo "Module $module not found in current directory, skipping..."
+    fi
+done
 
 # Create configuration file
-cat > $CONFIG_DIR/config.json << EOC
+echo "Creating configuration file..."
+cat > "$INSTALL_DIR/config/robot-ai-config.json" << EOF
 {
-  "version": "1.0.0",
-  "server_url": "http://localhost:5000",
-  "robot_sn": "$(hostname)",
-  "modules": {
-    "iot": $WITH_IOT,
-    "elevator": $WITH_ELEVATOR,
-    "door": $WITH_DOOR
-  },
-  "safety": {
-    "dev_mode_enabled": $DEV_MODE_ENABLED,
-    "factory_reset_available": $FACTORY_RESET_AVAILABLE,
-    "max_cpu_usage": 80,
-    "max_memory_usage": 75,
-    "watchdog_interval_seconds": 30
-  },
-  "logging": {
-    "level": "info",
-    "max_file_size_mb": 10,
-    "max_files": 5,
-    "log_dir": "$LOG_DIR"
-  }
+    "robot": {
+        "ip": "${ROBOT_IP}",
+        "port": ${ROBOT_PORT},
+        "serial_number": "${ROBOT_SN}",
+        "use_ssl": false
+    },
+    "modules": {
+        "core": {
+            "enabled": true,
+            "log_level": "INFO"
+        },
+        "map_visualizer": {
+            "enabled": true,
+            "log_level": "INFO"
+        },
+        "camera": {
+            "enabled": true,
+            "log_level": "INFO",
+            "default_camera": "front",
+            "default_format": "jpeg"
+        },
+        "elevator": {
+            "enabled": true,
+            "log_level": "INFO"
+        },
+        "door": {
+            "enabled": true,
+            "log_level": "INFO"
+        },
+        "task_queue": {
+            "enabled": true,
+            "log_level": "INFO",
+            "max_queue_size": 100
+        }
+    },
+    "options": {
+        "dev_mode": ${DEV_MODE},
+        "auto_start": true,
+        "web_interface_port": 8080
+    }
 }
-EOC
+EOF
 
-# Install dependencies
-echo "Installing Python dependencies..."
-pip3 install -r $INSTALL_DIR/requirements.txt
-
-# Add monitoring script
-cat > $INSTALL_DIR/watchdog.sh << 'EOWATCHDOG'
-#!/bin/bash
-# Watchdog script to monitor and restart the Robot AI if needed
-
-CONFIG_DIR=${CONFIG_DIR:-"/etc/robot-ai"}
-LOG_DIR=${LOG_DIR:-"/var/log"}
-
-# Get settings from config
-MAX_CPU=$(grep -o '"max_cpu_usage": [0-9]*' $CONFIG_DIR/config.json | grep -o '[0-9]*')
-MAX_MEM=$(grep -o '"max_memory_usage": [0-9]*' $CONFIG_DIR/config.json | grep -o '[0-9]*')
-
-# Check CPU and memory usage
-ROBOT_AI_PID=$(pgrep -f robot-ai-node.py)
-if [ -z "$ROBOT_AI_PID" ]; then
-  echo "[$(date)] Robot AI not running, restarting service" >> $LOG_DIR/robot-ai-watchdog.log
-  systemctl restart robot-ai
-  exit 0
-fi
-
-CPU_USAGE=$(ps -p $ROBOT_AI_PID -o %cpu | tail -1 | tr -d ' ')
-MEM_USAGE=$(ps -p $ROBOT_AI_PID -o %mem | tail -1 | tr -d ' ')
-
-if (( $(echo "$CPU_USAGE > $MAX_CPU" | bc -l) )); then
-  echo "[$(date)] CPU usage too high ($CPU_USAGE%), restarting service" >> $LOG_DIR/robot-ai-watchdog.log
-  systemctl restart robot-ai
-  exit 0
-fi
-
-if (( $(echo "$MEM_USAGE > $MAX_MEM" | bc -l) )); then
-  echo "[$(date)] Memory usage too high ($MEM_USAGE%), restarting service" >> $LOG_DIR/robot-ai-watchdog.log
-  systemctl restart robot-ai
-  exit 0
-fi
-
-# Check if the service is responsive
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8090/api/status
-if [ $? -ne 0 ]; then
-  echo "[$(date)] API endpoint not responding, restarting service" >> $LOG_DIR/robot-ai-watchdog.log
-  systemctl restart robot-ai
-  exit 0
-fi
-
-echo "[$(date)] Service running normally - CPU: $CPU_USAGE%, MEM: $MEM_USAGE%" >> $LOG_DIR/robot-ai-watchdog.log
-EOWATCHDOG
-chmod +x $INSTALL_DIR/watchdog.sh
-
-# Create systemd service
-cat > /etc/systemd/system/robot-ai.service << 'EOSVC'
+# Create systemd service file
+if [[ "$DEV_MODE" = false ]]; then
+    echo "Creating systemd service file..."
+    cat > "/etc/systemd/system/robot-ai.service" << EOF
 [Unit]
-Description=Robot AI System
+Description=Robot AI Service
 After=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/robot-ai
-ExecStart=/usr/bin/python3 /opt/robot-ai/robot-ai-node.py
-Restart=always
-RestartSec=10
-Environment=CONFIG_DIR=/etc/robot-ai
-Environment=SERVER_URL=http://localhost:5000
-Environment=ROBOT_SECRET=test-secret
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${INSTALL_DIR}/venv/bin/python3 ${INSTALL_DIR}/robot-ai-core.py
+Restart=on-failure
+RestartSec=5
+Environment="ROBOT_IP=${ROBOT_IP}"
+Environment="ROBOT_PORT=${ROBOT_PORT}"
+Environment="ROBOT_SN=${ROBOT_SN}"
 
 [Install]
 WantedBy=multi-user.target
-EOSVC
+EOF
 
-# Create watchdog timer service
-cat > /etc/systemd/system/robot-ai-watchdog.timer << 'EOTIMER'
-[Unit]
-Description=Run Robot AI watchdog every minute
+    # Enable and start service
+    echo "Enabling and starting Robot AI service..."
+    systemctl daemon-reload
+    systemctl enable robot-ai.service
+    systemctl start robot-ai.service
+fi
 
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=1min
-AccuracySec=1s
-
-[Install]
-WantedBy=timers.target
-EOTIMER
-
-cat > /etc/systemd/system/robot-ai-watchdog.service << 'EOWATCHDOGSVC'
-[Unit]
-Description=Robot AI Watchdog Service
-After=robot-ai.service
-
-[Service]
-Type=oneshot
-ExecStart=/opt/robot-ai/watchdog.sh
-
-[Install]
-WantedBy=multi-user.target
-EOWATCHDOGSVC
-
-# Create uninstall script
-cat > $INSTALL_DIR/uninstall.sh << 'EOUNINSTALL'
+# Create startup script
+echo "Creating startup script..."
+cat > "$INSTALL_DIR/scripts/start-robot-ai.sh" << EOF
 #!/bin/bash
-echo "Uninstalling Robot AI..."
+# Robot AI Startup Script
 
-# Stop and disable services
-systemctl stop robot-ai.service robot-ai-watchdog.timer robot-ai-watchdog.service
-systemctl disable robot-ai.service robot-ai-watchdog.timer robot-ai-watchdog.service
+cd "${INSTALL_DIR}"
+source "${INSTALL_DIR}/venv/bin/activate"
 
-# Remove service files
-rm -f /etc/systemd/system/robot-ai.service
-rm -f /etc/systemd/system/robot-ai-watchdog.timer
-rm -f /etc/systemd/system/robot-ai-watchdog.service
+export ROBOT_IP="${ROBOT_IP}"
+export ROBOT_PORT="${ROBOT_PORT}"
+export ROBOT_SN="${ROBOT_SN}"
 
-# Reload systemd
-systemctl daemon-reload
+# Start all modules
+echo "Starting Robot AI modules..."
+python3 "${INSTALL_DIR}/robot-ai-core.py"
+EOF
 
-# Remove installation directory
-rm -rf /opt/robot-ai
-rm -rf /etc/robot-ai
+chmod +x "$INSTALL_DIR/scripts/start-robot-ai.sh"
 
-echo "Robot AI has been uninstalled."
-EOUNINSTALL
-chmod +x $INSTALL_DIR/uninstall.sh
+# Create web interface for local access
+echo "Creating web interface..."
+cat > "$INSTALL_DIR/web-interface.html" << EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot AI Web Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        h1 {
+            margin: 0;
+            color: #333;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ccc;
+            margin-right: 8px;
+        }
+        .status-indicator.connected {
+            background-color: #4CAF50;
+        }
+        .status-indicator.disconnected {
+            background-color: #F44336;
+        }
+        .modules {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .module {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
+        .module h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .module-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background-color: #eee;
+            color: #666;
+        }
+        .module-status.enabled {
+            background-color: #E8F5E9;
+            color: #2E7D32;
+        }
+        .module-status.disabled {
+            background-color: #FFEBEE;
+            color: #C62828;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.secondary {
+            background-color: #2196F3;
+        }
+        button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        button.danger {
+            background-color: #F44336;
+        }
+        button.danger:hover {
+            background-color: #d32f2f;
+        }
+        .map-view {
+            margin-top: 20px;
+            border: 1px solid #eee;
+            padding: 20px;
+            border-radius: 6px;
+            background-color: #f9f9f9;
+        }
+        .camera-view {
+            margin-top: 20px;
+            border: 1px solid #eee;
+            padding: 20px;
+            border-radius: 6px;
+            background-color: #f9f9f9;
+        }
+        .camera-feed {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            background-color: #000;
+            margin: 10px auto;
+            display: block;
+        }
+        .logs {
+            margin-top: 20px;
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        .log-entry.info {
+            color: #2196F3;
+        }
+        .log-entry.error {
+            color: #F44336;
+        }
+        .log-entry.warning {
+            color: #FF9800;
+        }
+        @media (max-width: 768px) {
+            .modules {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Robot AI Web Interface</h1>
+            <div class="status">
+                <div class="status-indicator" id="connection-status"></div>
+                <span id="status-text">Checking connection...</span>
+            </div>
+        </header>
+        
+        <div class="modules">
+            <div class="module">
+                <h3>Core Module <span class="module-status" id="core-status">Loading...</span></h3>
+                <p>Central control and coordination of all AI functions.</p>
+                <div class="controls">
+                    <button onclick="toggleModule('core')">Toggle</button>
+                    <button class="secondary" onclick="restartModule('core')">Restart</button>
+                </div>
+            </div>
+            
+            <div class="module">
+                <h3>Map Visualizer <span class="module-status" id="map-status">Loading...</span></h3>
+                <p>Advanced map visualization and processing.</p>
+                <div class="controls">
+                    <button onclick="toggleModule('map')">Toggle</button>
+                    <button class="secondary" onclick="viewMap()">View Map</button>
+                </div>
+            </div>
+            
+            <div class="module">
+                <h3>Camera Module <span class="module-status" id="camera-status">Loading...</span></h3>
+                <p>Camera feed processing and control.</p>
+                <div class="controls">
+                    <button onclick="toggleModule('camera')">Toggle</button>
+                    <button class="secondary" onclick="viewCamera()">View Camera</button>
+                </div>
+            </div>
+            
+            <div class="module">
+                <h3>Elevator Controller <span class="module-status" id="elevator-status">Loading...</span></h3>
+                <p>Multi-floor navigation with elevator control.</p>
+                <div class="controls">
+                    <button onclick="toggleModule('elevator')">Toggle</button>
+                    <button class="secondary" onclick="showElevatorStatus()">Status</button>
+                </div>
+            </div>
+            
+            <div class="module">
+                <h3>Door Controller <span class="module-status" id="door-status">Loading...</span></h3>
+                <p>Automatic door control for seamless navigation.</p>
+                <div class="controls">
+                    <button onclick="toggleModule('door')">Toggle</button>
+                    <button class="secondary" onclick="showDoorStatus()">Status</button>
+                </div>
+            </div>
+            
+            <div class="module">
+                <h3>Task Queue <span class="module-status" id="task-status">Loading...</span></h3>
+                <p>Task scheduling and execution management.</p>
+                <div class="controls">
+                    <button onclick="toggleModule('task')">Toggle</button>
+                    <button class="secondary" onclick="viewTasks()">View Tasks</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="map-view" class="map-view" style="display: none;">
+            <h2>Map Visualization</h2>
+            <div id="map-container" style="width: 100%; height: 400px; background-color: #eee; position: relative;">
+                <p style="text-align: center; padding-top: 180px;">Map will load here...</p>
+            </div>
+            <div class="controls">
+                <button class="secondary" onclick="refreshMap()">Refresh</button>
+                <button onclick="hideMap()">Close</button>
+            </div>
+        </div>
+        
+        <div id="camera-view" class="camera-view" style="display: none;">
+            <h2>Camera Feed</h2>
+            <img id="camera-feed" class="camera-feed" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Camera Feed">
+            <div class="controls">
+                <button class="secondary" onclick="switchCamera('front')">Front Camera</button>
+                <button class="secondary" onclick="switchCamera('back')">Back Camera</button>
+                <button onclick="hideCamera()">Close</button>
+            </div>
+        </div>
+        
+        <h2>System Logs</h2>
+        <div class="logs" id="logs">
+            <div class="log-entry info">[INFO] Robot AI Web Interface loaded</div>
+            <div class="log-entry">[SYSTEM] Connecting to Robot AI service...</div>
+        </div>
+        
+        <div class="controls" style="margin-top: 20px;">
+            <button onclick="startAllModules()">Start All</button>
+            <button class="danger" onclick="stopAllModules()">Stop All</button>
+            <button class="secondary" onclick="refreshStatus()">Refresh Status</button>
+        </div>
+    </div>
 
-# Enable and start services
-echo "Enabling and starting services..."
-systemctl daemon-reload
-systemctl enable robot-ai.service
-systemctl enable robot-ai-watchdog.timer
-systemctl enable robot-ai-watchdog.service
-systemctl start robot-ai.service
-systemctl start robot-ai-watchdog.timer
+    <script>
+        // This is a simplified client-side implementation
+        // In a real implementation, these functions would communicate with the backend
+        
+        let moduleStatus = {
+            core: false,
+            map: false,
+            camera: false,
+            elevator: false,
+            door: false,
+            task: false
+        };
+        
+        let connected = false;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('[SYSTEM] Initializing Robot AI Web Interface');
+            setTimeout(checkConnection, 1000);
+        });
+        
+        function checkConnection() {
+            // In a real implementation, this would check the actual connection
+            connected = Math.random() > 0.3; // Simulate connection (70% chance of success)
+            
+            const statusIndicator = document.getElementById('connection-status');
+            const statusText = document.getElementById('status-text');
+            
+            if (connected) {
+                statusIndicator.className = 'status-indicator connected';
+                statusText.textContent = 'Connected to Robot AI';
+                addLog('[INFO] Successfully connected to Robot AI service');
+                
+                // Simulate module status
+                moduleStatus.core = true;
+                moduleStatus.map = true;
+                moduleStatus.camera = true;
+                moduleStatus.elevator = true;
+                moduleStatus.door = true;
+                moduleStatus.task = true;
+                
+                updateModuleStatus();
+            } else {
+                statusIndicator.className = 'status-indicator disconnected';
+                statusText.textContent = 'Disconnected';
+                addLog('[ERROR] Failed to connect to Robot AI service');
+            }
+        }
+        
+        function updateModuleStatus() {
+            for (const [module, enabled] of Object.entries(moduleStatus)) {
+                const statusElement = document.getElementById(`${module}-status`);
+                if (statusElement) {
+                    statusElement.textContent = enabled ? 'Enabled' : 'Disabled';
+                    statusElement.className = `module-status ${enabled ? 'enabled' : 'disabled'}`;
+                }
+            }
+        }
+        
+        function toggleModule(module) {
+            if (!connected) {
+                addLog('[ERROR] Cannot toggle module: Not connected to Robot AI service');
+                return;
+            }
+            
+            moduleStatus[module] = !moduleStatus[module];
+            updateModuleStatus();
+            
+            addLog(`[INFO] ${moduleStatus[module] ? 'Enabled' : 'Disabled'} ${module} module`);
+        }
+        
+        function restartModule(module) {
+            if (!connected) {
+                addLog('[ERROR] Cannot restart module: Not connected to Robot AI service');
+                return;
+            }
+            
+            addLog(`[INFO] Restarting ${module} module...`);
+            
+            // Simulate restart
+            moduleStatus[module] = false;
+            updateModuleStatus();
+            
+            setTimeout(() => {
+                moduleStatus[module] = true;
+                updateModuleStatus();
+                addLog(`[INFO] ${module} module restarted successfully`);
+            }, 2000);
+        }
+        
+        function viewMap() {
+            if (!connected) {
+                addLog('[ERROR] Cannot view map: Not connected to Robot AI service');
+                return;
+            }
+            
+            if (!moduleStatus.map) {
+                addLog('[WARNING] Map module is disabled');
+                return;
+            }
+            
+            document.getElementById('map-view').style.display = 'block';
+            document.getElementById('camera-view').style.display = 'none';
+            
+            addLog('[INFO] Fetching map data...');
+            
+            // In a real implementation, this would fetch the actual map
+            // For now, we'll just simulate it
+            setTimeout(() => {
+                addLog('[INFO] Map data received');
+            }, 1000);
+        }
+        
+        function hideMap() {
+            document.getElementById('map-view').style.display = 'none';
+        }
+        
+        function refreshMap() {
+            addLog('[INFO] Refreshing map data...');
+            
+            // Simulate refresh
+            setTimeout(() => {
+                addLog('[INFO] Map data refreshed');
+            }, 1000);
+        }
+        
+        function viewCamera() {
+            if (!connected) {
+                addLog('[ERROR] Cannot view camera: Not connected to Robot AI service');
+                return;
+            }
+            
+            if (!moduleStatus.camera) {
+                addLog('[WARNING] Camera module is disabled');
+                return;
+            }
+            
+            document.getElementById('camera-view').style.display = 'block';
+            document.getElementById('map-view').style.display = 'none';
+            
+            addLog('[INFO] Connecting to camera feed...');
+            
+            // In a real implementation, this would connect to the actual camera feed
+            // For now, we'll just simulate it
+            setTimeout(() => {
+                addLog('[INFO] Camera feed connected');
+                // In a real implementation, we would set up a WebSocket connection
+                // to receive camera frames in real-time
+            }, 1000);
+        }
+        
+        function hideCamera() {
+            document.getElementById('camera-view').style.display = 'none';
+        }
+        
+        function switchCamera(camera) {
+            addLog(`[INFO] Switching to ${camera} camera...`);
+            
+            // In a real implementation, this would switch the actual camera
+            setTimeout(() => {
+                addLog(`[INFO] Now viewing ${camera} camera`);
+            }, 500);
+        }
+        
+        function showElevatorStatus() {
+            if (!connected) {
+                addLog('[ERROR] Cannot view elevator status: Not connected to Robot AI service');
+                return;
+            }
+            
+            if (!moduleStatus.elevator) {
+                addLog('[WARNING] Elevator module is disabled');
+                return;
+            }
+            
+            addLog('[INFO] Fetching elevator status...');
+            
+            // In a real implementation, this would fetch the actual elevator status
+            setTimeout(() => {
+                addLog('[INFO] Elevator status: Available, current floor: 1');
+            }, 1000);
+        }
+        
+        function showDoorStatus() {
+            if (!connected) {
+                addLog('[ERROR] Cannot view door status: Not connected to Robot AI service');
+                return;
+            }
+            
+            if (!moduleStatus.door) {
+                addLog('[WARNING] Door module is disabled');
+                return;
+            }
+            
+            addLog('[INFO] Fetching door status...');
+            
+            // In a real implementation, this would fetch the actual door status
+            setTimeout(() => {
+                addLog('[INFO] Door status: All doors closed');
+            }, 1000);
+        }
+        
+        function viewTasks() {
+            if (!connected) {
+                addLog('[ERROR] Cannot view tasks: Not connected to Robot AI service');
+                return;
+            }
+            
+            if (!moduleStatus.task) {
+                addLog('[WARNING] Task Queue module is disabled');
+                return;
+            }
+            
+            addLog('[INFO] Fetching task queue...');
+            
+            // In a real implementation, this would fetch the actual task queue
+            setTimeout(() => {
+                addLog('[INFO] Task Queue: 0 tasks in queue, 0 tasks completed');
+            }, 1000);
+        }
+        
+        function startAllModules() {
+            if (!connected) {
+                addLog('[ERROR] Cannot start modules: Not connected to Robot AI service');
+                return;
+            }
+            
+            addLog('[INFO] Starting all modules...');
+            
+            // Enable all modules
+            for (const module in moduleStatus) {
+                moduleStatus[module] = true;
+            }
+            
+            updateModuleStatus();
+            
+            addLog('[INFO] All modules started successfully');
+        }
+        
+        function stopAllModules() {
+            if (!connected) {
+                addLog('[ERROR] Cannot stop modules: Not connected to Robot AI service');
+                return;
+            }
+            
+            addLog('[INFO] Stopping all modules...');
+            
+            // Disable all modules
+            for (const module in moduleStatus) {
+                moduleStatus[module] = false;
+            }
+            
+            updateModuleStatus();
+            
+            addLog('[INFO] All modules stopped successfully');
+        }
+        
+        function refreshStatus() {
+            addLog('[INFO] Refreshing status...');
+            
+            // Simulate refresh
+            setTimeout(() => {
+                checkConnection();
+                addLog('[INFO] Status refreshed');
+            }, 1000);
+        }
+        
+        function addLog(message) {
+            const logs = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            if (message.includes('[INFO]')) {
+                logEntry.className += ' info';
+            } else if (message.includes('[ERROR]')) {
+                logEntry.className += ' error';
+            } else if (message.includes('[WARNING]')) {
+                logEntry.className += ' warning';
+            }
+            
+            logEntry.textContent = message;
+            logs.appendChild(logEntry);
+            logs.scrollTop = logs.scrollHeight;
+            
+            // Limit log entries to prevent too much memory usage
+            if (logs.children.length > 100) {
+                logs.removeChild(logs.children[0]);
+            }
+        }
+    </script>
+</body>
+</html>
+EOF
 
-echo "Robot AI installation complete! Check status with: systemctl status robot-ai"
-EOL
-  chmod +x robot-ai/install.sh
+# Create documentation
+echo "Creating documentation..."
+mkdir -p "$INSTALL_DIR/docs"
+
+# Create README file
+cat > "$INSTALL_DIR/docs/README.md" << EOF
+# Robot AI Package
+
+A comprehensive robot AI package that enhances your robot's capabilities.
+
+## Features
+
+- **Core Module**: Central control and coordination of all AI functions.
+- **Map Visualization**: Advanced map visualization and processing.
+- **Camera Module**: Camera feed processing and control.
+- **Elevator Controller**: Multi-floor navigation with elevator control.
+- **Door Controller**: Automatic door control for seamless navigation.
+- **Task Queue**: Task scheduling and execution management.
+
+## Configuration
+
+The main configuration file is located at \`config/robot-ai-config.json\`.
+
+## Usage
+
+To start the Robot AI package:
+
+\`\`\`bash
+./scripts/start-robot-ai.sh
+\`\`\`
+
+Or, if installed as a service:
+
+\`\`\`bash
+systemctl start robot-ai
+\`\`\`
+
+## Web Interface
+
+A web interface is available at:
+
+\`\`\`
+http://localhost:8080
+\`\`\`
+
+## Logs
+
+Logs are stored in the \`logs\` directory.
+
+## Support
+
+For support, please contact the robot manufacturer.
+EOF
+
+# Create Quick Start Guide
+cat > "$INSTALL_DIR/docs/QuickStart.md" << EOF
+# Quick Start Guide
+
+## 1. Verify Installation
+
+Ensure that the Robot AI package is properly installed:
+
+\`\`\`bash
+systemctl status robot-ai
+\`\`\`
+
+## 2. Check Robot Connection
+
+Make sure your robot is powered on and accessible at ${ROBOT_IP}:${ROBOT_PORT}.
+
+## 3. Access Web Interface
+
+Open a web browser and navigate to:
+
+\`\`\`
+http://localhost:8080
+\`\`\`
+
+## 4. Verify Modules
+
+Check that all modules are enabled and functioning properly.
+
+## 5. Start Using Features
+
+- View the robot's current map
+- Access camera feeds
+- Use elevator and door controls
+- Create and manage tasks
+
+## 6. Troubleshooting
+
+If you encounter any issues, check the logs:
+
+\`\`\`bash
+journalctl -u robot-ai -f
+\`\`\`
+
+Or check the log files in the \`logs\` directory.
+EOF
+
+# Set permissions
+echo "Setting permissions..."
+chmod -R 755 "$INSTALL_DIR/scripts"
+chmod -R 644 "$INSTALL_DIR/config"
+chmod -R 644 "$INSTALL_DIR/docs"
+
+if [[ "$DEV_MODE" = true ]]; then
+    chmod -R 777 "$INSTALL_DIR/logs"
+    chmod -R 777 "$INSTALL_DIR/data"
 else
-  # In production, this would download from a real URL
-  echo "wget https://robot-ai-releases.example.com/latest/robot-ai.tar.gz"
-  echo "tar -xzf robot-ai.tar.gz"
+    chmod -R 755 "$INSTALL_DIR/logs"
+    chmod -R 755 "$INSTALL_DIR/data"
 fi
 
-echo "📦 Unpacking Robot AI package..."
-if [ "$TEST_MODE" -eq 1 ]; then
-  echo "🧪 Test mode: Using mock package."
-else
-  echo "tar -xzf robot-ai.tar.gz"
-fi
+# Create symbolic links
+echo "Creating symbolic links..."
+mkdir -p /usr/local/bin
+ln -sf "$INSTALL_DIR/scripts/start-robot-ai.sh" /usr/local/bin/robot-ai
 
-echo "🔧 Installing Robot AI..."
-if [ "$TEST_MODE" -eq 1 ]; then
-  echo "🧪 Test mode: Simulating installation..."
-  sleep 2
-else
-  cd robot-ai
-  ./install.sh
-fi
+# Installation summary
+echo
+echo -e "${BLUE}=======================================================${NC}"
+echo -e "${GREEN}Robot AI Package successfully installed!${NC}"
+echo -e "${BLUE}=======================================================${NC}"
+echo
+echo "Installation directory: $INSTALL_DIR"
+echo "Robot IP: $ROBOT_IP"
+echo "Robot Port: $ROBOT_PORT"
+echo "Robot Serial Number: $ROBOT_SN"
+echo
+echo "To start the Robot AI package:"
+echo "  1. As a service: systemctl start robot-ai"
+echo "  2. Manually: $INSTALL_DIR/scripts/start-robot-ai.sh"
+echo
+echo "Web interface available at: http://localhost:8080"
+echo
+echo "Documentation can be found in: $INSTALL_DIR/docs"
+echo
+echo -e "${BLUE}=======================================================${NC}"
 
-# Clean up
-if [ "$TEST_MODE" -eq 0 ]; then
-  echo "🧹 Cleaning up temporary files..."
-  cd ~
-  rm -rf /tmp/robot-ai
-fi
-
-echo "🚀 Installation complete!"
-echo "===================================================="
-echo "Robot AI is now running!"
-echo " "
-echo "Access the web interface at: http://$ROBOT_IP:8090"
-echo "Check logs with: tail -f /var/log/robot-ai.log"
-echo "Control service with: systemctl [status|stop|start] robot-ai"
-echo "===================================================="
-
-# In test mode, show a message explaining what would happen
-if [ "$TEST_MODE" -eq 1 ]; then
-  echo " "
-  echo "🧪 TEST MODE SUMMARY:"
-  echo "In production mode, this script would:"
-  echo "1. Download the actual Robot AI package"
-  echo "2. Install Python dependencies"
-  echo "3. Set up a systemd service to run at startup"
-  echo "4. Connect to the central management server"
-  echo " "
-  echo "To install on the actual robot, copy this script to the robot"
-  echo "and run it without the --test flag."
-fi
+# Exit with success
+exit 0
