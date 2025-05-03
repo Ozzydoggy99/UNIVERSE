@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { isRobotConnected } from './robot-websocket';
 
 // Track power cycle status
 interface PowerCycleStatus {
@@ -195,6 +196,31 @@ export async function checkLidarPowerServiceHealth(): Promise<boolean> {
     
     if (!available) {
       console.warn(`[SERVICE HEALTH] LiDAR power service check failed: ${error}`);
+      
+      // When LiDAR service fails, automatically attempt recovery
+      const lidarServiceHealth = robotServiceHealth.lidarPowerService;
+      
+      // Only attempt recovery after multiple consecutive failures
+      if (lidarServiceHealth.consecutiveFailures > 2 && !lidarServiceHealth.recoveryAttempted) {
+        console.log('[SERVICE HEALTH] LiDAR service has failed multiple times. Attempting recovery.');
+        const recoveryAttempted = await attemptServiceRecovery('lidarPowerService');
+        
+        if (!recoveryAttempted) {
+          console.log('[SERVICE HEALTH] No recovery method available for LiDAR. Consider power cycling the robot.');
+          
+          // Check if a power cycle is already in progress
+          if (!powerCycleState.inProgress && 
+              Date.now() - powerCycleState.lastAttempt > 10 * 60 * 1000) { // Ensure 10 minute gap between auto-power cycles
+            console.log('[SERVICE HEALTH] Initiating automatic power cycle to recover LiDAR service');
+            // Don't await this - let it run in the background
+            remotePowerCycleRobot('restart').then(result => {
+              console.log(`[SERVICE HEALTH] Auto power cycle result: ${JSON.stringify(result)}`);
+            }).catch(err => {
+              console.error('[SERVICE HEALTH] Auto power cycle failed:', err);
+            });
+          }
+        }
+      }
     } else {
       console.log('[SERVICE HEALTH] LiDAR power service is available');
     }
@@ -204,6 +230,17 @@ export async function checkLidarPowerServiceHealth(): Promise<boolean> {
     const errorMessage = error instanceof Error ? error.message : String(error);
     updateServiceHealth('lidarPowerService', false, errorMessage);
     console.warn(`[SERVICE HEALTH] LiDAR power service check failed with exception: ${errorMessage}`);
+    
+    // This is a serious error - it means the service endpoint itself is unreachable
+    console.warn('[SERVICE HEALTH] Service endpoint unreachable. Will check robot connection status.');
+    
+    // Check robot connection
+    if (isRobotConnected()) {
+      console.log('[SERVICE HEALTH] Robot is connected, but service endpoint unavailable. May need restart.');
+    } else {
+      console.error('[SERVICE HEALTH] Robot not connected. Cannot reach services.');
+    }
+    
     return false;
   }
 }
