@@ -1,120 +1,125 @@
-# Robot AI Integration Package
+# Robot AI Package
 
-This package installs an AI integration system on your AxBot robot, enabling direct on-robot intelligence with seamless connection to the central management platform.
+## Overview
 
-## Benefits
+The Robot AI Package enhances your robot with advanced local intelligence capabilities, reducing latency and improving reliability by running AI components directly on the robot hardware.
 
-- **Reduced latency**: Commands execute almost instantly without network delay
-- **Enhanced reliability**: Robot continues working during network outages
-- **Precision movement**: Direct access to low-level controls enables finer movements
-- **Smarter navigation**: On-robot processing for immediate decision-making
-- **Energy efficiency**: Reduces constant network data transmission
-- **Local fallback**: Critical operations don't depend on external systems
+## Features
 
-## Installation Instructions
+- **IoT Integration**: Seamless communication with doors, elevators, and other devices using ESP-NOW protocol
+- **Elevator Control**: Advanced multi-floor navigation with automatic elevator summoning
+- **Local Processing**: Reduced latency for critical operations
+- **Failover Protection**: Continue operation during network outages
+- **Resource Optimization**: Efficient use of robot CPU and memory
+- **Central Management**: Maintains connection to central management platform
+- **Package Management**: Integration with robot's built-in App Store
 
-1. **Download the installer script** to your robot:
+## Installation Options
 
-   ```bash
-   wget https://your-server.com/robot-ai-installer.sh -O robot-ai-installer.sh
-   chmod +x robot-ai-installer.sh
-   ```
+### Using Installer Script (Recommended)
 
-2. **Test installation** (optional - simulates installation without making changes):
+The easiest way to install is using the provided installer script:
 
-   ```bash
-   ./robot-ai-installer.sh --test
-   ```
+```bash
+./robot-ai-installer.sh [OPTIONS]
+```
 
-3. **Perform actual installation**:
+Available options:
+- `--test`: Run in test mode without making actual changes
+- `--with-iot`: Install IoT integration for doors and other devices
+- `--with-elevator`: Install elevator control module
+- `--with-door`: Install auto door module
+- `--from-app-store`: Install using the robot's built-in App Store (when available)
 
-   ```bash
-   ./robot-ai-installer.sh
-   ```
+### Using Robot App Store
 
-4. **Verify installation** by checking the service status:
+The Robot AI Package can also be installed using the robot's App Store API:
 
-   ```bash
-   systemctl status robot-ai
-   ```
+1. Refresh the package list:
+```bash
+curl -X POST http://<ROBOT_IP>:8090/app_store/services/refresh_store
+```
 
-5. **Connect to the web interface** to confirm setup:
+2. Download the Robot AI package:
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"packages": ["robot_ai"]}' \
+  http://<ROBOT_IP>:8090/app_store/services/download_packages
+```
 
-   ```
-   http://ROBOT_IP:8090
-   ```
+3. Install the downloaded package:
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"packages": ["robot_ai"]}' \
+  http://<ROBOT_IP>:8090/app_store/services/install_packages
+```
 
 ## Configuration
 
-The AI system is configured to automatically connect to your central management platform. You can modify connection settings in the configuration file:
-
-```bash
-nano /etc/robot-ai/config.json
+After installation, the Robot AI configuration file is located at:
+```
+/etc/robot-ai/config.json
 ```
 
-Main configuration options:
+You can modify this file to change settings such as:
+- Server connection details
+- Module settings
+- Resource limits
+- Logging configuration
 
-- `server_url`: URL of your central management server
-- `robot_id`: Unique identifier for this robot (defaults to hostname)
-- `secret_key`: Authentication token for secure communication
-- `log_level`: Logging verbosity (debug, info, warning, error)
+## Checking Status
 
-After changing configuration, restart the service:
-
+Check if the Robot AI service is running:
 ```bash
-systemctl restart robot-ai
+systemctl status robot-ai
 ```
 
-## Logging
-
-View real-time logs with:
-
+View logs:
 ```bash
 tail -f /var/log/robot-ai.log
 ```
 
-## Features
-
-- **ROS Integration**: Directly interfaces with ROS topics and services
-- **WebSocket API**: Real-time communication with the robot
-- **Machine Learning**: On-robot intelligence for navigation and obstacle avoidance
-- **Sensor Fusion**: Combines data from all robot sensors for better decision-making
-- **Fallback Controls**: Continues functioning during network outages
-- **Central Integration**: Maintains connection with your central management platform
-
-## Updating
-
-Updates are handled automatically when available. To manually trigger an update:
-
-```bash
-/opt/robot-ai/update.sh
+Access the web interface:
+```
+http://<ROBOT_IP>:8090/robot-ai/
 ```
 
 ## Troubleshooting
 
-Common issues and solutions:
+If you encounter any issues:
 
-1. **Service won't start**:
-   - Check logs: `journalctl -u robot-ai`
-   - Verify ROS is running: `rosnode list`
+1. Check the logs for errors:
+```bash
+tail -f /var/log/robot-ai.log
+```
 
-2. **Cannot connect to web interface**:
-   - Verify service is running: `systemctl status robot-ai`
-   - Check firewall settings: `sudo ufw status`
+2. Restart the service:
+```bash
+systemctl restart robot-ai
+```
 
-3. **Connection issues with central server**:
-   - Verify network connectivity: `ping your-server.com`
-   - Check server URL in config: `/etc/robot-ai/config.json`
+3. Check resource usage:
+```bash
+top -p $(pgrep -f robot-ai-node.py)
+```
 
-## Technical Architecture
+4. If necessary, follow the factory reset procedure in:
+```
+/etc/robot-ai/FACTORY_RESET_GUIDE.md
+```
 
-The Robot AI system consists of:
+## Uninstalling
 
-1. **ROS Node**: Interfaces directly with robot hardware
-2. **Web Server**: Provides API access and status dashboard
-3. **ML Engine**: Processes sensor data and makes decisions
-4. **Central Connector**: Maintains connection with management platform
+To uninstall the Robot AI package:
+```bash
+/opt/robot-ai/uninstall.sh
+```
 
-## Support
+## Compatibility
 
-For assistance, contact support at robot-ai-support@example.com or open an issue in the support portal.
+- Works with AX robot firmware version 2.5.0 and above
+- Requires developer mode for full functionality
+- Compatible with all IoT devices using ESP-NOW protocol
+- Supports all elevator models in the compatibility list

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Robot AI Installation Script
 # This script installs an AI package on your AxBot robot
-# Usage: ./robot-ai-installer.sh [--test] [--with-iot] [--with-elevator] [--with-door]
+# Usage: ./robot-ai-installer.sh [--test] [--with-iot] [--with-elevator] [--with-door] [--from-app-store]
 
 set -e
 ROBOT_IP=${ROBOT_IP:-"localhost"}
@@ -9,8 +9,11 @@ TEST_MODE=0
 WITH_IOT=0
 WITH_ELEVATOR=0
 WITH_DOOR=0
+FROM_APP_STORE=0
 DEV_MODE_ENABLED=0
 FACTORY_RESET_AVAILABLE=0
+PACKAGE_NAME="robot_ai"
+PACKAGE_VERSION="1.0.0"
 
 # Parse command line arguments
 for arg in "$@"; do
@@ -31,6 +34,10 @@ for arg in "$@"; do
       WITH_DOOR=1
       shift
       ;;
+    --from-app-store)
+      FROM_APP_STORE=1
+      shift
+      ;;
   esac
 done
 
@@ -49,7 +56,87 @@ if [ "$TEST_MODE" -eq 0 ] && [ ! -d "/opt/axbot" ]; then
   fi
 fi
 
+# Function to install via App Store API
+install_via_app_store() {
+  echo "📱 Installing via App Store API..."
+  
+  # Check if App Store API is available
+  if [ "$TEST_MODE" -eq 0 ]; then
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${ROBOT_IP}:8090/app_store/packages")
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "⚠️ App Store API not available (HTTP code: $HTTP_CODE)"
+      echo "   Falling back to direct installation method"
+      return 1
+    fi
+  else
+    echo "🧪 Test mode: Simulating App Store API interaction"
+  fi
+  
+  # Step 1: Refresh the App Store
+  echo "📊 Refreshing App Store package index..."
+  if [ "$TEST_MODE" -eq 0 ]; then
+    curl -s -X POST "http://${ROBOT_IP}:8090/app_store/services/refresh_store"
+    if [ $? -ne 0 ]; then
+      echo "⚠️ Failed to refresh App Store"
+      return 1
+    fi
+  else
+    echo "🧪 Test mode: Simulating App Store refresh"
+  fi
+  
+  # Step 2: Download the Robot AI package
+  echo "📦 Downloading ${PACKAGE_NAME} package from App Store..."
+  if [ "$TEST_MODE" -eq 0 ]; then
+    DOWNLOAD_RESPONSE=$(curl -s -X POST \
+      -H "Content-Type: application/json" \
+      -d "{\"packages\": [\"${PACKAGE_NAME}\"]}" \
+      "http://${ROBOT_IP}:8090/app_store/services/download_packages")
+    
+    # Check for errors in response
+    if [[ $DOWNLOAD_RESPONSE == *"invalid module"* ]]; then
+      echo "⚠️ ${PACKAGE_NAME} package not found in App Store"
+      return 1
+    fi
+  else
+    echo "🧪 Test mode: Simulating package download"
+    sleep 2
+  fi
+  
+  # Step 3: Install the Robot AI package
+  echo "🔧 Installing ${PACKAGE_NAME} package from App Store..."
+  if [ "$TEST_MODE" -eq 0 ]; then
+    INSTALL_RESPONSE=$(curl -s -X POST \
+      -H "Content-Type: application/json" \
+      -d "{\"packages\": [\"${PACKAGE_NAME}\"]}" \
+      "http://${ROBOT_IP}:8090/app_store/services/install_packages")
+    
+    # Check for errors in response
+    if [[ $INSTALL_RESPONSE == *"skip"* ]]; then
+      echo "⚠️ Installation skipped: $INSTALL_RESPONSE"
+      return 1
+    fi
+  else
+    echo "🧪 Test mode: Simulating package installation"
+    sleep 3
+  fi
+  
+  echo "✅ ${PACKAGE_NAME} package installed successfully via App Store"
+  return 0
+}
+
 echo "📥 Downloading Robot AI package..."
+
+# Try App Store installation if requested
+if [ "$FROM_APP_STORE" -eq 1 ]; then
+  install_via_app_store
+  if [ $? -eq 0 ]; then
+    echo "🚀 Installation via App Store completed successfully!"
+    exit 0
+  else
+    echo "⚠️ App Store installation failed, falling back to direct installation"
+  fi
+fi
+
 mkdir -p /tmp/robot-ai
 cd /tmp/robot-ai
 
