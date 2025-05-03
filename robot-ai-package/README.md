@@ -1,192 +1,127 @@
 # Robot AI Package
 
 ## Overview
+The Robot AI Package enhances your robot with advanced autonomous capabilities including:
+- Map visualization and management
+- Intelligent robot movement and navigation
+- Elevator operations
+- Door access control
+- Live camera integration
+- Task queue management
+- Web-based dashboard interface
 
-The Robot AI Package is an advanced enhancement system for your robot, bringing intelligent, autonomous capabilities that improve navigation, map visualization, obstacle avoidance, multi-floor operations, and much more.
+Version: 1.0.0
 
-**Version:** 1.0.0  
-**Author:** AI Assistant
+## Installation Methods
 
-## Features
+### Method 1: Web Dashboard Approach (Recommended)
+The simplest approach is to use the web dashboard, which requires no installation:
 
-- **Enhanced Navigation** - Smarter path planning and obstacle avoidance
-- **Real-time Map Visualization** - Advanced map rendering and interactive displays
-- **Multi-Camera Support** - Live video streaming and frame processing
-- **Elevator Integration** - Seamless multi-floor navigation
-- **Door Control** - Automatic door detection and control via ESP-NOW
-- **Task Queue System** - Prioritized FIFO task management
-- **Self-Update Mechanism** - Automatic updates and maintenance
+1. Download the `dashboard.html` file to your computer
+2. Open this file in your web browser
+3. Enter your robot's IP address (default: 192.168.4.31)
+4. Click "Connect"
 
-## System Requirements
+The web dashboard will connect directly to your robot's API and provide full control capabilities.
 
-- Robot with ROS-based control system
-- Python 3.6 or higher
-- Network connectivity to the robot
-- At least 100MB of free disk space
-- 256MB of RAM
+### Method 2: Manual Installation (Advanced)
+If you have direct access to your robot's file system, you can install the complete package:
 
-## Installation
+1. Copy the entire package to your robot
+2. Run the installation script:
+   ```
+   python3 install.py
+   ```
+3. Access the dashboard at: http://localhost:8080/dashboard.html
 
-### Standard Installation
+## Modules
 
-1. Download the Robot AI Package zip file
-2. Extract the contents to a temporary directory
-3. Run the installation script:
+### Core Module
+The main module that manages robot control and coordinates all other modules.
+- Robot movement and navigation
+- WebSocket connection management
+- State tracking and monitoring
 
-```bash
-cd robot-ai-package
-python3 install.py --robot-ip YOUR_ROBOT_IP --robot-sn YOUR_ROBOT_SERIAL
-```
+### Camera Module
+Provides enhanced camera functionality for your robot.
+- Live video streaming
+- Camera feed processing
+- Multi-camera support
 
-### Development Mode Installation
+### Map Module
+Manages map visualization and navigation features.
+- Map loading and rendering
+- Position tracking
+- Path planning visualization
 
-For development or testing without system-wide installation:
+### Door Module
+Enables automatic door control.
+- Door detection
+- ESP-NOW communication with door controllers
+- Automatic door opening along planned routes
 
-```bash
-python3 install.py --robot-ip YOUR_ROBOT_IP --robot-sn YOUR_ROBOT_SERIAL --dev-mode
-```
+### Elevator Module
+Provides multi-floor navigation capabilities.
+- Elevator detection and control
+- Floor selection
+- Automatic entry and exit
 
-### Installation Options
-
-The installer supports several command-line options:
-
-- `--robot-ip` - Specify the robot's IP address (default: 127.0.0.1)
-- `--robot-port` - Specify the robot's port (default: 8090)
-- `--robot-sn` - Specify the robot's serial number
-- `--use-ssl` - Enable SSL for connections to the robot
-- `--no-systemd` - Skip installing as a systemd service
-- `--dev-mode` - Install in development mode (local directory, no systemd)
-- `--uninstall` - Uninstall the Robot AI Package
+### Task Queue Module
+Manages sequences of robot tasks.
+- FIFO task queue
+- Task prioritization
+- Scheduled operations
 
 ## Usage
 
-After installation, the Robot AI system will automatically start. It connects to your robot and enhances its capabilities without requiring any changes to existing robot software.
+### Robot Connection
+To connect to your robot, ensure you know its IP address and have the secret key.
+The default connection settings are:
+- Robot IP: 192.168.4.31
+- Robot Port: 8090
 
-### Web Interface
+### Moving the Robot
+The web dashboard provides intuitive controls for robot movement:
+1. Load a map using the "Maps" dropdown
+2. Set an initial pose if needed
+3. Use the "Movement Controls" section to specify coordinates
+4. Click "Move to Position"
 
-The Robot AI provides a web interface accessible at:
+### Camera Control
+Control and view live feeds from the robot's cameras:
+1. Select the camera source (front, back, or depth)
+2. Adjust quality and frame rate settings
+3. Enable auto-refresh for continuous updates
 
-```
-http://<robot-ip>:8080
-```
+### LiDAR Visualization
+View and control the LiDAR visualization:
+1. Adjust the display range and point size
+2. Toggle obstacle and intensity visualization
+3. Use the refresh button to update the visualization
 
-### Monitoring
-
-To check the status of the Robot AI service:
-
-```bash
-sudo systemctl status robot-ai
-```
-
-### Log Files
-
-Log files are stored in the `/var/log/robot-ai/` directory and can be viewed with:
-
-```bash
-cat /var/log/robot-ai/robot-ai.log
-```
-
-## Features in Detail
-
-### Enhanced Navigation
-
-The Robot AI improves path planning by analyzing the current map and avoiding obstacles more efficiently. It implements:
-
-- A* path planning with smoothing
-- Dynamic obstacle avoidance
-- Optimized waypoint reduction
-
-### Map Visualization
-
-Advanced map processing enhances the visualization of maps with:
-
-- High-resolution rendering
-- LiDAR data overlay
-- Path visualization
-- Robot position tracking
-
-### Camera Integration
-
-The camera module provides:
-
-- Real-time video streaming
-- Frame capture and processing
-- Multi-camera support
-- Frame annotation capabilities
-
-### Elevator Integration
-
-For multi-floor navigation, the elevator controller handles:
-
-- Moving to and waiting for elevators
-- Automatic floor detection
-- ESP-NOW or API-based elevator control
-- Coordinated entry and exit operations
-
-### Door Control
-
-The door controller:
-
-- Detects when doors are needed on the robot's path
-- Communicates with doors via ESP-NOW protocol
-- Automatically requests door opening when approaching
-
-### Task Queue
-
-The task queue system provides:
-
-- Priority-based FIFO processing
-- Task dependencies and ordering
-- Task persistence across restarts
-- Comprehensive task monitoring
-
-## Configuration
-
-Configuration files are located in `/etc/robot-ai/config.json`. You can edit this file to customize the Robot AI behavior:
-
-```json
-{
-  "robot_ip": "192.168.1.100",
-  "robot_port": 8090,
-  "robot_sn": "L382502104987ir",
-  "use_ssl": false,
-  "version": "1.0.0",
-  "installed_at": 1684512345.67
-}
-```
+### Task Management
+Create and manage sequences of tasks:
+1. Select a task type (move, elevator, door, wait, charge)
+2. Enter the required parameters for the selected task
+3. Click "Add Task" to add to the queue
+4. Tasks will be executed in sequence
 
 ## Troubleshooting
 
 ### Connection Issues
+- Verify the robot is powered on and connected to the network
+- Check that you're using the correct IP address and port
+- Ensure you have the correct robot secret key
 
-If the Robot AI can't connect to your robot:
+### Movement Problems
+- Check if the robot is in automatic control mode
+- Verify that a map has been loaded
+- Ensure the target position is within the accessible area of the map
 
-1. Verify the robot IP and port in the configuration
-2. Ensure the robot is powered on and on the same network
-3. Check firewall settings that might block connections
-4. Verify the robot's WebSocket server is running
-
-### Startup Problems
-
-If the Robot AI service doesn't start:
-
-1. Check log files in `/var/log/robot-ai/`
-2. Verify the robot serial number in the configuration
-3. Ensure Python and dependencies are correctly installed
-4. Try starting manually: `/opt/robot-ai/start.sh`
-
-## Uninstallation
-
-To uninstall the Robot AI Package:
-
-```bash
-python3 install.py --uninstall
-```
-
-## License
-
-This software is proprietary and is licensed for use only on authorized robots.
+### Camera Feed Issues
+- Try refreshing the camera feed
+- Reduce the quality setting if the connection is slow
+- Try switching to a different camera
 
 ## Support
-
-For support and assistance, please contact the robot manufacturer or authorized distributors.
+For assistance with the Robot AI Package, please contact support.
