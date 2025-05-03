@@ -133,7 +133,7 @@ export const getQueryFn: <T>(options: {
         // Return appropriate error object based on endpoint type
         if (url.includes('/status/')) {
           return {
-            model: "AxBot",
+            model: "AxBot Physical Robot",
             serialNumber: url.split('/').pop() || "",
             battery: 0,
             status: "offline",

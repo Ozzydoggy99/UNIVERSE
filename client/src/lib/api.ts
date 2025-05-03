@@ -168,7 +168,7 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
     } catch (error) {
       console.error('Error in general status fetch:', error);
       return {
-        model: "AxBot",
+        model: "AxBot Physical Robot",
         serialNumber: "unknown",
         battery: 0,
         status: "offline",
@@ -1001,7 +1001,7 @@ export async function refreshAllData() {
     return [
       // Status with error
       {
-        model: "AxBot",
+        model: "AxBot Physical Robot",
         serialNumber: "L382502104987ir",
         battery: 0,
         status: "offline",
