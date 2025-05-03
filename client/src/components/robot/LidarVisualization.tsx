@@ -361,8 +361,8 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw LiDAR points - high performance rendering
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+    // Draw LiDAR points - high performance rendering with enhanced visuals
+    ctx.fillStyle = 'rgba(255, 50, 50, 0.8)'; // Brighter, more vibrant red
     
     // First try to render range data if available
     if (data.ranges && data.ranges.length > 0) {
@@ -733,9 +733,9 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         <div className="flex justify-center">
           <canvas
             ref={canvasRef}
-            width={400}
-            height={300}
-            className="border border-border rounded-md bg-white"
+            width={600}
+            height={450}
+            className="border border-border rounded-md bg-white w-full h-auto"
           />
         </div>
         
