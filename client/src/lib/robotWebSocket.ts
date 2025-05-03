@@ -359,35 +359,37 @@ export function startMappingStreams(serialNumber?: string, customTopics?: string
   const robot = serialNumber || 'L382502104987ir';
   console.log(`Starting real-time mapping streams for robot ${robot}`);
   
-  // These are the mapping-specific topics needed for comprehensive mapping
+  // These are the critical topics needed for proper map visualization with walls and barriers
   const defaultTopics = [
-    // Basic map data 
-    '/map',
-    '/map_v2',
+    // Occupancy grid map - MOST IMPORTANT for wall visualization
+    '/map',          // Primary occupancy grid - this contains walls/barriers visualization
+    '/map_v2',       // Newer version of occupancy grid
     
-    // SLAM state information
+    // SLAM state information for position quality
     '/slam/state',
     
-    // Different map resolution streams
-    '/maps/5cm/1hz',
-    '/maps/1cm/1hz',
+    // Map resolution streams for better visualization
+    '/maps/5cm/1hz', // Low-res for overview
+    '/maps/1cm/1hz', // High-res for detail
     
     // Path and trajectory information
-    '/trajectory', 
-    '/trajectory_node_list',
-    '/path',
+    '/trajectory',           // Robot's path during mapping
+    '/trajectory_node_list', // For older robot versions
+    '/path',                 // Planned path
     
-    // LiDAR and point cloud data
-    '/scan_matched_points2',
-    '/scans',
-    '/scan',
+    // LiDAR and point cloud data - critical for wall detection
+    '/scan_matched_points2', // Point cloud that's been matched to the map
+    '/scan',                 // Raw LiDAR scan
     
-    // Add any additional topics needed for full mapping visualization
-    '/submap_list'
+    // Submaps for visualization
+    '/submap_list'           // Smaller map segments that make up the full map
   ];
   
   // Use provided custom topics or fall back to defaults
   const topics = customTopics || defaultTopics;
+  
+  console.log('Enabling these mapping topics for visualization:');
+  console.log(topics.join(', '));
   
   // Send request to enable mapping-specific topics on the server
   robotWebSocket.sendMessage({
@@ -398,7 +400,9 @@ export function startMappingStreams(serialNumber?: string, customTopics?: string
   
   // Also request current data to initialize the UI
   robotWebSocket.requestPosition(robot);
-  robotWebSocket.requestMapData(robot);
+  
+  // Request map data with force update to ensure we get the latest map occupancy grid
+  robotWebSocket.requestMapData(robot, true);
   
   // Connect to WebSocket if not already connected
   if (!robotWebSocket.isConnected()) {
