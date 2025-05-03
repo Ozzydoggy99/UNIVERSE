@@ -2,13 +2,71 @@
  * Robot AI Installer API
  * 
  * This module provides API endpoints for remotely installing the Robot AI package
- * on robots that have already had the installer uploaded to them.
+ * on robots, including uploading the installer file if needed.
  */
 
 import { Request, Response } from 'express';
 import fetch from 'node-fetch';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 import type { Express } from 'express';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Upload the Robot AI installer to the robot
+ * 
+ * @param serialNumber The robot's serial number
+ * @param destinationPath The path to save the installer on the robot
+ * @returns Object with success status and upload path
+ */
+export async function uploadInstallerToRobot(serialNumber: string, destinationPath: string = '/tmp/robot-ai-minimal-installer.py') {
+  console.log(`Uploading Robot AI installer to robot ${serialNumber} at path ${destinationPath}`);
+  
+  try {
+    // Read the installer file from the local filesystem
+    const installerPath = path.join(process.cwd(), 'robot-ai-minimal-installer.py');
+    if (!fs.existsSync(installerPath)) {
+      throw new Error(`Installer file not found at ${installerPath}`);
+    }
+    
+    const installerContent = fs.readFileSync(installerPath, 'utf8');
+    console.log(`Read installer file (${installerContent.length} bytes)`);
+    
+    // Upload the installer to the robot using the file upload API
+    console.log(`Uploading installer to robot at ${destinationPath}`);
+    const uploadResponse = await fetch(`${ROBOT_API_URL}/files/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Secret ${ROBOT_SECRET}`
+      },
+      body: JSON.stringify({
+        path: destinationPath,
+        content: installerContent
+      })
+    });
+    
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error(`Upload response error (${uploadResponse.status}): ${errorText}`);
+      throw new Error(`Failed to upload installer: HTTP ${uploadResponse.status} - ${errorText}`);
+    }
+    
+    console.log('Upload successful');
+    
+    return {
+      success: true,
+      message: `Successfully uploaded Robot AI installer to ${destinationPath}`,
+      path: destinationPath
+    };
+  } catch (error) {
+    console.error('Error uploading Robot AI installer:', error);
+    return {
+      success: false,
+      message: `Error uploading Robot AI installer: ${error.message}`
+    };
+  }
+}
 
 /**
  * Execute the Robot AI installer script on a robot
@@ -22,7 +80,13 @@ export async function executeInstaller(serialNumber: string, installerPath: stri
   console.log(`Robot API URL: ${ROBOT_API_URL}, Secret available: ${ROBOT_SECRET ? 'Yes' : 'No'}`);
   
   try {
-    // First, make the installer executable
+    // First, upload the installer to the robot
+    const uploadResult = await uploadInstallerToRobot(serialNumber, installerPath);
+    if (!uploadResult.success) {
+      throw new Error(`Failed to upload installer: ${uploadResult.message}`);
+    }
+    
+    // Make the installer executable
     console.log(`Making installer executable: chmod +x ${installerPath}`);
     const chmodResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
       method: 'POST',
