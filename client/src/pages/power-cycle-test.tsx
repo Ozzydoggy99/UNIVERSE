@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PHYSICAL_ROBOT_SERIAL } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, AlertCircle, Info, Power } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Info, Power, AlertTriangle } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -13,14 +13,14 @@ export default function PowerCycleTestPage() {
   const { toast } = useToast();
   const serialNumber = PHYSICAL_ROBOT_SERIAL;
 
-  const handleDirectApiCall = async () => {
+  const handleSuccessTest = async () => {
     try {
       const res = await fetch(`/api/robots/${serialNumber}/test-power-cycle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({ simulateFailure: false })
       });
       
       if (!res.ok) {
@@ -31,7 +31,7 @@ export default function PowerCycleTestPage() {
       
       toast({
         title: "Test Started",
-        description: "Power cycle test has started. The robot will simulate a restart.",
+        description: "Power cycle test has started. The robot will simulate a successful restart.",
         variant: "default",
       });
       
@@ -41,6 +41,39 @@ export default function PowerCycleTestPage() {
       toast({
         title: "Test Failed",
         description: error instanceof Error ? error.message : "Failed to start power cycle test",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFailureTest = async () => {
+    try {
+      const res = await fetch(`/api/robots/${serialNumber}/test-power-cycle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ simulateFailure: true })
+      });
+      
+      if (!res.ok) {
+        throw new Error(`API returned ${res.status}: ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      
+      toast({
+        title: "Recovery Failure Test",
+        description: "Simulating a power cycle where the robot fails to reconnect.",
+        variant: "default",
+      });
+      
+      console.log('Test power cycle failure response:', data);
+    } catch (error) {
+      console.error('Error calling test API:', error);
+      toast({
+        title: "Test Error",
+        description: error instanceof Error ? error.message : "Failed to run failure test",
         variant: "destructive",
       });
     }
@@ -83,11 +116,13 @@ export default function PowerCycleTestPage() {
                 This test simulates a successful power cycle where the robot restarts and reconnects properly.
               </p>
               
-              <PowerCycleButton 
-                serialNumber={serialNumber}
+              <Button 
+                onClick={handleSuccessTest}
                 variant="outline"
-                buttonText="Test Normal Restart"
-              />
+                className="border-blue-200 hover:bg-blue-50"
+              >
+                Test Successful Restart
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -95,7 +130,7 @@ export default function PowerCycleTestPage() {
         <Card className="border-amber-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
               Recovery Failure Test
             </CardTitle>
             <CardDescription>
@@ -105,38 +140,11 @@ export default function PowerCycleTestPage() {
           <CardContent>
             <div className="flex flex-col items-start gap-2">
               <p className="text-sm text-muted-foreground mb-4">
-                This test simulates a scenario where the robot shuts down but doesn't successfully reconnect,
-                triggering the recovery failure detection after maximum timeout.
+                This test simulates a power cycle where the robot fails to reconnect properly, triggering the recovery failure detection.
               </p>
               
               <Button 
-                onClick={async () => {
-                  try {
-                    const res = await fetch(`/api/robots/${serialNumber}/test-power-cycle`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({ simulateFailure: true })
-                    });
-                    
-                    if (!res.ok) {
-                      throw new Error(`Failed to start test: ${res.status}`);
-                    }
-                    
-                    toast({
-                      title: "Recovery Failure Test",
-                      description: "Simulating a power cycle where the robot fails to reconnect.",
-                      variant: "default",
-                    });
-                  } catch (error) {
-                    toast({
-                      title: "Test Error",
-                      description: error instanceof Error ? error.message : "Failed to run test",
-                      variant: "destructive",
-                    });
-                  }
-                }}
+                onClick={handleFailureTest}
                 variant="outline"
                 className="border-amber-200 hover:bg-amber-50"
               >
@@ -144,48 +152,32 @@ export default function PowerCycleTestPage() {
               </Button>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-start">
-            <div className="flex items-start gap-2">
-              <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <p className="text-xs text-muted-foreground">
-                This will simulate the case where the robot's system has shut down but fails to 
-                restart or reconnect to the network, requiring manual intervention.
-              </p>
-            </div>
-          </CardFooter>
         </Card>
         
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-blue-500" />
-              Direct API Call
+              <Info className="h-5 w-5 text-blue-500" />
+              Component Test
             </CardTitle>
             <CardDescription>
-              Call the test API endpoint directly
+              Test using the PowerCycleButton component
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-start gap-2">
               <p className="text-sm text-muted-foreground mb-4">
-                This triggers the test power cycle API directly without the dialog UI.
-                Monitor the console for detailed logs.
+                This tests the actual PowerCycleButton component with its dialog UI.
               </p>
               
-              <Button onClick={handleDirectApiCall} variant="outline">
-                Call Test API Directly
-              </Button>
+              <PowerCycleButton 
+                serialNumber={serialNumber}
+                variant="outline"
+                buttonText="Test Button Component"
+                isTestMode={true}
+              />
             </div>
           </CardContent>
-          <CardFooter className="flex justify-start">
-            <div className="flex items-start gap-2">
-              <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <p className="text-xs text-muted-foreground">
-                After triggering, check the console for detailed logs and navigate to
-                the Robot Details page to see the status indicator.
-              </p>
-            </div>
-          </CardFooter>
         </Card>
       </div>
       

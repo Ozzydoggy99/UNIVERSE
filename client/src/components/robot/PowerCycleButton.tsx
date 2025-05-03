@@ -27,6 +27,7 @@ interface PowerCycleButtonProps {
   className?: string;
   size?: 'default' | 'sm' | 'lg' | 'icon';
   buttonText?: string;
+  isTestMode?: boolean;
 }
 
 export function PowerCycleButton({ 
@@ -34,7 +35,8 @@ export function PowerCycleButton({
   variant = 'destructive', 
   className = '', 
   size = 'default',
-  buttonText = 'Power Cycle'
+  buttonText = 'Power Cycle',
+  isTestMode = false
 }: PowerCycleButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PowerCycleMethod>('restart');
@@ -158,21 +160,23 @@ export function PowerCycleButton({
           variant={variant} 
           className={className}
           size={size}
-          onClick={() => setIsOpen(true)}
+          onClick={isTestMode ? handleTestPowerCycle : () => setIsOpen(true)}
         >
           <Power className="h-4 w-4 mr-2" />
           {buttonText}
         </Button>
         
-        {/* Test button for demonstrating the power cycle functionality */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-xs"
-          onClick={handleTestPowerCycle}
-        >
-          Test Power Cycle
-        </Button>
+        {/* Test button for demonstrating the power cycle functionality - only shown in dev environments */}
+        {!isTestMode && process.env.NODE_ENV === 'development' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            onClick={handleTestPowerCycle}
+          >
+            Test Power Cycle
+          </Button>
+        )}
       </div>
       
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
