@@ -21,21 +21,30 @@ import traceback
 import subprocess
 from pathlib import Path
 try:
-    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
     import threading
     import webbrowser
 except ImportError:
     pass  # These modules might not be available on all systems
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('robot-ai-install.log') if os.access('.', os.W_OK) else logging.NullHandler()
-    ]
-)
+try:
+    log_handlers = [logging.StreamHandler(sys.stdout)]
+    if os.access('.', os.W_OK):
+        log_handlers.append(logging.FileHandler('robot-ai-install.log'))
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=log_handlers
+    )
+except Exception:
+    # Fallback logging configuration
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    )
+
 logger = logging.getLogger('robot-ai-extractor')
 
 # Constants
