@@ -26,6 +26,7 @@ import RobotTasks from "@/pages/robot-tasks";
 import MapTestPage from "@/pages/map-test-page";
 import LayeredMapPage from "@/pages/layered-map-page";
 import PowerCycleTestPage from "@/pages/power-cycle-test";
+import RobotInstaller from "@/pages/robot-installer";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -391,6 +392,12 @@ function Router() {
             <PowerCycleTestPage />
           </AppLayout>
         )} 
+      />
+      
+      {/* Robot AI Installer */}
+      <Route 
+        path="/robot-ai-installer" 
+        component={RobotInstaller} 
       />
       
       <Route component={NotFound} />
