@@ -21,7 +21,7 @@ export const powerCycleState: PowerCycleStatus = {
   lastAttempt: 0,
   success: false,
   recoveryFailed: false,
-  maxRecoveryTime: 5 * 60 * 1000 // 5 minutes max recovery time
+  maxRecoveryTime: 5 * 60 * 1000 // 5 minutes max recovery time for real robot
 };
 
 // Service health monitoring

@@ -1788,7 +1788,7 @@ export function registerRobotApiRoutes(app: Express) {
             diagnostics: {
               timestamp: new Date().toISOString(),
               robotConnected: isRobotConnected(),
-              apiEndpoint: apiUrl,
+              apiEndpoint: `${ROBOT_API_URL}${endpoint}`,
               detailedError: apiError.message,
               suggestedAction: 'Restart the robot or check if ROS services are running properly.'
             }
@@ -1801,7 +1801,7 @@ export function registerRobotApiRoutes(app: Express) {
           diagnostics: {
             timestamp: new Date().toISOString(),
             robotConnected: isRobotConnected(),
-            apiEndpoint: apiUrl,
+            apiEndpoint: `${ROBOT_API_URL}${endpoint}`,
             detailedError: apiError.message
           }
         });
@@ -2080,8 +2080,21 @@ export function registerRobotApiRoutes(app: Express) {
       powerCycleState.recoveryFailed = false;
       powerCycleState.robotConnected = false;
       powerCycleState.recoveryProgress = 0;
-      powerCycleState.maxRecoveryTime = 30 * 1000; // 30 seconds for test (shortened from real 5 min)
-      powerCycleState.expectedRecoveryTime = now + 30 * 1000; // 30 seconds for test
+      
+      // Use actual production recovery times for real-world testing
+      const isLiveTest = req.body.liveTest === true;
+      
+      if (isLiveTest) {
+        // Use real recovery times for live testing (same as production)
+        powerCycleState.maxRecoveryTime = 5 * 60 * 1000; // 5 minutes max recovery time for real robot
+        powerCycleState.expectedRecoveryTime = now + (method === 'restart' ? 2 * 60 * 1000 : 5 * 60 * 1000);
+        console.log(`[POWER CYCLE] LIVE TEST: Using real recovery times - expected: ${Math.round((powerCycleState.expectedRecoveryTime - now)/1000)}s, max: ${Math.round(powerCycleState.maxRecoveryTime/1000)}s`);
+      } else {
+        // Use shortened times for simulated testing
+        powerCycleState.maxRecoveryTime = 30 * 1000; // 30 seconds for simulated test
+        powerCycleState.expectedRecoveryTime = now + 30 * 1000; // 30 seconds for simulated test
+        console.log(`[POWER CYCLE] SIMULATION TEST: Using shortened recovery times - ${Math.round(powerCycleState.maxRecoveryTime/1000)}s`);
+      }
       
       // Return the initial state
       const status = getPowerCycleStatus();
