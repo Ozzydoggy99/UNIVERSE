@@ -1903,17 +1903,69 @@ def main():
     
     return True
 
+def check_requirements():
+    """Check if required packages are installed"""
+    required_packages = ["requests", "urllib3"]
+    missing_packages = []
+    
+    for package in required_packages:
+        try:
+            __import__(package)
+        except ImportError:
+            missing_packages.append(package)
+    
+    if missing_packages:
+        print_status("Missing required packages: " + ", ".join(missing_packages))
+        print_status("Please install them using: pip install " + " ".join(missing_packages))
+        print_status("For example: pip install requests urllib3")
+        return False
+    
+    return True
+
 if __name__ == "__main__":
     try:
+        print("=" * 60)
+        print("Robot AI Uploader - Direct Installation Tool")
+        print("=" * 60)
+        print("This tool will install the Robot AI package on your robot.")
+        print("Target robot: L382502104987ir at 192.168.4.31:8090")
+        print("=" * 60)
+        
+        # Check requirements first
+        if not check_requirements():
+            print("\nPlease install the required packages and try again.")
+            input("\nPress Enter to exit...")
+            sys.exit(1)
+        
+        # Check if we have the robot secret
+        if not ROBOT_SECRET:
+            print("\nYou will need the robot's secret key for authentication.")
+            print("This is typically provided by the robot manufacturer.")
+            ROBOT_SECRET = input("Please enter the robot secret key: ")
+            if not ROBOT_SECRET:
+                print_status("No secret key provided. Installation cannot continue.")
+                input("\nPress Enter to exit...")
+                sys.exit(1)
+        
+        # Run the installer
         success = main()
         if not success:
             print_status("Installation failed.")
+            input("\nPress Enter to exit...")
             sys.exit(1)
     except KeyboardInterrupt:
         print_status("\nInstallation cancelled by user.")
+        input("\nPress Enter to exit...")
         sys.exit(1)
     except Exception as e:
         print_status(f"Unexpected error: {e}")
+        print("\nDetailed error information:")
+        import traceback
+        traceback.print_exc()
+        input("\nPress Enter to exit...")
         sys.exit(1)
     
+    print("\nInstallation completed successfully!")
+    print("You can access the Robot AI dashboard at:")
+    print(f"http://{ROBOT_IP}:8080")
     input("\nPress Enter to exit...")
