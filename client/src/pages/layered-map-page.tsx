@@ -414,8 +414,13 @@ export default function LayeredMapPage() {
     return { x: pixelX, y: pixelY };
   }
 
+  // Use a React ref to store the last valid orientation
+  const lastValidOrientationRef = useRef<number>(0);
+  
   // Draw robot as a triangle pointing in the direction of travel
   function drawRobot(ctx: CanvasRenderingContext2D, position: Point & { orientation?: number }) {
+    // Last valid orientation is accessible via the ref
+    
     const pixelPos = worldToPixel(position);
     
     // Robot size in pixels
@@ -431,17 +436,28 @@ export default function LayeredMapPage() {
     ctx.fill();
     
     // The orientation is already in radians (API returns 1.57 which is pi/2 or 90 degrees)
-    // Default to 0 if not provided
-    const orientationRadians = position.orientation || 0;
+    // Default to last known orientation if not provided or is invalid
+    let orientationRadians: number = position.orientation || 0;
     
-    // Subtract 90 degrees (π/2 radians) to rotate arrow counterclockwise (opposite direction)
+    if (isNaN(orientationRadians)) {
+      // Use last known orientation if the current one is invalid
+      orientationRadians = lastValidOrientationRef.current;
+      console.log('Using cached orientation:', orientationRadians);
+    } else {
+      // Only update last valid orientation if this one is valid
+      // This prevents jitter when we get intermittent bad values
+      lastValidOrientationRef.current = orientationRadians;
+    }
+    
+    // Subtract 90 degrees (π/2 radians) to rotate arrow counterclockwise
+    // This aligns with the LiDAR visualization and standard coordinate systems
     const adjustedOrientation = orientationRadians - Math.PI/2;
     
     // Apply transformations to draw orientation triangle
     ctx.translate(pixelPos.x, pixelPos.y);
     ctx.rotate(-adjustedOrientation); // Negative because canvas Y is flipped
     
-    // Draw orientation triangle
+    // Draw orientation triangle (pointing forward)
     ctx.fillStyle = '#00796b'; // Darker green for orientation
     ctx.beginPath();
     ctx.moveTo(0, -robotSize - 5); // Point at the top (robot's front)
@@ -464,6 +480,12 @@ export default function LayeredMapPage() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('R', pixelPos.x, pixelPos.y);
+    
+    // Draw orientation value for debug purposes (at bottom of canvas)
+    ctx.fillStyle = '#666';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Orientation: ${(orientationRadians * (180/Math.PI)).toFixed(2)}°`, 10, canvasRef.current!.height - 25);
   }
 
   // Draw base map layer
