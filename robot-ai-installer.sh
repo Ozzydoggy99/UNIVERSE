@@ -1,17 +1,34 @@
 #!/bin/bash
 # Robot AI Installation Script
 # This script installs an AI package on your AxBot robot
-# Usage: ./robot-ai-installer.sh [--test]
+# Usage: ./robot-ai-installer.sh [--test] [--with-iot] [--with-elevator] [--with-door]
 
 set -e
 ROBOT_IP=${ROBOT_IP:-"localhost"}
 TEST_MODE=0
+WITH_IOT=0
+WITH_ELEVATOR=0
+WITH_DOOR=0
+DEV_MODE_ENABLED=0
+FACTORY_RESET_AVAILABLE=0
 
 # Parse command line arguments
 for arg in "$@"; do
   case $arg in
     --test)
       TEST_MODE=1
+      shift
+      ;;
+    --with-iot)
+      WITH_IOT=1
+      shift
+      ;;
+    --with-elevator)
+      WITH_ELEVATOR=1
+      shift
+      ;;
+    --with-door)
+      WITH_DOOR=1
       shift
       ;;
   esac
@@ -245,22 +262,139 @@ set -e
 INSTALL_DIR=${INSTALL_DIR:-"/opt/robot-ai"}
 CONFIG_DIR=${CONFIG_DIR:-"/etc/robot-ai"}
 LOG_DIR=${LOG_DIR:-"/var/log"}
+WITH_IOT=${WITH_IOT:-0}
+WITH_ELEVATOR=${WITH_ELEVATOR:-0}
+WITH_DOOR=${WITH_DOOR:-0}
 
 echo "Installing Robot AI to $INSTALL_DIR..."
+
+# Check for developer mode
+if [ -f "/opt/axbot/dev_mode" ] || [ -f "/opt/axbot/developer_mode" ]; then
+  echo "✅ Developer mode detected. Factory reset will be available if needed."
+  DEV_MODE_ENABLED=1
+  FACTORY_RESET_AVAILABLE=1
+else
+  echo "⚠️ Developer mode not detected. Note that factory reset functionality may be limited."
+  echo "   It is recommended to enable developer mode before proceeding."
+  echo "   Continue anyway? (y/n)"
+  read -r response
+  if [[ ! "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    echo "Installation canceled."
+    exit 1
+  fi
+  DEV_MODE_ENABLED=0
+  FACTORY_RESET_AVAILABLE=0
+fi
 
 # Create directories
 mkdir -p $INSTALL_DIR
 mkdir -p $CONFIG_DIR
+mkdir -p $CONFIG_DIR/modules
 touch $LOG_DIR/robot-ai.log
 chmod 666 $LOG_DIR/robot-ai.log
 
-# Copy files
+# Copy main files
 cp robot-ai-node.py $INSTALL_DIR/
 cp requirements.txt $INSTALL_DIR/
+cp robot-ai-factory-reset.md $CONFIG_DIR/FACTORY_RESET_GUIDE.md
 chmod +x $INSTALL_DIR/robot-ai-node.py
 
+# Copy module files
+if [ "$WITH_IOT" -eq 1 ]; then
+  cp robot-ai-iot-module.py $INSTALL_DIR/modules/
+  chmod +x $INSTALL_DIR/modules/robot-ai-iot-module.py
+  echo "✅ IoT module installed"
+fi
+
+if [ "$WITH_ELEVATOR" -eq 1 ]; then
+  cp robot-ai-elevator-module.py $INSTALL_DIR/modules/
+  chmod +x $INSTALL_DIR/modules/robot-ai-elevator-module.py
+  echo "✅ Elevator module installed"
+fi
+
+if [ "$WITH_DOOR" -eq 1 ]; then
+  cp robot-ai-door-module.py $INSTALL_DIR/modules/ 2>/dev/null || echo "⚠️ Door module not found, skipping"
+  chmod +x $INSTALL_DIR/modules/robot-ai-door-module.py 2>/dev/null || true
+  echo "✅ Door module installed"
+fi
+
+# Create configuration file
+cat > $CONFIG_DIR/config.json << EOC
+{
+  "version": "1.0.0",
+  "server_url": "http://localhost:5000",
+  "robot_sn": "$(hostname)",
+  "modules": {
+    "iot": $WITH_IOT,
+    "elevator": $WITH_ELEVATOR,
+    "door": $WITH_DOOR
+  },
+  "safety": {
+    "dev_mode_enabled": $DEV_MODE_ENABLED,
+    "factory_reset_available": $FACTORY_RESET_AVAILABLE,
+    "max_cpu_usage": 80,
+    "max_memory_usage": 75,
+    "watchdog_interval_seconds": 30
+  },
+  "logging": {
+    "level": "info",
+    "max_file_size_mb": 10,
+    "max_files": 5,
+    "log_dir": "$LOG_DIR"
+  }
+}
+EOC
+
 # Install dependencies
+echo "Installing Python dependencies..."
 pip3 install -r $INSTALL_DIR/requirements.txt
+
+# Add monitoring script
+cat > $INSTALL_DIR/watchdog.sh << 'EOWATCHDOG'
+#!/bin/bash
+# Watchdog script to monitor and restart the Robot AI if needed
+
+CONFIG_DIR=${CONFIG_DIR:-"/etc/robot-ai"}
+LOG_DIR=${LOG_DIR:-"/var/log"}
+
+# Get settings from config
+MAX_CPU=$(grep -o '"max_cpu_usage": [0-9]*' $CONFIG_DIR/config.json | grep -o '[0-9]*')
+MAX_MEM=$(grep -o '"max_memory_usage": [0-9]*' $CONFIG_DIR/config.json | grep -o '[0-9]*')
+
+# Check CPU and memory usage
+ROBOT_AI_PID=$(pgrep -f robot-ai-node.py)
+if [ -z "$ROBOT_AI_PID" ]; then
+  echo "[$(date)] Robot AI not running, restarting service" >> $LOG_DIR/robot-ai-watchdog.log
+  systemctl restart robot-ai
+  exit 0
+fi
+
+CPU_USAGE=$(ps -p $ROBOT_AI_PID -o %cpu | tail -1 | tr -d ' ')
+MEM_USAGE=$(ps -p $ROBOT_AI_PID -o %mem | tail -1 | tr -d ' ')
+
+if (( $(echo "$CPU_USAGE > $MAX_CPU" | bc -l) )); then
+  echo "[$(date)] CPU usage too high ($CPU_USAGE%), restarting service" >> $LOG_DIR/robot-ai-watchdog.log
+  systemctl restart robot-ai
+  exit 0
+fi
+
+if (( $(echo "$MEM_USAGE > $MAX_MEM" | bc -l) )); then
+  echo "[$(date)] Memory usage too high ($MEM_USAGE%), restarting service" >> $LOG_DIR/robot-ai-watchdog.log
+  systemctl restart robot-ai
+  exit 0
+fi
+
+# Check if the service is responsive
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8090/api/status
+if [ $? -ne 0 ]; then
+  echo "[$(date)] API endpoint not responding, restarting service" >> $LOG_DIR/robot-ai-watchdog.log
+  systemctl restart robot-ai
+  exit 0
+fi
+
+echo "[$(date)] Service running normally - CPU: $CPU_USAGE%, MEM: $MEM_USAGE%" >> $LOG_DIR/robot-ai-watchdog.log
+EOWATCHDOG
+chmod +x $INSTALL_DIR/watchdog.sh
 
 # Create systemd service
 cat > /etc/systemd/system/robot-ai.service << 'EOSVC'
@@ -271,9 +405,11 @@ After=network.target
 [Service]
 Type=simple
 User=root
+WorkingDirectory=/opt/robot-ai
 ExecStart=/usr/bin/python3 /opt/robot-ai/robot-ai-node.py
 Restart=always
 RestartSec=10
+Environment=CONFIG_DIR=/etc/robot-ai
 Environment=SERVER_URL=http://localhost:5000
 Environment=ROBOT_SECRET=test-secret
 
@@ -281,9 +417,66 @@ Environment=ROBOT_SECRET=test-secret
 WantedBy=multi-user.target
 EOSVC
 
-# Enable and start service
+# Create watchdog timer service
+cat > /etc/systemd/system/robot-ai-watchdog.timer << 'EOTIMER'
+[Unit]
+Description=Run Robot AI watchdog every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
+EOTIMER
+
+cat > /etc/systemd/system/robot-ai-watchdog.service << 'EOWATCHDOGSVC'
+[Unit]
+Description=Robot AI Watchdog Service
+After=robot-ai.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/robot-ai/watchdog.sh
+
+[Install]
+WantedBy=multi-user.target
+EOWATCHDOGSVC
+
+# Create uninstall script
+cat > $INSTALL_DIR/uninstall.sh << 'EOUNINSTALL'
+#!/bin/bash
+echo "Uninstalling Robot AI..."
+
+# Stop and disable services
+systemctl stop robot-ai.service robot-ai-watchdog.timer robot-ai-watchdog.service
+systemctl disable robot-ai.service robot-ai-watchdog.timer robot-ai-watchdog.service
+
+# Remove service files
+rm -f /etc/systemd/system/robot-ai.service
+rm -f /etc/systemd/system/robot-ai-watchdog.timer
+rm -f /etc/systemd/system/robot-ai-watchdog.service
+
+# Reload systemd
+systemctl daemon-reload
+
+# Remove installation directory
+rm -rf /opt/robot-ai
+rm -rf /etc/robot-ai
+
+echo "Robot AI has been uninstalled."
+EOUNINSTALL
+chmod +x $INSTALL_DIR/uninstall.sh
+
+# Enable and start services
+echo "Enabling and starting services..."
+systemctl daemon-reload
 systemctl enable robot-ai.service
+systemctl enable robot-ai-watchdog.timer
+systemctl enable robot-ai-watchdog.service
 systemctl start robot-ai.service
+systemctl start robot-ai-watchdog.timer
 
 echo "Robot AI installation complete! Check status with: systemctl status robot-ai"
 EOL
