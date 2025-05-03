@@ -68,6 +68,7 @@ interface LayeredMap {
   origin: [number, number];
   size: [number, number];
   layers: MapLayer[];
+  _forceUpdate?: number; // Timestamp for forcing re-renders
 }
 
 export default function LayeredMapPage() {
@@ -85,6 +86,7 @@ export default function LayeredMapPage() {
   const [showGrid, setShowGrid] = useState(true);
   const [followRobot, setFollowRobot] = useState(true);
   const [showMapBuilder, setShowMapBuilder] = useState(false);
+  const [localLidarData, setLocalLidarData] = useState<LidarData | null>(null);
   const { toast } = useToast();
 
   // Get robot WebSocket state from context
@@ -245,18 +247,46 @@ export default function LayeredMapPage() {
       
       // Also fetch LiDAR data more frequently for better real-time visualization
       const lidarRefreshInterval = setInterval(() => {
-        if (isConnected()) {
-          // Direct API call to get latest LiDAR data
+        if (isConnected() && serialNumber) {
+          // Direct API call to get latest LiDAR data with timestamp for cache busting
+          const timestamp = new Date().getTime();
+          console.log(`Fetching fresh LiDAR data at ${timestamp}`);
+          
           getLidarData(serialNumber).then(newLidarData => {
             if (newLidarData && newLidarData.ranges && newLidarData.ranges.length > 0) {
-              console.log(`Direct LiDAR refresh: ${newLidarData.ranges.length} points`);
-              setWsLidarData(newLidarData);
+              console.log(`Direct LiDAR refresh: ${newLidarData.ranges.length} points with timestamp ${newLidarData.timestamp}`);
+              
+              // Store in local state for faster rendering
+              setLocalLidarData(newLidarData);
+              
+              // Update our layers if map data is available
+              if (mapData) {
+                const updatedLayers = mapData.layers.map(layer => {
+                  if (layer.id === 'lidar-layer') {
+                    return { 
+                      ...layer, 
+                      data: [...newLidarData.ranges],
+                      // Add timestamp to force re-render
+                      timestamp: timestamp
+                    };
+                  }
+                  return layer;
+                });
+                
+                // Force a complete new object to trigger re-render
+                setMapData({
+                  ...mapData,
+                  layers: updatedLayers,
+                  _forceUpdate: timestamp // Additional property to force re-render
+                });
+              }
             }
           }).catch(err => {
             // Silently fail to avoid console spam
+            console.log('Error refreshing LiDAR:', err);
           });
         }
-      }, 250);
+      }, 200); // Faster refresh at 200ms (5 times per second)
       
       // Clean up on unmount
       return () => {
@@ -265,7 +295,7 @@ export default function LayeredMapPage() {
         disconnectWebSocket();
       };
     }
-  }, [serialNumber, connectWebSocket, disconnectWebSocket, isConnected, refreshData]);
+  }, [serialNumber, connectWebSocket, disconnectWebSocket, isConnected, refreshData, mapData]);
   
   // Update LiDAR layer when data changes
   useEffect(() => {
@@ -469,7 +499,6 @@ export default function LayeredMapPage() {
     if (!robotPosition || !Array.isArray(layer.data) || layer.data.length === 0) return;
     
     const pixelRobot = worldToPixel(robotPosition);
-    ctx.fillStyle = layer.color;
     
     // Robot orientation is already in radians (API returns 1.57 which is pi/2 or 90 degrees)
     const robotOrientationRad = robotPosition.orientation || 0;
@@ -497,6 +526,13 @@ export default function LayeredMapPage() {
       ctx.translate(pixelRobot.x, pixelRobot.y);
       ctx.rotate(-adjustedOrientation); // The negative is because canvas Y is flipped
       
+      // Draw in batches for better performance
+      // Use a path to draw all points at once
+      ctx.beginPath();
+      ctx.fillStyle = layer.color;
+      
+      const pointSize = 2 * zoom;
+      
       for (let i = 0; i < numRanges; i++) {
         const range = ranges[i];
         if (range <= 0) continue; // Skip invalid ranges
@@ -508,14 +544,30 @@ export default function LayeredMapPage() {
         const x = Math.sin(angle) * distance;
         const y = -Math.cos(angle) * distance; // Negative because canvas Y is flipped
         
-        // Draw LiDAR point
-        ctx.beginPath();
-        ctx.arc(x, y, 2 * zoom, 0, Math.PI * 2);
-        ctx.fill();
+        // Add point to the path
+        ctx.moveTo(x + pointSize, y);
+        ctx.arc(x, y, pointSize, 0, Math.PI * 2);
       }
+      
+      // Fill all points at once
+      ctx.fill();
+      
+      // Add a glow effect
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.3;
+      ctx.shadowColor = layer.color;
+      ctx.shadowBlur = 5;
+      ctx.fill();
+      ctx.restore();
       
       // Restore the canvas state
       ctx.restore();
+      
+      // Add timestamp to debug display
+      ctx.fillStyle = '#333';
+      ctx.font = '10px sans-serif';
+      ctx.fillText(`LiDAR update: ${new Date().toISOString().split('T')[1].slice(0, -1)}`, 10, canvasRef.current!.height - 10);
     }
   }
 
@@ -768,6 +820,27 @@ export default function LayeredMapPage() {
                 <span>Position:</span>
                 <span className="font-mono text-sm">
                   ({robotPosition?.x.toFixed(2) || '0.00'}, {robotPosition?.y.toFixed(2) || '0.00'})
+                </span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span>Orientation:</span>
+                <span className="font-mono text-sm">
+                  {robotPosition?.orientation ? `${(robotPosition.orientation * (180/Math.PI)).toFixed(1)}°` : 'N/A'}
+                </span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span>LiDAR Points:</span>
+                <span className="font-mono text-sm">
+                  {localLidarData?.ranges?.length || wsLidarData?.ranges?.length || 0}
+                </span>
+              </div>
+              
+              <div className="flex justify-between">
+                <span>Update Time:</span>
+                <span className="font-mono text-sm">
+                  {mapData?._forceUpdate ? new Date(mapData._forceUpdate).toLocaleTimeString() : 'N/A'}
                 </span>
               </div>
               
