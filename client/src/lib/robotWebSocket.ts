@@ -309,12 +309,13 @@ class RobotWebSocketClient {
   }
 
   // Request robot map data
-  requestMapData(serialNumber?: string) {
+  requestMapData(serialNumber?: string, forceUpdate: boolean = false) {
     // Always default to our publicly accessible robot if no serial number provided
     const robotSerial = serialNumber || 'L382502104987ir';
     return this.sendMessage({
       type: 'get_robot_map',
-      serialNumber: robotSerial
+      serialNumber: robotSerial,
+      forceUpdate: forceUpdate // Flag to force latest map data even during active mapping
     });
   }
 

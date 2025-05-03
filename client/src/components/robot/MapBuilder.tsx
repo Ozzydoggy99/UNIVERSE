@@ -48,6 +48,7 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
   const [realTimeMapData, setRealTimeMapData] = useState<any>(null);
   const [isConnectedToMapStream, setIsConnectedToMapStream] = useState<boolean>(false);
   const [currentRobotPosition, setCurrentRobotPosition] = useState<any>(null);
+  const [positionData, setPositionData] = useState<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -62,11 +63,7 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
     enabled: !!serialNumber && mapStatus === MAP_BUILDING_STATUS.BUILDING
   });
   
-  const { data: positionData } = useQuery({
-    queryKey: ['/api/robots/position', serialNumber],
-    refetchInterval: mapStatus === MAP_BUILDING_STATUS.BUILDING ? 1000 : false,
-    enabled: !!serialNumber && mapStatus === MAP_BUILDING_STATUS.BUILDING
-  });
+  // We now manage position data through state from WebSocket
   
   // Get the current map being built
   const { data: currentMapData, refetch: refetchMapData } = useQuery({
@@ -84,15 +81,30 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
       // Define the WebSocket event handler
       const handleRobotWebSocketUpdate = (event: RobotUpdateEvent) => {
         if (event.type === 'map') {
-          console.log('Received real-time map update via WebSocket');
-          // Update our state with the latest map data
-          setRealTimeMapData(event.data);
+          console.log('Received real-time map update via WebSocket:', event.data);
+          // Only update if we have grid data
+          if (event.data?.grid) {
+            console.log('Real-time map data contains grid information, updating visualization');
+            setRealTimeMapData(event.data);
+            setIsConnectedToMapStream(true);
+          } else {
+            console.log('Map data received but no grid information present');
+          }
         } else if (event.type === 'position') {
           // Update robot position during mapping for real-time tracking
+          console.log('Received position update via WebSocket:', event.data);
           setCurrentRobotPosition(event.data);
+          setPositionData(event.data); // Also update the position for map display
         } else if (event.type === 'connection') {
           console.log('WebSocket connection state changed:', event.state);
           setIsConnectedToMapStream(event.state === 'connected');
+          
+          // If we're now connected, explicitly request map data
+          if (event.state === 'connected') {
+            console.log('WebSocket connected, requesting map data with force update');
+            robotWebSocket.requestMapData(serialNumber, true); // Force update to get latest map
+            refetchMapData();
+          }
         } else if (event.type === 'error') {
           console.error('WebSocket error during mapping:', event.message);
           
@@ -108,29 +120,58 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
       // Store the handler in a ref so we can remove it later
       websocketListenerRef.current = handleRobotWebSocketUpdate;
       
+      // Clear any existing subscription to avoid duplicates
+      if (websocketListenerRef.current) {
+        robotWebSocket.unsubscribe(websocketListenerRef.current);
+      }
+      
+      // Ensure WebSocket is connected
+      if (!robotWebSocket.isConnected()) {
+        console.log('WebSocket not connected, connecting now...');
+        robotWebSocket.connect();
+      }
+      
       // Subscribe to robot WebSocket updates
       robotWebSocket.subscribe(handleRobotWebSocketUpdate);
       
       // Start the mapping streams with specialized topics for real-time mapping
       console.log(`Starting real-time mapping streams for robot ${serialNumber}`);
-      startMappingStreams(serialNumber);
+      const enabledTopics = startMappingStreams(serialNumber);
+      console.log('Enabled mapping topics:', enabledTopics);
       
-      // Request initial position data
+      // Request initial data
+      console.log('Requesting initial position and map data via WebSocket');
       robotWebSocket.requestPosition(serialNumber);
+      robotWebSocket.requestMapData(serialNumber);
+      
+      // Also fetch via REST API for redundancy
+      refetchMapData();
+      
+      // Set up polling fallback for map data if WebSocket doesn't deliver
+      const pollingInterval = setInterval(() => {
+        if (!isConnectedToMapStream || !realTimeMapData?.grid) {
+          console.log('Map stream not active, polling for map updates via REST API');
+          refetchMapData();
+        }
+      }, 3000); // Poll every 3 seconds
       
       // When this effect cleans up, unsubscribe from the WebSocket
       return () => {
         console.log('Cleaning up WebSocket for map building');
         if (websocketListenerRef.current) {
           robotWebSocket.unsubscribe(websocketListenerRef.current);
+          websocketListenerRef.current = null;
         }
         
         // Stop the mapping streams
         console.log(`Stopping real-time mapping streams for robot ${serialNumber}`);
         stopMappingStreams(serialNumber);
+        
+        // Clear polling interval
+        clearInterval(pollingInterval);
       };
     }
-  }, [mapStatus, serialNumber]);
+  }, [mapStatus, serialNumber, isConnectedToMapStream]);
   
   // Update the map canvas when data changes - prioritize real-time data if available
   useEffect(() => {
@@ -143,9 +184,16 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
         // Fall back to REST API data if WebSocket data not available
         console.log('Drawing map from REST API data');
         drawMapOnCanvas(currentMapData);
+      } else if (mapStatus === MAP_BUILDING_STATUS.BUILDING) {
+        // If we're building a map but don't have data yet, request it explicitly
+        console.log('No map data available yet, requesting from server...');
+        if (serialNumber) {
+          robotWebSocket.requestMapData(serialNumber);
+          refetchMapData();
+        }
       }
     }
-  }, [realTimeMapData, currentMapData, canvasRef.current]);
+  }, [realTimeMapData, currentMapData, mapStatus, serialNumber, canvasRef.current]);
   
   // Simulate progress update
   useEffect(() => {
