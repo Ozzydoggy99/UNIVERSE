@@ -117,9 +117,13 @@ function convertPointCloudToRanges(points: number[][]): number[] {
     const [x, y] = point;
     
     // Calculate angle in radians
-    const angle = Math.atan2(y, x);
+    // To fix orientation: 
+    // 1. Flip the coordinates by inverting y or x to change orientation
+    // 2. Add a fixed rotation offset to align properly
+    const angle = Math.atan2(x, y); // Swapped x and y to rotate 90 degrees
     
     // Convert to degrees and normalize to 0-360
+    // We don't need to add 180 since we're working with a different axis orientation
     let degrees = (angle * 180 / Math.PI) + 180;
     
     // Ensure degrees is between 0 and 360
