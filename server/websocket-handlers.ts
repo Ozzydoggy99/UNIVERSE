@@ -74,7 +74,7 @@ export async function handleRobotStatusRequest(data: any, ws: WebSocket) {
     
     // Format for robot status response
     let status = {
-      model: 'AxBot 5000',
+      model: 'AxBot Physical Robot',
       serialNumber: data.serialNumber,
       battery: 0,
       status: 'unknown',

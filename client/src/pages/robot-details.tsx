@@ -357,7 +357,7 @@ export default function RobotDetails() {
   
   // Create default data objects if needed
   const createDefaultStatus = () => ({
-    model: 'AxBot 5000',
+    model: 'AxBot Physical Robot',
     serialNumber: serialNumber || 'L382502104987ir',
     battery: 80,
     status: 'online',
