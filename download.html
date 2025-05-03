@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Download Robot AI Package</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .download-btn {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            font-size: 18px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .download-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Robot AI Package Download</h1>
+    <p>Click the button below to download the Robot AI package:</p>
+    
+    <a href="robot-ai-package/dist/robot-ai-v1.0.0.zip" class="download-btn" download>Download Robot AI Package</a>
+    
+    <h2>Installation Instructions</h2>
+    <ol>
+        <li>Download the package to your robot</li>
+        <li>Extract the ZIP file to a temporary directory</li>
+        <li>Run the installer:
+            <pre>python3 install.py --robot-ip 127.0.0.1 --robot-sn L382502104987ir --dev-mode</pre>
+        </li>
+        <li>Start the Robot AI:
+            <pre>/home/robot/robot-ai/start.sh</pre>
+        </li>
+    </ol>
+</body>
+</html>
