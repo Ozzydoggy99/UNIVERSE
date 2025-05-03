@@ -19,11 +19,13 @@ export function usePowerCycle(serialNumber: string) {
   
   const powerCycleMutation = useMutation({
     mutationFn: async (method: PowerCycleMethod) => {
-      const res = await apiRequest(
-        'POST', 
-        `/api/robots/${serialNumber}/power-cycle`, 
-        { method }
-      );
+      const res = await fetch(`/api/robots/${serialNumber}/power-cycle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ method })
+      });
       return await res.json();
     },
     onSuccess: (data) => {
@@ -54,11 +56,7 @@ export function usePowerCycle(serialNumber: string) {
   
   const checkStatusMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest(
-        'GET', 
-        `/api/robots/${serialNumber}/power-cycle-status`,
-        {}
-      );
+      const res = await fetch(`/api/robots/${serialNumber}/power-cycle-status`);
       return await res.json();
     },
     onSuccess: (data: PowerCycleStatus) => {

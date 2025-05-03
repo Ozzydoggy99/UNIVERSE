@@ -54,6 +54,7 @@ import { LiveMjpegStream } from '@/components/LiveMjpegStream';
 import { RobotH264Stream } from '@/components/RobotH264Stream';
 import { DirectionalControl } from '@/components/robot/DirectionalControl';
 import { LidarVisualization } from '@/components/robot/LidarVisualization';
+import { PowerCycleButton } from '@/components/robot/PowerCycleButton';
 
 interface RobotStatus {
   model: string;
@@ -470,31 +471,56 @@ export default function RobotDetails() {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <Button variant="outline" onClick={handleBack}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Robot Hub
-        </Button>
-        
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            asChild
-          >
-            <Link href={`/layered-map/${serialNumber}`}>
-              <Layers className="h-4 w-4 mr-1" />
-              Layered Map
-            </Link>
+      <div className="flex flex-col gap-2 mb-6">
+        <div className="flex justify-between items-center">
+          <Button variant="outline" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Robot Hub
           </Button>
           
-          <Button 
-            variant="default" 
-            onClick={() => navigate(`/map-test/${serialNumber}`)}
-            className="bg-primary text-white hover:bg-primary/90"
-          >
-            <MapIcon className="h-4 w-4 mr-2" />
-            Map Test
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              asChild
+            >
+              <Link href={`/layered-map/${serialNumber}`}>
+                <Layers className="h-4 w-4 mr-1" />
+                Layered Map
+              </Link>
+            </Button>
+            
+            <Button 
+              variant="default" 
+              onClick={() => navigate(`/map-test/${serialNumber}`)}
+              className="bg-primary text-white hover:bg-primary/90"
+            >
+              <MapIcon className="h-4 w-4 mr-2" />
+              Map Test
+            </Button>
+          </div>
+        </div>
+        
+        {/* Robot Power Control Section */}
+        <div className="w-full p-4 bg-muted/30 rounded-lg border border-border">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary" />
+                Robot System Control
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Control robot power state and system services
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <PowerCycleButton 
+                serialNumber={serialNumber || ''} 
+                variant="destructive"
+                buttonText="Restart Robot"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
