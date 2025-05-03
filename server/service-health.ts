@@ -11,6 +11,8 @@ interface PowerCycleStatus {
   expectedRecoveryTime?: number;
   robotConnected?: boolean;
   recoveryProgress?: number;
+  recoveryFailed?: boolean;
+  maxRecoveryTime?: number;
 }
 
 // Power cycle state
