@@ -488,8 +488,8 @@ export function LidarVisualization({ data, loading = false, serialNumber, robotP
         // We need to rotate the point by the robot's orientation
         // x' = x*cos(θ) - y*sin(θ)
         // y' = x*sin(θ) + y*cos(θ)
-        const cosTheta = Math.cos(robotOrientationRadians);
-        const sinTheta = Math.sin(robotOrientationRadians);
+        const cosTheta = Math.cos(pointCloudOrientationRadians);
+        const sinTheta = Math.sin(pointCloudOrientationRadians);
         
         const xRotated = xRobot * cosTheta - yRobot * sinTheta;
         const yRotated = xRobot * sinTheta + yRobot * cosTheta;
