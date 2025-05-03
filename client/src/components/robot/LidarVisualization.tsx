@@ -290,11 +290,17 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
   });
 
   useEffect(() => {
-    if (!data || (!data.ranges || data.ranges.length === 0) && (!data.points || data.points.length === 0) || !canvasRef.current) return;
+    // Don't require data to have points - if it has none, we'll show the empty state
+    // This allows the empty visualization to appear properly
+    if (!data || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    
+    // Check if we have any actual data to display
+    const hasPoints = (data.points && data.points.length > 0);
+    const hasRanges = (data.ranges && data.ranges.length > 0);
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
