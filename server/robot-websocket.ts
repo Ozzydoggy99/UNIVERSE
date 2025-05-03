@@ -118,6 +118,7 @@ let slamDataLogged = false;
 let cameraDataLogged = false;
 let lidarDataLogged = false;
 let lastLidarLogTime = 0;
+let lastMapLogTime = 0;
 
 /**
  * Initialize robot WebSocket connection
@@ -481,10 +482,13 @@ function handleRobotMessage(messageData: string) {
       
       // Additional logging for debugging map visualization
       if (topic === '/map' && enhancedMessage.data) {
+        // Periodic updates - log every 10 seconds to verify we're still getting data
         const now = Date.now();
-        if (!lastMapLogTime || (now - lastMapLogTime) > 10000) {
+        // Use static time tracking for map logs
+        const lastLogTime = robotDataCache.map.get('lastLogTime') || 0;
+        if ((now - lastLogTime) > 10000) {
           console.log(`Received map update with data length: ${enhancedMessage.data.length}, resolution: ${enhancedMessage.resolution}, size: ${JSON.stringify(enhancedMessage.size)}`);
-          lastMapLogTime = now;
+          robotDataCache.map.set('lastLogTime', now);
         }
       }
     }
