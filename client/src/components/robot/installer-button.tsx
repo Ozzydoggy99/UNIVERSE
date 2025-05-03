@@ -30,7 +30,11 @@ const InstallerButton: FC<InstallerButtonProps> = ({
     isLoading: statusLoading,
     error: statusError,
     refetch: refetchStatus,
-  } = useQuery({
+  } = useQuery<{
+    installed: boolean;
+    running: boolean;
+    message: string;
+  }>({
     queryKey: [`/api/robots/${serialNumber}/robot-ai-status`],
     enabled: !!serialNumber && showStatus,
     refetchInterval: showStatus ? 5000 : false, // Poll every 5 seconds when showing status
@@ -46,9 +50,13 @@ const InstallerButton: FC<InstallerButtonProps> = ({
       const response = await apiRequest(
         "POST",
         `/api/robots/${serialNumber}/execute-installer`,
-        { installerPath }
+        { installerPath },
+        {}
       );
-      return response.json();
+      if (!response.ok) {
+        throw new Error(`Failed to execute installer: ${response.statusText}`);
+      }
+      return await response.json();
     },
     onSuccess: () => {
       toast({

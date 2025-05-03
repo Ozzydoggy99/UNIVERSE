@@ -55,6 +55,7 @@ import { RobotH264Stream } from '@/components/RobotH264Stream';
 import { DirectionalControl } from '@/components/robot/DirectionalControl';
 import { LidarVisualization } from '@/components/robot/LidarVisualization';
 import { PowerCycleButton } from '@/components/robot/PowerCycleButton';
+import InstallerButton from '@/components/robot/installer-button';
 
 interface RobotStatus {
   model: string;
@@ -535,6 +536,7 @@ export default function RobotDetails() {
                   {displayAssignment?.name || `Robot ${serialNumber}`}
                 </CardTitle>
                 <div className="flex items-center gap-2">
+                  <InstallerButton serialNumber={serialNumber} size="sm" />
                   <PowerCycleButton serialNumber={serialNumber} size="sm" />
                   <Badge className={getStatusColor(finalStatus.status)}>
                     {finalStatus.status?.toUpperCase() || 'UNKNOWN'}
