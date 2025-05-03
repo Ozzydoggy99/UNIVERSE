@@ -223,16 +223,16 @@ export default function RobotDetails() {
     gcTime: 60000
   });
   
-  // Fetch LiDAR data as fallback to WebSocket
+  // Fetch LiDAR data as fallback to WebSocket - high frequency updates
   const { data: restLidarData, isLoading: lidarLoading } = useQuery<LidarData>({
     queryKey: ['/api/robots/lidar', serialNumber],
-    enabled: !!serialNumber && !wsLidarData,
-    refetchInterval: connectionState !== 'connected' ? 3000 : false, // Only poll when WebSocket is not available
-    retry: 5,
-    retryDelay: 1000,
-    staleTime: 5000, // LiDAR data needs to be fresh
+    enabled: !!serialNumber,
+    refetchInterval: 500, // Poll every 500ms for maximum responsiveness
+    retry: 3,
+    retryDelay: 500,
+    staleTime: 1000, // Consider data fresh for just 1 second
     refetchOnWindowFocus: false,
-    gcTime: 60000
+    gcTime: 10000
   });
 
   // Handle back button click
@@ -240,14 +240,14 @@ export default function RobotDetails() {
     navigate('/robot-hub');
   };
 
-  // Request data refresh if we detect the data is missing
+  // Request data refresh at high frequency for smooth real-time updates
   useEffect(() => {
-    // If WebSocket is connected, periodically request fresh data
+    // High-frequency data refresh for real-time updates
     const intervalId = setInterval(() => {
       if (isConnected()) {
         refreshData();
       }
-    }, 5000);
+    }, 250); // Poll every 250ms for smoother updates
     
     return () => clearInterval(intervalId);
   }, [isConnected, refreshData]);

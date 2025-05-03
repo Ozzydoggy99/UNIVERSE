@@ -361,7 +361,7 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw LiDAR points
+    // Draw LiDAR points - high performance rendering
     ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
     
     // First try to render range data if available
@@ -375,13 +375,17 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
                               data.angle_increment : 
                               (angle_max - angle_min) / data.ranges.length;
       
-      console.log(`LiDAR viz: ranges=${data.ranges.length}, angle_min=${angle_min}, angle_max=${angle_max}, increment=${angle_increment}`);
+      console.log(`Rendering ${data.ranges.length} LiDAR points with angle range ${angle_min} to ${angle_max}`);
       
-      data.ranges.forEach((range, i) => {
-        if (!isFinite(range) || range <= 0) return;
+      // Batch all points in a single path for maximum performance
+      ctx.beginPath();
+      
+      // Use loop instead of forEach for better performance
+      for (let i = 0; i < data.ranges.length; i++) {
+        const range = data.ranges[i];
+        if (!isFinite(range) || range <= 0) continue;
         
         // Calculate the angle for this range reading
-        // The 0 angle is aligned with the robot's forward direction
         const angle = angle_min + (angle_increment * i);
         
         // Convert to canvas coordinates with robot's orientation
@@ -391,40 +395,42 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         const x = centerX + Math.cos(adjustedAngle) * range * scale;
         const y = centerY + Math.sin(adjustedAngle) * range * scale;
         
-        // Draw point
-        ctx.beginPath();
+        // Add to the current path instead of creating a new path for each point
+        ctx.moveTo(x + 2, y);
         ctx.arc(x, y, 2, 0, Math.PI * 2);
-        ctx.fill();
-      });
+      }
+      
+      // Fill all points at once
+      ctx.fill();
     } 
     // Then try to render point cloud data if available
     else if (data.points && data.points.length > 0) {
-      console.log(`LiDAR viz: Processing ${data.points.length} point cloud points`);
+      // Batch all points in a single path for maximum performance
+      ctx.beginPath();
       
       // Draw points directly from the point cloud
       // Point cloud data from the robot is in its coordinate frame
       // where +X is forward, +Y is left, +Z is up
       
-      console.log(`LiDAR viz: Drawing point cloud data from topic ${data.topic || 'unknown'}`);
-      
-      data.points.forEach(point => {
-        if (!point || point.length < 2) return;
+      // Use loop instead of forEach for better performance
+      for (let i = 0; i < data.points.length; i++) {
+        const point = data.points[i];
+        if (!point || point.length < 2) continue;
         
         const [x, y] = point;
         
-        // Convert to canvas coordinates
-        // In robot coordinates: +X is forward, +Y is left
-        // In canvas: up is -Y, right is +X
-        // The robot points are displayed with the robot facing LEFT on screen, 
-        // but the robot's actual forward direction is to the RIGHT
+        // Convert to canvas coordinates - optimized transformation
+        // The robot points are displayed with the robot facing LEFT on screen
         const canvasX = centerX - x * scale; // Robot forward (X) looks left on screen
         const canvasY = centerY - y * scale; // Robot left (Y) is up on screen
         
-        // Draw point
-        ctx.beginPath();
+        // Add to the current path instead of creating a new path for each point
+        ctx.moveTo(canvasX + 2, canvasY);
         ctx.arc(canvasX, canvasY, 2, 0, Math.PI * 2);
-        ctx.fill();
-      });
+      }
+      
+      // Fill all points at once
+      ctx.fill();
     }
     // Finally check for binary format data (since 2.12.0)
     else if (data.fields && data.data) {
@@ -432,17 +438,23 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       // We can't decode binary data directly in the browser, so
       // display a placeholder visualization for now
       
+      // Batch draw all placeholder points for better performance
+      ctx.beginPath();
+      
       // Draw a pattern of dots to represent the data
       for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 18) {
         for (let dist = 1; dist <= 5; dist++) {
           const x = centerX + Math.cos(angle) * dist * scale;
           const y = centerY + Math.sin(angle) * dist * scale;
           
-          ctx.beginPath();
+          // Add to the current path instead of creating a new path for each point
+          ctx.moveTo(x + 2, y);
           ctx.arc(x, y, 2, 0, Math.PI * 2);
-          ctx.fill();
         }
       }
+      
+      // Fill all points at once
+      ctx.fill();
       
       // Draw a note about binary data
       ctx.fillStyle = 'rgba(100, 100, 100, 0.8)';
