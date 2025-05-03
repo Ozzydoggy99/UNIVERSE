@@ -3,684 +3,384 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot AI Control Interface</title>
+    <title>Robot AI Installer</title>
     <style>
-        :root {
-            --primary: #3b82f6;
-            --primary-dark: #2563eb;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --background: #f9fafb;
-            --text: #1f2937;
-            --border: #e5e7eb;
-            --card: #ffffff;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--background);
-            color: var(--text);
-            line-height: 1.5;
-        }
-
-        .container {
-            max-width: 1200px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 1rem;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
-
-        .header {
-            background-color: var(--primary);
-            color: white;
-            padding: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-
-        .logo svg {
-            margin-right: 0.5rem;
-        }
-
-        .status-badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background-color: var(--success);
-            color: white;
-        }
-
-        .status-badge.offline {
-            background-color: var(--danger);
-        }
-
-        .card {
-            background-color: var(--card);
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .card h2 {
+        
+        h1 {
+            color: #2563EB;
             margin-top: 0;
-            margin-bottom: 1rem;
-            font-size: 1.25rem;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
         }
-
-        .card h2 svg {
-            margin-right: 0.5rem;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .module-card {
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            background-color: var(--card);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .module-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .module-card h3 {
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-            color: var(--primary);
-        }
-
-        .module-card p {
-            margin: 0;
-            color: var(--text);
-            font-size: 0.9rem;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 1rem;
-        }
-
-        .stat-card {
-            background-color: var(--card);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            text-align: center;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--primary);
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-label {
-            font-size: 0.875rem;
-            color: var(--text);
-            opacity: 0.8;
-        }
-
-        .button {
-            display: inline-block;
-            background-color: var(--primary);
+        
+        button {
+            background-color: #2563EB;
             color: white;
             border: none;
-            border-radius: 0.25rem;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            font-weight: 500;
+            padding: 10px 20px;
+            border-radius: 4px;
             cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
             transition: background-color 0.2s;
         }
-
-        .button:hover {
-            background-color: var(--primary-dark);
+        
+        button:hover {
+            background-color: #1d4ed8;
         }
-
-        .button.secondary {
-            background-color: white;
-            color: var(--primary);
-            border: 1px solid var(--primary);
+        
+        button:disabled {
+            background-color: #93c5fd;
+            cursor: not-allowed;
         }
-
-        .button.secondary:hover {
-            background-color: var(--background);
+        
+        .progress-container {
+            margin: 20px 0;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            height: 20px;
+            overflow: hidden;
         }
-
-        .button.warning {
-            background-color: var(--warning);
+        
+        .progress-bar {
+            height: 100%;
+            background-color: #2563EB;
+            width: 0%;
+            transition: width 0.3s ease;
         }
-
-        .button.danger {
-            background-color: var(--danger);
+        
+        .status {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f3f4f6;
         }
-
-        .form-group {
-            margin-bottom: 1rem;
+        
+        .success {
+            color: #065f46;
+            background-color: #d1fae5;
         }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
+        
+        .error {
+            color: #b91c1c;
+            background-color: #fee2e2;
         }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid var(--border);
-            border-radius: 0.25rem;
-            font-size: 1rem;
+        
+        .warning {
+            color: #92400e;
+            background-color: #fef3c7;
         }
-
-        .logs {
-            background-color: #1e293b;
-            color: #e2e8f0;
-            padding: 1rem;
-            border-radius: 0.25rem;
-            font-family: monospace;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .log-line {
-            margin: 0;
-            padding: 0.125rem 0;
-        }
-
-        .log-info {
-            color: #93c5fd;
-        }
-
-        .log-warn {
-            color: #fcd34d;
-        }
-
-        .log-error {
-            color: #fca5a5;
-        }
-
-        .log-success {
-            color: #86efac;
-        }
-
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 1rem;
-        }
-
-        .tab {
-            padding: 0.5rem 1rem;
-            border-bottom: 2px solid transparent;
-            cursor: pointer;
-        }
-
-        .tab.active {
-            border-bottom: 2px solid var(--primary);
-            color: var(--primary);
-            font-weight: 500;
-        }
-
-        .tab-content {
+        
+        .hidden {
             display: none;
         }
-
-        .tab-content.active {
-            display: block;
+        
+        .log-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f3f4f6;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
         }
-
-        .toast {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            background-color: var(--card);
-            border-left: 4px solid var(--primary);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 1rem;
-            border-radius: 0.25rem;
-            max-width: 350px;
-            z-index: 1000;
-            animation: slideIn 0.3s forwards;
+        
+        .step {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-left: 3px solid #e5e7eb;
         }
-
-        .toast.success {
-            border-left-color: var(--success);
+        
+        .step-pending {
+            border-left-color: #93c5fd;
         }
-
-        .toast.warning {
-            border-left-color: var(--warning);
+        
+        .step-active {
+            border-left-color: #2563EB;
+            background-color: #eff6ff;
         }
-
-        .toast.error {
-            border-left-color: var(--danger);
+        
+        .step-done {
+            border-left-color: #10b981;
+            background-color: #ecfdf5;
         }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        
+        .step-error {
+            border-left-color: #ef4444;
+            background-color: #fef2f2;
         }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .stats {
-                grid-template-columns: repeat(2, 1fr);
-            }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="logo">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 8V4H8"></path>
-                <rect x="2" y="8" width="20" height="12" rx="2"></rect>
-                <path d="M2 14h20"></path>
-                <path d="M8 20v-2"></path>
-                <path d="M16 20v-2"></path>
-            </svg>
-            Robot AI Control
-        </div>
-        <div class="status-badge" id="connection-status">Online</div>
-    </div>
-
     <div class="container">
-        <div class="card">
-            <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path>
-                    <path d="M12 8v8"></path>
-                    <path d="M8 12h8"></path>
-                </svg>
-                System Overview
-            </h2>
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="uptime">0:00:00</div>
-                    <div class="stat-label">Uptime</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="cpu-usage">0%</div>
-                    <div class="stat-label">CPU Usage</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="memory-usage">0%</div>
-                    <div class="stat-label">Memory</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="active-modules">0</div>
-                    <div class="stat-label">Active Modules</div>
-                </div>
+        <h1>Robot AI Installer</h1>
+        
+        <div id="connection-form">
+            <h2>Robot Connection Details</h2>
+            <p>Enter the information for your robot:</p>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="robot-ip" style="display: block; margin-bottom: 5px;">Robot IP Address:</label>
+                <input type="text" id="robot-ip" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" value="192.168.25.25" placeholder="e.g., 192.168.25.25">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="robot-sn" style="display: block; margin-bottom: 5px;">Robot Serial Number:</label>
+                <input type="text" id="robot-sn" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" value="L382502104987ir" placeholder="e.g., L382502104987ir">
+            </div>
+            
+            <button id="install-btn">Install Robot AI</button>
+        </div>
+        
+        <div id="installation-progress" class="hidden">
+            <h2>Installation Progress</h2>
+            
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            
+            <div id="current-status" class="status">Preparing installation...</div>
+            
+            <div class="step step-pending" id="step-1">
+                <h3>Step 1: Checking connection</h3>
+                <p>Verifying connection to the robot...</p>
+            </div>
+            
+            <div class="step step-pending" id="step-2">
+                <h3>Step 2: Downloading Robot AI</h3>
+                <p>Downloading the Robot AI package...</p>
+            </div>
+            
+            <div class="step step-pending" id="step-3">
+                <h3>Step 3: Installing components</h3>
+                <p>Installing Robot AI components to the robot...</p>
+            </div>
+            
+            <div class="step step-pending" id="step-4">
+                <h3>Step 4: Starting services</h3>
+                <p>Starting Robot AI services...</p>
+            </div>
+            
+            <div class="log-container" id="log-container">
+                <!-- Logs will be displayed here -->
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button id="cancel-btn">Cancel</button>
             </div>
         </div>
-
-        <div class="card">
-            <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="3" y1="9" x2="21" y2="9"></line>
-                    <line x1="9" y1="21" x2="9" y2="9"></line>
-                </svg>
-                Modules
-            </h2>
-            <div class="grid">
-                <div class="module-card">
-                    <h3>Core</h3>
-                    <p>Main Robot AI system controlling core functions and communication</p>
-                    <p id="core-status" class="status-badge">Active</p>
-                </div>
-                <div class="module-card">
-                    <h3>IoT Integration</h3>
-                    <p>Communication with doors, elevators, and other IoT devices</p>
-                    <p id="iot-status" class="status-badge offline">Inactive</p>
-                </div>
-                <div class="module-card">
-                    <h3>Elevator Control</h3>
-                    <p>Multi-floor navigation and elevator interaction</p>
-                    <p id="elevator-status" class="status-badge offline">Inactive</p>
-                </div>
-                <div class="module-card">
-                    <h3>Auto Door Management</h3>
-                    <p>Automatic detection and opening of doors on robot's path</p>
-                    <p id="door-status" class="status-badge offline">Inactive</p>
-                </div>
+        
+        <div id="installation-complete" class="hidden">
+            <h2>Installation Complete!</h2>
+            
+            <div class="status success" id="complete-status">
+                Robot AI has been successfully installed on your robot.
             </div>
-        </div>
-
-        <div class="card">
-            <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <path d="M12 6v6l4 2"></path>
-                </svg>
-                Real-time Logs
-            </h2>
-            <div class="tabs">
-                <div class="tab active" data-tab="system-logs">System</div>
-                <div class="tab" data-tab="iot-logs">IoT</div>
-                <div class="tab" data-tab="elevator-logs">Elevator</div>
+            
+            <p>You can now access the Robot AI dashboard at:</p>
+            <p style="text-align: center; font-weight: bold; font-size: 18px;">
+                <a href="#" id="dashboard-link">http://192.168.25.25:8080</a>
+            </p>
+            
+            <div style="margin-top: 20px;">
+                <button id="restart-btn">Go to Dashboard</button>
             </div>
-            <div class="tab-content active" id="system-logs">
-                <div class="logs" id="system-logs-content">
-                    <p class="log-line log-info">[INFO] Robot AI System initialized</p>
-                    <p class="log-line log-success">[SUCCESS] Connected to central management server</p>
-                    <p class="log-line log-info">[INFO] Checking for active modules</p>
-                </div>
-            </div>
-            <div class="tab-content" id="iot-logs">
-                <div class="logs" id="iot-logs-content">
-                    <p class="log-line log-info">[INFO] IoT module not active</p>
-                    <p class="log-line log-warn">[WARN] Enable IoT module to see logs</p>
-                </div>
-            </div>
-            <div class="tab-content" id="elevator-logs">
-                <div class="logs" id="elevator-logs-content">
-                    <p class="log-line log-info">[INFO] Elevator module not active</p>
-                    <p class="log-line log-warn">[WARN] Enable Elevator module to see logs</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-                Configuration
-            </h2>
-            <div class="form-group">
-                <label for="server-url">Management Server URL</label>
-                <input type="text" id="server-url" placeholder="http://management-server.example.com" value="http://localhost:5000">
-            </div>
-            <div class="form-group">
-                <label for="robot-id">Robot ID</label>
-                <input type="text" id="robot-id" placeholder="Robot Serial Number" value="L382502104987ir" readonly>
-            </div>
-            <div class="form-group">
-                <label for="max-cpu">Max CPU Usage (%)</label>
-                <input type="number" id="max-cpu" min="10" max="100" value="80">
-            </div>
-            <div class="form-group">
-                <label for="max-memory">Max Memory Usage (%)</label>
-                <input type="number" id="max-memory" min="10" max="100" value="75">
-            </div>
-            <div class="form-group">
-                <button class="button" id="save-config">Save Configuration</button>
-                <button class="button secondary" id="reset-config">Reset to Defaults</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                System Actions
-            </h2>
-            <button class="button" id="restart-service">Restart Robot AI</button>
-            <button class="button warning" id="enable-iot">Enable IoT Module</button>
-            <button class="button warning" id="enable-elevator">Enable Elevator Module</button>
-            <button class="button danger" id="factory-reset">Factory Reset</button>
         </div>
     </div>
-
-    <div id="toast" style="display: none" class="toast">
-        <p id="toast-message"></p>
+    
+    <div class="footer">
+        Robot AI Installer v1.0.0 | Developed by AI Assistant | &copy; 2025
     </div>
-
+    
     <script>
-        // Mock functionality for demonstration purposes
         document.addEventListener('DOMContentLoaded', function() {
-            // Tabs functionality
-            const tabs = document.querySelectorAll('.tab');
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const tabId = tab.getAttribute('data-tab');
-                    
-                    // Update active tab
-                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    
-                    // Update active content
-                    document.querySelectorAll('.tab-content').forEach(content => {
-                        content.classList.remove('active');
-                    });
-                    document.getElementById(tabId).classList.add('active');
-                });
-            });
-
-            // Toast functionality
-            function showToast(message, type = 'info') {
-                const toast = document.getElementById('toast');
-                const toastMessage = document.getElementById('toast-message');
-                
-                toast.className = 'toast';
-                toast.classList.add(type);
-                toastMessage.textContent = message;
-                toast.style.display = 'block';
-                
-                setTimeout(() => {
-                    toast.style.display = 'none';
-                }, 3000);
+            const connectionForm = document.getElementById('connection-form');
+            const installationProgress = document.getElementById('installation-progress');
+            const installationComplete = document.getElementById('installation-complete');
+            const installBtn = document.getElementById('install-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const restartBtn = document.getElementById('restart-btn');
+            const robotIpInput = document.getElementById('robot-ip');
+            const robotSnInput = document.getElementById('robot-sn');
+            const progressBar = document.getElementById('progress-bar');
+            const currentStatus = document.getElementById('current-status');
+            const completeStatus = document.getElementById('complete-status');
+            const dashboardLink = document.getElementById('dashboard-link');
+            const logContainer = document.getElementById('log-container');
+            
+            // Installation steps
+            const steps = [
+                document.getElementById('step-1'),
+                document.getElementById('step-2'),
+                document.getElementById('step-3'),
+                document.getElementById('step-4')
+            ];
+            
+            // Log message function
+            function log(message) {
+                const logEntry = document.createElement('div');
+                logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
             }
-
-            // Button actions
-            document.getElementById('save-config').addEventListener('click', () => {
-                showToast('Configuration saved successfully!', 'success');
-                addLogEntry('Configuration updated by user', 'system', 'info');
-            });
-
-            document.getElementById('reset-config').addEventListener('click', () => {
-                showToast('Configuration reset to defaults', 'info');
-                addLogEntry('Configuration reset to defaults', 'system', 'warn');
-            });
-
-            document.getElementById('restart-service').addEventListener('click', () => {
-                showToast('Robot AI service restarting...', 'warning');
-                document.getElementById('connection-status').textContent = 'Restarting';
-                document.getElementById('connection-status').classList.add('offline');
+            
+            // Update progress
+            function updateProgress(percent) {
+                progressBar.style.width = `${percent}%`;
+            }
+            
+            // Update step status
+            function updateStep(stepIndex, status) {
+                // Reset all classes
+                steps[stepIndex].className = 'step';
                 
-                addLogEntry('Service restart initiated by user', 'system', 'warn');
+                // Add appropriate class
+                if (status === 'pending') {
+                    steps[stepIndex].className = 'step step-pending';
+                } else if (status === 'active') {
+                    steps[stepIndex].className = 'step step-active';
+                } else if (status === 'done') {
+                    steps[stepIndex].className = 'step step-done';
+                } else if (status === 'error') {
+                    steps[stepIndex].className = 'step step-error';
+                }
+            }
+            
+            // Simulate the installation process (in real implementation, this would make API calls to the robot)
+            async function simulateInstallation() {
+                const robotIp = robotIpInput.value;
+                const robotSn = robotSnInput.value;
                 
-                setTimeout(() => {
-                    document.getElementById('connection-status').textContent = 'Online';
-                    document.getElementById('connection-status').classList.remove('offline');
-                    showToast('Robot AI service restarted successfully!', 'success');
-                    addLogEntry('Service restarted successfully', 'system', 'success');
-                }, 3000);
-            });
-
-            document.getElementById('enable-iot').addEventListener('click', function() {
-                const isEnabled = this.textContent.includes('Enable');
+                // Step 1: Check connection
+                updateStep(0, 'active');
+                updateProgress(10);
+                currentStatus.textContent = 'Checking connection to the robot...';
+                log(`Checking connection to robot at ${robotIp}...`);
                 
-                if (isEnabled) {
-                    this.textContent = 'Disable IoT Module';
-                    document.getElementById('iot-status').textContent = 'Active';
-                    document.getElementById('iot-status').classList.remove('offline');
-                    addLogEntry('IoT module enabled', 'system', 'success');
-                    addLogEntry('Scanning for nearby IoT devices', 'iot', 'info');
-                    addLogEntry('Found 2 door controllers, 1 elevator controller', 'iot', 'info');
-                    document.getElementById('active-modules').textContent = 
-                        (parseInt(document.getElementById('active-modules').textContent) + 1);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Simulate connection check
+                const connectionSuccess = true; // In a real implementation, this would be determined by API call
+                
+                if (connectionSuccess) {
+                    updateStep(0, 'done');
+                    log('Successfully connected to the robot.');
                 } else {
-                    this.textContent = 'Enable IoT Module';
-                    document.getElementById('iot-status').textContent = 'Inactive';
-                    document.getElementById('iot-status').classList.add('offline');
-                    addLogEntry('IoT module disabled', 'system', 'warn');
-                    document.getElementById('active-modules').textContent = 
-                        (parseInt(document.getElementById('active-modules').textContent) - 1);
+                    updateStep(0, 'error');
+                    currentStatus.textContent = 'Failed to connect to the robot. Please check the IP address and try again.';
+                    currentStatus.className = 'status error';
+                    log('Error: Failed to connect to the robot.');
+                    return false;
                 }
                 
-                showToast(`IoT Module ${isEnabled ? 'enabled' : 'disabled'} successfully!`, 'success');
-            });
-
-            document.getElementById('enable-elevator').addEventListener('click', function() {
-                const isEnabled = this.textContent.includes('Enable');
+                // Step 2: Download Robot AI
+                updateStep(1, 'active');
+                updateProgress(30);
+                currentStatus.textContent = 'Downloading Robot AI package...';
+                log('Downloading Robot AI package...');
                 
-                if (isEnabled) {
-                    this.textContent = 'Disable Elevator Module';
-                    document.getElementById('elevator-status').textContent = 'Active';
-                    document.getElementById('elevator-status').classList.remove('offline');
-                    addLogEntry('Elevator module enabled', 'system', 'success');
-                    addLogEntry('Initializing elevator control system', 'elevator', 'info');
-                    addLogEntry('Scanning for elevators in current location', 'elevator', 'info');
-                    document.getElementById('active-modules').textContent = 
-                        (parseInt(document.getElementById('active-modules').textContent) + 1);
-                } else {
-                    this.textContent = 'Enable Elevator Module';
-                    document.getElementById('elevator-status').textContent = 'Inactive';
-                    document.getElementById('elevator-status').classList.add('offline');
-                    addLogEntry('Elevator module disabled', 'system', 'warn');
-                    document.getElementById('active-modules').textContent = 
-                        (parseInt(document.getElementById('active-modules').textContent) - 1);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                updateStep(1, 'done');
+                log('Robot AI package downloaded successfully.');
+                
+                // Step 3: Install components
+                updateStep(2, 'active');
+                updateProgress(60);
+                currentStatus.textContent = 'Installing Robot AI components...';
+                log(`Installing Robot AI components for robot ${robotSn}...`);
+                
+                await new Promise(resolve => setTimeout(resolve, 4000));
+                
+                updateStep(2, 'done');
+                log('Robot AI components installed successfully.');
+                
+                // Step 4: Start services
+                updateStep(3, 'active');
+                updateProgress(80);
+                currentStatus.textContent = 'Starting Robot AI services...';
+                log('Starting Robot AI services...');
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                updateStep(3, 'done');
+                updateProgress(100);
+                log('Robot AI services started successfully.');
+                
+                return true;
+            }
+            
+            // Install button click handler
+            installBtn.addEventListener('click', async function() {
+                // Validate inputs
+                if (!robotIpInput.value) {
+                    alert('Please enter the robot IP address.');
+                    return;
                 }
                 
-                showToast(`Elevator Module ${isEnabled ? 'enabled' : 'disabled'} successfully!`, 'success');
-            });
-
-            document.getElementById('factory-reset').addEventListener('click', () => {
-                if (confirm('Are you sure you want to perform a factory reset? This will erase all custom settings.')) {
-                    showToast('Factory reset initiated...', 'warning');
-                    addLogEntry('Factory reset initiated by user', 'system', 'error');
+                if (!robotSnInput.value) {
+                    alert('Please enter the robot serial number.');
+                    return;
+                }
+                
+                // Show installation progress
+                connectionForm.classList.add('hidden');
+                installationProgress.classList.remove('hidden');
+                
+                // Start the installation process
+                const success = await simulateInstallation();
+                
+                if (success) {
+                    // Update dashboard link with the actual robot IP
+                    dashboardLink.textContent = `http://${robotIpInput.value}:8080`;
+                    dashboardLink.href = `http://${robotIpInput.value}:8080`;
                     
-                    setTimeout(() => {
-                        showToast('Factory reset completed successfully!', 'success');
-                        addLogEntry('Factory reset completed', 'system', 'success');
-                        resetInterface();
-                    }, 3000);
+                    // Show completion screen
+                    installationProgress.classList.add('hidden');
+                    installationComplete.classList.remove('hidden');
+                    
+                    // Update completion status
+                    completeStatus.textContent = `Robot AI has been successfully installed on robot ${robotSnInput.value}.`;
                 }
             });
-
-            // Helper functions
-            function addLogEntry(message, logType, level) {
-                const logElement = document.createElement('p');
-                logElement.className = `log-line log-${level}`;
-                logElement.textContent = `[${level.toUpperCase()}] ${message}`;
-                
-                const logsContainer = document.getElementById(`${logType}-logs-content`);
-                logsContainer.appendChild(logElement);
-                logsContainer.scrollTop = logsContainer.scrollHeight;
-            }
-
-            function resetInterface() {
-                // Reset all modules
-                document.getElementById('iot-status').textContent = 'Inactive';
-                document.getElementById('iot-status').classList.add('offline');
-                document.getElementById('elevator-status').textContent = 'Inactive';
-                document.getElementById('elevator-status').classList.add('offline');
-                document.getElementById('door-status').textContent = 'Inactive';
-                document.getElementById('door-status').classList.add('offline');
-                
-                // Reset buttons
-                document.getElementById('enable-iot').textContent = 'Enable IoT Module';
-                document.getElementById('enable-elevator').textContent = 'Enable Elevator Module';
-                
-                // Reset active modules
-                document.getElementById('active-modules').textContent = '1';
-                
-                // Reset logs
-                document.getElementById('system-logs-content').innerHTML = '<p class="log-line log-info">[INFO] System factory reset completed</p>';
-                document.getElementById('iot-logs-content').innerHTML = '<p class="log-line log-info">[INFO] IoT module not active</p>';
-                document.getElementById('elevator-logs-content').innerHTML = '<p class="log-line log-info">[INFO] Elevator module not active</p>';
-                
-                // Reset configuration
-                document.getElementById('max-cpu').value = 80;
-                document.getElementById('max-memory').value = 75;
-            }
-
-            // Initialize system stats
-            let startTime = new Date();
             
-            function updateSystemStats() {
-                // Update uptime
-                const now = new Date();
-                const diff = now - startTime;
-                const hours = Math.floor(diff / 3600000);
-                const minutes = Math.floor((diff % 3600000) / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
-                document.getElementById('uptime').textContent = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
-                // Update CPU and memory usage
-                const cpuUsage = Math.floor(Math.random() * 30) + 10;
-                const memoryUsage = Math.floor(Math.random() * 20) + 15;
-                document.getElementById('cpu-usage').textContent = `${cpuUsage}%`;
-                document.getElementById('memory-usage').textContent = `${memoryUsage}%`;
-                
-                // Add periodic log entries
-                if (Math.random() < 0.1) {
-                    addLogEntry('Heartbeat check passed', 'system', 'info');
+            // Cancel button click handler
+            cancelBtn.addEventListener('click', function() {
+                const confirmCancel = confirm('Are you sure you want to cancel the installation?');
+                if (confirmCancel) {
+                    installationProgress.classList.add('hidden');
+                    connectionForm.classList.remove('hidden');
                 }
-                
-                if (document.getElementById('iot-status').textContent === 'Active' && Math.random() < 0.2) {
-                    const messages = [
-                        'ESP-NOW message received from door controller',
-                        'Checking door status',
-                        'Door state: closed',
-                        'No obstacles detected in current path'
-                    ];
-                    addLogEntry(messages[Math.floor(Math.random() * messages.length)], 'iot', 'info');
-                }
-                
-                if (document.getElementById('elevator-status').textContent === 'Active' && Math.random() < 0.2) {
-                    const messages = [
-                        'Monitoring elevator 1 status',
-                        'Elevator 1 is on floor 3',
-                        'No elevator requests active',
-                        'Path clear to elevator 1'
-                    ];
-                    addLogEntry(messages[Math.floor(Math.random() * messages.length)], 'elevator', 'info');
-                }
-            }
+            });
             
-            // Initialize with 1 active module (core)
-            document.getElementById('active-modules').textContent = '1';
-            
-            // Update system stats every second
-            setInterval(updateSystemStats, 1000);
-            
-            // Initial log entries
-            addLogEntry('Robot AI web interface loaded', 'system', 'info');
-            addLogEntry('Connected to serial ' + document.getElementById('robot-id').value, 'system', 'success');
+            // Restart button click handler (Go to Dashboard)
+            restartBtn.addEventListener('click', function() {
+                window.location.href = dashboardLink.href;
+            });
         });
     </script>
 </body>
