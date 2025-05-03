@@ -248,6 +248,21 @@ export default function MapBuilder({ serialNumber, onMapBuilt }: MapBuilderProps
         description: "Connecting to the physical robot to begin mapping...",
       });
       
+      // First, check and stop any active mapping tasks on the robot
+      // This prevents the "400 bad request - other mapping task id is running" error
+      if (serialNumber) {
+        console.log('Checking for active mapping tasks before starting a new one...');
+        
+        try {
+          // Use our dedicated endpoint to stop any active mapping task
+          const stopResponse = await apiRequest('POST', `/api/robots/stop-mapping/${serialNumber}`, {});
+          console.log('Stop mapping response:', stopResponse);
+        } catch (stopError) {
+          // Log but don't throw - we still want to attempt to start the mapping
+          console.warn('Error stopping active mapping task (non-critical):', stopError);
+        }
+      }
+      
       // Notify user about the development mode override for connection status
       toast({
         title: "Development Mode",
