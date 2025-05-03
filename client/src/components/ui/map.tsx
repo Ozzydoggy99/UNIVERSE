@@ -654,19 +654,42 @@ export function Map({
       ctx.arc(robotX, robotY, 10, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw orientation line
-      const angle = (robotPosition.orientation * Math.PI) / 180;
-      const orientationLength = 20;
+      // Save the canvas context state before rotation
+      ctx.save();
       
-      ctx.strokeStyle = '#4caf50';
-      ctx.lineWidth = 2;
+      // Calculate orientation angle in radians
+      // The orientation is given in degrees where 0 is east, and positive is counterclockwise
+      // Need to convert to radians and adjust for canvas coordinate system
+      const angleInRadians = (robotPosition.orientation * Math.PI) / 180;
+      
+      // Draw orientation triangle
+      // First translate to robot position
+      ctx.translate(robotX, robotY);
+      
+      // Then rotate based on robot orientation
+      ctx.rotate(-angleInRadians); // Negative because canvas Y is flipped
+      
+      // Draw the orientation triangle
+      ctx.fillStyle = '#00796b'; // Darker green for orientation indicator
       ctx.beginPath();
-      ctx.moveTo(robotX, robotY);
-      ctx.lineTo(
-        robotX + Math.cos(angle) * orientationLength,
-        robotY - Math.sin(angle) * orientationLength
-      );
+      ctx.moveTo(0, -15); // Triangle pointing forward (up in robot's frame)
+      ctx.lineTo(-7, 5);  // Bottom left corner
+      ctx.lineTo(7, 5);   // Bottom right corner
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw an edge line for better visibility
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.lineTo(-7, 5);
+      ctx.lineTo(7, 5);
+      ctx.closePath();
       ctx.stroke();
+      
+      // Restore the canvas context to its original state
+      ctx.restore();
     }
     
     // Draw scale information

@@ -381,11 +381,11 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         if (!isFinite(range) || range <= 0) return;
         
         // Calculate the angle for this range reading
+        // The 0 angle is aligned with the robot's forward direction
         const angle = angle_min + (angle_increment * i);
         
-        // Convert to canvas coordinates
-        // Note: Adjusting for canvas Y-axis being flipped compared to standard coordinate system
-        // and adjusting for robot's forward direction (0 radians) pointing upward
+        // Convert to canvas coordinates - now we draw relative to robot's coordinate system
+        // where the front of the robot (0°) is pointing upward on screen
         const x = centerX + Math.sin(angle) * range * scale;
         const y = centerY - Math.cos(angle) * range * scale;
         
@@ -400,14 +400,17 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       console.log(`LiDAR viz: Processing ${data.points.length} point cloud points`);
       
       // Draw points directly from the point cloud
+      // Note: Point cloud data is usually in the robot's coordinate frame
+      // where +X is forward, +Y is left, +Z is up
       data.points.forEach(point => {
         if (!point || point.length < 2) return;
         
         const [x, y] = point;
         
-        // Convert to canvas coordinates 
-        const canvasX = centerX + x * scale;
-        const canvasY = centerY - y * scale; // Flip Y for canvas coordinates
+        // Convert to canvas coordinates where +X is right, +Y is down
+        // In this visualization, the front of the robot (0°) is up
+        const canvasX = centerX + y * scale; // Swap X and Y for proper orientation
+        const canvasY = centerY - x * scale; // X value of point is forward (up in canvas)
         
         // Draw point
         ctx.beginPath();
