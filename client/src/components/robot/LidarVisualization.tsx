@@ -395,9 +395,9 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         const angle = angle_min + (angle_increment * i);
         
         // Convert to canvas coordinates with robot's orientation
-        // Front of robot (angle 0) should be facing left on screen 
-        // We rotate by -π/2 to make 0 point to the left instead of up
-        const adjustedAngle = angle - Math.PI/2;
+        // We need to rotate 180 degrees to match the robot's actual orientation
+        // This rotates the entire LiDAR visualization to face the right direction
+        const adjustedAngle = angle + Math.PI; // Rotate 180 degrees
         const x = centerX + Math.cos(adjustedAngle) * range * scale;
         const y = centerY + Math.sin(adjustedAngle) * range * scale;
         
@@ -425,10 +425,10 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         
         const [x, y] = point;
         
-        // Convert to canvas coordinates - optimized transformation
-        // The robot points are displayed with the robot facing LEFT on screen
-        const canvasX = centerX - x * scale; // Robot forward (X) looks left on screen
-        const canvasY = centerY - y * scale; // Robot left (Y) is up on screen
+        // Convert to canvas coordinates - optimized transformation with 180 degree rotation
+        // We need to rotate the entire visualization 180 degrees to match orientation
+        const canvasX = centerX + x * scale; // Flip X direction (180 degree rotation)
+        const canvasY = centerY + y * scale; // Flip Y direction (180 degree rotation)
         
         // Add to the current path instead of creating a new path for each point
         ctx.moveTo(canvasX + 2, canvasY);
@@ -487,7 +487,6 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     ctx.lineTo(centerX + size/2 * 0.2, centerY + 5); // Bottom of arrow
     ctx.closePath();
     ctx.fill();
-
   }, [data]);
 
   // Handle different states
