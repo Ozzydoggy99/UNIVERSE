@@ -384,10 +384,12 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
         // The 0 angle is aligned with the robot's forward direction
         const angle = angle_min + (angle_increment * i);
         
-        // Convert to canvas coordinates - now we draw relative to robot's coordinate system
-        // where the front of the robot (0°) is pointing upward on screen
-        const x = centerX + Math.sin(angle) * range * scale;
-        const y = centerY - Math.cos(angle) * range * scale;
+        // Convert to canvas coordinates with robot's orientation
+        // Front of robot (angle 0) should be facing left on screen 
+        // We rotate by -π/2 to make 0 point to the left instead of up
+        const adjustedAngle = angle - Math.PI/2;
+        const x = centerX + Math.cos(adjustedAngle) * range * scale;
+        const y = centerY + Math.sin(adjustedAngle) * range * scale;
         
         // Draw point
         ctx.beginPath();
@@ -400,17 +402,22 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
       console.log(`LiDAR viz: Processing ${data.points.length} point cloud points`);
       
       // Draw points directly from the point cloud
-      // Note: Point cloud data is usually in the robot's coordinate frame
+      // Point cloud data from the robot is in its coordinate frame
       // where +X is forward, +Y is left, +Z is up
+      
+      console.log(`LiDAR viz: Drawing point cloud data from topic ${data.topic || 'unknown'}`);
+      
       data.points.forEach(point => {
         if (!point || point.length < 2) return;
         
         const [x, y] = point;
         
-        // Convert to canvas coordinates where +X is right, +Y is down
-        // In this visualization, the front of the robot (0°) is up
-        const canvasX = centerX + y * scale; // Swap X and Y for proper orientation
-        const canvasY = centerY - x * scale; // X value of point is forward (up in canvas)
+        // Convert to canvas coordinates
+        // In robot coordinates: +X is forward, +Y is left
+        // In canvas: up is -Y, right is +X
+        // We need the robot's forward direction (X) to face LEFT on the visualization
+        const canvasX = centerX - x * scale; // Robot forward (X) is left on screen
+        const canvasY = centerY - y * scale; // Robot left (Y) is up on screen
         
         // Draw point
         ctx.beginPath();
@@ -445,19 +452,20 @@ export function LidarVisualization({ data, loading = false, serialNumber }: Lida
     }
 
     // Draw a front direction indicator
+    // We need to show the correct orientation with front of robot facing left
     ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
-    ctx.lineTo(centerX, centerY - size/2 * 0.2);
+    ctx.lineTo(centerX - size/2 * 0.2, centerY); // Arrow pointing left
     ctx.stroke();
     
     // Add a small arrowhead
     ctx.fillStyle = 'rgba(0, 100, 255, 0.8)';
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY - size/2 * 0.25);
-    ctx.lineTo(centerX - 5, centerY - size/2 * 0.2);
-    ctx.lineTo(centerX + 5, centerY - size/2 * 0.2);
+    ctx.moveTo(centerX - size/2 * 0.25, centerY); // Tip of arrow pointing left
+    ctx.lineTo(centerX - size/2 * 0.2, centerY - 5); // Top of arrow
+    ctx.lineTo(centerX - size/2 * 0.2, centerY + 5); // Bottom of arrow
     ctx.closePath();
     ctx.fill();
 
