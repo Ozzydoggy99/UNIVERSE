@@ -164,6 +164,20 @@ export default function LayeredMapPage() {
     }
   }, [serialNumber, wsMapData, wsLidarData]);
 
+  // Set up a more frequent polling interval specifically for the map view
+  useEffect(() => {
+    if (!serialNumber) return;
+    
+    // Poll every 300ms for faster map updates without overwhelming the server
+    const fastPollingInterval = setInterval(() => {
+      refreshData();
+    }, 300); // Balanced between responsiveness and server load
+    
+    return () => {
+      clearInterval(fastPollingInterval);
+    };
+  }, [serialNumber, refreshData]);
+
   // Update robot position when it changes
   useEffect(() => {
     if (wsRobotPosition) {
