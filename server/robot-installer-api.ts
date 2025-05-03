@@ -75,15 +75,21 @@ export async function uploadInstallerToRobot(serialNumber: string, destinationPa
  * @param installerPath The path to the installer script on the robot
  * @returns Object with success status and message
  */
-export async function executeInstaller(serialNumber: string, installerPath: string = '/tmp/robot-ai-minimal-installer.py') {
+export async function executeInstaller(serialNumber: string, installerPath: string = '/tmp/robot-ai-minimal-installer.py', skipUpload: boolean = true) {
   console.log(`Executing Robot AI installer on robot ${serialNumber} at path ${installerPath}`);
   console.log(`Robot API URL: ${ROBOT_API_URL}, Secret available: ${ROBOT_SECRET ? 'Yes' : 'No'}`);
+  console.log(`Skip upload: ${skipUpload}`);
   
   try {
-    // First, upload the installer to the robot
-    const uploadResult = await uploadInstallerToRobot(serialNumber, installerPath);
-    if (!uploadResult.success) {
-      throw new Error(`Failed to upload installer: ${uploadResult.message}`);
+    // Upload the installer if needed (skipped by default)
+    if (!skipUpload) {
+      console.log("Uploading installer to robot...");
+      const uploadResult = await uploadInstallerToRobot(serialNumber, installerPath);
+      if (!uploadResult.success) {
+        throw new Error(`Failed to upload installer: ${uploadResult.message}`);
+      }
+    } else {
+      console.log("Skipping upload as requested - using existing installer on robot");
     }
     
     // Make the installer executable
