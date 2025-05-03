@@ -1664,8 +1664,9 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Sending ${action} command to LiDAR on robot ${serialNumber}`);
       
       try {
-        // According to the documentation, the endpoint is always /services/baseboard/power_on_lidar
-        // and we need to pass the "action" parameter as "power_on" or "power_off"
+        // According to the documentation (lines 97-106), the correct endpoint is:
+        // /services/baseboard/power_on_lidar
+        // with the action parameter as 'power_on' or 'power_off'
         const apiUrl = `${ROBOT_API_URL}/services/baseboard/power_on_lidar`;
         console.log(`Sending LiDAR power request to: ${apiUrl}`);
         console.log(`Request body: ${JSON.stringify({ action })}`);
