@@ -21,9 +21,12 @@ export default function RemoteExecutor() {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        // Simple command to check if robot is connected
-        const response = await executeCommand(PHYSICAL_ROBOT_SERIAL, 'echo "PING"');
-        setRobotConnected(!!response);
+        // Instead of executing a command, check robot status directly
+        const response = await fetch(`/api/robots/status/${PHYSICAL_ROBOT_SERIAL}`);
+        const data = await response.json();
+        
+        // If we get a response, the robot is connected
+        setRobotConnected(response.ok && data.connectionStatus === 'connected');
       } catch (err) {
         console.error('Robot connection check failed:', err);
         setRobotConnected(false);
@@ -31,11 +34,11 @@ export default function RemoteExecutor() {
     };
     
     checkConnection();
-    // Set up a periodic check every 30 seconds
-    const interval = setInterval(checkConnection, 30000);
+    // Set up a periodic check every 5 seconds
+    const interval = setInterval(checkConnection, 5000);
     
     return () => clearInterval(interval);
-  }, [executeCommand]);
+  }, []);
 
   // Reset status when command changes
   useEffect(() => {
