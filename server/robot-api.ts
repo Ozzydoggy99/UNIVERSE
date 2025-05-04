@@ -2112,6 +2112,61 @@ export function registerRobotApiRoutes(app: Express) {
    * This endpoint simulates a power cycle by setting the appropriate state values
    * without actually sending robot restart commands - helpful for UI testing
    */
+  // Execute a shell command on the robot
+  app.post('/api/robots/:serialNumber/execute-command', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { command } = req.body;
+      
+      if (!command || typeof command !== 'string') {
+        return res.status(400).json({ 
+          error: 'Invalid command',
+          message: 'Command must be a non-empty string'
+        });
+      }
+      
+      console.log(`Executing command on robot ${serialNumber}: ${command}`);
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ 
+          error: 'Robot not found',
+          message: 'Command execution is only supported on the physical robot'
+        });
+      }
+      
+      // Check if robot is connected
+      if (!isRobotConnected()) {
+        return res.status(503).json({ 
+          error: 'Robot not connected', 
+          message: 'The robot is not currently connected. Please check the connection.'
+        });
+      }
+      
+      try {
+        // Execute the command on the robot
+        const result = await executeCommand(serialNumber, command);
+        
+        res.json({ 
+          success: true, 
+          result: result || 'Command executed successfully'
+        });
+      } catch (cmdError: any) {
+        console.error('Command execution error:', cmdError);
+        res.status(500).json({ 
+          error: 'Command execution failed',
+          message: cmdError instanceof Error ? cmdError.message : 'Unknown error'
+        });
+      }
+    } catch (error) {
+      console.error('Error handling command execution:', error);
+      res.status(500).json({ 
+        error: 'Failed to process command execution request',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   app.post('/api/robots/:serialNumber/test-power-cycle', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
@@ -2135,7 +2190,8 @@ export function registerRobotApiRoutes(app: Express) {
       if (isLiveTest) {
         // Use real recovery times for live testing (same as production)
         powerCycleState.maxRecoveryTime = 5 * 60 * 1000; // 5 minutes max recovery time for real robot
-        powerCycleState.expectedRecoveryTime = now + (method === 'restart' ? 2 * 60 * 1000 : 5 * 60 * 1000);
+        const restartMethod = req.body.method || 'power';
+        powerCycleState.expectedRecoveryTime = now + (restartMethod === 'restart' ? 2 * 60 * 1000 : 5 * 60 * 1000);
         console.log(`[POWER CYCLE] LIVE TEST: Using real recovery times - expected: ${Math.round((powerCycleState.expectedRecoveryTime - now)/1000)}s, max: ${Math.round(powerCycleState.maxRecoveryTime/1000)}s`);
       } else {
         // Use shortened times for simulated testing

@@ -18,9 +18,11 @@ export function useRobotApi(): UseRobotApiReturn {
     setError(null);
     
     try {
+      console.log(`Executing command on robot ${robotSerial}: ${command}`);
+      
       const response = await axios({
         method: 'post',
-        url: `/api/robots/command/${robotSerial}`,
+        url: `/api/robots/${robotSerial}/execute-command`,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -29,10 +31,31 @@ export function useRobotApi(): UseRobotApiReturn {
       
       setStatusCode(response.status);
       setIsLoading(false);
-      return response.data.output || null;
+      
+      // Check the response structure
+      if (response.data && response.data.success) {
+        console.log('Command executed successfully:', response.data.result);
+        return response.data.result || null;
+      } else {
+        // If the API returns a structured error
+        const errorMessage = response.data?.error || response.data?.message || 'Unknown error';
+        throw new Error(errorMessage);
+      }
     } catch (err: any) {
+      console.error('Error executing command:', err);
       setStatusCode(err.response?.status || 500);
-      setError(err instanceof Error ? err : new Error('An unknown error occurred'));
+      
+      // Get the most detailed error message available
+      let errorMessage = 'An unknown error occurred';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(new Error(errorMessage));
       setIsLoading(false);
       return null;
     }

@@ -1,0 +1,121 @@
+import { useState, useEffect } from 'react';
+import { useRobotApi } from '@/hooks/use-robot-api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle, CheckCircle2, Terminal } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+
+const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
+
+export default function RemoteExecutor() {
+  const [command, setCommand] = useState<string>('');
+  const [result, setResult] = useState<string | null>(null);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const { executeCommand, isLoading, error } = useRobotApi();
+
+  // Reset status when command changes
+  useEffect(() => {
+    setStatus('idle');
+  }, [command]);
+
+  const handleExecuteCommand = async () => {
+    if (!command.trim()) return;
+
+    try {
+      const response = await executeCommand(PHYSICAL_ROBOT_SERIAL, command);
+      
+      setResult(response);
+      setStatus(response ? 'success' : 'error');
+    } catch (err) {
+      setStatus('error');
+      console.error('Error executing command:', err);
+    }
+  };
+
+  return (
+    <div className="container mx-auto py-10">
+      <Card className="w-full max-w-3xl mx-auto">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Terminal className="h-6 w-6" />
+            <CardTitle>Remote Command Execution</CardTitle>
+          </div>
+          <CardDescription>
+            Execute shell commands on the robot. Use with caution.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="command" className="text-sm font-medium">
+                Command
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  id="command"
+                  placeholder="Enter a shell command (e.g., ls -la)"
+                  value={command}
+                  onChange={(e) => setCommand(e.target.value)}
+                  disabled={isLoading}
+                />
+                <Button 
+                  onClick={handleExecuteCommand} 
+                  disabled={isLoading || !command.trim()}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Executing...
+                    </>
+                  ) : (
+                    'Execute'
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {status !== 'idle' && (
+              <Alert variant={status === 'success' ? "default" : "destructive"}>
+                {status === 'success' ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <AlertCircle className="h-4 w-4" />
+                )}
+                <AlertTitle>
+                  {status === 'success' 
+                    ? 'Command executed successfully' 
+                    : 'Command execution failed'}
+                </AlertTitle>
+                <AlertDescription>
+                  {status === 'success' 
+                    ? 'The command was executed on the robot.' 
+                    : error?.message || 'An error occurred while executing the command.'}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {result !== null && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Result</label>
+                <Textarea
+                  value={result}
+                  readOnly
+                  rows={10}
+                  className="font-mono text-sm"
+                />
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <div className="text-sm text-muted-foreground">
+            Connected to robot: {PHYSICAL_ROBOT_SERIAL}
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
