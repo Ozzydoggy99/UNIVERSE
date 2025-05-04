@@ -695,14 +695,15 @@ export async function executeCommand(serialNumber: string, command: string): Pro
       throw new Error('Robot not found or command execution not supported');
     }
     
-    // Execute command using robot's services API
-    const response = await fetch(`${ROBOT_API_URL}/services/execute`, {
-      method: 'POST',
+    // Execute command using robot's debug API
+    // The robot doesn't have a /services/execute endpoint, but it does have a debug endpoint
+    const encodedCommand = encodeURIComponent(command);
+    const response = await fetch(`${ROBOT_API_URL}/debug/${encodedCommand}`, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Secret': ROBOT_SECRET || ''
-      },
-      body: JSON.stringify({ command })
+      }
     });
     
     if (!response.ok) {
@@ -713,12 +714,34 @@ export async function executeCommand(serialNumber: string, command: string): Pro
     
     const result = await response.json();
     
-    // Return stdout or error message
-    if (result.status === 'success') {
-      return result.stdout || 'Command executed successfully';
+    // Debug endpoint returns a different format than we expected
+    // It might return the command output directly instead of in stdout/stderr fields
+    // Handle any reasonable format we might get
+    
+    // If result is a string, return it directly
+    if (typeof result === 'string') {
+      return result;
+    }
+    
+    // If result has stdout/stderr properties (our original expected format)
+    if (result.stdout) {
+      return result.stdout;
+    } else if (result.status === 'success') {
+      return 'Command executed successfully';
+    } else if (result.output) {
+      return result.output;
+    } else if (result.result) {
+      return result.result;
+    } else if (result.response) {
+      return result.response;
+    } else if (result.message) {
+      return result.message;
+    } else if (result.stderr) {
+      console.error(`Command execution failed: ${result.stderr}`);
+      throw new Error(result.stderr);
     } else {
-      console.error(`Command execution failed: ${result.stderr || result.message || 'Unknown error'}`);
-      throw new Error(result.stderr || result.message || 'Command execution failed');
+      // Return the whole result as JSON string if we can't find a specific field
+      return JSON.stringify(result);
     }
   } catch (error: any) {
     console.error(`Error executing command on robot ${serialNumber}:`, error);

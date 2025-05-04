@@ -14,7 +14,28 @@ export default function RemoteExecutor() {
   const [command, setCommand] = useState<string>('');
   const [result, setResult] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [robotConnected, setRobotConnected] = useState<boolean>(false);
   const { executeCommand, isLoading, error } = useRobotApi();
+
+  // Check robot connection status
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        // Simple command to check if robot is connected
+        const response = await executeCommand(PHYSICAL_ROBOT_SERIAL, 'echo "PING"');
+        setRobotConnected(!!response);
+      } catch (err) {
+        console.error('Robot connection check failed:', err);
+        setRobotConnected(false);
+      }
+    };
+    
+    checkConnection();
+    // Set up a periodic check every 30 seconds
+    const interval = setInterval(checkConnection, 30000);
+    
+    return () => clearInterval(interval);
+  }, [executeCommand]);
 
   // Reset status when command changes
   useEffect(() => {
@@ -25,6 +46,13 @@ export default function RemoteExecutor() {
     if (!command.trim()) return;
 
     try {
+      // Check if robot is connected before sending command
+      if (!robotConnected) {
+        setResult("Error: Robot is not connected. Please check the robot's power and network connection.");
+        setStatus('error');
+        return;
+      }
+      
       const response = await executeCommand(PHYSICAL_ROBOT_SERIAL, command);
       
       setResult(response);
@@ -46,6 +74,12 @@ export default function RemoteExecutor() {
           <CardDescription>
             Execute shell commands on the robot. Use with caution.
           </CardDescription>
+          <div className="flex items-center mt-2 gap-2">
+            <div className={`w-3 h-3 rounded-full ${robotConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-sm text-muted-foreground">
+              {robotConnected ? 'Robot is connected' : 'Robot is not connected'}
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -111,8 +145,12 @@ export default function RemoteExecutor() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">
-          <div className="text-sm text-muted-foreground">
-            Connected to robot: {PHYSICAL_ROBOT_SERIAL}
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${robotConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <div className="text-sm text-muted-foreground">
+              {robotConnected ? 'Connected to robot: ' : 'Not connected to robot: '} 
+              {PHYSICAL_ROBOT_SERIAL}
+            </div>
           </div>
         </CardFooter>
       </Card>
