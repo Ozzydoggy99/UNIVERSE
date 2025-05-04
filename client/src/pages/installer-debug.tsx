@@ -16,6 +16,7 @@ const InstallerDebugPage = () => {
   const [fileCheckResult, setFileCheckResult] = useState<any>(null);
   const [executeResult, setExecuteResult] = useState<any>(null);
   const [statusResult, setStatusResult] = useState<any>(null);
+  const [uploadResult, setUploadResult] = useState<any>(null);
 
   const handleTestConnection = async () => {
     setLoading(true);
@@ -150,6 +151,44 @@ const InstallerDebugPage = () => {
       setLoading(false);
     }
   };
+  
+  const handleUploadInstaller = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/robots/${serialNumber}/upload-installer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          destinationPath: installerPath 
+        }),
+      });
+      
+      const result = await response.json();
+      setUploadResult(result);
+      
+      toast({
+        title: result.success ? 'Upload successful' : 'Upload failed',
+        description: result.message,
+        variant: result.success ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      console.error('Error uploading installer:', error);
+      setUploadResult({ 
+        success: false, 
+        message: `Error: ${error.message}` 
+      });
+      
+      toast({
+        title: 'Upload failed',
+        description: `Error: ${error.message}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderResultCard = (title: string, result: any, onAction: () => void, actionText: string) => {
     if (!result) return null;
@@ -216,7 +255,11 @@ const InstallerDebugPage = () => {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between">
+        <CardFooter className="flex flex-wrap gap-2 justify-between">
+          <Button onClick={handleUploadInstaller} disabled={loading} variant="secondary">
+            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+            Upload Installer
+          </Button>
           <Button onClick={handleCheckInstaller} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             Check Installer
@@ -234,6 +277,7 @@ const InstallerDebugPage = () => {
       
       <div className="space-y-6">
         {testResult && renderResultCard('Connection Test Result', testResult, handleTestConnection, 'Test Again')}
+        {uploadResult && renderResultCard('Upload Result', uploadResult, handleUploadInstaller, 'Upload Again')}
         {fileCheckResult && renderResultCard('File Check Result', fileCheckResult, handleCheckInstaller, 'Check Again')}
         {executeResult && renderResultCard('Execution Result', executeResult, handleExecuteInstaller, 'Execute Again')}
         {statusResult && renderResultCard('Status Result', statusResult, handleCheckStatus, 'Check Again')}
