@@ -995,13 +995,16 @@ def run_installer(robot_port: int, robot_secret: str) -> bool:
         if not modules_path:
             return False
         
-        # 4. Install core module
-        module_path = install_core_module(modules_path)
-        if not module_path:
+        # 4. Install all modules
+        installed_modules = install_modules(modules_path)
+        if not installed_modules:
+            print_status("❌ Failed to install any modules")
             return False
         
-        # 5. Create launcher script
-        launcher_path = create_launcher_script(robot_secret, module_path)
+        print_status(f"✅ Successfully installed {len(installed_modules)} modules")
+        
+        # 5. Create launcher script for all modules
+        launcher_path = create_launcher_script(robot_secret, installed_modules)
         if not launcher_path:
             return False
         
@@ -1014,6 +1017,11 @@ def run_installer(robot_port: int, robot_secret: str) -> bool:
             return False
         
         print_status("✅ Installation completed successfully")
+        print_status(f"✅ Installed {len(installed_modules)} modules:")
+        for i, module in enumerate(installed_modules, 1):
+            module_name = os.path.basename(module)
+            print_status(f"  {i}. {module_name}")
+        
         return True
     except Exception as e:
         print_status(f"❌ Installation failed: {e}")
