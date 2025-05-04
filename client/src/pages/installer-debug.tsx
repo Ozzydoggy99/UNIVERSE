@@ -20,7 +20,7 @@ const InstallerDebugPage = () => {
   const handleTestConnection = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/robots/${serialNumber}/test-connection`);
+      const response = await fetch(`/api/robots/test-connection?serialNumber=${serialNumber}`);
       const result = await response.json();
       setTestResult(result);
       
@@ -49,7 +49,7 @@ const InstallerDebugPage = () => {
   const handleCheckInstaller = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/robots/${serialNumber}/check-installer?path=${encodeURIComponent(installerPath)}`);
+      const response = await fetch(`/api/robots/check-installer?serialNumber=${serialNumber}&path=${encodeURIComponent(installerPath)}`);
       const result = await response.json();
       setFileCheckResult(result);
       
@@ -82,12 +82,13 @@ const InstallerDebugPage = () => {
   const handleExecuteInstaller = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/robots/${serialNumber}/execute-installer`, {
+      const response = await fetch(`/api/robots/execute-installer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
+          serialNumber,
           installerPath: fileCheckResult?.exists 
             ? fileCheckResult.path 
             : fileCheckResult?.alternativeExists 
@@ -124,7 +125,7 @@ const InstallerDebugPage = () => {
   const handleCheckStatus = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/robots/${serialNumber}/robot-ai-status`);
+      const response = await fetch(`/api/robots/robot-ai-status?serialNumber=${serialNumber}`);
       const result = await response.json();
       setStatusResult(result);
       
