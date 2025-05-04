@@ -695,11 +695,9 @@ export async function executeCommand(serialNumber: string, command: string): Pro
       throw new Error('Robot not found or command execution not supported');
     }
     
-    // Use the services/execute endpoint - found in test files
+    // Use the /api/command endpoint which is used in quick-robot-check.js and confirmed working
     try {
-      // Use the services/execute endpoint which is known to work
-      // IMPORTANT: Use only the Authorization header as specified in the working test file
-      const response = await fetch(`${ROBOT_API_URL}/services/execute`, {
+      const response = await fetch(`${ROBOT_API_URL}/api/command`, {
         method: 'POST',
         headers: {
           'Authorization': `Secret ${ROBOT_SECRET || ''}`,
@@ -722,8 +720,10 @@ export async function executeCommand(serialNumber: string, command: string): Pro
         throw new Error(`Command execution error: ${result.error}`);
       }
       
-      // Format the output
-      if (result.stdout) {
+      // Format the output - from quick-robot-check.js we see that the response has an 'output' field
+      if (result.output) {
+        return result.output;
+      } else if (result.stdout) {
         return result.stdout;
       } else {
         return JSON.stringify(result);
