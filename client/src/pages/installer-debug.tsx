@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, CheckCircle2, XCircle, Info, Upload } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Info, Upload, Search, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const InstallerDebugPage = () => {
   const { toast } = useToast();
@@ -17,6 +18,9 @@ const InstallerDebugPage = () => {
   const [executeResult, setExecuteResult] = useState<any>(null);
   const [statusResult, setStatusResult] = useState<any>(null);
   const [uploadResult, setUploadResult] = useState<any>(null);
+  const [modulesResult, setModulesResult] = useState<any>(null);
+  const [moduleExecuteResult, setModuleExecuteResult] = useState<any>(null);
+  const [selectedModule, setSelectedModule] = useState<string>("");
 
   const handleTestConnection = async () => {
     setLoading(true);
@@ -195,6 +199,88 @@ const InstallerDebugPage = () => {
       setLoading(false);
     }
   };
+  
+  const handleFindModules = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/robots/${serialNumber}/find-modules`);
+      const result = await response.json();
+      setModulesResult(result);
+      
+      if (result.modules && result.modules.length > 0) {
+        setSelectedModule(result.modules[0]);
+      }
+      
+      toast({
+        title: result.success ? 'Modules found' : 'Module search failed',
+        description: result.success 
+          ? `Found ${result.modules.length} modules on the robot` 
+          : result.message,
+        variant: result.success ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      console.error('Error finding modules:', error);
+      setModulesResult({ 
+        success: false, 
+        message: `Error: ${error.message}` 
+      });
+      
+      toast({
+        title: 'Module search failed',
+        description: `Error: ${error.message}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleExecuteModule = async () => {
+    if (!selectedModule) {
+      toast({
+        title: 'No module selected',
+        description: 'Please select a module first',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/robots/${serialNumber}/execute-module`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          modulePath: selectedModule 
+        }),
+      });
+      
+      const result = await response.json();
+      setModuleExecuteResult(result);
+      
+      toast({
+        title: result.success ? 'Module execution started' : 'Module execution failed',
+        description: result.message,
+        variant: result.success ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      console.error('Error executing module:', error);
+      setModuleExecuteResult({ 
+        success: false, 
+        message: `Error: ${error.message}` 
+      });
+      
+      toast({
+        title: 'Module execution failed',
+        description: `Error: ${error.message}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderResultCard = (title: string, result: any, onAction: () => void, actionText: string) => {
     if (!result) return null;
@@ -281,12 +367,56 @@ const InstallerDebugPage = () => {
         </CardFooter>
       </Card>
       
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Execute Existing Modules</CardTitle>
+          <CardDescription>Find and execute Python modules that already exist on the robot</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex flex-col space-y-2">
+              <Button onClick={handleFindModules} disabled={loading} className="w-full sm:w-auto">
+                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                Find Modules on Robot
+              </Button>
+            </div>
+            
+            {modulesResult && modulesResult.modules && modulesResult.modules.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="moduleSelect">Select Module to Execute</Label>
+                <Select value={selectedModule} onValueChange={setSelectedModule}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a module" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modulesResult.modules.map((module: string) => (
+                      <SelectItem key={module} value={module}>
+                        {module.split('/').pop()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={handleExecuteModule} 
+                  disabled={loading || !selectedModule} 
+                  className="w-full mt-2">
+                  {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+                  Execute Selected Module
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      
       <div className="space-y-6">
         {testResult && renderResultCard('Connection Test Result', testResult, handleTestConnection, 'Test Again')}
         {uploadResult && renderResultCard('Upload Result', uploadResult, handleUploadInstaller, 'Upload Again')}
         {fileCheckResult && renderResultCard('File Check Result', fileCheckResult, handleCheckInstaller, 'Check Again')}
         {executeResult && renderResultCard('Execution Result', executeResult, handleExecuteInstaller, 'Execute Again')}
         {statusResult && renderResultCard('Status Result', statusResult, handleCheckStatus, 'Check Again')}
+        {modulesResult && renderResultCard('Module Search Result', modulesResult, handleFindModules, 'Find Again')}
+        {moduleExecuteResult && renderResultCard('Module Execution Result', moduleExecuteResult, handleExecuteModule, 'Execute Again')}
       </div>
       
       <Separator className="my-8" />
