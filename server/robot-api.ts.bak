@@ -706,6 +706,10 @@ export async function executeCommand(serialNumber: string, command: string): Pro
     console.error(`Error executing command on robot ${serialNumber}:`, error);
     throw error;
   }
+  } catch (error: any) {
+    console.error(`Error executing command on robot ${serialNumber}:`, error);
+    throw error;
+  }
 }
 
 export function registerRobotApiRoutes(app: Express) {
