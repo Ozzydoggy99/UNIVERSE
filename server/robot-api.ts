@@ -698,10 +698,10 @@ export async function executeCommand(serialNumber: string, command: string): Pro
     // Use the services/execute endpoint - found in test files
     try {
       // Use the services/execute endpoint which is known to work
+      // IMPORTANT: Use only the Authorization header as specified in the working test file
       const response = await fetch(`${ROBOT_API_URL}/services/execute`, {
         method: 'POST',
         headers: {
-          'Secret': ROBOT_SECRET || '',
           'Authorization': `Secret ${ROBOT_SECRET || ''}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
