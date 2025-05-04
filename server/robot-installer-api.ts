@@ -75,12 +75,72 @@ export async function uploadInstallerToRobot(serialNumber: string, destinationPa
  * @param installerPath The path to the installer script on the robot
  * @returns Object with success status and message
  */
-export async function executeInstaller(serialNumber: string, installerPath: string = '/home/robot/robot-ai-minimal-installer.py', skipUpload: boolean = true) {
+export async function executeInstaller(
+  serialNumber: string, 
+  installerPath: string = '/home/robot/robot-ai-minimal-installer.py', 
+  skipUpload: boolean = true,
+  useDirectPythonCommand: boolean = true
+) {
   console.log(`Executing Robot AI installer on robot ${serialNumber} at path ${installerPath}`);
   console.log(`Robot API URL: ${ROBOT_API_URL}, Secret available: ${ROBOT_SECRET ? 'Yes' : 'No'}`);
   console.log(`Skip upload: ${skipUpload}`);
   
   try {
+    // First verify that the file exists
+    console.log(`Checking if installer exists at path: ${installerPath}`);
+    const fileCheckResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Secret ${ROBOT_SECRET}`
+      },
+      body: JSON.stringify({
+        command: `test -f ${installerPath} && echo "exists" || echo "not exists"`
+      })
+    });
+    
+    if (!fileCheckResponse.ok) {
+      console.error(`File check response error: ${fileCheckResponse.status}`);
+    } else {
+      const fileCheckResult = await fileCheckResponse.json();
+      console.log('File check result:', fileCheckResult);
+      
+      if (fileCheckResult.stdout?.trim() !== 'exists') {
+        console.warn(`Installer file not found at ${installerPath}`);
+        
+        // Try a different location
+        installerPath = installerPath.includes('/home/robot') ? 
+          '/tmp/robot-ai-minimal-installer.py' : 
+          '/home/robot/robot-ai-minimal-installer.py';
+          
+        console.log(`Trying alternate installer location: ${installerPath}`);
+        
+        // Check if the alternate location exists
+        const altFileCheckResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Secret ${ROBOT_SECRET}`
+          },
+          body: JSON.stringify({
+            command: `test -f ${installerPath} && echo "exists" || echo "not exists"`
+          })
+        });
+        
+        if (altFileCheckResponse.ok) {
+          const altFileCheckResult = await altFileCheckResponse.json();
+          console.log('Alternate file check result:', altFileCheckResult);
+          
+          if (altFileCheckResult.stdout?.trim() !== 'exists') {
+            console.error('Installer not found in either location');
+            
+            // If skipUpload is true but the file doesn't exist, we need to upload it
+            skipUpload = false;
+          }
+        }
+      }
+    }
+    
     // Upload the installer if needed (skipped by default)
     if (!skipUpload) {
       console.log("Uploading installer to robot...");
@@ -115,17 +175,49 @@ export async function executeInstaller(serialNumber: string, installerPath: stri
     console.log('Chmod result:', chmodResult);
     
     // Then execute the installer
-    console.log(`Executing installer: python3 ${installerPath}`);
-    const executeResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Secret ${ROBOT_SECRET}`
-      },
-      body: JSON.stringify({
-        command: `python3 ${installerPath}`
-      })
-    });
+    let pythonCommand = useDirectPythonCommand ? 
+      `python3 ${installerPath}` : 
+      `/usr/bin/env python3 ${installerPath}`;
+      
+    console.log(`Executing installer with command: ${pythonCommand}`);
+    
+    // Try both approaches one after another to improve chances of success
+    let executeResponse;
+    let errorMessage = '';
+    
+    try {
+      executeResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Secret ${ROBOT_SECRET}`
+        },
+        body: JSON.stringify({
+          command: pythonCommand
+        })
+      });
+    } catch (error) {
+      console.error('First execution attempt failed:', error);
+      errorMessage += `First attempt failed: ${error.message}. `;
+      
+      // If first attempt fails, try alternate Python execution syntax
+      pythonCommand = useDirectPythonCommand ? 
+        `/usr/bin/env python3 ${installerPath}` : 
+        `python3 ${installerPath}`;
+        
+      console.log(`Retrying with alternate command: ${pythonCommand}`);
+      
+      executeResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Secret ${ROBOT_SECRET}`
+        },
+        body: JSON.stringify({
+          command: pythonCommand
+        })
+      });
+    }
     
     if (!executeResponse.ok) {
       const errorText = await executeResponse.text();
@@ -225,21 +317,31 @@ export function registerRobotInstallerRoutes(app: Express) {
   // Execute installer on robot
   app.post('/api/robots/:serialNumber/execute-installer', async (req: Request, res: Response) => {
     try {
+      console.log('Received execute installer request:', req.params, req.body);
       const { serialNumber } = req.params;
-      const { installerPath } = req.body;
+      const { installerPath } = req.body || {};
+      
+      // Explicitly log all parameters 
+      console.log(`Executing installer with: serialNumber=${serialNumber}, installerPath=${installerPath}`);
+      console.log(`Robot API URL: ${ROBOT_API_URL}`);
+      console.log(`Secret available: ${ROBOT_SECRET ? 'Yes' : 'No'}`);
       
       const result = await executeInstaller(serialNumber, installerPath);
+      console.log('Installer execution result:', result);
       
       if (result.success) {
         res.json(result);
       } else {
+        console.error('Installer execution failed:', result);
         res.status(500).json(result);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error executing installer:', error);
+      console.error('Error stack:', error.stack);
       res.status(500).json({ 
         success: false, 
-        message: `Error executing installer: ${error.message}` 
+        message: `Error executing installer: ${error.message}`,
+        stack: error.stack
       });
     }
   });
