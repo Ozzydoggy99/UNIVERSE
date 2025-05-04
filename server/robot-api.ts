@@ -695,24 +695,43 @@ export async function executeCommand(serialNumber: string, command: string): Pro
       throw new Error('Robot not found or command execution not supported');
     }
     
-    // Use the robot's debug execution endpoint
+    // Try to use the robot's shell execution endpoint
     try {
-      // This endpoint executes shell commands on the robot
-      const response = await fetch(`${ROBOT_API_URL}/debug/shell/${encodeURIComponent(command)}`, {
-        method: 'GET',
+      // First try the shell command directly with a POST request
+      const response = await fetch(`${ROBOT_API_URL}/shell`, {
+        method: 'POST',
         headers: {
           'Secret': ROBOT_SECRET || '',
-          'Accept': 'text/plain'
-        }
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ command })
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to execute command: HTTP ${response.status}`);
+        // If that fails, try the system command endpoint
+        const systemResponse = await fetch(`${ROBOT_API_URL}/system/command`, {
+          method: 'POST',
+          headers: {
+            'Secret': ROBOT_SECRET || '',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ command })
+        });
+        
+        if (!systemResponse.ok) {
+          throw new Error(`Failed to execute command: HTTP ${systemResponse.status}`);
+        }
+        
+        // Get the response
+        const systemResult = await systemResponse.json();
+        return systemResult.output || JSON.stringify(systemResult);
       }
       
       // Get the raw output
-      const output = await response.text();
-      return output;
+      const result = await response.json();
+      return result.output || JSON.stringify(result);
     } catch (execError) {
       console.error('Error executing command via robot API:', execError);
       throw new Error(`Failed to execute command on robot: ${execError.message}`);
