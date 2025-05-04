@@ -27,6 +27,7 @@ import MapTestPage from "@/pages/map-test-page";
 import LayeredMapPage from "@/pages/layered-map-page";
 import PowerCycleTestPage from "@/pages/power-cycle-test";
 import RobotInstaller from "@/pages/robot-installer";
+import InstallerDebugPage from "@/pages/installer-debug";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -398,6 +399,12 @@ function Router() {
       <Route 
         path="/robot-ai-installer" 
         component={RobotInstaller} 
+      />
+      
+      {/* Installer Debug Page */}
+      <Route 
+        path="/installer-debug" 
+        component={InstallerDebugPage} 
       />
       
       <Route component={NotFound} />

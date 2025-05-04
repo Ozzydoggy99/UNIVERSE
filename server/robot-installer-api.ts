@@ -314,6 +314,125 @@ export async function checkRobotAIStatus(serialNumber: string) {
  * Register Robot AI Installer API routes
  */
 export function registerRobotInstallerRoutes(app: Express) {
+  // Test the robot connection API
+  app.get('/api/robots/:serialNumber/test-connection', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      console.log(`Testing connection to robot ${serialNumber}`);
+      
+      const response = await fetch(`${ROBOT_API_URL}/device/info`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Secret ${ROBOT_SECRET}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Robot connection error (${response.status}): ${errorText}`);
+        res.status(response.status).json({
+          success: false,
+          message: `Failed to connect to robot: HTTP ${response.status} - ${errorText}`,
+          status: response.status
+        });
+        return;
+      }
+      
+      const deviceInfo = await response.json();
+      console.log('Robot device info:', deviceInfo);
+      
+      res.json({
+        success: true,
+        message: 'Successfully connected to robot',
+        deviceInfo
+      });
+    } catch (error: any) {
+      console.error('Error testing robot connection:', error);
+      res.status(500).json({
+        success: false,
+        message: `Error testing robot connection: ${error.message}`,
+        error: error.stack
+      });
+    }
+  });
+
+  // Check for installer file existence
+  app.get('/api/robots/:serialNumber/check-installer', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { path } = req.query;
+      const installerPath = path?.toString() || '/home/robot/robot-ai-minimal-installer.py';
+      
+      console.log(`Checking for installer at ${installerPath} on robot ${serialNumber}`);
+      
+      const fileCheckResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Secret ${ROBOT_SECRET}`
+        },
+        body: JSON.stringify({
+          command: `test -f ${installerPath} && echo "exists" || echo "not exists"`
+        })
+      });
+      
+      if (!fileCheckResponse.ok) {
+        const errorText = await fileCheckResponse.text();
+        console.error(`File check error (${fileCheckResponse.status}): ${errorText}`);
+        res.status(fileCheckResponse.status).json({
+          success: false,
+          message: `Failed to check for installer: HTTP ${fileCheckResponse.status} - ${errorText}`,
+          path: installerPath
+        });
+        return;
+      }
+      
+      const fileCheckResult = await fileCheckResponse.json();
+      console.log('File check result:', fileCheckResult);
+      
+      const fileExists = fileCheckResult.stdout?.trim() === 'exists';
+      
+      // Also check alternate location
+      const altPath = installerPath.includes('/home/robot') ? 
+        '/tmp/robot-ai-minimal-installer.py' : 
+        '/home/robot/robot-ai-minimal-installer.py';
+      
+      const altCheckResponse = await fetch(`${ROBOT_API_URL}/services/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Secret ${ROBOT_SECRET}`
+        },
+        body: JSON.stringify({
+          command: `test -f ${altPath} && echo "exists" || echo "not exists"`
+        })
+      });
+      
+      let altExists = false;
+      if (altCheckResponse.ok) {
+        const altCheckResult = await altCheckResponse.json();
+        altExists = altCheckResult.stdout?.trim() === 'exists';
+      }
+      
+      res.json({
+        success: true,
+        exists: fileExists,
+        path: installerPath,
+        alternativePath: altPath,
+        alternativeExists: altExists,
+        stdout: fileCheckResult.stdout,
+        stderr: fileCheckResult.stderr
+      });
+    } catch (error: any) {
+      console.error('Error checking for installer:', error);
+      res.status(500).json({
+        success: false,
+        message: `Error checking for installer: ${error.message}`,
+        error: error.stack
+      });
+    }
+  });
+
   // Execute installer on robot
   app.post('/api/robots/:serialNumber/execute-installer', async (req: Request, res: Response) => {
     try {
