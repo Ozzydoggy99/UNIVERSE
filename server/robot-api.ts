@@ -695,13 +695,28 @@ export async function executeCommand(serialNumber: string, command: string): Pro
       throw new Error('Robot not found or command execution not supported');
     }
     
-    // The robot API doesn't seem to have a dedicated command execution endpoint
-    // Let's use a more basic approach by checking if the robot is online
-    console.log(`Simulating command execution: ${command}`);
-    
-    // Just return a simulated response that shows the command was received
-    // This is just a fallback until we can determine the correct API endpoint
-    return `Command received: ${command}\n\nNote: Command execution is limited during development. The robot is connected, but we're currently using simulated responses for command execution.`;
+    // Use the robot's debug execution endpoint
+    try {
+      // This endpoint executes shell commands on the robot
+      const response = await fetch(`${ROBOT_API_URL}/debug/shell/${encodeURIComponent(command)}`, {
+        method: 'GET',
+        headers: {
+          'Secret': ROBOT_SECRET || '',
+          'Accept': 'text/plain'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to execute command: HTTP ${response.status}`);
+      }
+      
+      // Get the raw output
+      const output = await response.text();
+      return output;
+    } catch (execError) {
+      console.error('Error executing command via robot API:', execError);
+      throw new Error(`Failed to execute command on robot: ${execError.message}`);
+    }
   } catch (error: any) {
     console.error(`Error executing command on robot ${serialNumber}:`, error);
     throw error;
