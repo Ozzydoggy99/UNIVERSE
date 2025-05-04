@@ -695,13 +695,14 @@ export async function executeCommand(serialNumber: string, command: string): Pro
       throw new Error('Robot not found or command execution not supported');
     }
     
-    // Try to use the robot's shell execution endpoint
+    // Use the services/execute endpoint - found in test files
     try {
-      // First try the shell command directly with a POST request
-      const response = await fetch(`${ROBOT_API_URL}/shell`, {
+      // Use the services/execute endpoint which is known to work
+      const response = await fetch(`${ROBOT_API_URL}/services/execute`, {
         method: 'POST',
         headers: {
           'Secret': ROBOT_SECRET || '',
+          'Authorization': `Secret ${ROBOT_SECRET || ''}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -709,29 +710,24 @@ export async function executeCommand(serialNumber: string, command: string): Pro
       });
       
       if (!response.ok) {
-        // If that fails, try the system command endpoint
-        const systemResponse = await fetch(`${ROBOT_API_URL}/system/command`, {
-          method: 'POST',
-          headers: {
-            'Secret': ROBOT_SECRET || '',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({ command })
-        });
-        
-        if (!systemResponse.ok) {
-          throw new Error(`Failed to execute command: HTTP ${systemResponse.status}`);
-        }
-        
-        // Get the response
-        const systemResult = await systemResponse.json();
-        return systemResult.output || JSON.stringify(systemResult);
+        console.error(`Failed to execute command: HTTP ${response.status}`);
+        throw new Error(`Failed to execute command: HTTP ${response.status}`);
       }
       
-      // Get the raw output
+      // Get the result
       const result = await response.json();
-      return result.output || JSON.stringify(result);
+      
+      // Check for error in the response
+      if (result.error) {
+        throw new Error(`Command execution error: ${result.error}`);
+      }
+      
+      // Format the output
+      if (result.stdout) {
+        return result.stdout;
+      } else {
+        return JSON.stringify(result);
+      }
     } catch (execError) {
       console.error('Error executing command via robot API:', execError);
       throw new Error(`Failed to execute command on robot: ${execError.message}`);
