@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Bot,
   BrainCircuit,
-  ListTodo
+  ListTodo,
+  Terminal
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -57,7 +58,8 @@ export default function Sidebar() {
       items: [
         { href: "/robot-assignments", label: "Robot Assignments" },
         { href: "/robot-hub", label: "Robot Monitoring Hub" },
-        { href: "/robot-tasks", label: "Task Queue" }
+        { href: "/robot-tasks", label: "Task Queue" },
+        { href: "/remote-executor", label: "Remote Executor" }
       ]
     }
   ] : [];
