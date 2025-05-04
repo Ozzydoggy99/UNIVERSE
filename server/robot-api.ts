@@ -678,6 +678,54 @@ async function cancelMappingSession(sessionId: string): Promise<void> {
   }
 }
 
+/**
+ * Execute a shell command on the robot
+ * 
+ * @param serialNumber Robot serial number
+ * @param command Shell command to execute
+ * @returns Result of the command execution
+ */
+export async function executeCommand(serialNumber: string, command: string): Promise<string | null> {
+  try {
+    console.log(`Executing command on robot ${serialNumber}: ${command}`);
+    
+    // Verify that the requested robot is our physical robot
+    if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+      console.warn(`Attempted to execute command on non-physical robot: ${serialNumber}`);
+      throw new Error('Robot not found or command execution not supported');
+    }
+    
+    // Execute command using robot's services API
+    const response = await fetch(`${ROBOT_API_URL}/services/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Secret': ROBOT_SECRET || ''
+      },
+      body: JSON.stringify({ command })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Command execution error (${response.status}): ${errorText}`);
+      throw new Error(`Failed to execute command: HTTP ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    
+    // Return stdout or error message
+    if (result.status === 'success') {
+      return result.stdout || 'Command executed successfully';
+    } else {
+      console.error(`Command execution failed: ${result.stderr || result.message || 'Unknown error'}`);
+      throw new Error(result.stderr || result.message || 'Command execution failed');
+    }
+  } catch (error: any) {
+    console.error(`Error executing command on robot ${serialNumber}:`, error);
+    throw error;
+  }
+}
+
 export function registerRobotApiRoutes(app: Express) {
   // Register a physical robot for remote communication
   app.get('/api/robots/register-physical/:serialNumber', async (req: Request, res: Response) => {
