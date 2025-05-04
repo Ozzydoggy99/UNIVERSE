@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, Info, AlertCircle, ArrowDownCircle, RefreshCw, Play, Check } from "lucide-react";
+import { Loader2, CheckCircle, Info, AlertCircle, ArrowDownCircle, RefreshCw, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,9 +112,9 @@ export default function RemoteUpdater() {
         });
       };
       
-      newSocket.onerror = (error) => {
+      newSocket.onerror = (error: Event) => {
         console.error("WebSocket error", error);
-        setStatusMessage(`WebSocket error: ${error.toString()}`);
+        setStatusMessage(`WebSocket error occurred`);
         toast({
           title: "Connection Error",
           description: "Failed to connect to robot WebSocket",
@@ -124,9 +124,9 @@ export default function RemoteUpdater() {
       
       setSocket(newSocket);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create WebSocket", error);
-      setStatusMessage(`Failed to create WebSocket: ${error.toString()}`);
+      setStatusMessage(`Failed to create WebSocket: ${error.message || "Unknown error"}`);
       toast({
         title: "Connection Error",
         description: "Failed to create WebSocket connection",
@@ -277,12 +277,12 @@ export default function RemoteUpdater() {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Installation error", error);
-      setStatusMessage(`Installation error: ${error.toString()}`);
+      setStatusMessage(`Installation error: ${error.message || 'Unknown error'}`);
       toast({
         title: "Installation Error",
-        description: error.toString(),
+        description: error.message || 'Unknown error',
         variant: "destructive",
       });
     } finally {
@@ -293,7 +293,7 @@ export default function RemoteUpdater() {
   // Restart service
   const restartService = () => {
     setUpdateStatus("restarting");
-    sendUpdateCommand("restart", { module: "robot-ai" });
+    sendUpdateCommand("restart", { module: "robot-ai", version: "current" });
   };
   
   // Disconnect WebSocket
