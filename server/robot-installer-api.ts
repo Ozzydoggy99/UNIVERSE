@@ -479,4 +479,30 @@ export function registerRobotInstallerRoutes(app: Express) {
       });
     }
   });
+  
+  // Upload installer file to robot
+  app.post('/api/robots/:serialNumber/upload-installer', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { destinationPath } = req.body || {};
+      
+      console.log(`Uploading installer to robot ${serialNumber} at path ${destinationPath}`);
+      
+      const result = await uploadInstallerToRobot(serialNumber, destinationPath);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        console.error('Installer upload failed:', result);
+        res.status(500).json(result);
+      }
+    } catch (error: any) {
+      console.error('Error uploading installer:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Error uploading installer: ${error.message}`,
+        stack: error.stack
+      });
+    }
+  });
 }

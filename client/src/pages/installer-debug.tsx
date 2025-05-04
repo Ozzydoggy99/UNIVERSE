@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, CheckCircle2, XCircle, Info } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Info, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const InstallerDebugPage = () => {
