@@ -11,6 +11,10 @@ import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 import type { Express } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 /**
  * Upload the Robot AI installer to the robot
@@ -341,6 +345,97 @@ export async function executeInstaller(
 }
 
 /**
+ * Find existing modules on the robot using the execute-robot-modules.py script
+ * 
+ * @param serialNumber The robot's serial number
+ * @returns Object with list of found modules
+ */
+export async function findRobotModules(serialNumber: string) {
+  console.log(`Finding modules on robot ${serialNumber}`);
+  
+  try {
+    // Set environment variables for the script
+    process.env.ROBOT_API_URL = ROBOT_API_URL;
+    process.env.ROBOT_SECRET = ROBOT_SECRET;
+    
+    // Execute the script with --check flag to only find modules
+    const { stdout, stderr } = await execAsync(`python3 execute-robot-modules.py --ip ${ROBOT_API_URL.replace(/^https?:\/\//, '')} --check`);
+    
+    console.log('Module search output:', stdout);
+    if (stderr) console.error('Module search errors:', stderr);
+    
+    // Parse the output to extract found modules
+    const moduleLines = stdout.split('\n')
+      .filter(line => line.includes('Found module:'))
+      .map(line => {
+        const match = line.match(/Found module: (.+)/);
+        return match ? match[1] : null;
+      })
+      .filter(Boolean);
+    
+    return {
+      success: true,
+      modules: moduleLines,
+      message: `Found ${moduleLines.length} modules on the robot`,
+      stdout,
+      stderr
+    };
+  } catch (error: any) {
+    console.error('Error finding robot modules:', error);
+    return {
+      success: false,
+      modules: [],
+      message: `Error finding robot modules: ${error.message}`,
+      stdout: error.stdout || '',
+      stderr: error.stderr || ''
+    };
+  }
+}
+
+/**
+ * Execute a specific module on the robot using the execute-robot-modules.py script
+ * 
+ * @param serialNumber The robot's serial number
+ * @param modulePath Path to the module to execute
+ * @returns Object with execution status
+ */
+export async function executeRobotModule(serialNumber: string, modulePath: string) {
+  console.log(`Executing module ${modulePath} on robot ${serialNumber}`);
+  
+  try {
+    // Set environment variables for the script
+    process.env.ROBOT_API_URL = ROBOT_API_URL;
+    process.env.ROBOT_SECRET = ROBOT_SECRET;
+    
+    // Execute the script with --module flag to execute a specific module
+    const { stdout, stderr } = await execAsync(`python3 execute-robot-modules.py --ip ${ROBOT_API_URL.replace(/^https?:\/\//, '')} --module "${modulePath}"`);
+    
+    console.log('Module execution output:', stdout);
+    if (stderr) console.error('Module execution errors:', stderr);
+    
+    // Check if the execution was successful
+    const success = stdout.includes('Module execution started') && !stdout.includes('Module execution failed');
+    
+    return {
+      success,
+      message: success ? `Successfully executed module ${modulePath}` : `Failed to execute module ${modulePath}`,
+      modulePath,
+      stdout,
+      stderr
+    };
+  } catch (error: any) {
+    console.error(`Error executing module ${modulePath}:`, error);
+    return {
+      success: false,
+      message: `Error executing module ${modulePath}: ${error.message}`,
+      modulePath,
+      stdout: error.stdout || '',
+      stderr: error.stderr || ''
+    };
+  }
+}
+
+/**
  * Check if Robot AI is installed and running on a robot
  * 
  * @param serialNumber The robot's serial number
@@ -577,6 +672,58 @@ export function registerRobotInstallerRoutes(app: Express) {
     }
   });
   
+  // Find modules on robot
+  app.get('/api/robots/:serialNumber/find-modules', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      console.log(`Finding modules on robot ${serialNumber}`);
+      
+      const result = await findRobotModules(serialNumber);
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error finding modules:', error);
+      res.status(500).json({
+        success: false,
+        message: `Error finding modules: ${error.message}`,
+        stack: error.stack
+      });
+    }
+  });
+  
+  // Execute a specific module on robot
+  app.post('/api/robots/:serialNumber/execute-module', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { modulePath } = req.body || {};
+      
+      if (!modulePath) {
+        res.status(400).json({
+          success: false,
+          message: 'Module path is required'
+        });
+        return;
+      }
+      
+      console.log(`Executing module ${modulePath} on robot ${serialNumber}`);
+      
+      const result = await executeRobotModule(serialNumber, modulePath);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        console.error('Module execution failed:', result);
+        res.status(500).json(result);
+      }
+    } catch (error: any) {
+      console.error('Error executing module:', error);
+      res.status(500).json({
+        success: false,
+        message: `Error executing module: ${error.message}`,
+        stack: error.stack
+      });
+    }
+  });
+
   // Upload installer file to robot
   app.post('/api/robots/:serialNumber/upload-installer', async (req: Request, res: Response) => {
     try {
