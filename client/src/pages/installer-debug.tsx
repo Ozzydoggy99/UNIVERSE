@@ -21,7 +21,7 @@ const InstallerDebugPage = () => {
   const handleTestConnection = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/robots/test-connection?serialNumber=${serialNumber}`);
+      const response = await fetch(`/api/robots/${serialNumber}/test-connection`);
       const result = await response.json();
       setTestResult(result);
       
@@ -50,7 +50,7 @@ const InstallerDebugPage = () => {
   const handleCheckInstaller = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/robots/check-installer?serialNumber=${serialNumber}&path=${encodeURIComponent(installerPath)}`);
+      const response = await fetch(`/api/robots/${serialNumber}/check-installer?path=${encodeURIComponent(installerPath)}`);
       const result = await response.json();
       setFileCheckResult(result);
       
@@ -83,18 +83,22 @@ const InstallerDebugPage = () => {
   const handleExecuteInstaller = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/robots/execute-installer`, {
+      // Determine which installer path to use
+      const effectiveInstallerPath = fileCheckResult?.exists 
+        ? fileCheckResult.path 
+        : fileCheckResult?.alternativeExists 
+          ? fileCheckResult.alternativePath 
+          : installerPath;
+      
+      console.log(`Executing installer at path: ${effectiveInstallerPath}`);
+      
+      const response = await fetch(`/api/robots/${serialNumber}/execute-installer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          serialNumber,
-          installerPath: fileCheckResult?.exists 
-            ? fileCheckResult.path 
-            : fileCheckResult?.alternativeExists 
-              ? fileCheckResult.alternativePath 
-              : installerPath 
+          installerPath: effectiveInstallerPath
         }),
       });
       
@@ -126,13 +130,15 @@ const InstallerDebugPage = () => {
   const handleCheckStatus = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/robots/robot-ai-status?serialNumber=${serialNumber}`);
+      const response = await fetch(`/api/robots/${serialNumber}/robot-ai-status`);
       const result = await response.json();
       setStatusResult(result);
       
       toast({
         title: 'Status check completed',
-        description: result.message,
+        description: result.message || (result.installed ? 
+          (result.running ? 'Robot AI is running' : 'Robot AI is installed but not running') 
+          : 'Robot AI is not installed'),
         variant: 'default',
       });
     } catch (error) {
