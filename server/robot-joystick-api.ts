@@ -38,8 +38,8 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       };
       
       // Send joystick command to robot
-      // Use /api/command endpoint which supports direct velocity commands
-      const joystickUrl = `${ROBOT_API_URL}/api/command`;
+      // Use the chassis/moves endpoint with differential drive type
+      const joystickUrl = `${ROBOT_API_URL}/chassis/moves`;
       console.log(`Sending joystick command to ${joystickUrl}:`, JSON.stringify(joystickCommand));
       
       const response = await fetch(joystickUrl, {
@@ -76,17 +76,20 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       console.log(`Stopping robot ${serialNumber} via joystick command`);
       
       // Stop command with zero velocities
-      // Format for the /api/command endpoint using the same format as move commands
+      // Using the same differential drive format as our move commands
       const stopCommand = {
-        name: "joystick_control",
-        vel_x: 0,  // Zero linear velocity
-        vel_y: 0,  // Zero lateral velocity 
-        ang_z: 0   // Zero angular velocity
+        type: "differential",
+        creator: "web_interface",
+        linear_velocity: 0,   // Zero linear velocity
+        angular_velocity: 0,  // Zero angular velocity
+        properties: {
+          acc_smoother_level: "normal"
+        }
       };
       
       // Send stop command to robot
-      // Use /api/command endpoint which supports direct velocity commands
-      const joystickUrl = `${ROBOT_API_URL}/api/command`;
+      // Use the chassis/moves endpoint with differential drive type
+      const joystickUrl = `${ROBOT_API_URL}/chassis/moves`;
       const response = await fetch(joystickUrl, {
         method: 'POST',
         headers: ROBOT_HEADERS,

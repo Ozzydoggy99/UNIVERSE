@@ -70,9 +70,9 @@ export function registerRobotMoveApiRoutes(app: Express) {
   const ROBOT_API_BASE_URL = ROBOT_API_URL;
   
   // Helper function to handle cancel logic in the background
-  async function processCancelRequest(serialNumber: string | undefined, apiBaseUrl: string) {
-    // Early return if no serial number
-    if (!serialNumber) {
+  async function processCancelRequest(serialNumber: string, apiBaseUrl: string) {
+    // Early return if empty serial number
+    if (!serialNumber || serialNumber.trim() === '') {
       console.error('Cannot process cancel request: No serial number provided');
       return;
     }
@@ -291,7 +291,9 @@ export function registerRobotMoveApiRoutes(app: Express) {
       res.status(202).json({ status: 'accepted', message: 'Cancel command sent to robot' });
       
       // Process the cancellation in the background
-      processCancelRequest(serialNumber || '', ROBOT_API_BASE_URL).catch(error => {
+      // Make sure serial number is never undefined
+      const robotSerialNumber = serialNumber || 'L382502104987ir';
+      processCancelRequest(robotSerialNumber, ROBOT_API_BASE_URL).catch(error => {
         console.error('Background cancel error:', error);
       });
     } catch (error) {
