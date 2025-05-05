@@ -26,25 +26,17 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       }
       
       // Set direct velocity command - the most reliable way to move forward
+      // Format for the /api/command endpoint which accepts velocity commands
       const joystickCommand = {
-        components: [
-          {
-            name: "vel_x",
-            value: linear  // Linear velocity in m/s (positive for forward)
-          },
-          {
-            name: "vel_y",
-            value: 0       // No lateral movement
-          },
-          {
-            name: "ang_z", 
-            value: angular // Angular velocity in rad/s
-          }
-        ]
+        name: "joystick_control",
+        vel_x: linear,  // Linear velocity in m/s (positive for forward)
+        vel_y: 0,       // No lateral movement
+        ang_z: angular  // Angular velocity in rad/s
       };
       
       // Send joystick command to robot
-      const joystickUrl = `${ROBOT_API_URL}/joystick`;
+      // Use /api/command endpoint which supports direct velocity commands
+      const joystickUrl = `${ROBOT_API_URL}/api/command`;
       console.log(`Sending joystick command to ${joystickUrl}:`, JSON.stringify(joystickCommand));
       
       const response = await fetch(joystickUrl, {
@@ -81,16 +73,17 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       console.log(`Stopping robot ${serialNumber} via joystick command`);
       
       // Stop command with zero velocities
+      // Format for the /api/command endpoint using the same format as move commands
       const stopCommand = {
-        components: [
-          { name: "vel_x", value: 0 },
-          { name: "vel_y", value: 0 },
-          { name: "ang_z", value: 0 }
-        ]
+        name: "joystick_control",
+        vel_x: 0,  // Zero linear velocity
+        vel_y: 0,  // Zero lateral velocity 
+        ang_z: 0   // Zero angular velocity
       };
       
       // Send stop command to robot
-      const joystickUrl = `${ROBOT_API_URL}/joystick`;
+      // Use /api/command endpoint which supports direct velocity commands
+      const joystickUrl = `${ROBOT_API_URL}/api/command`;
       const response = await fetch(joystickUrl, {
         method: 'POST',
         headers: ROBOT_HEADERS,
