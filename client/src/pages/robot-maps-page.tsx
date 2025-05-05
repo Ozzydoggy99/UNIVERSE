@@ -48,11 +48,15 @@ const RobotMapsPage: React.FC = () => {
   });
   
   // Filter maps by search query
-  const filteredMaps = maps?.filter((map: RobotMap) => 
-    map.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    map.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    map.robotSerial.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredMaps = React.useMemo(() => {
+    if (!maps || !Array.isArray(maps)) return [];
+    
+    return maps.filter((map: RobotMap) => 
+      map.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      map.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      map.robotSerial?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [maps, searchQuery]);
   
   // When maps load, select the first one by default
   useEffect(() => {
@@ -165,11 +169,83 @@ const RobotMapsPage: React.FC = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        if (!selectedMap) {
+                          toast({
+                            title: "No map selected",
+                            description: "Please select a map first",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        // Call the copy map API
+                        const map = maps?.find((m: RobotMap) => m.id === selectedMap);
+                        if (!map) return;
+                        
+                        // In a real multi-robot system, we would show a dialog to select 
+                        // the target robot. For now, we're copying to the same robot with a new name.
+                        const newMapName = `Copy of ${map.name}`;
+                        
+                        fetch('/api/robots/copy-map', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({
+                            mapId: selectedMap,
+                            sourceRobotSerial: PHYSICAL_ROBOT_SERIAL,
+                            targetRobotSerial: PHYSICAL_ROBOT_SERIAL,
+                            newMapName
+                          })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                          if (data.success) {
+                            toast({
+                              title: "Map copied",
+                              description: `Map "${map.name}" has been copied to "${newMapName}"`,
+                              variant: "default"
+                            });
+                            // Refresh maps
+                            refetchMaps();
+                          } else {
+                            toast({
+                              title: "Failed to copy map",
+                              description: data.error || "An error occurred",
+                              variant: "destructive"
+                            });
+                          }
+                        })
+                        .catch(err => {
+                          toast({
+                            title: "Failed to copy map",
+                            description: err.message || "An error occurred",
+                            variant: "destructive"
+                          });
+                        });
+                      }}>
                         <Copy className="h-4 w-4 mr-2" />
-                        Copy to Another Robot
+                        Create Map Copy
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        if (!selectedMap) {
+                          toast({
+                            title: "No map selected",
+                            description: "Please select a map first",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        // This functionality would be implemented in a more complex system
+                        // with multiple physical robots
+                        toast({
+                          title: "Feature in development",
+                          description: "This feature will be available when multiple robots are supported",
+                          variant: "default"
+                        });
+                      }}>
                         <MapIcon className="h-4 w-4 mr-2" />
                         Export Map Data
                       </DropdownMenuItem>

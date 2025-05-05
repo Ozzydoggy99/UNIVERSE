@@ -810,6 +810,57 @@ export function registerRobotApiRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to fetch robot statuses' });
     }
   });
+  
+  // Get all available maps
+  app.get('/api/robots/maps', async (req: Request, res: Response) => {
+    try {
+      // Try to fetch the available map list from the robot
+      if (ROBOT_API_URL) {
+        try {
+          // Get the list of available maps
+          const mapListUrl = `${ROBOT_API_URL}/maps/`;
+          console.log(`Trying to fetch available maps from robot at ${mapListUrl}`);
+          
+          const mapsResponse = await fetch(mapListUrl, {
+            headers: {
+              'Secret': process.env.ROBOT_SECRET || ''
+            }
+          });
+          
+          if (mapsResponse.ok) {
+            const mapsList = await mapsResponse.json();
+            console.log('Successfully fetched maps list from robot');
+            
+            // Format the maps for our frontend
+            const formattedMaps = mapsList.map((map: any) => ({
+              id: map.id,
+              name: map.name || `Map ${map.id}`,
+              description: map.description || '',
+              createdAt: map.create_time || new Date().toISOString(),
+              updatedAt: map.update_time || new Date().toISOString(),
+              robotSerial: PHYSICAL_ROBOT_SERIAL,
+              size: map.size || [0, 0],
+              resolution: map.resolution || 0.05
+            }));
+            
+            return res.json(formattedMaps);
+          } else {
+            console.error(`Failed to fetch maps: ${mapsResponse.status} ${mapsResponse.statusText}`);
+            return res.json([]);
+          }
+        } catch (error) {
+          console.error('Error fetching maps from robot:', error);
+          return res.json([]);
+        }
+      }
+      
+      // If no maps were found or an error occurred, return an empty array
+      return res.json([]);
+    } catch (error) {
+      console.error('Error fetching robot maps:', error);
+      res.status(500).json({ error: 'Failed to fetch robot maps' });
+    }
+  });
 
   // Get a specific robot status by serial number
   app.get('/api/robots/status/:serialNumber', async (req: Request, res: Response) => {
@@ -1433,6 +1484,96 @@ export function registerRobotApiRoutes(app: Express) {
     } catch (error: any) {
       console.error('Error saving map:', error);
       res.status(500).json({ error: error.message || 'Failed to save map' });
+    }
+  });
+  
+  // Copy map between robots
+  app.post('/api/robots/copy-map', async (req: Request, res: Response) => {
+    try {
+      const { mapId, sourceRobotSerial, targetRobotSerial, newMapName } = req.body;
+      
+      if (!mapId) {
+        return res.status(400).json({ error: 'Map ID is required' });
+      }
+      
+      if (!sourceRobotSerial) {
+        return res.status(400).json({ error: 'Source robot serial number is required' });
+      }
+      
+      if (!targetRobotSerial) {
+        return res.status(400).json({ error: 'Target robot serial number is required' });
+      }
+      
+      // Only support our physical robot as source for now
+      if (sourceRobotSerial !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Source robot not found or not supported' });
+      }
+      
+      // Only support our physical robot as target for now 
+      if (targetRobotSerial !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Target robot not found or not supported' });
+      }
+      
+      if (ROBOT_API_URL) {
+        try {
+          // First, get the map data from the source robot
+          const mapUrl = `${ROBOT_API_URL}/maps/${mapId}`;
+          console.log(`Fetching map data from source robot at ${mapUrl}`);
+          
+          const mapResponse = await fetch(mapUrl, {
+            headers: {
+              'Secret': process.env.ROBOT_SECRET || ''
+            }
+          });
+          
+          if (!mapResponse.ok) {
+            return res.status(404).json({ error: 'Map not found on source robot' });
+          }
+          
+          const mapData = await mapResponse.json();
+          
+          // If we're copying to the same robot, we need to use a different API endpoint
+          // to create a copy with a new name
+          const copyUrl = `${ROBOT_API_URL}/maps/${mapId}/copy`;
+          console.log(`Copying map to target robot at ${copyUrl}`);
+          
+          const copyResponse = await fetch(copyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Secret': process.env.ROBOT_SECRET || ''
+            },
+            body: JSON.stringify({
+              name: newMapName || `Copy of ${mapData.name || 'Map'}`
+            })
+          });
+          
+          if (!copyResponse.ok) {
+            console.error(`Failed to copy map: ${copyResponse.status} ${copyResponse.statusText}`);
+            return res.status(500).json({ error: 'Failed to copy map to target robot' });
+          }
+          
+          const copyResult = await copyResponse.json();
+          
+          return res.json({
+            success: true,
+            message: 'Map copied successfully',
+            newMapId: copyResult.id,
+            newMapName: copyResult.name
+          });
+        } catch (error) {
+          console.error('Error copying map between robots:', error);
+          return res.status(500).json({ error: 'Failed to copy map between robots' });
+        }
+      } else {
+        return res.status(503).json({
+          error: 'Robot API URL not configured',
+          message: 'The robot API URL is not properly configured. Please check the system configuration.'
+        });
+      }
+    } catch (error) {
+      console.error('Error copying map between robots:', error);
+      res.status(500).json({ error: 'Failed to copy map between robots' });
     }
   });
   
