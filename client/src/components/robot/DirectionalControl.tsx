@@ -65,6 +65,9 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
   const handleDirectionClick = async (direction: 'forward' | 'backward' | 'left' | 'right') => {
     if (disabled || !serialNumber || isSendingCommand) return;
     
+    // Log which direction button was clicked for debugging
+    console.log(`===== ${direction.toUpperCase()} BUTTON CLICKED =====`);
+    
     setIsSendingCommand(true);
     
     try {
@@ -106,70 +109,40 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
       
       switch (direction) {
         case 'forward':
-          // FORWARD MOVEMENT - Using a different approach with fixed distance
-          // Get the most accurate orientation value
-          const theta = position.theta !== undefined ? position.theta : currentOrientation;
-          
-          // Use a fixed 1.0 meter distance for forward movement
-          // This is the key change - always move exactly 1.0 meter forward
-          const FIXED_DISTANCE = 1.0; 
-          
-          // Calculate target position based on theta and fixed distance
-          const forwardX = currentX + Math.cos(theta) * FIXED_DISTANCE;
-          const forwardY = currentY + Math.sin(theta) * FIXED_DISTANCE;
-          
-          console.log(`FIXED 1m forward move - Current pos: (${currentX}, ${currentY}), theta: ${theta}, target: (${forwardX}, ${forwardY})`);
+          // FORWARD MOVEMENT - Completely different approach for forward
+          // Use differential drive type command instead of standard
+          console.log("USING DIFFERENTIAL DRIVE TYPE FOR FORWARD MOVEMENT");
           
           moveData = {
             creator: "web_interface",
-            type: "standard",
-            target_x: forwardX,
-            target_y: forwardY,
-            target_z: 0,
-            target_ori: theta, // Keep the same orientation
-            target_accuracy: 0.1, // More precise for forward movement
-            use_target_zone: true,
-            target_orientation_accuracy: 0.3, // More lenient on orientation to prioritize forward movement
+            type: "differential",  // Key change: use differential drive type instead of standard
+            linear_velocity: 0.4,  // Fixed moderate forward velocity (about half max)
+            angular_velocity: 0,   // No rotation, just straight ahead
+            duration: 3.0,         // Run for exactly 3 seconds - should move about 1 meter
             properties: {
-              inplace_rotate: false, // Not rotating in place
-              follow_path: true, // Important for planning the path
-              max_speed: 0.4, // Control speed explicitly for forward movement
-              max_angular_speed: 0.3 // Control angular speed explicitly
+              auto_hold: true      // Hold position after movement
             }
           };
+          
+          console.log("Forward command using differential drive:", JSON.stringify(moveData, null, 2));
           break;
           
         case 'backward':
-          // BACKWARD MOVEMENT - Using same fixed distance approach as forward movement
-          // Get the most accurate orientation value
-          const thetaBack = position.theta !== undefined ? position.theta : currentOrientation;
-          
-          // Use a fixed 1.0 meter distance for backward movement to match forward
-          const FIXED_DISTANCE_BACK = 1.0;
-          
-          // Calculate target position (negative of forward direction)
-          const backwardX = currentX - Math.cos(thetaBack) * FIXED_DISTANCE_BACK;
-          const backwardY = currentY - Math.sin(thetaBack) * FIXED_DISTANCE_BACK;
-          
-          console.log(`FIXED 1m backward move - Current pos: (${currentX}, ${currentY}), theta: ${thetaBack}, target: (${backwardX}, ${backwardY})`);
+          // BACKWARD MOVEMENT - Using same differential approach as forward
+          console.log("USING DIFFERENTIAL DRIVE TYPE FOR BACKWARD MOVEMENT");
           
           moveData = {
             creator: "web_interface",
-            type: "standard",
-            target_x: backwardX,
-            target_y: backwardY,
-            target_z: 0,
-            target_ori: thetaBack, // Keep the same orientation
-            target_accuracy: 0.1, // More precise for backward movement
-            use_target_zone: true,
-            target_orientation_accuracy: 0.3, // More lenient on orientation to prioritize movement
+            type: "differential",  // Same type as forward for consistency
+            linear_velocity: -0.4, // Negative velocity for backward (about half max)
+            angular_velocity: 0,   // No rotation, just straight back
+            duration: 3.0,         // Run for exactly 3 seconds - should move about 1 meter
             properties: {
-              inplace_rotate: false, // Not rotating in place
-              follow_path: true, // Important for planning the path
-              max_speed: 0.4, // Control speed explicitly for backward movement
-              max_angular_speed: 0.3 // Control angular speed explicitly
+              auto_hold: true      // Hold position after movement
             }
           };
+          
+          console.log("Backward command using differential drive:", JSON.stringify(moveData, null, 2));
           break;
           
         case 'left':
@@ -221,6 +194,8 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
       console.log(`Sending ${direction} movement command:`, JSON.stringify(moveData, null, 2));
       
       // Send the command through our server API
+      console.log(`SENDING ${direction.toUpperCase()} command to API endpoint: /api/robots/move/${serialNumber}`);
+      
       const serverResponse = await fetch(`/api/robots/move/${serialNumber}`, {
         method: 'POST',
         headers: {
@@ -229,10 +204,34 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
         body: JSON.stringify(moveData),
       });
       
+      // More detailed response logging to debug what's actually happening
       if (serverResponse.ok) {
-        console.log(`${direction.toUpperCase()} command sent successfully`);
+        const responseData = await serverResponse.json();
+        console.log(`${direction.toUpperCase()} COMMAND ACCEPTED:`, responseData);
+        
+        // Show successful toast for user feedback (only in non-compact mode)
+        if (!compact) {
+          toast({
+            title: "Movement command sent",
+            description: `${direction.charAt(0).toUpperCase() + direction.slice(1)} movement initiated`,
+            variant: "default",
+          });
+        }
       } else {
-        console.error(`${direction.toUpperCase()} command failed:`, await serverResponse.text());
+        // Log detailed error information
+        const errorText = await serverResponse.text();
+        console.error(`${direction.toUpperCase()} COMMAND FAILED:`, {
+          status: serverResponse.status,
+          statusText: serverResponse.statusText,
+          errorDetails: errorText
+        });
+        
+        // Show error toast
+        toast({
+          title: "Movement failed",
+          description: `Could not send ${direction} command to robot: ${serverResponse.statusText}`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error(`Error sending ${direction} command:`, error);

@@ -250,16 +250,20 @@ export function registerRobotMoveApiRoutes(app: Express) {
       }
 
       // Log detailed move command data for debugging
-      console.log('Move command details:', {
-        serialNumber,
-        type: moveData.type,
-        target: {
-          x: moveData.target_x,
-          y: moveData.target_y,
-          orientation: moveData.target_ori
-        },
-        properties: moveData.properties
+      console.log('===== ROBOT MOVE COMMAND DETAILS =====');
+      console.log('Serial Number:', serialNumber);
+      console.log('Command Type:', moveData.type);
+      console.log('Target Position:', {
+        x: moveData.target_x,
+        y: moveData.target_y,
+        z: moveData.target_z,
+        orientation: moveData.target_ori
       });
+      console.log('Movement Properties:', JSON.stringify(moveData.properties, null, 2));
+      console.log('Use Target Zone:', moveData.use_target_zone);
+      console.log('Target Accuracy:', moveData.target_accuracy);
+      console.log('Orientation Accuracy:', moveData.target_orientation_accuracy);
+      console.log('Complete movement data:', JSON.stringify(moveData, null, 2));
       
       // Forward the move request to the robot API
       // Immediately respond to client to avoid delay
@@ -281,14 +285,28 @@ export function registerRobotMoveApiRoutes(app: Express) {
         // Log results but don't wait for them
         let responseBody = await robotResponse.text();
         
+        // Log the full response from the robot API regardless of success/failure
+        console.log(`===== ROBOT API RESPONSE FOR MOVE COMMAND =====`);
+        console.log(`Response Status: ${robotResponse.status} - ${robotResponse.statusText}`);
+        
         if (!robotResponse.ok) {
-          console.error(`Robot API error: ${robotResponse.status} - ${responseBody}`);
+          console.error(`ROBOT API ERROR: ${robotResponse.status} - ${responseBody}`);
         } else {
           try {
             const data = JSON.parse(responseBody);
-            console.log('Robot move response:', data);
+            console.log('ROBOT MOVE ACCEPTED:', data);
+            
+            // Additional metadata about the movement
+            console.log('Movement Type:', moveData.type);
+            if (moveData.type === 'standard') {
+              console.log('Target Position:', {
+                x: moveData.target_x, 
+                y: moveData.target_y,
+                orientation: moveData.target_ori
+              });
+            }
           } catch (e) {
-            console.log('Raw robot response:', responseBody);
+            console.log('Raw robot response (not JSON):', responseBody);
           }
         }
       } catch (sendError) {
