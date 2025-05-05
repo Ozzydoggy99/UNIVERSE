@@ -13,6 +13,8 @@ type Point = {
 interface MapDigitalTwinProps {
   robotSerial: string;
   mapId?: string;
+  mapData?: any;
+  positionData?: any;
   showControls?: boolean;
   showGridByDefault?: boolean;
   showPathByDefault?: boolean;
@@ -63,6 +65,8 @@ interface PositionData {
 export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ 
   robotSerial, 
   mapId,
+  mapData: initialMapData,
+  positionData: initialPositionData,
   showControls = true,
   showGridByDefault = true,
   showPathByDefault = true
@@ -176,11 +180,24 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
     }
   }, [robotSerial, mapId]);
   
-  // Initial data fetch on component mount
+  // Initialize with props data if available
   useEffect(() => {
-    setIsLoading(true);
-    fetchData();
-  }, [fetchData]);
+    if (initialMapData) {
+      setMapData(initialMapData);
+      setIsLoading(false);
+    }
+    if (initialPositionData) {
+      setPositionData(initialPositionData);
+    }
+  }, [initialMapData, initialPositionData]);
+
+  // Initial data fetch on component mount if props data not provided
+  useEffect(() => {
+    if (!initialMapData || !initialPositionData) {
+      setIsLoading(true);
+      fetchData();
+    }
+  }, [fetchData, initialMapData, initialPositionData]);
 
   // Handle zoom in/out
   const handleZoom = (direction: 'in' | 'out') => {
