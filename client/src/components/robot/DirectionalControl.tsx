@@ -71,9 +71,17 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
       // Get the robot's current position
       const response = await fetch(`/api/robots/position/${serialNumber}`);
       const position = await response.json();
+      
+      // Log the complete position data for debugging
+      console.log('Robot position data from API:', JSON.stringify(position, null, 2));
+      
       const currentX = position.x || 0;
       const currentY = position.y || 0;
       const currentOrientation = position.orientation || 0;
+      
+      // Check for theta value which is the actual robot orientation in radians
+      const theta = position.theta || position.orientation || 0;
+      console.log(`Using position values - X: ${currentX}, Y: ${currentY}, orientation: ${currentOrientation}, theta: ${theta}`);
       
       // Calculate distance based on speed and robot parameters
       // Use the configured max velocity from robot params if available
