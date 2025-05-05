@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, ZoomIn, ZoomOut, Crosshair, MousePointer } from "lucide-react";
+import { Loader2, ZoomIn, ZoomOut, Crosshair, MousePointer, Grid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { Slider } from "@/components/ui/slider";
@@ -14,6 +14,48 @@ interface MapDigitalTwinProps {
   robotSerial: string;
 }
 
+// Define proper type for map data
+interface MapData {
+  grid: string; // base64 encoded image
+  resolution: number; // meters per pixel
+  origin: [number, number]; // [x, y] in meters
+  size: [number, number]; // [width, height] in pixels
+  stamp: number; // timestamp
+  originalData?: any; // original data from robot API
+  visualizationHints?: {
+    dataType: string;
+    wallColor: string;
+    freeSpaceColor: string;
+    unknownColor: string;
+    enhanceVisualization: boolean;
+  };
+}
+
+// Define proper type for LiDAR data
+interface LidarData {
+  ranges: number[]; // range measurements in meters
+  angle_min: number; // start angle in radians
+  angle_max: number; // end angle in radians
+  angle_increment: number; // angular distance between measurements in radians
+  range_min: number; // minimum range value in meters
+  range_max: number; // maximum range value in meters
+  points?: {x: number, y: number}[]; // if point cloud data is available
+}
+
+// Define proper type for position data
+interface PositionData {
+  x: number; // meters
+  y: number; // meters
+  z: number; // meters
+  theta: number; // radians
+  orientation: {
+    x: number;
+    y: number;
+    z: number;
+    w: number;
+  };
+}
+
 const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -23,14 +65,19 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
   const [dragStart, setDragStart] = useState<Point>({ x: 0, y: 0 });
   const [showLidar, setShowLidar] = useState<boolean>(true);
   const [showPath, setShowPath] = useState<boolean>(true);
+  const [showGrid, setShowGrid] = useState<boolean>(true);
   const [showObstacles, setShowObstacles] = useState<boolean>(true);
   const [pointSize, setPointSize] = useState<number>(2);
   
-  const [mapData, setMapData] = useState<any>(null);
-  const [lidarData, setLidarData] = useState<any>(null);
-  const [positionData, setPositionData] = useState<any>(null);
+  const [mapData, setMapData] = useState<MapData | null>(null);
+  const [lidarData, setLidarData] = useState<LidarData | null>(null);
+  const [positionData, setPositionData] = useState<PositionData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  
+  // For debug purposes
+  const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
+  const [worldCursorPosition, setWorldCursorPosition] = useState<Point | null>(null);
   
   // Get robot data
   useEffect(() => {
