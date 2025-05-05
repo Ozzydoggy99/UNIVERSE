@@ -84,6 +84,8 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
   const [lidarData, setLidarData] = useState<LidarData | null>(null);
   const [positionData, setPositionData] = useState<PositionData | null>(null);
   const [positionHistory, setPositionHistory] = useState<PositionData[]>([]);
+  const [pickupPoint, setPickupPoint] = useState<Point | null>(null);
+  const [dropoffPoint, setDropoffPoint] = useState<Point | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   
@@ -143,6 +145,26 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
       if (!positionResponse.ok) throw new Error('Failed to fetch position data');
       const positionJson = await positionResponse.json();
       setPositionData(positionJson);
+      
+      // Fetch active task data to get pickup/dropoff points
+      try {
+        const taskResponse = await fetch(`/api/robots/active-task/${robotSerial}`);
+        if (taskResponse.ok) {
+          const taskData = await taskResponse.json();
+          
+          // If there's an active task with pickup/dropoff coordinates
+          if (taskData && taskData.pickup && taskData.pickup.x !== undefined && taskData.pickup.y !== undefined) {
+            setPickupPoint({ x: taskData.pickup.x, y: taskData.pickup.y });
+          }
+          
+          if (taskData && taskData.dropoff && taskData.dropoff.x !== undefined && taskData.dropoff.y !== undefined) {
+            setDropoffPoint({ x: taskData.dropoff.x, y: taskData.dropoff.y });
+          }
+        }
+      } catch (taskErr) {
+        console.warn('Failed to fetch pickup/dropoff points:', taskErr);
+        // Don't fail the whole map render if just the task data fails
+      }
       
       setLastSyncTime(new Date());
       setIsLoading(false);
@@ -539,7 +561,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         const mapOriginX = -mapImage.width / 2;
         const mapOriginY = -mapImage.height / 2;
         
-        // Create a beautiful gradient for the path
+        // Create a beautiful gradient for the path with enhanced visual effects
         const startPos = worldToPixel(positionHistory[0].x, positionHistory[0].y, mapData);
         const endPos = worldToPixel(
           positionHistory[positionHistory.length-1].x, 
@@ -547,7 +569,12 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
           mapData
         );
         
-        // Create gradient for the path
+        // Draw a glow effect under the path
+        ctx.save();
+        ctx.shadowColor = 'rgba(255, 100, 50, 0.6)';
+        ctx.shadowBlur = 15;
+        
+        // Create gradient for the path with vibrant colors
         const pathGradient = ctx.createLinearGradient(
           startPos.x + mapOriginX, 
           startPos.y + mapOriginY,
@@ -836,6 +863,125 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
               ctx.fill();
             }
           });
+        }
+      }
+      
+      // Draw pickup and dropoff points
+      if (pickupPoint || dropoffPoint) {
+        const mapOriginX = -mapImage.width / 2;
+        const mapOriginY = -mapImage.height / 2;
+        
+        // Draw pickup point with animated pulse effect
+        if (pickupPoint) {
+          const pickupPos = worldToPixel(pickupPoint.x, pickupPoint.y, mapData);
+          
+          // Create animated pulse for pickup
+          const now = Date.now();
+          const pulsePhase = (now % 2000) / 2000; // 2-second pulse cycle
+          const pulseSize = 12 + Math.sin(pulsePhase * Math.PI * 2) * 4; // Size oscillates between 8-16
+          
+          // Draw outer glow for pickup
+          ctx.beginPath();
+          ctx.arc(
+            pickupPos.x + mapOriginX, 
+            pickupPos.y + mapOriginY, 
+            pulseSize + 6, 0, 2 * Math.PI
+          );
+          ctx.fillStyle = `rgba(0, 200, 0, ${0.2 + Math.sin(pulsePhase * Math.PI * 2) * 0.1})`;
+          ctx.fill();
+          
+          // Draw pickup circle
+          ctx.beginPath();
+          ctx.arc(
+            pickupPos.x + mapOriginX, 
+            pickupPos.y + mapOriginY, 
+            pulseSize, 0, 2 * Math.PI
+          );
+          ctx.fillStyle = "rgba(0, 200, 0, 0.7)";
+          ctx.fill();
+          
+          // Draw pickup icon
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 14px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("P", pickupPos.x + mapOriginX, pickupPos.y + mapOriginY);
+          
+          // Add label
+          ctx.fillStyle = "#000";
+          ctx.font = "12px Arial";
+          ctx.fillText("Pickup", pickupPos.x + mapOriginX, pickupPos.y + mapOriginY + 20);
+        }
+        
+        // Draw dropoff point with animated pulse effect
+        if (dropoffPoint) {
+          const dropoffPos = worldToPixel(dropoffPoint.x, dropoffPoint.y, mapData);
+          
+          // Slightly offset pulse phase for dropoff
+          const now = Date.now();
+          const pulsePhase = ((now + 1000) % 2000) / 2000; // Offset by 1 second
+          const pulseSize = 12 + Math.sin(pulsePhase * Math.PI * 2) * 4;
+          
+          // Draw outer glow for dropoff
+          ctx.beginPath();
+          ctx.arc(
+            dropoffPos.x + mapOriginX, 
+            dropoffPos.y + mapOriginY, 
+            pulseSize + 6, 0, 2 * Math.PI
+          );
+          ctx.fillStyle = `rgba(0, 100, 200, ${0.2 + Math.sin(pulsePhase * Math.PI * 2) * 0.1})`;
+          ctx.fill();
+          
+          // Draw dropoff circle
+          ctx.beginPath();
+          ctx.arc(
+            dropoffPos.x + mapOriginX, 
+            dropoffPos.y + mapOriginY, 
+            pulseSize, 0, 2 * Math.PI
+          );
+          ctx.fillStyle = "rgba(0, 100, 200, 0.7)";
+          ctx.fill();
+          
+          // Draw dropoff icon
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 14px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("D", dropoffPos.x + mapOriginX, dropoffPos.y + mapOriginY);
+          
+          // Add label
+          ctx.fillStyle = "#000";
+          ctx.font = "12px Arial";
+          ctx.fillText("Dropoff", dropoffPos.x + mapOriginX, dropoffPos.y + mapOriginY + 20);
+        }
+        
+        // If both pickup and dropoff points exist, draw a path between them
+        if (pickupPoint && dropoffPoint) {
+          const pickupPos = worldToPixel(pickupPoint.x, pickupPoint.y, mapData);
+          const dropoffPos = worldToPixel(dropoffPoint.x, dropoffPoint.y, mapData);
+          
+          // Create gradient path
+          const pathGradient = ctx.createLinearGradient(
+            pickupPos.x + mapOriginX,
+            pickupPos.y + mapOriginY,
+            dropoffPos.x + mapOriginX,
+            dropoffPos.y + mapOriginY
+          );
+          
+          pathGradient.addColorStop(0, "rgba(0, 200, 0, 0.6)");   // Green at pickup
+          pathGradient.addColorStop(1, "rgba(0, 100, 200, 0.6)"); // Blue at dropoff
+          
+          // Draw path with dashed line
+          ctx.beginPath();
+          ctx.moveTo(pickupPos.x + mapOriginX, pickupPos.y + mapOriginY);
+          ctx.lineTo(dropoffPos.x + mapOriginX, dropoffPos.y + mapOriginY);
+          ctx.setLineDash([8, 4]); // Dashed line
+          ctx.strokeStyle = pathGradient;
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          
+          // Reset dash pattern
+          ctx.setLineDash([]);
         }
       }
       
