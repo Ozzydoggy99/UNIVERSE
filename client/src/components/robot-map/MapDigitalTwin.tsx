@@ -268,7 +268,26 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    console.log("Creating BOLD map visualization from robot data");
+    console.log("Creating BOLD map visualization from robot data", new Date().toISOString());
+    // Force animation by using requestAnimationFrame
+    const animate = () => {
+      if (canvasRef.current && mapData) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        console.log("Animation frame rendering...");
+        // Redraw the canvas
+        // We'll just request a new frame to keep the animation loop going
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    // Start the animation loop if we have lidar data to show
+    if (showLidar && lidarData) {
+      console.log("Starting animation loop for LiDAR effects...");
+      requestAnimationFrame(animate);
+    }
     
     // Calculate map dimensions based on grid data
     const mapImage = new Image();
