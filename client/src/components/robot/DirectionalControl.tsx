@@ -104,9 +104,11 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
       switch (direction) {
         case 'forward':
           // FORWARD: Move in direction of current orientation
-          // The critical fix is to use the robot's theta value for orientation calculation
-          // Note that theta is the correct orientation parameter, not "orientation"
-          const theta = position.theta || currentOrientation;
+          // The critical fix is to explicitly use the robot's theta value for orientation calculation
+          // Note that theta is the correct orientation parameter from the server, not "orientation"
+          const theta = position.theta !== undefined ? position.theta : currentOrientation;
+          
+          // Calculate target position based on theta for the forward direction
           const forwardX = currentX + Math.cos(theta) * distance;
           const forwardY = currentY + Math.sin(theta) * distance;
           
@@ -118,12 +120,12 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_x: forwardX,
             target_y: forwardY,
             target_z: 0,
-            target_ori: theta, // ensure we're using theta for orientation
-            target_accuracy: 0.05,
+            target_ori: theta, // Use theta for orientation to maintain direction
+            target_accuracy: 0.1, // Slightly more lenient accuracy for forward movement
             use_target_zone: true,
-            target_orientation_accuracy: 0.01, // Very strict orientation accuracy
+            target_orientation_accuracy: 0.1, // More lenient orientation accuracy for forward movement
             properties: {
-              inplace_rotate: false
+              inplace_rotate: false // Ensure it's not an in-place rotation
             }
           };
           break;
@@ -131,7 +133,9 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
         case 'backward':
           // BACKWARD: Move opposite to current orientation
           // Use theta for consistency with forward movement
-          const thetaBack = position.theta || currentOrientation;
+          const thetaBack = position.theta !== undefined ? position.theta : currentOrientation;
+          
+          // Calculate target position based on theta for the backward direction
           const backwardX = currentX - Math.cos(thetaBack) * distance;
           const backwardY = currentY - Math.sin(thetaBack) * distance;
           
@@ -143,19 +147,19 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_x: backwardX,
             target_y: backwardY,
             target_z: 0,
-            target_ori: thetaBack, // ensure we're using theta for orientation
-            target_accuracy: 0.05,
+            target_ori: thetaBack, // Use theta for orientation to maintain direction
+            target_accuracy: 0.1, // Slightly more lenient accuracy for movement
             use_target_zone: true,
-            target_orientation_accuracy: 0.01, // Very strict orientation accuracy
+            target_orientation_accuracy: 0.1, // More lenient orientation accuracy
             properties: {
-              inplace_rotate: false
+              inplace_rotate: false // Ensure it's not an in-place rotation
             }
           };
           break;
           
         case 'left':
           // LEFT: Robot turns counterclockwise in place
-          const thetaLeft = position.theta || currentOrientation;
+          const thetaLeft = position.theta !== undefined ? position.theta : currentOrientation;
           
           console.log(`Left rotation calculation - Current pos: (${currentX}, ${currentY}), theta: ${thetaLeft}, rotation amount: ${rotationAmount}, target: ${thetaLeft + rotationAmount}`);
           
@@ -166,9 +170,9 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_y: currentY,
             target_z: 0,
             target_ori: thetaLeft + rotationAmount, // add angle for counterclockwise
-            target_accuracy: 0.05,
+            target_accuracy: 0.1, // Slightly more lenient accuracy for rotations
             use_target_zone: true,
-            target_orientation_accuracy: 0.05,
+            target_orientation_accuracy: 0.1, // More lenient orientation accuracy
             properties: {
               inplace_rotate: true // Important flag for in-place rotation
             }
@@ -177,7 +181,7 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
           
         case 'right':
           // RIGHT: Robot turns clockwise in place
-          const thetaRight = position.theta || currentOrientation;
+          const thetaRight = position.theta !== undefined ? position.theta : currentOrientation;
           
           console.log(`Right rotation calculation - Current pos: (${currentX}, ${currentY}), theta: ${thetaRight}, rotation amount: ${rotationAmount}, target: ${thetaRight - rotationAmount}`);
           
@@ -188,9 +192,9 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_y: currentY, 
             target_z: 0,
             target_ori: thetaRight - rotationAmount, // subtract angle for clockwise
-            target_accuracy: 0.05,
+            target_accuracy: 0.1, // Slightly more lenient accuracy for rotations
             use_target_zone: true,
-            target_orientation_accuracy: 0.05,
+            target_orientation_accuracy: 0.1, // More lenient orientation accuracy
             properties: {
               inplace_rotate: true // Important flag for in-place rotation
             }

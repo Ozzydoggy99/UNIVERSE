@@ -824,6 +824,9 @@ export function getRobotPosition(serialNumber: string) {
     y: positionData.pos?.[1] || 0,
     z: 0, // Z coordinate not provided in /tracked_pose
     orientation: positionData.ori || 0,
+    // Add theta which is the same as orientation but explicitly named for clarity
+    // This is critical for movement calculations in the DirectionalControl component
+    theta: positionData.ori || 0,
     speed: 0, // Speed not provided in /tracked_pose
     footprint: footprintData?.footprint || [],
     covariance: positionData.cov || [[0,0],[0,0]],
@@ -838,6 +841,8 @@ export function getRobotPosition(serialNumber: string) {
       y: position.y,
       z: position.z,
       orientation: position.orientation,
+      // Include theta in the cached data
+      theta: position.theta || position.orientation,
       speed: position.speed,
       footprint: position.footprint,
       covariance: position.covariance
