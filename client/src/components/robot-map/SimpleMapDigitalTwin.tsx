@@ -53,27 +53,29 @@ export function SimpleMapDigitalTwin({
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState<number>(1);
   
-  // Calculate position on map
-  const getPositionStyle = () => {
-    if (!mapData || !positionData) return {};
+  // Convert robot position from world coordinates (meters) to pixel coordinates
+  const getPositionPixels = () => {
+    if (!mapData || !positionData) return { x: 0, y: 0 };
     
     const [originX, originY] = mapData.origin;
     const resolution = mapData.resolution;
     
     // Convert from world coordinates to pixel coordinates
+    // World coordinates are in meters relative to the map origin
+    // Pixel coordinates are in pixels relative to the top-left of the map image
     const pixelX = (positionData.x - originX) / resolution;
-    const pixelY = (originY - positionData.y) / resolution; // Flip Y axis
+    const pixelY = (originY - positionData.y) / resolution; // Flip Y axis for screen coordinates
+        
+    console.log("Robot position calculation: ", {
+      worldX: positionData.x, 
+      worldY: positionData.y,
+      pixelX,
+      pixelY,
+      mapOrigin: mapData.origin,
+      resolution
+    });
     
-    // Apply percentage-based positioning to work with responsive design
-    const [mapWidth, mapHeight] = mapData.size;
-    const percentX = (pixelX / mapWidth) * 100;
-    const percentY = (pixelY / mapHeight) * 100;
-    
-    return {
-      left: `${percentX}%`,
-      top: `${percentY}%`,
-      transform: `translate(-50%, -50%) rotate(${positionData.theta}rad)`
-    };
+    return { x: pixelX, y: pixelY };
   };
   
   // Handle zoom in/out
@@ -88,7 +90,7 @@ export function SimpleMapDigitalTwin({
 
   return (
     <Card className="w-full">
-      <CardContent className="p-4 relative">
+      <CardContent className="relative p-0 overflow-hidden">
         <div className="relative h-[500px] w-full border rounded-md overflow-hidden">
           {isLoading ? (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50">
@@ -120,17 +122,33 @@ export function SimpleMapDigitalTwin({
                     />
                     
                     {/* Robot position marker */}
-                    {positionData && (
+                    {positionData && mapData?.resolution && (
                       <div
-                        className="absolute w-5 h-5 bg-red-500 rounded-full shadow-md z-10"
-                        style={getPositionStyle()}
+                        style={{
+                          position: "absolute",
+                          top: `${getPositionPixels().y}px`,
+                          left: `${getPositionPixels().x}px`,
+                          width: "12px",
+                          height: "12px",
+                          backgroundColor: "red",
+                          borderRadius: "50%",
+                          transform: `translate(-50%, -50%) rotate(${positionData.theta}rad)`,
+                          pointerEvents: "none",
+                          zIndex: 10,
+                          boxShadow: "0 0 5px 1px rgba(255, 0, 0, 0.7)"
+                        }}
                       >
                         {/* Direction indicator */}
                         <div 
-                          className="absolute top-1/2 left-1/2 w-4 h-0.5 bg-white"
-                          style={{ 
-                            transform: 'translateY(-50%)', 
-                            transformOrigin: '0 0' 
+                          style={{
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            width: "10px",
+                            height: "2px",
+                            backgroundColor: "white",
+                            transform: "translateY(-50%)",
+                            transformOrigin: "0 0"
                           }}
                         />
                       </div>
