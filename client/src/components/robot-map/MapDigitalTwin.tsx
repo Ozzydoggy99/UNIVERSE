@@ -402,11 +402,20 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         }
       }
       
-      // Now draw the map image
+      // Draw the base map image FIRST (everything else goes ON TOP)
       ctx.drawImage(
         mapImage, 
         -mapImage.width / 2, 
         -mapImage.height / 2
+      );
+      
+      // Apply semi-transparent overlay for better contrast with visualizations
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.fillRect(
+        -mapImage.width / 2, 
+        -mapImage.height / 2,
+        mapImage.width,
+        mapImage.height
       );
       
       // Draw robot position with accurate footprint
@@ -463,17 +472,23 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         ctx.arcTo(-robotWidthPixels/2, -robotLengthPixels/2, -robotWidthPixels/2 + radius, -robotLengthPixels/2, radius);
         ctx.closePath();
         
-        // Fill robot body with gradient
+        // Fill robot body with a highly visible gradient
         const gradient = ctx.createLinearGradient(
           -robotWidthPixels/2, 
           -robotLengthPixels/2, 
           robotWidthPixels/2, 
           robotLengthPixels/2
         );
-        gradient.addColorStop(0, '#3B82F6');  // Bright blue
-        gradient.addColorStop(1, '#1E40AF');  // Darker blue
+        gradient.addColorStop(0, '#FF4500');  // Orange-red for high visibility
+        gradient.addColorStop(0.5, '#FF6347'); // Tomato
+        gradient.addColorStop(1, '#FF8C00');  // Dark orange
         ctx.fillStyle = gradient;
         ctx.fill();
+        
+        // Add highlight edge for better contrast against map
+        ctx.strokeStyle = '#FFFFFF'; // White border
+        ctx.lineWidth = 2;
+        ctx.stroke();
         
         // Robot outline
         ctx.strokeStyle = '#0F172A'; // Dark blue outline
@@ -582,10 +597,10 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
           endPos.y + mapOriginY
         );
         
-        // Add cool blue-to-purple gradient
-        pathGradient.addColorStop(0, 'rgba(59, 130, 246, 0.7)');  // Blue
-        pathGradient.addColorStop(0.5, 'rgba(79, 70, 229, 0.7)'); // Indigo
-        pathGradient.addColorStop(1, 'rgba(139, 92, 246, 0.7)');  // Purple
+        // Use bright, highly visible color gradient for the path
+        pathGradient.addColorStop(0, 'rgba(255, 0, 0, 0.9)');     // Bright red (newest)
+        pathGradient.addColorStop(0.5, 'rgba(255, 140, 0, 0.9)'); // Orange (middle)
+        pathGradient.addColorStop(1, 'rgba(255, 215, 0, 0.9)');   // Gold (oldest)
         
         // First, draw path glow for effect
         ctx.beginPath();
@@ -628,24 +643,27 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
           const opacity = 0.4 + (0.6 * index / positionHistory.length);
           const size = 2 + (3 * index / positionHistory.length);
           
-          // Draw point with glow effect
+          // Draw point with bright glow effect
           ctx.beginPath();
           ctx.arc(
             pos.x + mapOriginX, 
             pos.y + mapOriginY, 
-            size + 2, 0, 2 * Math.PI
+            size + 3, 0, 2 * Math.PI
           );
-          ctx.fillStyle = `rgba(147, 197, 253, ${opacity * 0.4})`;
+          ctx.fillStyle = `rgba(255, 255, 0, ${opacity * 0.5})`;
           ctx.fill();
           
-          // Draw main point
+          // Draw main point with enhanced visibility
           ctx.beginPath();
           ctx.arc(
             pos.x + mapOriginX, 
             pos.y + mapOriginY, 
             size, 0, 2 * Math.PI
           );
-          ctx.fillStyle = `rgba(59, 130, 246, ${opacity})`;
+          // Use a bright color that matches the path gradient
+          const pointRed = Math.floor(255 * (1 - index / positionHistory.length));
+          const pointGreen = Math.floor(215 * (index / positionHistory.length));
+          ctx.fillStyle = `rgba(${pointRed}, ${pointGreen}, 0, ${opacity + 0.2})`;
           ctx.fill();
         });
       }
