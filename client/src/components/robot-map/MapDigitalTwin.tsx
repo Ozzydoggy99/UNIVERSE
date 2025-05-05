@@ -57,6 +57,7 @@ interface PositionData {
 }
 
 export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
+  // Updated with enhanced visualization on May 5, 2025
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number>(1);
@@ -598,26 +599,48 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
         const mapOriginX = -mapImage.width / 2;
         const mapOriginY = -mapImage.height / 2;
         
-        // Draw a subtle scan circle effect around the robot
+        // Draw an advanced scan circle effect around the robot with pulse animation
+        const now = Date.now();
+        const pulsePhase = (now % 3000) / 3000; // 3-second pulse cycle
+        const pulseSize = 50 + Math.sin(pulsePhase * Math.PI * 2) * 10; // Size oscillates between 40-60
+        
+        // Create animated pulse effect
         ctx.beginPath();
         ctx.arc(
           robotPos.x + mapOriginX,
           robotPos.y + mapOriginY,
-          50, 0, 2 * Math.PI
+          pulseSize, 0, 2 * Math.PI
         );
+        
+        // Use a high-tech looking gradient with multiple color stops
         const scanGradient = ctx.createRadialGradient(
           robotPos.x + mapOriginX,
           robotPos.y + mapOriginY,
           0,
           robotPos.x + mapOriginX,
           robotPos.y + mapOriginY,
-          50
+          pulseSize
         );
-        scanGradient.addColorStop(0, 'rgba(0, 255, 0, 0.1)');
-        scanGradient.addColorStop(0.7, 'rgba(0, 255, 0, 0.05)');
+        
+        // Cyan to green gradient for a more futuristic look
+        scanGradient.addColorStop(0, 'rgba(0, 255, 225, 0.15)');
+        scanGradient.addColorStop(0.4, 'rgba(0, 255, 170, 0.12)');
+        scanGradient.addColorStop(0.7, 'rgba(0, 255, 85, 0.07)');
         scanGradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
+        
         ctx.fillStyle = scanGradient;
         ctx.fill();
+        
+        // Add a subtle pulsing circle outline
+        ctx.beginPath();
+        ctx.arc(
+          robotPos.x + mapOriginX,
+          robotPos.y + mapOriginY,
+          pulseSize, 0, 2 * Math.PI
+        );
+        ctx.strokeStyle = `rgba(0, 255, 170, ${0.3 + Math.sin(pulsePhase * Math.PI * 2) * 0.2})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
         
         // Render point cloud data if available with improved styling
         if (lidarData.points && lidarData.points.length) {

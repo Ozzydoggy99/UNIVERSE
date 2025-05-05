@@ -287,7 +287,6 @@ const RobotMapsPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  {/* Use a key to force re-render with the updated component */}
                   <MapDigitalTwin 
                     robotSerial={PHYSICAL_ROBOT_SERIAL}
                     key={`map-${selectedMap}-${Date.now()}`} 
