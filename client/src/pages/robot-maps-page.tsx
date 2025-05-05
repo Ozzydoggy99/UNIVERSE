@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
 
 // Fixed physical robot serial - in a full implementation, this would come from the available robots list
 const PHYSICAL_ROBOT_SERIAL = "L382502104987ir";
@@ -31,6 +32,7 @@ interface RobotMap {
 }
 
 const RobotMapsPage: React.FC = () => {
+  const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState<string>("maps");
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");

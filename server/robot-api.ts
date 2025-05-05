@@ -781,6 +781,48 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
 
+  // Get all robots
+  app.get('/api/robots', async (req: Request, res: Response) => {
+    try {
+      // Return info about our physical robot
+      const robotInfo = {
+        serialNumber: PHYSICAL_ROBOT_SERIAL,
+        model: 'Physical Robot',
+        currentMap: null,
+        status: 'available',
+        connectionStatus: isRobotConnected() ? 'connected' : 'disconnected'
+      };
+      
+      // Check if there's a current map set
+      try {
+        if (isRobotConnected() && ROBOT_API_URL) {
+          const mapResponse = await fetch(`${ROBOT_API_URL}/maps/current`, {
+            headers: {
+              'Secret': process.env.ROBOT_SECRET || ''
+            }
+          });
+          
+          if (mapResponse.ok) {
+            const mapData = await mapResponse.json();
+            if (mapData && mapData.id) {
+              robotInfo.currentMap = {
+                id: mapData.id,
+                name: mapData.name || `Map ${mapData.id}`
+              };
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching current map:', error);
+      }
+      
+      res.json([robotInfo]);
+    } catch (error) {
+      console.error('Error fetching robots:', error);
+      res.status(500).json({ error: 'Failed to fetch robots' });
+    }
+  });
+
   // Get all robot statuses
   app.get('/api/robots/statuses', async (req: Request, res: Response) => {
     try {

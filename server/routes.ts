@@ -125,13 +125,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/robots', async (req: Request, res: Response) => {
+  app.get('/api/robot-assignments', async (req: Request, res: Response) => {
     try {
       const assignments = await storage.getAllRobotTemplateAssignments();
       res.json(assignments);
     } catch (error) {
-      console.error('Error fetching robots:', error);
-      res.status(500).json({ error: 'Failed to fetch robots' });
+      console.error('Error fetching robot assignments:', error);
+      res.status(500).json({ error: 'Failed to fetch robot assignments' });
     }
   });
 
