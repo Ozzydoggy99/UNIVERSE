@@ -115,6 +115,52 @@ export function registerRobotVideoRoutes(app: Express, httpServer: Server) {
       });
     }
   });
+  
+  // HTTP endpoint for camera stream (used by LiveMjpegStream component)
+  app.get('/api/camera-stream/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const { serialNumber } = req.params;
+      const { endpoint } = req.query;
+      
+      // Only support our physical robot
+      if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
+        return res.status(404).json({ error: 'Robot not found' });
+      }
+      
+      // Get a single frame of video
+      const frameData = getVideoFrame(serialNumber);
+      
+      if (frameData) {
+        // If it's a JPEG frame (compressed topic)
+        if (Buffer.isBuffer(frameData)) {
+          res.set('Content-Type', 'image/jpeg');
+          res.send(frameData);
+        } else {
+          // Return a more descriptive error when frame data is not properly formatted
+          res.status(200).json({ 
+            error: 'Video frame not available',
+            status: 'unavailable',
+            message: 'Camera feed is currently unavailable. Please check robot connection.'
+          });
+        }
+      } else {
+        // Return a more descriptive error for missing frame data
+        res.status(200).json({ 
+          error: 'Video frame not available',
+          status: 'unavailable',
+          message: 'Camera feed is currently unavailable. Please check robot connection.'
+        });
+      }
+    } catch (error) {
+      console.error('Error getting camera stream frame:', error);
+      // Return a 200 status with a structured error message for better client handling
+      res.status(200).json({ 
+        error: 'Failed to get camera stream',
+        status: 'error',
+        message: 'An error occurred while fetching the camera feed. Please try again later.'
+      });
+    }
+  });
 }
 
 /**

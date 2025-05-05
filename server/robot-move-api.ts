@@ -330,9 +330,10 @@ export function registerRobotMoveApiRoutes(app: Express) {
       // Immediately respond to client for better responsiveness
       res.status(202).json({ status: 'accepted', message: 'Cancel command sent to robot' });
       
-      if (validSerialNumber.trim() !== '') {
-        // Process the cancellation in the background
-        processCancelRequest(validSerialNumber, ROBOT_API_BASE_URL).catch(error => {
+      if (serialNumber && serialNumber.trim() !== '') {
+        // Process the cancellation in the background - ensure we have a string
+        const robSerialNumber = serialNumber.toString();
+        processCancelRequest(robSerialNumber, ROBOT_API_BASE_URL).catch(error => {
           console.error('Background cancel error:', error);
         });
       } else {
