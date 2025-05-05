@@ -109,10 +109,13 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
           const theta = position.theta !== undefined ? position.theta : currentOrientation;
           
           // Calculate target position based on theta for the forward direction
-          const forwardX = currentX + Math.cos(theta) * distance;
-          const forwardY = currentY + Math.sin(theta) * distance;
+          // Important: We need to use a larger distance to make forward movement noticeable
+          // Increase the distance by multiplying by 1.5 to make forward movement more effective
+          const adjustedDistance = distance * 1.5;
+          const forwardX = currentX + Math.cos(theta) * adjustedDistance;
+          const forwardY = currentY + Math.sin(theta) * adjustedDistance;
           
-          console.log(`Forward move calculation - Current pos: (${currentX}, ${currentY}), theta: ${theta}, distance: ${distance}, target: (${forwardX}, ${forwardY})`);
+          console.log(`Forward move calculation - Current pos: (${currentX}, ${currentY}), theta: ${theta}, distance: ${adjustedDistance}, target: (${forwardX}, ${forwardY})`);
           
           moveData = {
             creator: "web_interface",
@@ -121,11 +124,12 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_y: forwardY,
             target_z: 0,
             target_ori: theta, // Use theta for orientation to maintain direction
-            target_accuracy: 0.1, // Slightly more lenient accuracy for forward movement
+            target_accuracy: 0.2, // Even more lenient accuracy for forward movement
             use_target_zone: true,
-            target_orientation_accuracy: 0.1, // More lenient orientation accuracy for forward movement
+            target_orientation_accuracy: 0.2, // More lenient orientation accuracy for forward movement
             properties: {
-              inplace_rotate: false // Ensure it's not an in-place rotation
+              inplace_rotate: false, // Ensure it's not an in-place rotation
+              follow_path: true // Add follow_path property which helps with forward movement
             }
           };
           break;
@@ -136,10 +140,13 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
           const thetaBack = position.theta !== undefined ? position.theta : currentOrientation;
           
           // Calculate target position based on theta for the backward direction
-          const backwardX = currentX - Math.cos(thetaBack) * distance;
-          const backwardY = currentY - Math.sin(thetaBack) * distance;
+          // Important: We need to use a larger distance to make backward movement noticeable
+          // Increase the distance by multiplying by 1.5 to make backward movement more effective
+          const adjustedDistanceBack = distance * 1.5;
+          const backwardX = currentX - Math.cos(thetaBack) * adjustedDistanceBack;
+          const backwardY = currentY - Math.sin(thetaBack) * adjustedDistanceBack;
           
-          console.log(`Backward move calculation - Current pos: (${currentX}, ${currentY}), theta: ${thetaBack}, distance: ${distance}, target: (${backwardX}, ${backwardY})`);
+          console.log(`Backward move calculation - Current pos: (${currentX}, ${currentY}), theta: ${thetaBack}, distance: ${adjustedDistanceBack}, target: (${backwardX}, ${backwardY})`);
           
           moveData = {
             creator: "web_interface",
@@ -148,11 +155,12 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_y: backwardY,
             target_z: 0,
             target_ori: thetaBack, // Use theta for orientation to maintain direction
-            target_accuracy: 0.1, // Slightly more lenient accuracy for movement
+            target_accuracy: 0.2, // Slightly more lenient accuracy for movement
             use_target_zone: true,
-            target_orientation_accuracy: 0.1, // More lenient orientation accuracy
+            target_orientation_accuracy: 0.2, // More lenient orientation accuracy
             properties: {
-              inplace_rotate: false // Ensure it's not an in-place rotation
+              inplace_rotate: false, // Ensure it's not an in-place rotation
+              follow_path: true // Add follow_path property which helps with movement
             }
           };
           break;
@@ -201,6 +209,9 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
           };
           break;
       }
+      
+      // Log the actual movement data being sent to the robot
+      console.log(`Sending ${direction} movement command:`, JSON.stringify(moveData, null, 2));
       
       // Send the command through our server API
       const serverResponse = await fetch(`/api/robots/move/${serialNumber}`, {
