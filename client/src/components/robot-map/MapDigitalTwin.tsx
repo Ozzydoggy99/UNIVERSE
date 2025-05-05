@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, ZoomIn, ZoomOut, Crosshair, MousePointer, Grid } from "lucide-react";
+import { Loader2, ZoomIn, ZoomOut, Crosshair, MousePointer, Grid, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { Slider } from "@/components/ui/slider";
@@ -103,44 +103,48 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
     }
   }, [positionData, positionHistory]);
   
-  // Get robot data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Fetch map data
-        const mapResponse = await fetch(`/api/robots/map/${robotSerial}`);
-        if (!mapResponse.ok) throw new Error('Failed to fetch map data');
-        const mapJson = await mapResponse.json();
-        setMapData(mapJson);
-        
-        // Fetch LiDAR data
-        const lidarResponse = await fetch(`/api/robots/lidar/${robotSerial}?_preferTopic=/scan_matched_points2`);
-        if (!lidarResponse.ok) throw new Error('Failed to fetch LiDAR data');
-        const lidarJson = await lidarResponse.json();
-        setLidarData(lidarJson);
-        
-        // Fetch position data
-        const positionResponse = await fetch(`/api/robots/position/${robotSerial}`);
-        if (!positionResponse.ok) throw new Error('Failed to fetch position data');
-        const positionJson = await positionResponse.json();
-        setPositionData(positionJson);
-        
-        setIsLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('An unknown error occurred'));
-        setIsLoading(false);
-      }
-    };
-    
-    fetchData();
-    
-    // Set up interval to fetch data regularly
-    const intervalId = setInterval(fetchData, 1000);
-    
-    return () => clearInterval(intervalId);
+  // State for tracking if we need to sync with robot
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  
+  // Function to fetch robot data
+  const fetchData = useCallback(async () => {
+    try {
+      setIsSyncing(true);
+      
+      // Fetch map data
+      const mapResponse = await fetch(`/api/robots/map/${robotSerial}`);
+      if (!mapResponse.ok) throw new Error('Failed to fetch map data');
+      const mapJson = await mapResponse.json();
+      setMapData(mapJson);
+      
+      // Fetch LiDAR data
+      const lidarResponse = await fetch(`/api/robots/lidar/${robotSerial}?_preferTopic=/scan_matched_points2&_nocache=${Date.now()}`);
+      if (!lidarResponse.ok) throw new Error('Failed to fetch LiDAR data');
+      const lidarJson = await lidarResponse.json();
+      setLidarData(lidarJson);
+      
+      // Fetch position data
+      const positionResponse = await fetch(`/api/robots/position/${robotSerial}`);
+      if (!positionResponse.ok) throw new Error('Failed to fetch position data');
+      const positionJson = await positionResponse.json();
+      setPositionData(positionJson);
+      
+      setLastSyncTime(new Date());
+      setIsLoading(false);
+      setIsSyncing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('An unknown error occurred'));
+      setIsLoading(false);
+      setIsSyncing(false);
+    }
   }, [robotSerial]);
+  
+  // Initial data fetch on component mount
+  useEffect(() => {
+    setIsLoading(true);
+    fetchData();
+  }, [fetchData]);
 
   // Handle zoom in/out
   const handleZoom = (direction: 'in' | 'out') => {
@@ -507,6 +511,16 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
                 title="Reset View"
               >
                 <Crosshair className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={fetchData}
+                title="Sync with Robot"
+                className={isSyncing ? "opacity-50" : ""}
+                disabled={isSyncing}
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
               </Button>
             </div>
           </div>

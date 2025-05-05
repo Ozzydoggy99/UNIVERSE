@@ -428,6 +428,16 @@ function Router() {
           </AppLayout>
         )} 
       />
+
+      {/* Maps shortcut URL */}
+      <ProtectedRoute 
+        path="/maps" 
+        component={() => (
+          <AppLayout>
+            <RobotMapsPage />
+          </AppLayout>
+        )} 
+      />
       
       <Route component={NotFound} />
     </Switch>

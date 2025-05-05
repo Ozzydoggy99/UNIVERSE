@@ -164,13 +164,34 @@ const RobotMapsPage: React.FC = () => {
                       Digital twin representation of the robot map
                     </CardDescription>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        Actions
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        toast({
+                          title: "Syncing map data",
+                          description: "Fetching latest map data from robot",
+                          variant: "default"
+                        });
+                        
+                        // Refetch maps first
+                        refetchMaps();
+                        
+                        // Then trigger a fresh render of the map component
+                        setSelectedMap(selectedMap);
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Sync with Robot
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          Actions
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => {
                         if (!selectedMap) {
                           toast({
@@ -253,6 +274,7 @@ const RobotMapsPage: React.FC = () => {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                </div>
                 </div>
               </CardHeader>
               <CardContent>
