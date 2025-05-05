@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface RobotData {
   mapData: any;
@@ -8,6 +8,7 @@ interface RobotData {
   statusData: any;
   isLoading: boolean;
   error: Error | null;
+  refetch: () => Promise<void>;
 }
 
 export function useRobotData(robotSerial: string): RobotData {
@@ -19,71 +20,78 @@ export function useRobotData(robotSerial: string): RobotData {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   
+  // Create a reusable fetchData function
+  const fetchData = useCallback(async () => {
+    if (!robotSerial) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Fetch map data
+      const mapResponse = await fetch(`/api/robots/map/${robotSerial}`);
+      if (!mapResponse.ok) throw new Error('Failed to fetch map data');
+      const mapJson = await mapResponse.json();
+      
+      // Fetch LiDAR data
+      const lidarResponse = await fetch(`/api/robots/lidar/${robotSerial}?_preferTopic=/scan_matched_points2`);
+      if (!lidarResponse.ok) throw new Error('Failed to fetch LiDAR data');
+      const lidarJson = await lidarResponse.json();
+      
+      // Fetch position data
+      const positionResponse = await fetch(`/api/robots/position/${robotSerial}`);
+      if (!positionResponse.ok) throw new Error('Failed to fetch position data');
+      const positionJson = await positionResponse.json();
+      
+      // Fetch sensor data
+      const sensorResponse = await fetch(`/api/robots/sensors/${robotSerial}`);
+      if (!sensorResponse.ok) throw new Error('Failed to fetch sensor data');
+      const sensorJson = await sensorResponse.json();
+      
+      // Fetch status data
+      const statusResponse = await fetch(`/api/robots/status/${robotSerial}`);
+      if (!statusResponse.ok) throw new Error('Failed to fetch status data');
+      const statusJson = await statusResponse.json();
+      
+      // Update state with fetched data
+      setMapData(mapJson);
+      setLidarData(lidarJson);
+      setPositionData(positionJson);
+      setSensorData(sensorJson);
+      setStatusData(statusJson);
+      setIsLoading(false);
+      setError(null);
+      
+      console.log('Robot data retrieved successfully');
+    } catch (err) {
+      console.error('Error fetching robot data:', err);
+      setError(err instanceof Error ? err : new Error('An unknown error occurred'));
+      setIsLoading(false);
+    }
+  }, [robotSerial]);
+  
+  // Function for manually triggering a data refresh
+  const refetch = useCallback(async () => {
+    console.log('Manually refreshing robot data...');
+    await fetchData();
+  }, [fetchData]);
+  
   useEffect(() => {
     let isMounted = true;
+    let intervalId: NodeJS.Timeout;
     
-    async function fetchData() {
-      if (!robotSerial) return;
-      
-      try {
-        setIsLoading(true);
-        
-        // Fetch map data
-        const mapResponse = await fetch(`/api/robots/map/${robotSerial}`);
-        if (!mapResponse.ok) throw new Error('Failed to fetch map data');
-        const mapJson = await mapResponse.json();
-        
-        // Fetch LiDAR data
-        const lidarResponse = await fetch(`/api/robots/lidar/${robotSerial}?_preferTopic=/scan_matched_points2`);
-        if (!lidarResponse.ok) throw new Error('Failed to fetch LiDAR data');
-        const lidarJson = await lidarResponse.json();
-        
-        // Fetch position data
-        const positionResponse = await fetch(`/api/robots/position/${robotSerial}`);
-        if (!positionResponse.ok) throw new Error('Failed to fetch position data');
-        const positionJson = await positionResponse.json();
-        
-        // Fetch sensor data
-        const sensorResponse = await fetch(`/api/robots/sensors/${robotSerial}`);
-        if (!sensorResponse.ok) throw new Error('Failed to fetch sensor data');
-        const sensorJson = await sensorResponse.json();
-        
-        // Fetch status data
-        const statusResponse = await fetch(`/api/robots/status/${robotSerial}`);
-        if (!statusResponse.ok) throw new Error('Failed to fetch status data');
-        const statusJson = await statusResponse.json();
-        
-        if (!isMounted) return;
-        
-        // Update state with fetched data
-        setMapData(mapJson);
-        setLidarData(lidarJson);
-        setPositionData(positionJson);
-        setSensorData(sensorJson);
-        setStatusData(statusJson);
-        setIsLoading(false);
-        setError(null);
-        
-        console.log('Robot data retrieved successfully');
-      } catch (err) {
-        if (!isMounted) return;
-        
-        console.error('Error fetching robot data:', err);
-        setError(err instanceof Error ? err : new Error('An unknown error occurred'));
-        setIsLoading(false);
+    // Initial data fetch
+    fetchData().then(() => {
+      if (isMounted) {
+        // Set up polling for real-time updates (only after initial fetch)
+        intervalId = setInterval(fetchData, 10000); // Reduced frequency to 10s to avoid overwhelming the robot API
       }
-    }
-    
-    fetchData();
-    
-    // Set up polling for real-time updates
-    const intervalId = setInterval(fetchData, 1000);
+    });
     
     return () => {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [robotSerial]);
+  }, [fetchData]);
   
   return {
     mapData,
@@ -92,6 +100,7 @@ export function useRobotData(robotSerial: string): RobotData {
     sensorData,
     statusData,
     isLoading,
-    error
+    error,
+    refetch
   };
 }

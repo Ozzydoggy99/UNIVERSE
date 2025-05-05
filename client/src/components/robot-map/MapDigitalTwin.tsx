@@ -13,8 +13,8 @@ type Point = {
 interface MapDigitalTwinProps {
   robotSerial: string;
   mapId?: string;
-  mapData?: any;
-  positionData?: any;
+  mapData?: MapData;
+  positionData?: PositionData;
   showControls?: boolean;
   showGridByDefault?: boolean;
   showPathByDefault?: boolean;
