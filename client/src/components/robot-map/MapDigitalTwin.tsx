@@ -182,7 +182,7 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
         const robotY = -positionData.y / mapResolution; // Y is inverted in canvas
         
         ctx.beginPath();
-        ranges.forEach((range, index) => {
+        ranges.forEach((range: number, index: number) => {
           if (range > 0) { // Only draw valid ranges
             const angle = angle_min + index * angle_increment;
             // Calculate point position relative to robot

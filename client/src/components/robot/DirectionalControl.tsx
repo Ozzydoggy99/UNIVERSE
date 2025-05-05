@@ -96,8 +96,13 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
       switch (direction) {
         case 'forward':
           // FORWARD: Move in direction of current orientation
-          const forwardX = currentX + Math.cos(currentOrientation) * distance;
-          const forwardY = currentY + Math.sin(currentOrientation) * distance;
+          // The critical fix is to use the robot's theta value for orientation calculation
+          // Note that theta is the correct orientation parameter, not "orientation"
+          const theta = position.theta || currentOrientation;
+          const forwardX = currentX + Math.cos(theta) * distance;
+          const forwardY = currentY + Math.sin(theta) * distance;
+          
+          console.log(`Forward move calculation - Current pos: (${currentX}, ${currentY}), theta: ${theta}, distance: ${distance}, target: (${forwardX}, ${forwardY})`);
           
           moveData = {
             creator: "web_interface",
@@ -105,7 +110,7 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_x: forwardX,
             target_y: forwardY,
             target_z: 0,
-            target_ori: currentOrientation, // maintain orientation
+            target_ori: theta, // ensure we're using theta for orientation
             target_accuracy: 0.05,
             use_target_zone: true,
             target_orientation_accuracy: 0.01, // Very strict orientation accuracy
@@ -117,8 +122,12 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
           
         case 'backward':
           // BACKWARD: Move opposite to current orientation
-          const backwardX = currentX - Math.cos(currentOrientation) * distance;
-          const backwardY = currentY - Math.sin(currentOrientation) * distance;
+          // Use theta for consistency with forward movement
+          const thetaBack = position.theta || currentOrientation;
+          const backwardX = currentX - Math.cos(thetaBack) * distance;
+          const backwardY = currentY - Math.sin(thetaBack) * distance;
+          
+          console.log(`Backward move calculation - Current pos: (${currentX}, ${currentY}), theta: ${thetaBack}, distance: ${distance}, target: (${backwardX}, ${backwardY})`);
           
           moveData = {
             creator: "web_interface",
@@ -126,7 +135,7 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_x: backwardX,
             target_y: backwardY,
             target_z: 0,
-            target_ori: currentOrientation, // maintain orientation
+            target_ori: thetaBack, // ensure we're using theta for orientation
             target_accuracy: 0.05,
             use_target_zone: true,
             target_orientation_accuracy: 0.01, // Very strict orientation accuracy
@@ -138,13 +147,17 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
           
         case 'left':
           // LEFT: Robot turns counterclockwise in place
+          const thetaLeft = position.theta || currentOrientation;
+          
+          console.log(`Left rotation calculation - Current pos: (${currentX}, ${currentY}), theta: ${thetaLeft}, rotation amount: ${rotationAmount}, target: ${thetaLeft + rotationAmount}`);
+          
           moveData = {
             creator: "web_interface",
             type: "standard", 
             target_x: currentX,
             target_y: currentY,
             target_z: 0,
-            target_ori: currentOrientation + rotationAmount, // add angle for counterclockwise
+            target_ori: thetaLeft + rotationAmount, // add angle for counterclockwise
             target_accuracy: 0.05,
             use_target_zone: true,
             target_orientation_accuracy: 0.05,
@@ -156,13 +169,17 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
           
         case 'right':
           // RIGHT: Robot turns clockwise in place
+          const thetaRight = position.theta || currentOrientation;
+          
+          console.log(`Right rotation calculation - Current pos: (${currentX}, ${currentY}), theta: ${thetaRight}, rotation amount: ${rotationAmount}, target: ${thetaRight - rotationAmount}`);
+          
           moveData = {
             creator: "web_interface",
             type: "standard",
             target_x: currentX,
             target_y: currentY, 
             target_z: 0,
-            target_ori: currentOrientation - rotationAmount, // subtract angle for clockwise
+            target_ori: thetaRight - rotationAmount, // subtract angle for clockwise
             target_accuracy: 0.05,
             use_target_zone: true,
             target_orientation_accuracy: 0.05,
@@ -251,7 +268,7 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
         toast({
           title: "Success",
           description: "Robot jack up command sent",
-          variant: "success",
+          variant: "default",
         });
       } else {
         const errorData = await response.json();
@@ -297,7 +314,7 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
         toast({
           title: "Success",
           description: "Robot jack down command sent",
-          variant: "success",
+          variant: "default",
         });
       } else {
         const errorData = await response.json();
