@@ -251,7 +251,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
   
   // Draw the map on the canvas
   useEffect(() => {
-    if (!canvasRef.current || !mapData || !positionData) return;
+    if (!canvasRef.current || !mapData) return; // We don't make this depend on positionData
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -290,32 +290,62 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
       // Draw grid if enabled
       if (showGrid) {
         ctx.beginPath();
-        ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = 'rgba(0, 100, 200, 0.3)'; // More visible grid color
+        ctx.lineWidth = 1;
         
         // Draw grid lines for each meter
         const resolution = mapData.resolution;
         const gridSpacingPixels = 1 / resolution; // 1 meter in pixels
         
-        // Calculate grid bounds
-        const startX = Math.floor(-mapWidthPixels/2);
-        const endX = Math.ceil(mapWidthPixels/2);
-        const startY = Math.floor(-mapHeightPixels/2);
-        const endY = Math.ceil(mapHeightPixels/2);
+        // Ensure gridSpacingPixels is at least 20 pixels for visibility
+        const minGridSpacing = 20;
+        const effectiveGridSpacing = Math.max(gridSpacingPixels, minGridSpacing);
         
-        // Vertical lines
-        for (let x = startX; x <= endX; x += gridSpacingPixels) {
+        // Calculate grid bounds with some margin
+        const startX = Math.floor(-mapWidthPixels/2) - effectiveGridSpacing;
+        const endX = Math.ceil(mapWidthPixels/2) + effectiveGridSpacing;
+        const startY = Math.floor(-mapHeightPixels/2) - effectiveGridSpacing;
+        const endY = Math.ceil(mapHeightPixels/2) + effectiveGridSpacing;
+        
+        // Vertical lines (ensure we're using the actual grid spacing)
+        for (let x = Math.ceil(startX / effectiveGridSpacing) * effectiveGridSpacing; 
+             x <= endX; 
+             x += effectiveGridSpacing) {
           ctx.moveTo(x, startY);
           ctx.lineTo(x, endY);
         }
         
         // Horizontal lines
-        for (let y = startY; y <= endY; y += gridSpacingPixels) {
+        for (let y = Math.ceil(startY / effectiveGridSpacing) * effectiveGridSpacing; 
+             y <= endY; 
+             y += effectiveGridSpacing) {
           ctx.moveTo(startX, y);
           ctx.lineTo(endX, y);
         }
         
         ctx.stroke();
+        
+        // Add meter markings for better understanding
+        ctx.fillStyle = 'rgba(0, 100, 200, 0.7)';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        
+        // X-axis marks (every 5 meters)
+        for (let x = Math.ceil(startX / (effectiveGridSpacing * 5)) * (effectiveGridSpacing * 5); 
+             x <= endX; 
+             x += effectiveGridSpacing * 5) {
+          const worldX = (x / gridSpacingPixels).toFixed(0);
+          ctx.fillText(`${worldX}m`, x, 10);
+        }
+        
+        // Y-axis marks (every 5 meters)
+        ctx.textAlign = 'right';
+        for (let y = Math.ceil(startY / (effectiveGridSpacing * 5)) * (effectiveGridSpacing * 5); 
+             y <= endY; 
+             y += effectiveGridSpacing * 5) {
+          const worldY = (y / gridSpacingPixels).toFixed(0);
+          ctx.fillText(`${worldY}m`, -10, y);
+        }
       }
       
       // Now draw the map image
@@ -349,12 +379,13 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
         // Translate to robot position
         ctx.translate(robotPos.x + mapOriginX, robotPos.y + mapOriginY);
         
-        // Rotate to match robot orientation
-        // Note: The Y axis is flipped in the map coordinates, so we negate the angle
-        ctx.rotate(-positionData.theta);
+        // Rotate to match robot orientation - make it highly visible in a bright color
+        // Using full rotation to make angle correct - theta is in radians
+        // The Y axis is flipped in canvas coordinates
+        ctx.rotate(positionData.theta);
         
         // Draw robot body as a rectangle representing actual dimensions
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Semi-transparent red
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.7)'; // More opaque red
         ctx.fillRect(
           -robotWidthPixels / 2, 
           -robotLengthPixels / 2, 
@@ -362,9 +393,9 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
           robotLengthPixels
         );
         
-        // Draw robot outline
+        // Draw robot outline with thicker stroke
         ctx.strokeStyle = 'red';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeRect(
           -robotWidthPixels / 2, 
           -robotLengthPixels / 2, 
@@ -373,19 +404,35 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
         );
         
         // Draw front direction indicator (arrow at front of robot)
+        // Make the arrow bigger and more visible
         ctx.beginPath();
-        ctx.moveTo(0, -robotLengthPixels / 2); // Center front
-        ctx.lineTo(-robotWidthPixels / 4, -robotLengthPixels / 2 - robotWidthPixels / 4); // Left arrow
-        ctx.lineTo(robotWidthPixels / 4, -robotLengthPixels / 2 - robotWidthPixels / 4); // Right arrow
+        ctx.moveTo(0, -robotLengthPixels / 2 - robotWidthPixels / 5); // Extend the arrow further
+        ctx.lineTo(-robotWidthPixels / 3, -robotLengthPixels / 2); // Left corner
+        ctx.lineTo(robotWidthPixels / 3, -robotLengthPixels / 2); // Right corner
         ctx.closePath();
-        ctx.fillStyle = 'blue';
+        ctx.fillStyle = '#0066FF'; // Brighter blue
+        ctx.fill();
+        ctx.strokeStyle = '#003399'; // Outline for the arrow
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // Draw center dot with double border for better visibility
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Yellow glow
         ctx.fill();
         
-        // Draw center dot
+        // Center dot
         ctx.beginPath();
-        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
         ctx.fillStyle = 'yellow'; // Yellow center dot
         ctx.fill();
+        
+        // Outline the dot
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1;
+        ctx.stroke();
         
         // Restore context to undo transformations
         ctx.restore();
