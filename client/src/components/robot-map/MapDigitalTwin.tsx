@@ -325,22 +325,240 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
     
     // Calculate map dimensions based on grid data
     const mapImage = new Image();
-    mapImage.onload = () => {
-      console.log("Map image loaded successfully - dimensions:", mapImage.width, "x", mapImage.height);
+    
+    // Add detailed error handling and debugging for map image loading
+    mapImage.onerror = (err) => {
+      console.error('Error loading map image:', err);
+      console.error('Map grid data length:', mapData.grid?.length || 0);
+      
+      // Proceed to just draw the robot positions and paths without the map
+      renderWithoutMap();
+    };
+    
+    // Function to render when map isn't available
+    const renderWithoutMap = () => {
+      console.log("Rendering without map image...");
       
       // Calculate center position
       const centerX = canvas.width / 2 + offset.x;
       const centerY = canvas.height / 2 + offset.y;
       
-      // Draw the map
+      // Draw the map (with proper transforms)
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.scale(scale, scale);
       
-      // Background layer for clarity
-      ctx.fillStyle = '#f5f5f5';
+      // Background grid layer for guaranteed visibility
+      ctx.fillStyle = '#f8fafc'; // Very light blue-gray background
+      const viewableWidth = canvas.width / scale;
+      const viewableHeight = canvas.height / scale; 
+      ctx.fillRect(-viewableWidth/2, -viewableHeight/2, viewableWidth, viewableHeight);
+      
+      // Draw a coordinate grid with meter lines
+      ctx.strokeStyle = '#e2e8f0'; // Light gray lines
+      ctx.lineWidth = 1;
+      
+      // Draw meter lines for the grid
+      const gridSpacing = 1.0; // 1 meter grid
+      const gridExtent = 20; // Draw grid 20 meters in each direction
+      
+      for (let x = -gridExtent; x <= gridExtent; x++) {
+        if (x === 0) {
+          ctx.strokeStyle = '#94a3b8'; // Darker line for axis
+          ctx.lineWidth = 2;
+        } else {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+        }
+        
+        const xPixel = x / mapData.resolution;
+        ctx.beginPath();
+        ctx.moveTo(xPixel, -gridExtent / mapData.resolution);
+        ctx.lineTo(xPixel, gridExtent / mapData.resolution);
+        ctx.stroke();
+      }
+      
+      for (let y = -gridExtent; y <= gridExtent; y++) {
+        if (y === 0) {
+          ctx.strokeStyle = '#94a3b8'; // Darker line for axis
+          ctx.lineWidth = 2;
+        } else {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+        }
+        
+        const yPixel = y / mapData.resolution;
+        ctx.beginPath();
+        ctx.moveTo(-gridExtent / mapData.resolution, yPixel);
+        ctx.lineTo(gridExtent / mapData.resolution, yPixel);
+        ctx.stroke();
+      }
+      
+      // Now draw the robot position and path on the grid
+      drawRobotAndPath();
+      
+      // Restore the context to remove the transformations
+      ctx.restore();
+    };
+    
+    // Function to draw robot and path to avoid code duplication
+    const drawRobotAndPath = () => {
+      if (positionData) {
+        // Draw the robot position with a highly visible marker
+        const robotPos = worldToPixel(positionData.x, positionData.y, mapData);
+        
+        // Use a consistent origin (0, 0) for the plain grid
+        const mapOriginX = 0;
+        const mapOriginY = 0;
+        
+        // Draw robot with a bright, highly visible design
+        ctx.save();
+        
+        // Translate to robot position
+        ctx.translate(robotPos.x + mapOriginX, robotPos.y + mapOriginY);
+        
+        // Rotate to match robot orientation
+        ctx.rotate(positionData.theta);
+        
+        // Draw a glowing circle for the robot position
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.6)'; // Red glow
+        ctx.shadowBlur = 15;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Robot body
+        ctx.beginPath();
+        ctx.arc(0, 0, 20, 0, Math.PI * 2);
+        ctx.fillStyle = '#ef4444'; // Red
+        ctx.fill();
+        
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+        
+        // Direction indicator
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(30, 0);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        
+        ctx.restore();
+        
+        // Draw the path if enabled
+        if (showPath && positionHistory.length > 1) {
+          // Draw the path with a glowing effect
+          ctx.save();
+          
+          ctx.shadowColor = 'rgba(239, 68, 68, 0.4)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
+          ctx.beginPath();
+          
+          // Start from the oldest position
+          let start = true;
+          for (const pos of positionHistory) {
+            const pixelPos = worldToPixel(pos.x, pos.y, mapData);
+            if (start) {
+              ctx.moveTo(pixelPos.x + mapOriginX, pixelPos.y + mapOriginY);
+              start = false;
+            } else {
+              ctx.lineTo(pixelPos.x + mapOriginX, pixelPos.y + mapOriginY);
+            }
+          }
+          
+          ctx.strokeStyle = '#ef4444'; // Red path
+          ctx.lineWidth = 4;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.stroke();
+          
+          ctx.restore();
+          
+          // Draw position points along the path
+          for (const pos of positionHistory) {
+            const pixelPos = worldToPixel(pos.x, pos.y, mapData);
+            
+            ctx.beginPath();
+            ctx.arc(pixelPos.x + mapOriginX, pixelPos.y + mapOriginY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#fca5a5'; // Light red
+            ctx.fill();
+          }
+        }
+      }
+    };
+    
+    // Normal map onload handler
+    mapImage.onload = () => {
+      console.log("Map image loaded successfully!", new Date().toISOString());
+      console.log("Map image dimensions:", mapImage.width, "x", mapImage.height);
+      console.log("Map data resolution:", mapData.resolution, "meters/pixel");
+      console.log("Map data origin:", mapData.origin);
+      console.log("Map data size:", mapData.size);
+      
+      // Calculate center position
+      const centerX = canvas.width / 2 + offset.x;
+      const centerY = canvas.height / 2 + offset.y;
+      
+      // Draw the map (with proper transforms)
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      
+      // Background grid layer for guaranteed visibility
+      ctx.fillStyle = '#f8fafc'; // Very light blue-gray background
+      const viewableWidth = canvas.width / scale;
+      const viewableHeight = canvas.height / scale; 
+      ctx.fillRect(-viewableWidth/2, -viewableHeight/2, viewableWidth, viewableHeight);
+      
+      // Draw a coordinate grid with meter lines
+      ctx.strokeStyle = '#e2e8f0'; // Light gray lines
+      ctx.lineWidth = 1;
+      
+      // Draw meter lines for the grid
+      const gridSpacing = 1.0; // 1 meter grid
+      const gridExtent = 20; // Draw grid 20 meters in each direction
+      
+      for (let x = -gridExtent; x <= gridExtent; x++) {
+        if (x === 0) {
+          ctx.strokeStyle = '#94a3b8'; // Darker line for axis
+          ctx.lineWidth = 2;
+        } else {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+        }
+        
+        const xPixel = x / mapData.resolution;
+        ctx.beginPath();
+        ctx.moveTo(xPixel, -gridExtent / mapData.resolution);
+        ctx.lineTo(xPixel, gridExtent / mapData.resolution);
+        ctx.stroke();
+      }
+      
+      for (let y = -gridExtent; y <= gridExtent; y++) {
+        if (y === 0) {
+          ctx.strokeStyle = '#94a3b8'; // Darker line for axis
+          ctx.lineWidth = 2;
+        } else {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+        }
+        
+        const yPixel = y / mapData.resolution;
+        ctx.beginPath();
+        ctx.moveTo(-gridExtent / mapData.resolution, yPixel);
+        ctx.lineTo(gridExtent / mapData.resolution, yPixel);
+        ctx.stroke();
+      }
+      
+      // Background layer for the actual map
       const mapWidthPixels = mapData.size[0];
       const mapHeightPixels = mapData.size[1];
+      ctx.fillStyle = '#f5f5f5';
       ctx.fillRect(-mapWidthPixels/2, -mapHeightPixels/2, mapWidthPixels, mapHeightPixels);
       
       // Draw grid if enabled
