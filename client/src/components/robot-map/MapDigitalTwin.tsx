@@ -283,11 +283,10 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
       }
     };
     
-    // Start the animation loop if we have lidar data to show
-    if (showLidar && lidarData) {
-      console.log("Starting animation loop for LiDAR effects...");
-      requestAnimationFrame(animate);
-    }
+    // Start the animation loop regardless of LiDAR data
+    // This ensures we show visual effects even when LiDAR data is not available
+    console.log("Starting animation loop for enhanced visualization effects...");
+    requestAnimationFrame(animate);
     
     // Calculate map dimensions based on grid data
     const mapImage = new Image();
@@ -612,7 +611,8 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
       }
       
       // Draw LiDAR data if available and enabled - with enhanced visual effects
-      if (lidarData && showLidar && positionData) {
+      // Always render visualization if LiDAR is enabled, even without actual LiDAR data
+      if (showLidar && positionData) {
         // Get the robot position in pixel coordinates
         const robotPos = worldToPixel(positionData.x, positionData.y, mapData);
         const mapOriginX = -mapImage.width / 2;
@@ -661,8 +661,48 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
         ctx.lineWidth = 1;
         ctx.stroke();
         
+        // Add an animated scanner effect that works even without LiDAR data
+        const scannerTime = Date.now() / 1000;
+        const scannerAngle = (scannerTime % 4) * Math.PI / 2; // Complete rotation every 4 seconds
+        
+        // Draw a rotating scanner line
+        ctx.beginPath();
+        ctx.moveTo(robotPos.x + mapOriginX, robotPos.y + mapOriginY);
+        const scannerLength = 100; // Length of scanner beam
+        ctx.lineTo(
+          robotPos.x + mapOriginX + Math.cos(scannerAngle) * scannerLength,
+          robotPos.y + mapOriginY + Math.sin(scannerAngle) * scannerLength
+        );
+        
+        // Create line gradient
+        const lineGradient = ctx.createLinearGradient(
+          robotPos.x + mapOriginX, 
+          robotPos.y + mapOriginY,
+          robotPos.x + mapOriginX + Math.cos(scannerAngle) * scannerLength,
+          robotPos.y + mapOriginY + Math.sin(scannerAngle) * scannerLength
+        );
+        lineGradient.addColorStop(0, 'rgba(0, 255, 255, 0.9)');
+        lineGradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+        
+        ctx.strokeStyle = lineGradient;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw scan arc for the current angle
+        ctx.beginPath();
+        ctx.arc(
+          robotPos.x + mapOriginX, 
+          robotPos.y + mapOriginY,
+          scannerLength * 0.8, 
+          scannerAngle - 0.1, 
+          scannerAngle + 0.1
+        );
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.7)';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        
         // Render point cloud data if available with improved styling
-        if (lidarData.points && lidarData.points.length) {
+        if (lidarData && lidarData.points && lidarData.points.length) {
           // Draw points with gradient colors based on distance from robot
           lidarData.points.forEach(point => {
             const pointPixel = worldToPixel(point.x, point.y, mapData);
@@ -705,7 +745,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
           });
         } 
         // Fall back to range-based rendering if no point cloud - with improved styling
-        else if (lidarData.ranges && lidarData.ranges.length) {
+        else if (lidarData && lidarData.ranges && lidarData.ranges.length) {
           const { ranges, angle_min, angle_increment } = lidarData;
           
           // First, draw connecting lines to create a "radar sweep" effect
