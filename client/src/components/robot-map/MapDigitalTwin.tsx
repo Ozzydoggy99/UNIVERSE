@@ -325,7 +325,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
         -mapImage.height / 2
       );
       
-      // Draw robot position
+      // Draw robot position with accurate footprint
       if (positionData) {
         // Convert robot coordinates to pixel coordinates using our utility function
         const robotPos = worldToPixel(positionData.x, positionData.y, mapData);
@@ -334,30 +334,84 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
         const mapOriginX = -mapImage.width / 2;
         const mapOriginY = -mapImage.height / 2;
         
-        // Draw robot as a circle with direction indicator
+        // Robot dimensions in meters - based on actual robot specs
+        // The AxBot is roughly 46cm wide and 74cm long
+        const robotWidth = 0.46; // meters
+        const robotLength = 0.74; // meters
+        
+        // Convert dimensions to pixels
+        const robotWidthPixels = robotWidth / mapData.resolution;
+        const robotLengthPixels = robotLength / mapData.resolution;
+        
+        // Save the current context for transformations
+        ctx.save();
+        
+        // Translate to robot position
+        ctx.translate(robotPos.x + mapOriginX, robotPos.y + mapOriginY);
+        
+        // Rotate to match robot orientation
+        // Note: The Y axis is flipped in the map coordinates, so we negate the angle
+        ctx.rotate(-positionData.theta);
+        
+        // Draw robot body as a rectangle representing actual dimensions
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Semi-transparent red
+        ctx.fillRect(
+          -robotWidthPixels / 2, 
+          -robotLengthPixels / 2, 
+          robotWidthPixels, 
+          robotLengthPixels
+        );
+        
+        // Draw robot outline
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+          -robotWidthPixels / 2, 
+          -robotLengthPixels / 2, 
+          robotWidthPixels, 
+          robotLengthPixels
+        );
+        
+        // Draw front direction indicator (arrow at front of robot)
         ctx.beginPath();
-        ctx.arc(robotPos.x + mapOriginX, robotPos.y + mapOriginY, 10, 0, 2 * Math.PI);
-        ctx.fillStyle = 'red';
+        ctx.moveTo(0, -robotLengthPixels / 2); // Center front
+        ctx.lineTo(-robotWidthPixels / 4, -robotLengthPixels / 2 - robotWidthPixels / 4); // Left arrow
+        ctx.lineTo(robotWidthPixels / 4, -robotLengthPixels / 2 - robotWidthPixels / 4); // Right arrow
+        ctx.closePath();
+        ctx.fillStyle = 'blue';
         ctx.fill();
         
-        // Robot footprint - approximation based on real dimensions
+        // Draw center dot
         ctx.beginPath();
-        ctx.arc(robotPos.x + mapOriginX, robotPos.y + mapOriginY, 18, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'yellow'; // Yellow center dot
+        ctx.fill();
         
-        // Draw direction indicator
-        const theta = positionData.theta;
-        ctx.beginPath();
-        ctx.moveTo(robotPos.x + mapOriginX, robotPos.y + mapOriginY);
-        ctx.lineTo(
-          robotPos.x + mapOriginX + 20 * Math.cos(theta),
-          robotPos.y + mapOriginY + 20 * Math.sin(theta)
-        );
-        ctx.strokeStyle = 'blue';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        // Restore context to undo transformations
+        ctx.restore();
+        
+        // Also draw the path from last known positions if enabled
+        if (showPath && positionHistory.length > 1) {
+          ctx.beginPath();
+          ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 3]); // Dotted line pattern
+          
+          // Draw lines connecting position history points
+          let start = true;
+          for (const pos of positionHistory) {
+            const pixelPos = worldToPixel(pos.x, pos.y, mapData);
+            if (start) {
+              ctx.moveTo(pixelPos.x + mapOriginX, pixelPos.y + mapOriginY);
+              start = false;
+            } else {
+              ctx.lineTo(pixelPos.x + mapOriginX, pixelPos.y + mapOriginY);
+            }
+          }
+          
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset line dash pattern
+        }
       }
       
       // Draw robot path if enabled
