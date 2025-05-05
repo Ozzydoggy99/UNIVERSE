@@ -29,6 +29,7 @@ import PowerCycleTestPage from "@/pages/power-cycle-test";
 import RobotInstaller from "@/pages/robot-installer";
 import InstallerDebugPage from "@/pages/installer-debug";
 import RemoteExecutor from "@/pages/remote-executor";
+import RobotMapsPage from "@/pages/robot-maps-page";
 import Sidebar from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -414,6 +415,16 @@ function Router() {
         component={() => (
           <AppLayout>
             <RemoteExecutor />
+          </AppLayout>
+        )} 
+      />
+      
+      {/* Maps For Robots Page */}
+      <ProtectedRoute 
+        path="/robot-maps" 
+        component={() => (
+          <AppLayout>
+            <RobotMapsPage />
           </AppLayout>
         )} 
       />

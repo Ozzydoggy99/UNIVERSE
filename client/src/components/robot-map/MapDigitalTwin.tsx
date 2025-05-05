@@ -56,7 +56,7 @@ interface PositionData {
   };
 }
 
-const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
+export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number>(1);
@@ -619,4 +619,4 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
   );
 };
 
-export default MapDigitalTwin;
+// Export is now done via named export above
