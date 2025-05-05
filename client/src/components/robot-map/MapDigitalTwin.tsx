@@ -384,54 +384,95 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
         // The Y axis is flipped in canvas coordinates
         ctx.rotate(positionData.theta);
         
-        // Draw robot body as a rectangle representing actual dimensions
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.7)'; // More opaque red
+        // Draw shadow for 3D effect
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.fillRect(
-          -robotWidthPixels / 2, 
-          -robotLengthPixels / 2, 
+          -robotWidthPixels / 2 + 3, 
+          -robotLengthPixels / 2 + 3, 
           robotWidthPixels, 
           robotLengthPixels
         );
         
-        // Draw robot outline with thicker stroke
-        ctx.strokeStyle = 'red';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(
-          -robotWidthPixels / 2, 
-          -robotLengthPixels / 2, 
-          robotWidthPixels, 
-          robotLengthPixels
-        );
+        // Draw robot body with rounded corners
+        const radius = robotWidthPixels / 6; // Rounded corner radius
         
-        // Draw front direction indicator (arrow at front of robot)
-        // Make the arrow bigger and more visible
+        // Create rounded rectangle path
         ctx.beginPath();
-        ctx.moveTo(0, -robotLengthPixels / 2 - robotWidthPixels / 5); // Extend the arrow further
-        ctx.lineTo(-robotWidthPixels / 3, -robotLengthPixels / 2); // Left corner
-        ctx.lineTo(robotWidthPixels / 3, -robotLengthPixels / 2); // Right corner
+        ctx.moveTo(-robotWidthPixels/2 + radius, -robotLengthPixels/2);
+        ctx.lineTo(robotWidthPixels/2 - radius, -robotLengthPixels/2);
+        ctx.arcTo(robotWidthPixels/2, -robotLengthPixels/2, robotWidthPixels/2, -robotLengthPixels/2 + radius, radius);
+        ctx.lineTo(robotWidthPixels/2, robotLengthPixels/2 - radius);
+        ctx.arcTo(robotWidthPixels/2, robotLengthPixels/2, robotWidthPixels/2 - radius, robotLengthPixels/2, radius);
+        ctx.lineTo(-robotWidthPixels/2 + radius, robotLengthPixels/2);
+        ctx.arcTo(-robotWidthPixels/2, robotLengthPixels/2, -robotWidthPixels/2, robotLengthPixels/2 - radius, radius);
+        ctx.lineTo(-robotWidthPixels/2, -robotLengthPixels/2 + radius);
+        ctx.arcTo(-robotWidthPixels/2, -robotLengthPixels/2, -robotWidthPixels/2 + radius, -robotLengthPixels/2, radius);
         ctx.closePath();
-        ctx.fillStyle = '#0066FF'; // Brighter blue
+        
+        // Fill robot body with gradient
+        const gradient = ctx.createLinearGradient(
+          -robotWidthPixels/2, 
+          -robotLengthPixels/2, 
+          robotWidthPixels/2, 
+          robotLengthPixels/2
+        );
+        gradient.addColorStop(0, '#3B82F6');  // Bright blue
+        gradient.addColorStop(1, '#1E40AF');  // Darker blue
+        ctx.fillStyle = gradient;
         ctx.fill();
-        ctx.strokeStyle = '#003399'; // Outline for the arrow
+        
+        // Robot outline
+        ctx.strokeStyle = '#0F172A'; // Dark blue outline
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw robot details - sensors and lights
+        
+        // Top sensor dome
+        ctx.beginPath();
+        ctx.arc(0, -robotLengthPixels/3, robotWidthPixels/6, 0, Math.PI * 2);
+        ctx.fillStyle = '#60A5FA'; // Light blue for sensors
+        ctx.fill();
+        ctx.strokeStyle = '#1E40AF';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Front direction indicator (arrow)
+        ctx.beginPath();
+        ctx.moveTo(0, -robotLengthPixels/2 - robotWidthPixels/4); // Arrow tip
+        ctx.lineTo(-robotWidthPixels/3, -robotLengthPixels/2 - robotWidthPixels/12);
+        ctx.lineTo(robotWidthPixels/3, -robotLengthPixels/2 - robotWidthPixels/12);
+        ctx.closePath();
+        ctx.fillStyle = '#FBBF24'; // Amber yellow
+        ctx.fill();
+        ctx.strokeStyle = '#D97706'; // Darker amber
         ctx.lineWidth = 1.5;
         ctx.stroke();
         
-        // Draw center dot with double border for better visibility
-        // Outer glow
+        // Direction beam
         ctx.beginPath();
-        ctx.arc(0, 0, 7, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Yellow glow
-        ctx.fill();
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)'; // Semi-transparent amber
+        ctx.lineWidth = 4;
+        ctx.setLineDash([8, 4]);
+        ctx.moveTo(0, -robotLengthPixels/2 - robotWidthPixels/4);
+        ctx.lineTo(0, -robotLengthPixels/2 - robotLengthPixels/2);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset line dash
         
-        // Center dot
+        // Position highlight ring
         ctx.beginPath();
-        ctx.arc(0, 0, 5, 0, Math.PI * 2);
-        ctx.fillStyle = 'yellow'; // Yellow center dot
-        ctx.fill();
+        ctx.arc(0, 0, robotWidthPixels/1.8, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+        ctx.lineWidth = 6;
+        ctx.stroke();
         
-        // Outline the dot
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 1;
+        // Center dot (position indicator)
+        ctx.beginPath();
+        ctx.arc(0, 0, robotWidthPixels/7, 0, Math.PI * 2);
+        ctx.fillStyle = '#FBBF24'; // Amber center
+        ctx.fill();
+        ctx.strokeStyle = '#D97706';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
         
         // Restore context to undo transformations
@@ -461,70 +502,205 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
         }
       }
       
-      // Draw robot path if enabled
+      // Draw robot path if enabled - enhanced with gradient and glow
       if (showPath && positionHistory.length > 1) {
         const mapOriginX = -mapImage.width / 2;
         const mapOriginY = -mapImage.height / 2;
         
-        ctx.beginPath();
+        // Create a beautiful gradient for the path
+        const startPos = worldToPixel(positionHistory[0].x, positionHistory[0].y, mapData);
+        const endPos = worldToPixel(
+          positionHistory[positionHistory.length-1].x, 
+          positionHistory[positionHistory.length-1].y, 
+          mapData
+        );
         
-        // Get the first position
+        // Create gradient for the path
+        const pathGradient = ctx.createLinearGradient(
+          startPos.x + mapOriginX, 
+          startPos.y + mapOriginY,
+          endPos.x + mapOriginX, 
+          endPos.y + mapOriginY
+        );
+        
+        // Add cool blue-to-purple gradient
+        pathGradient.addColorStop(0, 'rgba(59, 130, 246, 0.7)');  // Blue
+        pathGradient.addColorStop(0.5, 'rgba(79, 70, 229, 0.7)'); // Indigo
+        pathGradient.addColorStop(1, 'rgba(139, 92, 246, 0.7)');  // Purple
+        
+        // First, draw path glow for effect
+        ctx.beginPath();
         const firstPos = worldToPixel(positionHistory[0].x, positionHistory[0].y, mapData);
         ctx.moveTo(firstPos.x + mapOriginX, firstPos.y + mapOriginY);
         
-        // Draw line through all positions
         for (let i = 1; i < positionHistory.length; i++) {
           const pos = worldToPixel(positionHistory[i].x, positionHistory[i].y, mapData);
           ctx.lineTo(pos.x + mapOriginX, pos.y + mapOriginY);
         }
         
-        ctx.strokeStyle = 'rgba(30, 144, 255, 0.8)'; // Dodger blue with some transparency
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(147, 197, 253, 0.5)'; // Light blue glow
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.stroke();
         
-        // Draw points at each position
-        ctx.fillStyle = 'rgba(30, 144, 255, 0.6)';
+        // Draw main path with gradient
+        ctx.beginPath();
+        ctx.moveTo(firstPos.x + mapOriginX, firstPos.y + mapOriginY);
+        
+        for (let i = 1; i < positionHistory.length; i++) {
+          const pos = worldToPixel(positionHistory[i].x, positionHistory[i].y, mapData);
+          ctx.lineTo(pos.x + mapOriginX, pos.y + mapOriginY);
+        }
+        
+        ctx.strokeStyle = pathGradient;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        
+        // Draw waypoint markers with fading effect
         positionHistory.forEach((historyPos, index) => {
           // Skip the latest position as it's rendered as the robot
           if (index === positionHistory.length - 1) return;
           
           const pos = worldToPixel(historyPos.x, historyPos.y, mapData);
+          
+          // Calculate marker size and opacity based on position in history
+          // Older points are smaller and more transparent
+          const opacity = 0.4 + (0.6 * index / positionHistory.length);
+          const size = 2 + (3 * index / positionHistory.length);
+          
+          // Draw point with glow effect
           ctx.beginPath();
           ctx.arc(
             pos.x + mapOriginX, 
             pos.y + mapOriginY, 
-            2, 0, 2 * Math.PI
+            size + 2, 0, 2 * Math.PI
           );
+          ctx.fillStyle = `rgba(147, 197, 253, ${opacity * 0.4})`;
+          ctx.fill();
+          
+          // Draw main point
+          ctx.beginPath();
+          ctx.arc(
+            pos.x + mapOriginX, 
+            pos.y + mapOriginY, 
+            size, 0, 2 * Math.PI
+          );
+          ctx.fillStyle = `rgba(59, 130, 246, ${opacity})`;
           ctx.fill();
         });
       }
       
-      // Draw LiDAR data if available and enabled
+      // Draw LiDAR data if available and enabled - with enhanced visual effects
       if (lidarData && showLidar && positionData) {
         // Get the robot position in pixel coordinates
         const robotPos = worldToPixel(positionData.x, positionData.y, mapData);
         const mapOriginX = -mapImage.width / 2;
         const mapOriginY = -mapImage.height / 2;
         
-        // Render point cloud data if available
+        // Draw a subtle scan circle effect around the robot
+        ctx.beginPath();
+        ctx.arc(
+          robotPos.x + mapOriginX,
+          robotPos.y + mapOriginY,
+          50, 0, 2 * Math.PI
+        );
+        const scanGradient = ctx.createRadialGradient(
+          robotPos.x + mapOriginX,
+          robotPos.y + mapOriginY,
+          0,
+          robotPos.x + mapOriginX,
+          robotPos.y + mapOriginY,
+          50
+        );
+        scanGradient.addColorStop(0, 'rgba(0, 255, 0, 0.1)');
+        scanGradient.addColorStop(0.7, 'rgba(0, 255, 0, 0.05)');
+        scanGradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
+        ctx.fillStyle = scanGradient;
+        ctx.fill();
+        
+        // Render point cloud data if available with improved styling
         if (lidarData.points && lidarData.points.length) {
-          ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+          // Draw points with gradient colors based on distance from robot
           lidarData.points.forEach(point => {
             const pointPixel = worldToPixel(point.x, point.y, mapData);
+            
+            // Calculate distance from robot to point (in pixels)
+            const dx = pointPixel.x - robotPos.x;
+            const dy = pointPixel.y - robotPos.y;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+            
+            // Normalize distance to get color gradient
+            // Closer points will be more yellow, farther points more green
+            const maxDistance = 500; // pixels
+            const normalizedDistance = Math.min(distance / maxDistance, 1);
+            
+            // Create color that transitions from yellow to green
+            const r = Math.floor(180 * (1 - normalizedDistance));
+            const g = 220;
+            const b = Math.floor(20 * normalizedDistance);
+            const alpha = 0.7;
+            
+            // Draw outer glow
+            ctx.beginPath();
+            ctx.arc(
+              pointPixel.x + mapOriginX, 
+              pointPixel.y + mapOriginY, 
+              pointSize + 2, 0, 2 * Math.PI
+            );
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
+            ctx.fill();
+            
+            // Draw main point
             ctx.beginPath();
             ctx.arc(
               pointPixel.x + mapOriginX, 
               pointPixel.y + mapOriginY, 
               pointSize, 0, 2 * Math.PI
             );
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
             ctx.fill();
           });
         } 
-        // Fall back to range-based rendering if no point cloud
+        // Fall back to range-based rendering if no point cloud - with improved styling
         else if (lidarData.ranges && lidarData.ranges.length) {
           const { ranges, angle_min, angle_increment } = lidarData;
           
-          ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+          // First, draw connecting lines to create a "radar sweep" effect
+          if (ranges.length > 10) {
+            ctx.beginPath();
+            let firstValid = true;
+            
+            ranges.forEach((range: number, index: number) => {
+              if (range > 0) {
+                const angle = angle_min + index * angle_increment;
+                
+                // Convert to world coordinates first
+                const worldX = positionData.x + range * Math.cos(angle + positionData.theta);
+                const worldY = positionData.y + range * Math.sin(angle + positionData.theta);
+                
+                // Then convert to pixel coordinates
+                const pointPixel = worldToPixel(worldX, worldY, mapData);
+                
+                if (firstValid) {
+                  ctx.moveTo(pointPixel.x + mapOriginX, pointPixel.y + mapOriginY);
+                  firstValid = false;
+                } else {
+                  ctx.lineTo(pointPixel.x + mapOriginX, pointPixel.y + mapOriginY);
+                }
+              }
+            });
+            
+            // Close path back to first point to create filled polygon
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+          
+          // Then draw individual points with distance-based coloring
           ranges.forEach((range: number, index: number) => {
             if (range > 0) { // Only draw valid ranges
               const angle = angle_min + index * angle_increment;
@@ -536,13 +712,32 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
               // Then convert to pixel coordinates
               const pointPixel = worldToPixel(worldX, worldY, mapData);
               
-              // Draw point
+              // Use distance to adjust color (normalize to 0-1 range)
+              const normalizedRange = Math.min(range / 10, 1); // 10 meters as max for color scaling
+              
+              // Create color that transitions from yellow to green
+              const r = Math.floor(180 * (1 - normalizedRange));
+              const g = 220;
+              const b = Math.floor(20 * normalizedRange);
+              
+              // Draw point with glow
+              ctx.beginPath();
+              ctx.arc(
+                pointPixel.x + mapOriginX, 
+                pointPixel.y + mapOriginY, 
+                pointSize + 1, 0, 2 * Math.PI
+              );
+              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
+              ctx.fill();
+              
+              // Draw main point
               ctx.beginPath();
               ctx.arc(
                 pointPixel.x + mapOriginX, 
                 pointPixel.y + mapOriginY, 
                 pointSize, 0, 2 * Math.PI
               );
+              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.7)`;
               ctx.fill();
             }
           });
@@ -586,14 +781,15 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
     <Card className="w-full">
       <CardContent className="p-0">
         <div className="flex flex-col">
-          <div className="p-3 flex justify-between items-center border-b">
-            <div className="font-semibold">Robot Digital Twin Map</div>
+          <div className="p-3 flex justify-between items-center border-b bg-slate-100">
+            <div className="font-semibold text-blue-600">Enhanced Robot Digital Twin Map</div>
             <div className="flex space-x-2">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => handleZoom('in')}
                 title="Zoom In"
+                className="bg-blue-50 hover:bg-blue-100"
               >
                 <ZoomIn className="h-4 w-4" />
               </Button>
@@ -602,6 +798,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
                 size="icon"
                 onClick={() => handleZoom('out')}
                 title="Zoom Out"
+                className="bg-blue-50 hover:bg-blue-100"
               >
                 <ZoomOut className="h-4 w-4" />
               </Button>
@@ -610,6 +807,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
                 size="icon"
                 onClick={resetView}
                 title="Reset View"
+                className="bg-blue-50 hover:bg-blue-100"
               >
                 <Crosshair className="h-4 w-4" />
               </Button>
@@ -618,7 +816,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
                 size="icon"
                 onClick={fetchData}
                 title="Sync with Robot"
-                className={isSyncing ? "opacity-50" : ""}
+                className={`bg-blue-50 hover:bg-blue-100 ${isSyncing ? "opacity-50" : ""}`}
                 disabled={isSyncing}
               >
                 <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
