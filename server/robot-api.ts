@@ -1273,6 +1273,7 @@ export function registerRobotApiRoutes(app: Express) {
                 
                 // Also fetch the map image
                 const mapImageUrl = `${ROBOT_API_URL}/maps/${mapId}.png`;
+                console.log(`Fetching map image from: ${mapImageUrl}`);
                 const mapImageResponse = await fetch(mapImageUrl, {
                   headers: {
                     'Secret': process.env.ROBOT_SECRET || ''
@@ -1281,13 +1282,29 @@ export function registerRobotApiRoutes(app: Express) {
                 
                 let imageData = '';
                 if (mapImageResponse.ok) {
+                  // First check the content type
+                  const contentType = mapImageResponse.headers.get('content-type');
+                  console.log(`Map image content type: ${contentType}`);
+                  
                   // Convert the image to base64
                   const imageBuffer = await mapImageResponse.arrayBuffer();
+                  
+                  // Verify it's an actual image by checking the first few bytes
+                  const firstBytes = new Uint8Array(imageBuffer.slice(0, 4));
+                  const hexSignature = Array.from(firstBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+                  console.log(`Image file signature (hex): ${hexSignature}`);
+                  
+                  // Convert to base64
                   imageData = Buffer.from(imageBuffer).toString('base64');
                   
                   // Log the image information for debugging
                   console.log(`Map image data received for map ${mapId}, buffer size: ${imageBuffer.byteLength} bytes`);
                   console.log(`Base64 encoded length: ${imageData.length} characters`);
+                  
+                  // Validate the base64 data
+                  if (!imageData || imageData.length < 100) {
+                    console.error(`Invalid image data received - too small or empty (${imageData.length} chars)`);
+                  }
                 } else {
                   console.error(`Failed to fetch map image for map ${mapId}: ${mapImageResponse.status} ${mapImageResponse.statusText}`);
                 }

@@ -1001,7 +1001,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
     };
     
     // Convert base64 map data to image
-    // Add error handling for the image
+    // Add proper error handling for the image
     mapImage.onerror = (err) => {
       console.error("Error loading map image:", err);
       console.log("Map data received:", { 
@@ -1010,69 +1010,22 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         gridPrefix: mapData.grid?.substring(0, 50) + '...' 
       });
       
-      // Since we're having trouble loading the image from base64, let's render a simple colored grid as fallback
-      console.log("Creating fallback map visualization");
+      // Set error state to show error message to user
+      setError(new Error("Failed to load map image. Please check the robot connection."));
       
-      // Draw the map as a grid of colored cells - this will ensure we see something
-      const mapWidthPixels = mapData.size[0];
-      const mapHeightPixels = mapData.size[1];
-      
-      // Use a 20x20 grid of cells
-      const cellWidth = Math.ceil(mapWidthPixels / 20);
-      const cellHeight = Math.ceil(mapHeightPixels / 20);
-      
-      for (let x = 0; x < 20; x++) {
-        for (let y = 0; y < 20; y++) {
-          // Alternate colors for a checkerboard pattern
-          ctx.fillStyle = (x + y) % 2 === 0 ? '#f0f0f0' : '#e0e0e0';
-          ctx.fillRect(
-            -mapWidthPixels/2 + x * cellWidth,
-            -mapHeightPixels/2 + y * cellHeight,
-            cellWidth,
-            cellHeight
-          );
-        }
-      }
-      
-      // Draw some map features to make it look more like a real map
-      ctx.strokeStyle = '#a0a0a0';
-      ctx.lineWidth = 2;
-      
-      // Draw a "wall" around the edges
-      ctx.strokeRect(-mapWidthPixels/2, -mapHeightPixels/2, mapWidthPixels, mapHeightPixels);
-      
-      // Draw some "room" dividers
-      ctx.beginPath();
-      // Horizontal dividers
-      ctx.moveTo(-mapWidthPixels/2, -mapHeightPixels/4);
-      ctx.lineTo(mapWidthPixels/2, -mapHeightPixels/4);
-      ctx.moveTo(-mapWidthPixels/2, mapHeightPixels/4);
-      ctx.lineTo(mapWidthPixels/2, mapHeightPixels/4);
-      
-      // Vertical dividers
-      ctx.moveTo(-mapWidthPixels/4, -mapHeightPixels/2);
-      ctx.lineTo(-mapWidthPixels/4, mapHeightPixels/2);
-      ctx.moveTo(mapWidthPixels/4, -mapHeightPixels/2);
-      ctx.lineTo(mapWidthPixels/4, mapHeightPixels/2);
-      ctx.stroke();
-      
-      // Mark center of the map
-      ctx.beginPath();
-      ctx.arc(0, 0, 10, 0, Math.PI * 2);
-      ctx.fillStyle = '#3080ff';
-      ctx.fill();
-      
-      // Add a label
-      ctx.fillStyle = '#000000';
-      ctx.font = '14px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Fallback Map View', 0, -mapHeightPixels/2 + 30);
-      
-      // We've drawn the fallback map directly, so exit the onload handler
-      return;
+      // Clear the loading state
+      setIsLoading(false);
     };
     
-    console.log("Setting map image source with data length:", mapData.grid?.length);
+    // Validate the grid data before trying to use it
+    if (!mapData.grid || typeof mapData.grid !== 'string' || mapData.grid.length < 100) {
+      console.error("Invalid or empty grid data received");
+      setError(new Error("Invalid map data received from robot. The grid data is missing or corrupted."));
+      setIsLoading(false);
+      return;
+    }
+    
+    console.log("Setting map image source with data length:", mapData.grid.length);
     
     // Start with PNG format first
     mapImage.src = `data:image/png;base64,${mapData.grid}`;
