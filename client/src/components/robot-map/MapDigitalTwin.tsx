@@ -72,12 +72,36 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [lidarData, setLidarData] = useState<LidarData | null>(null);
   const [positionData, setPositionData] = useState<PositionData | null>(null);
+  const [positionHistory, setPositionHistory] = useState<PositionData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   
   // For debug purposes
   const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
   const [worldCursorPosition, setWorldCursorPosition] = useState<Point | null>(null);
+  
+  // Add position to history when it changes significantly
+  useEffect(() => {
+    if (!positionData) return;
+    
+    // Only add position if it's different enough from the last one
+    const lastPosition = positionHistory[positionHistory.length - 1];
+    if (!lastPosition) {
+      setPositionHistory([positionData]);
+      return;
+    }
+    
+    // Calculate distance between current position and last recorded position
+    const dx = positionData.x - lastPosition.x;
+    const dy = positionData.y - lastPosition.y;
+    const distance = Math.sqrt(dx*dx + dy*dy);
+    
+    // Only add to history if moved more than 10cm
+    if (distance > 0.1) {
+      // Limit history to 100 points to avoid performance issues
+      setPositionHistory(prev => [...prev.slice(-99), positionData]);
+    }
+  }, [positionData, positionHistory]);
   
   // Get robot data
   useEffect(() => {
@@ -157,6 +181,70 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
     setIsDragging(false);
   };
 
+  // Function to convert from world (meters) to pixel coordinates
+  const worldToPixel = useCallback((worldX: number, worldY: number, mapData: MapData): Point => {
+    if (!mapData) return { x: 0, y: 0 };
+    
+    // Get the map's origin point and resolution
+    const [originX, originY] = mapData.origin;
+    const resolution = mapData.resolution;
+    
+    // Calculate the pixel coordinates
+    // World coordinates are in meters relative to the map origin
+    // Pixel coordinates are in pixels relative to the map image origin
+    // x-axis: positive is right, y-axis: positive is down in pixel coordinates
+    // x-axis: positive is right, y-axis: positive is up in world coordinates
+    
+    // Calculate pixels from origin
+    const pixelX = (worldX - originX) / resolution;
+    const pixelY = (originY - worldY) / resolution; // Flip Y axis
+    
+    return { x: pixelX, y: pixelY };
+  }, []);
+  
+  // Function to convert from pixel to world coordinates
+  const pixelToWorld = useCallback((pixelX: number, pixelY: number, mapData: MapData): Point => {
+    if (!mapData) return { x: 0, y: 0 };
+    
+    // Get the map's origin point and resolution
+    const [originX, originY] = mapData.origin;
+    const resolution = mapData.resolution;
+    
+    // Calculate the world coordinates
+    const worldX = pixelX * resolution + originX;
+    const worldY = originY - pixelY * resolution; // Flip Y axis
+    
+    return { x: worldX, y: worldY };
+  }, []);
+  
+  // Track mouse position for coordinate debugging
+  const handleMouseMoveCoords = useCallback((e: React.MouseEvent) => {
+    if (!containerRef.current || !mapData || !canvasRef.current) return;
+    
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    
+    // Get mouse position relative to canvas
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setCursorPosition({ x, y });
+    
+    // Convert to map coordinates
+    const centerX = canvas.width / 2 + offset.x;
+    const centerY = canvas.height / 2 + offset.y;
+    
+    // Reverse the drawing transformations to get map pixel coordinates
+    const mapPixelX = (x - centerX) / scale;
+    const mapPixelY = (y - centerY) / scale;
+    
+    // Convert map pixel coordinates to world coordinates
+    if (mapData) {
+      const worldCoords = pixelToWorld(mapPixelX, mapPixelY, mapData);
+      setWorldCursorPosition(worldCoords);
+    }
+  }, [mapData, offset, scale, pixelToWorld]);
+  
   // Draw the map on the canvas
   useEffect(() => {
     if (!canvasRef.current || !mapData || !positionData) return;
@@ -175,6 +263,8 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    console.log("Creating BOLD map visualization from robot data");
+    
     // Calculate map dimensions based on grid data
     const mapImage = new Image();
     mapImage.onload = () => {
@@ -186,6 +276,45 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.scale(scale, scale);
+      
+      // Background layer for clarity
+      ctx.fillStyle = '#f5f5f5';
+      const mapWidthPixels = mapData.size[0];
+      const mapHeightPixels = mapData.size[1];
+      ctx.fillRect(-mapWidthPixels/2, -mapHeightPixels/2, mapWidthPixels, mapHeightPixels);
+      
+      // Draw grid if enabled
+      if (showGrid) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
+        ctx.lineWidth = 0.5;
+        
+        // Draw grid lines for each meter
+        const resolution = mapData.resolution;
+        const gridSpacingPixels = 1 / resolution; // 1 meter in pixels
+        
+        // Calculate grid bounds
+        const startX = Math.floor(-mapWidthPixels/2);
+        const endX = Math.ceil(mapWidthPixels/2);
+        const startY = Math.floor(-mapHeightPixels/2);
+        const endY = Math.ceil(mapHeightPixels/2);
+        
+        // Vertical lines
+        for (let x = startX; x <= endX; x += gridSpacingPixels) {
+          ctx.moveTo(x, startY);
+          ctx.lineTo(x, endY);
+        }
+        
+        // Horizontal lines
+        for (let y = startY; y <= endY; y += gridSpacingPixels) {
+          ctx.moveTo(startX, y);
+          ctx.lineTo(endX, y);
+        }
+        
+        ctx.stroke();
+      }
+      
+      // Now draw the map image
       ctx.drawImage(
         mapImage, 
         -mapImage.width / 2, 
@@ -194,55 +323,125 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
       
       // Draw robot position
       if (positionData) {
-        // Convert robot coordinates to pixel coordinates
-        // This conversion depends on the map scale and resolution
-        const mapResolution = mapData.resolution || 0.05; // meters per pixel
-        const pixelX = positionData.x / mapResolution;
-        const pixelY = -positionData.y / mapResolution; // Y is inverted in canvas
+        // Convert robot coordinates to pixel coordinates using our utility function
+        const robotPos = worldToPixel(positionData.x, positionData.y, mapData);
+        
+        // Calculate position offset from map origin
+        const mapOriginX = -mapImage.width / 2;
+        const mapOriginY = -mapImage.height / 2;
         
         // Draw robot as a circle with direction indicator
         ctx.beginPath();
-        ctx.arc(pixelX, pixelY, 10, 0, 2 * Math.PI);
+        ctx.arc(robotPos.x + mapOriginX, robotPos.y + mapOriginY, 10, 0, 2 * Math.PI);
         ctx.fillStyle = 'red';
         ctx.fill();
+        
+        // Robot footprint - approximation based on real dimensions
+        ctx.beginPath();
+        ctx.arc(robotPos.x + mapOriginX, robotPos.y + mapOriginY, 18, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
         
         // Draw direction indicator
         const theta = positionData.theta;
         ctx.beginPath();
-        ctx.moveTo(pixelX, pixelY);
+        ctx.moveTo(robotPos.x + mapOriginX, robotPos.y + mapOriginY);
         ctx.lineTo(
-          pixelX + 20 * Math.cos(theta),
-          pixelY - 20 * Math.sin(theta)
+          robotPos.x + mapOriginX + 20 * Math.cos(theta),
+          robotPos.y + mapOriginY + 20 * Math.sin(theta)
         );
         ctx.strokeStyle = 'blue';
         ctx.lineWidth = 3;
         ctx.stroke();
       }
       
-      // Draw LiDAR data if available and enabled
-      if (lidarData && showLidar) {
-        const { ranges, angle_min, angle_increment } = lidarData;
-        
-        // Convert robot coordinates to pixel coordinates
-        const mapResolution = mapData.resolution || 0.05; // meters per pixel
-        const robotX = positionData.x / mapResolution;
-        const robotY = -positionData.y / mapResolution; // Y is inverted in canvas
+      // Draw robot path if enabled
+      if (showPath && positionHistory.length > 1) {
+        const mapOriginX = -mapImage.width / 2;
+        const mapOriginY = -mapImage.height / 2;
         
         ctx.beginPath();
-        ranges.forEach((range: number, index: number) => {
-          if (range > 0) { // Only draw valid ranges
-            const angle = angle_min + index * angle_increment;
-            // Calculate point position relative to robot
-            const x = robotX + (range / mapResolution) * Math.cos(angle + positionData.theta);
-            const y = robotY - (range / mapResolution) * Math.sin(angle + positionData.theta);
-            
-            // Draw point
-            ctx.beginPath();
-            ctx.arc(x, y, pointSize, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
-            ctx.fill();
-          }
+        
+        // Get the first position
+        const firstPos = worldToPixel(positionHistory[0].x, positionHistory[0].y, mapData);
+        ctx.moveTo(firstPos.x + mapOriginX, firstPos.y + mapOriginY);
+        
+        // Draw line through all positions
+        for (let i = 1; i < positionHistory.length; i++) {
+          const pos = worldToPixel(positionHistory[i].x, positionHistory[i].y, mapData);
+          ctx.lineTo(pos.x + mapOriginX, pos.y + mapOriginY);
+        }
+        
+        ctx.strokeStyle = 'rgba(30, 144, 255, 0.8)'; // Dodger blue with some transparency
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Draw points at each position
+        ctx.fillStyle = 'rgba(30, 144, 255, 0.6)';
+        positionHistory.forEach((historyPos, index) => {
+          // Skip the latest position as it's rendered as the robot
+          if (index === positionHistory.length - 1) return;
+          
+          const pos = worldToPixel(historyPos.x, historyPos.y, mapData);
+          ctx.beginPath();
+          ctx.arc(
+            pos.x + mapOriginX, 
+            pos.y + mapOriginY, 
+            2, 0, 2 * Math.PI
+          );
+          ctx.fill();
         });
+      }
+      
+      // Draw LiDAR data if available and enabled
+      if (lidarData && showLidar && positionData) {
+        // Get the robot position in pixel coordinates
+        const robotPos = worldToPixel(positionData.x, positionData.y, mapData);
+        const mapOriginX = -mapImage.width / 2;
+        const mapOriginY = -mapImage.height / 2;
+        
+        // Render point cloud data if available
+        if (lidarData.points && lidarData.points.length) {
+          ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+          lidarData.points.forEach(point => {
+            const pointPixel = worldToPixel(point.x, point.y, mapData);
+            ctx.beginPath();
+            ctx.arc(
+              pointPixel.x + mapOriginX, 
+              pointPixel.y + mapOriginY, 
+              pointSize, 0, 2 * Math.PI
+            );
+            ctx.fill();
+          });
+        } 
+        // Fall back to range-based rendering if no point cloud
+        else if (lidarData.ranges && lidarData.ranges.length) {
+          const { ranges, angle_min, angle_increment } = lidarData;
+          
+          ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+          ranges.forEach((range: number, index: number) => {
+            if (range > 0) { // Only draw valid ranges
+              const angle = angle_min + index * angle_increment;
+              
+              // Convert to world coordinates first
+              const worldX = positionData.x + range * Math.cos(angle + positionData.theta);
+              const worldY = positionData.y + range * Math.sin(angle + positionData.theta);
+              
+              // Then convert to pixel coordinates
+              const pointPixel = worldToPixel(worldX, worldY, mapData);
+              
+              // Draw point
+              ctx.beginPath();
+              ctx.arc(
+                pointPixel.x + mapOriginX, 
+                pointPixel.y + mapOriginY, 
+                pointSize, 0, 2 * Math.PI
+              );
+              ctx.fill();
+            }
+          });
+        }
       }
       
       // Restore context
@@ -252,7 +451,7 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
     // Convert base64 map data to image
     mapImage.src = `data:image/png;base64,${mapData.grid}`;
     
-  }, [mapData, lidarData, positionData, scale, offset, showLidar, pointSize]);
+  }, [mapData, lidarData, positionData, positionHistory, scale, offset, showLidar, showGrid, showPath, pointSize, worldToPixel]);
 
   // Apply cursor style based on drag state
   useEffect(() => {
@@ -317,7 +516,10 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
               ref={containerRef}
               className="relative w-full h-[500px] overflow-hidden"
               onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
+              onMouseMove={(e) => {
+                handleMouseMove(e);
+                handleMouseMoveCoords(e);
+              }}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
@@ -343,19 +545,19 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
                     />
                   </div>
                   <div className="flex items-center justify-between">
+                    <span className="text-sm">Meter Grid</span>
+                    <Toggle
+                      pressed={showGrid}
+                      onPressedChange={setShowGrid}
+                      aria-label="Toggle Grid"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-sm">Robot Path</span>
                     <Toggle
                       pressed={showPath}
                       onPressedChange={setShowPath}
                       aria-label="Toggle Path"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Obstacles</span>
-                    <Toggle
-                      pressed={showObstacles}
-                      onPressedChange={setShowObstacles}
-                      aria-label="Toggle Obstacles"
                     />
                   </div>
                 </div>
@@ -373,25 +575,39 @@ const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
               </div>
               
               <div>
-                <div className="text-sm font-medium mb-2">Map Info</div>
+                <div className="text-sm font-medium mb-2">Position Info</div>
                 {positionData && (
                   <div className="space-y-1">
                     <div className="text-xs">
-                      Position: X: {positionData.x.toFixed(2)}, Y: {positionData.y.toFixed(2)}
+                      Robot: X: {positionData.x.toFixed(2)}, Y: {positionData.y.toFixed(2)}
                     </div>
                     <div className="text-xs">
                       Rotation: {(positionData.theta * (180/Math.PI)).toFixed(2)}°
                     </div>
-                    {mapData && (
+                    {worldCursorPosition && (
                       <>
-                        <div className="text-xs">
-                          Map Size: {mapData.width || 'N/A'} x {mapData.height || 'N/A'}
-                        </div>
-                        <div className="text-xs">
-                          Resolution: {mapData.resolution || 'N/A'} m/pixel
+                        <div className="text-xs mt-2">
+                          Cursor: X: {worldCursorPosition.x.toFixed(2)}, Y: {worldCursorPosition.y.toFixed(2)}
                         </div>
                       </>
                     )}
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <div className="text-sm font-medium mb-2">Map Info</div>
+                {mapData && (
+                  <div className="space-y-1">
+                    <div className="text-xs">
+                      Size: {mapData.size[0]} x {mapData.size[1]} px
+                    </div>
+                    <div className="text-xs">
+                      Resolution: {mapData.resolution.toFixed(3)} m/px
+                    </div>
+                    <div className="text-xs">
+                      Origin: {mapData.origin[0].toFixed(2)}, {mapData.origin[1].toFixed(2)}
+                    </div>
                   </div>
                 )}
               </div>
