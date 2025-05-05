@@ -878,45 +878,47 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         <div className="flex flex-col">
           <div className="p-3 flex justify-between items-center border-b bg-slate-100">
             <div className="font-semibold text-blue-600">Enhanced Robot Digital Twin Map</div>
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleZoom('in')}
-                title="Zoom In"
-                className="bg-blue-50 hover:bg-blue-100"
-              >
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleZoom('out')}
-                title="Zoom Out"
-                className="bg-blue-50 hover:bg-blue-100"
-              >
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={resetView}
-                title="Reset View"
-                className="bg-blue-50 hover:bg-blue-100"
-              >
-                <Crosshair className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={fetchData}
-                title="Sync with Robot"
-                className={`bg-blue-50 hover:bg-blue-100 ${isSyncing ? "opacity-50" : ""}`}
-                disabled={isSyncing}
-              >
-                <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
+            {showControls && (
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleZoom('in')}
+                  title="Zoom In"
+                  className="bg-blue-50 hover:bg-blue-100"
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleZoom('out')}
+                  title="Zoom Out"
+                  className="bg-blue-50 hover:bg-blue-100"
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={resetView}
+                  title="Reset View"
+                  className="bg-blue-50 hover:bg-blue-100"
+                >
+                  <Crosshair className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={fetchData}
+                  title="Sync with Robot"
+                  className={`bg-blue-50 hover:bg-blue-100 ${isSyncing ? "opacity-50" : ""}`}
+                  disabled={isSyncing}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+            )}
           </div>
           
           <div className="flex">
@@ -940,7 +942,8 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
               )}
             </div>
             
-            <div className="w-64 border-l p-3 flex flex-col space-y-4">
+            {showControls && (
+              <div className="w-64 border-l p-3 flex flex-col space-y-4">
               <div>
                 <div className="text-sm font-medium mb-2">Map Layers</div>
                 <div className="space-y-2">
@@ -1020,6 +1023,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
                 )}
               </div>
             </div>
+            )}
           </div>
         </div>
       </CardContent>
