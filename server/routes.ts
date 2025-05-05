@@ -8,7 +8,7 @@ import { setupVite } from './vite';
 import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
-import { registerRobotInstallerRoutes } from './robot-installer-api';
+
 import { registerRobotJoystickApiRoutes } from './robot-joystick-api';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -30,8 +30,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register robot movement API routes
   registerRobotMoveApiRoutes(app);
   
-  // Register robot installer API routes
-  registerRobotInstallerRoutes(app);
   
   // Register robot joystick API routes
   registerRobotJoystickApiRoutes(app);
