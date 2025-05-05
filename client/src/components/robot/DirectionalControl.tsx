@@ -109,40 +109,73 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
       
       switch (direction) {
         case 'forward':
-          // FORWARD MOVEMENT - Completely different approach for forward
-          // Use differential drive type command instead of standard
-          console.log("USING DIFFERENTIAL DRIVE TYPE FOR FORWARD MOVEMENT");
+          // FORWARD MOVEMENT - Using standard type with proper parameters
+          // Get the most accurate orientation value
+          const theta = position.theta !== undefined ? position.theta : currentOrientation;
+          
+          // Use a fixed 1.0 meter distance for forward movement
+          const FIXED_DISTANCE = 1.0; 
+          
+          // Calculate target position based on theta and fixed distance
+          const forwardX = currentX + Math.cos(theta) * FIXED_DISTANCE;
+          const forwardY = currentY + Math.sin(theta) * FIXED_DISTANCE;
+          
+          console.log(`FIXED 1m forward move - Current pos: (${currentX}, ${currentY}), theta: ${theta}, target: (${forwardX}, ${forwardY})`);
           
           moveData = {
             creator: "web_interface",
-            type: "differential",  // Key change: use differential drive type instead of standard
-            linear_velocity: 0.4,  // Fixed moderate forward velocity (about half max)
-            angular_velocity: 0,   // No rotation, just straight ahead
-            duration: 3.0,         // Run for exactly 3 seconds - should move about 1 meter
+            type: "standard",
+            target_x: forwardX,
+            target_y: forwardY,
+            target_z: 0,
+            target_ori: theta, // Keep the same orientation
+            target_accuracy: 0.1,
+            use_target_zone: true,
+            target_orientation_accuracy: 0.1,
             properties: {
-              auto_hold: true      // Hold position after movement
+              inplace_rotate: false, // Not rotating in place
+              follow_path: true,     // Important for planning the path
+              max_speed: 0.4,        // Control speed explicitly
+              max_angular_speed: 0.3 // Control angular speed explicitly
             }
           };
           
-          console.log("Forward command using differential drive:", JSON.stringify(moveData, null, 2));
+          console.log("Forward command:", JSON.stringify(moveData, null, 2));
           break;
           
         case 'backward':
-          // BACKWARD MOVEMENT - Using same differential approach as forward
-          console.log("USING DIFFERENTIAL DRIVE TYPE FOR BACKWARD MOVEMENT");
+          // BACKWARD MOVEMENT - Using standard type with proper parameters
+          // Get the most accurate orientation value
+          const thetaBack = position.theta !== undefined ? position.theta : currentOrientation;
+          
+          // Use a fixed 1.0 meter distance for backward movement
+          const FIXED_DISTANCE_BACK = 1.0; 
+          
+          // Calculate target position based on theta and fixed distance (negative direction)
+          const backwardX = currentX - Math.cos(thetaBack) * FIXED_DISTANCE_BACK;
+          const backwardY = currentY - Math.sin(thetaBack) * FIXED_DISTANCE_BACK;
+          
+          console.log(`FIXED 1m backward move - Current pos: (${currentX}, ${currentY}), theta: ${thetaBack}, target: (${backwardX}, ${backwardY})`);
           
           moveData = {
             creator: "web_interface",
-            type: "differential",  // Same type as forward for consistency
-            linear_velocity: -0.4, // Negative velocity for backward (about half max)
-            angular_velocity: 0,   // No rotation, just straight back
-            duration: 3.0,         // Run for exactly 3 seconds - should move about 1 meter
+            type: "standard",
+            target_x: backwardX,
+            target_y: backwardY,
+            target_z: 0,
+            target_ori: thetaBack, // Keep the same orientation
+            target_accuracy: 0.1,
+            use_target_zone: true,
+            target_orientation_accuracy: 0.1,
             properties: {
-              auto_hold: true      // Hold position after movement
+              inplace_rotate: false, // Not rotating in place
+              follow_path: true,     // Important for planning the path
+              max_speed: 0.4,        // Control speed explicitly
+              max_angular_speed: 0.3 // Control angular speed explicitly
             }
           };
           
-          console.log("Backward command using differential drive:", JSON.stringify(moveData, null, 2));
+          console.log("Backward command:", JSON.stringify(moveData, null, 2));
           break;
           
         case 'left':

@@ -324,16 +324,21 @@ export function registerRobotMoveApiRoutes(app: Express) {
    */
   app.post('/api/robots/move/:serialNumber/cancel', async (req: Request, res: Response) => {
     try {
-      // Ensure we have a valid string by defaulting to the known robot serial number if missing
-      const serialNumber: string = req.params.serialNumber || 'L382502104987ir';
+      // Get the serial number from params, with a fallback to the known robot serial
+      const serialNumber = req.params.serialNumber || 'L382502104987ir';
       
       // Immediately respond to client for better responsiveness
       res.status(202).json({ status: 'accepted', message: 'Cancel command sent to robot' });
       
-      // Process the cancellation in the background
-      processCancelRequest(serialNumber, ROBOT_API_BASE_URL).catch(error => {
-        console.error('Background cancel error:', error);
-      });
+      // Ensure we always pass a non-empty string to processCancelRequest
+      if (serialNumber && serialNumber.trim() !== '') {
+        // Process the cancellation in the background
+        processCancelRequest(serialNumber, ROBOT_API_BASE_URL).catch(error => {
+          console.error('Background cancel error:', error);
+        });
+      } else {
+        console.error('Invalid serial number for cancel request');
+      }
     } catch (error) {
       console.error('Error cancelling robot movement:', error);
       res.status(500).json({ error: 'Failed to cancel robot movement' });
