@@ -25,13 +25,16 @@ export function registerRobotJoystickApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Missing linear or angular velocity parameter' });
       }
       
-      // Set direct velocity command - the most reliable way to move forward
-      // Format for the /api/command endpoint which accepts velocity commands
+      // Set direct velocity command using the "differential" type move
+      // This uses the 'chassis/moves' endpoint with a special type
       const joystickCommand = {
-        name: "joystick_control",
-        vel_x: linear,  // Linear velocity in m/s (positive for forward)
-        vel_y: 0,       // No lateral movement
-        ang_z: angular  // Angular velocity in rad/s
+        type: "differential",
+        creator: "web_interface",
+        linear_velocity: linear,   // Linear velocity in m/s (positive for forward)
+        angular_velocity: angular, // Angular velocity in rad/s
+        properties: {
+          acc_smoother_level: "normal"
+        }
       };
       
       // Send joystick command to robot
