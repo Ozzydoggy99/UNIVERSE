@@ -207,30 +207,61 @@ export function registerRobotJoystickApiRoutes(app: Express) {
         }
       };
       
-      // Send position-based movement command to robot
-      const joystickUrl = `${ROBOT_API_URL}/chassis/moves`;
-      console.log(`Sending joystick command to ${joystickUrl}:`, JSON.stringify(joystickCommand));
+      // Log the command that will be sent
+      console.log(`Preparing to send movement command to ${ROBOT_API_URL}/chassis/moves:`, JSON.stringify(joystickCommand));
       
-      const response = await fetch(joystickUrl, {
-        method: 'POST',
-        headers: ROBOT_HEADERS,
-        body: JSON.stringify(joystickCommand)
-      });
+      // Enhanced logging - will help with debugging
+      console.log('======= MOVEMENT COMMAND DETAILS =======');
+      console.log('Type:', joystickCommand.type);
+      console.log('Target coordinates:', {x: joystickCommand.target_x, y: joystickCommand.target_y, orientation: joystickCommand.target_ori});
+      console.log('Properties:', joystickCommand.properties);
+      console.log('Target accuracy:', joystickCommand.target_accuracy);
+      console.log('======================================');
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Failed to send joystick command: ${response.status} ${response.statusText}`, errorText);
-        return res.status(response.status).json({ 
-          error: `Failed to send joystick command: ${response.statusText}`,
-          details: errorText
+      try {
+        // Send position-based movement command to robot using the correct endpoint
+        const response = await fetch(`${ROBOT_API_URL}/chassis/moves`, {
+          method: 'POST',
+          headers: ROBOT_HEADERS,
+          body: JSON.stringify(joystickCommand)
+        });
+        
+        // Full response logging including status and body text
+        const responseText = await response.text();
+        console.log(`Robot API response status: ${response.status} ${response.statusText}`);
+        console.log(`Robot API response body: ${responseText}`);
+        
+        if (!response.ok) {
+          console.error(`Movement command failed: ${response.status} ${response.statusText}`);
+          return res.status(response.status).json({ 
+            error: `Failed to send movement command: ${response.statusText}`,
+            details: responseText
+          });
+        }
+        
+        // Try to parse the response as JSON
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+          console.log(`Successfully parsed response data:`, responseData);
+        } catch (e) {
+          console.log(`Response was not JSON: ${responseText}`);
+          responseData = { message: 'Command accepted (non-JSON response)' };
+        }
+        
+        // Successful response
+        return res.status(200).json({ 
+          message: `Movement command sent successfully to robot ${serialNumber}`,
+          command: joystickCommand,
+          response: responseData
+        });
+      } catch (error) {
+        console.error(`Network error sending movement command:`, error);
+        return res.status(500).json({
+          error: 'Network error when sending movement command to robot API',
+          details: String(error)
         });
       }
-      
-      // Successful response
-      return res.status(200).json({ 
-        message: `Joystick command sent successfully to robot ${serialNumber}`,
-        command: joystickCommand
-      });
       
     } catch (error: any) {
       console.error('Error in joystick control:', error);
@@ -292,26 +323,50 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       
       console.log(`Sending stop command to ${ROBOT_API_URL}/chassis/moves:`, JSON.stringify(stopCommand));
       
-      const response = await fetch(`${ROBOT_API_URL}/chassis/moves`, {
-        method: 'POST',
-        headers: ROBOT_HEADERS,
-        body: JSON.stringify(stopCommand)
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Failed to send stop command: ${response.status} ${response.statusText}`, errorText);
-        return res.status(response.status).json({ 
-          error: `Failed to send stop command: ${response.statusText}`,
-          details: errorText
+      try {
+        // Send stop command to robot
+        const response = await fetch(`${ROBOT_API_URL}/chassis/moves`, {
+          method: 'POST',
+          headers: ROBOT_HEADERS,
+          body: JSON.stringify(stopCommand)
+        });
+        
+        // Full response logging
+        const responseText = await response.text();
+        console.log(`Stop command response status: ${response.status} ${response.statusText}`);
+        console.log(`Stop command response body: ${responseText}`);
+        
+        if (!response.ok) {
+          console.error(`Stop command failed: ${response.status} ${response.statusText}`);
+          return res.status(response.status).json({ 
+            error: `Failed to send stop command: ${response.statusText}`,
+            details: responseText
+          });
+        }
+        
+        // Try to parse the response as JSON
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+          console.log(`Successfully parsed stop response data:`, responseData);
+        } catch (e) {
+          console.log(`Stop response was not JSON: ${responseText}`);
+          responseData = { message: 'Stop command accepted (non-JSON response)' };
+        }
+        
+        // Successful response
+        return res.status(200).json({ 
+          message: `Stop command sent successfully to robot ${serialNumber}`,
+          command: stopCommand,
+          response: responseData
+        });
+      } catch (error) {
+        console.error(`Network error sending stop command:`, error);
+        return res.status(500).json({
+          error: 'Network error when sending stop command to robot API',
+          details: String(error)
         });
       }
-      
-      // Successful response
-      return res.status(200).json({ 
-        message: `Stop command sent successfully to robot ${serialNumber}`,
-        command: stopCommand
-      });
       
     } catch (error: any) {
       console.error('Error in joystick stop:', error);
