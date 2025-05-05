@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Force a new import to refresh the component
 import { MapDigitalTwin } from "@/components/robot-map/MapDigitalTwin";
 import { Loader2, Map as MapIcon, Copy, Check, Search, RefreshCw } from "lucide-react";
 import { 
@@ -286,7 +287,11 @@ const RobotMapsPage: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <MapDigitalTwin robotSerial={PHYSICAL_ROBOT_SERIAL} />
+                  {/* Use a key to force re-render with the updated component */}
+                  <MapDigitalTwin 
+                    robotSerial={PHYSICAL_ROBOT_SERIAL}
+                    key={`map-${selectedMap}-${Date.now()}`} 
+                  />
                 )}
               </CardContent>
               {selectedMap && (
