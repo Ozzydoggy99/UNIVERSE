@@ -1284,6 +1284,12 @@ export function registerRobotApiRoutes(app: Express) {
                   // Convert the image to base64
                   const imageBuffer = await mapImageResponse.arrayBuffer();
                   imageData = Buffer.from(imageBuffer).toString('base64');
+                  
+                  // Log the image information for debugging
+                  console.log(`Map image data received for map ${mapId}, buffer size: ${imageBuffer.byteLength} bytes`);
+                  console.log(`Base64 encoded length: ${imageData.length} characters`);
+                } else {
+                  console.error(`Failed to fetch map image for map ${mapId}: ${mapImageResponse.status} ${mapImageResponse.statusText}`);
                 }
                 
                 // Process the map data to enhance its visual appearance
