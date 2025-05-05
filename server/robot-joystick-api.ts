@@ -20,12 +20,12 @@ interface RobotPosition {
 interface JoystickCommand {
   type: string;          // Always "standard" for this robot
   creator: string;       // Source of the command
-  target_x: number;      // Target X position
-  target_y: number;      // Target Y position 
-  target_ori: number;    // Target orientation in radians
-  target_accuracy: number; // How close to get to target (meters)
-  properties: {
-    auto_hold: boolean;    // Whether to hold position at destination
+  target_x?: number;     // Target X position
+  target_y?: number;     // Target Y position 
+  target_ori?: number;   // Target orientation in radians (optional)
+  target_accuracy?: number; // How close to get to target (meters)
+  properties?: {
+    auto_hold?: boolean;    // Whether to hold position at destination
     max_speed?: number;    // Maximum forward speed
     max_angular_speed?: number; // Maximum rotation speed
   }
@@ -189,20 +189,34 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       // Create a standard move command with position-based parameters
       const joystickCommand: JoystickCommand = {
         type: "standard",
-        creator: "web_interface",
-        target_x: targetX,
-        target_y: targetY,
-        target_ori: targetOri,
-        target_accuracy: 0.2, // More lenient accuracy for joystick control
-        properties: {
-          auto_hold: false, // Don't pause at the destination
-          max_speed: Math.abs(linear) * 0.8,  // Set speed based on joystick input
-          max_angular_speed: Math.abs(angular) * 0.78  // Set angular speed based on joystick input
-        }
+        creator: "web_interface"
       };
       
-      // Send velocity-based joystick command to robot
-      // Direct velocity control is more reliable than position-based movement
+      // Only add the necessary parameters to avoid API validation errors
+      if (isMoving) {
+        joystickCommand.target_x = targetX;
+        joystickCommand.target_y = targetY;
+      }
+      
+      if (isTurning) {
+        joystickCommand.target_ori = targetOri;
+      }
+      
+      // If neither moving nor turning, add a minimal command to maintain position
+      if (!isMoving && !isTurning) {
+        joystickCommand.target_x = currentX;
+        joystickCommand.target_y = currentY;
+      }
+      
+      // Add other parameters
+      joystickCommand.target_accuracy = 0.2; // More lenient accuracy for joystick control
+      joystickCommand.properties = {
+        auto_hold: false, // Don't pause at the destination
+        max_speed: Math.abs(linear) * 0.8,  // Set speed based on joystick input
+        max_angular_speed: Math.abs(angular) * 0.78  // Set angular speed based on joystick input
+      };
+      
+      // Send position-based movement command to robot
       const joystickUrl = `${ROBOT_API_URL}/chassis/moves`;
       console.log(`Sending joystick command to ${joystickUrl}:`, JSON.stringify(joystickCommand));
       
@@ -239,64 +253,55 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       const { serialNumber } = req.params;
       console.log(`Stopping robot ${serialNumber} via joystick command`);
       
+      // First, cancel any active moves
+      try {
+        const cancelResponse = await fetch(`${ROBOT_API_URL}/chassis/moves/current`, {
+          method: 'PATCH',
+          headers: ROBOT_HEADERS,
+          body: JSON.stringify({ state: "cancelled" })
+        });
+        
+        if (cancelResponse.ok) {
+          console.log(`Successfully cancelled current move for robot ${serialNumber}`);
+        }
+      } catch (error) {
+        console.error("Error cancelling current move:", error);
+        // Continue anyway with the stop command
+      }
+      
       // Get the current robot position from WebSocket cache for the stop command
       const websocketPosition = getRobotPosition(serialNumber);
       
-      // Variables for position data
-      let currentX = 0;
-      let currentY = 0;
-      let currentOri = 0;
+      // Create a minimal stop command to avoid errors
+      const stopCommand: JoystickCommand = {
+        type: "standard",
+        creator: "web_interface"
+      };
       
-      // If we have a valid websocket position, use it
+      // Add position data if we have it
       if (websocketPosition && websocketPosition.connectionStatus === 'connected') {
         console.log('Using websocket position data for stop command:', websocketPosition);
         
-        // The position data format is different from the tracked_pose endpoint
-        // WebSocket position has x, y, orientation properties
-        currentX = websocketPosition.x || 0;
-        currentY = websocketPosition.y || 0;
-        currentOri = websocketPosition.orientation || 0;
-      } else {
-        // Fallback to direct API call
-        try {
-          const positionResponse = await fetch(`${ROBOT_API_URL}/chassis/tracked_pose`, {
-            headers: ROBOT_HEADERS
-          });
-          
-          if (positionResponse.ok) {
-            const positionData = await positionResponse.json() as RobotPosition;
-            console.log('Current robot position for stop command from API:', positionData);
-            
-            // Get position and orientation from robot
-            currentX = positionData.pos?.[0] || 0;
-            currentY = positionData.pos?.[1] || 0;
-            currentOri = positionData.ori || 0;
-          } else {
-            console.error('Error fetching robot position for stop command:', positionResponse.status);
-            return await cancelAllMoves(ROBOT_API_URL, ROBOT_HEADERS, serialNumber, res);
-          }
-        } catch (error) {
-          console.error('Failed to get robot position for stop command:', error);
-          return await cancelAllMoves(ROBOT_API_URL, ROBOT_HEADERS, serialNumber, res);
+        if (websocketPosition.x !== undefined && websocketPosition.y !== undefined) {
+          // Add position parameters
+          stopCommand.target_x = websocketPosition.x;
+          stopCommand.target_y = websocketPosition.y;
+        } else if (websocketPosition.orientation !== undefined) {
+          // If we only have orientation, use that
+          stopCommand.target_ori = websocketPosition.orientation;
+        } else {
+          // Fallback to a simple rotation command
+          stopCommand.target_ori = 0;
         }
+      } else {
+        // If we don't have position data, use a minimal command
+        // At least one of target_x+target_y or target_ori is required by the API
+        stopCommand.target_ori = 0;
       }
       
-      // Create stop command with current position (to stop right where we are)
-      const stopCommand: JoystickCommand = {
-        type: "standard",
-        creator: "web_interface",
-        target_x: currentX,
-        target_y: currentY,
-        target_ori: currentOri,
-        target_accuracy: 0.05,  // High accuracy for stopping in place
-        properties: {
-          auto_hold: true  // Hold position once stopped
-        }
-      };
+      console.log(`Sending stop command to ${ROBOT_API_URL}/chassis/moves:`, JSON.stringify(stopCommand));
       
-      // Send stop command to robot via velocity endpoint
-      const joystickUrl = `${ROBOT_API_URL}/chassis/moves`;
-      const response = await fetch(joystickUrl, {
+      const response = await fetch(`${ROBOT_API_URL}/chassis/moves`, {
         method: 'POST',
         headers: ROBOT_HEADERS,
         body: JSON.stringify(stopCommand)
