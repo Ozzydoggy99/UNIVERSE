@@ -404,12 +404,62 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         }
       }
       
-      // Draw the base map image FIRST (everything else goes ON TOP)
-      ctx.drawImage(
-        mapImage, 
-        -mapImage.width / 2, 
-        -mapImage.height / 2
-      );
+      // First, draw a background grid to ensure we can see something
+      // This serves as a helpful visualization even if the map image fails to load
+      ctx.fillStyle = '#f8fafc'; // Very light blue-gray background
+      ctx.fillRect(-canvas.width/2, -canvas.height/2, canvas.width, canvas.height);
+      
+      // Draw a coordinate grid with meter lines
+      ctx.strokeStyle = '#e2e8f0'; // Light gray lines
+      ctx.lineWidth = 1;
+      
+      // Draw meter lines for the grid
+      const gridSpacing = 1.0; // 1 meter grid
+      const gridExtent = 20; // Draw grid 20 meters in each direction
+      
+      for (let x = -gridExtent; x <= gridExtent; x++) {
+        if (x === 0) {
+          ctx.strokeStyle = '#94a3b8'; // Darker line for axis
+          ctx.lineWidth = 2;
+        } else {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+        }
+        
+        const xPixel = x / mapData.resolution;
+        ctx.beginPath();
+        ctx.moveTo(xPixel, -gridExtent / mapData.resolution);
+        ctx.lineTo(xPixel, gridExtent / mapData.resolution);
+        ctx.stroke();
+      }
+      
+      for (let y = -gridExtent; y <= gridExtent; y++) {
+        if (y === 0) {
+          ctx.strokeStyle = '#94a3b8'; // Darker line for axis
+          ctx.lineWidth = 2;
+        } else {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+        }
+        
+        const yPixel = y / mapData.resolution;
+        ctx.beginPath();
+        ctx.moveTo(-gridExtent / mapData.resolution, yPixel);
+        ctx.lineTo(gridExtent / mapData.resolution, yPixel);
+        ctx.stroke();
+      }
+      
+      // Now draw the actual map image ON TOP of the grid
+      try {
+        ctx.drawImage(
+          mapImage, 
+          -mapImage.width / 2, 
+          -mapImage.height / 2
+        );
+        console.log("Map image drawn successfully");
+      } catch (err) {
+        console.error("Error drawing map image:", err);
+      }
       
       // Draw robot position with accurate footprint
       if (positionData) {
