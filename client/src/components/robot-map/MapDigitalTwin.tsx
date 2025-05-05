@@ -326,6 +326,8 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
     // Calculate map dimensions based on grid data
     const mapImage = new Image();
     mapImage.onload = () => {
+      console.log("Map image loaded successfully - dimensions:", mapImage.width, "x", mapImage.height);
+      
       // Calculate center position
       const centerX = canvas.width / 2 + offset.x;
       const centerY = canvas.height / 2 + offset.y;
@@ -407,15 +409,6 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         mapImage, 
         -mapImage.width / 2, 
         -mapImage.height / 2
-      );
-      
-      // Apply semi-transparent overlay for better contrast with visualizations
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.fillRect(
-        -mapImage.width / 2, 
-        -mapImage.height / 2,
-        mapImage.width,
-        mapImage.height
       );
       
       // Draw robot position with accurate footprint
@@ -1008,6 +1001,17 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
     };
     
     // Convert base64 map data to image
+    // Add error handling for the image
+    mapImage.onerror = (err) => {
+      console.error("Error loading map image:", err);
+      console.log("Map data received:", { 
+        gridLength: mapData.grid?.length, 
+        gridType: typeof mapData.grid,
+        gridPrefix: mapData.grid?.substring(0, 50) + '...' 
+      });
+    };
+    
+    console.log("Setting map image source with data length:", mapData.grid?.length);
     mapImage.src = `data:image/png;base64,${mapData.grid}`;
     
   }, [mapData, lidarData, positionData, positionHistory, scale, offset, showLidar, showGrid, showPath, pointSize, worldToPixel]);
