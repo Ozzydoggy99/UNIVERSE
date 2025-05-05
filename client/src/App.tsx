@@ -30,7 +30,7 @@ import RobotInstaller from "@/pages/robot-installer";
 import InstallerDebugPage from "@/pages/installer-debug";
 import RemoteExecutor from "@/pages/remote-executor";
 import RobotMapsPage from "@/pages/robot-maps-page";
-import Sidebar from "@/components/layouts/sidebar";
+import Sidebar, { SidebarProvider, useSidebar } from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { RobotProvider } from "@/providers/robot-provider";
@@ -39,13 +39,10 @@ import { TemplateManager } from "@/components/templates/template-manager";
 import { TemplateRenderer } from "@/components/templates/template-renderer";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuth();
+  const { isCollapsed, toggleSidebar } = useSidebar();
   const isAdmin = user?.role === 'admin';
-  
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
   
   // For non-admin users, render just the content without sidebar or topbar
   if (!isAdmin) {
@@ -62,20 +59,27 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden relative">
       {/* Mobile sidebar overlay */}
-      {isSidebarOpen && (
+      {mobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
+          onClick={() => setMobileMenuOpen(false)}
         ></div>
       )}
       
-      {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-200 ease-in-out fixed md:static inset-y-0 left-0 z-30 md:z-auto w-64 bg-white h-full overflow-y-auto`}>
+      {/* Sidebar - using our toggleable sidebar */}
+      <div className={`md:translate-x-0 transform transition-transform duration-200 ease-in-out fixed md:static inset-y-0 left-0 z-30 md:z-auto h-full overflow-y-auto ${
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}>
         <Sidebar />
       </div>
       
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar onToggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
+        isCollapsed ? 'md:ml-16' : 'md:ml-0'
+      }`}>
+        <TopBar 
+          onToggleSidebar={() => setMobileMenuOpen(!mobileMenuOpen)} 
+          isSidebarOpen={mobileMenuOpen} 
+        />
         <main className="flex-1 overflow-y-auto bg-neutral-light p-4">
           {children}
         </main>
@@ -449,7 +453,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <RobotProvider>
-          <Router />
+          <SidebarProvider>
+            <Router />
+          </SidebarProvider>
         </RobotProvider>
       </AuthProvider>
     </QueryClientProvider>
