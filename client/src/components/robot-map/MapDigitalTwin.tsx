@@ -359,10 +359,10 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
       ctx.lineWidth = 1;
       
       // Draw meter lines for the grid
-      const gridSpacing = 1.0; // 1 meter grid
-      const gridExtent = 20; // Draw grid 20 meters in each direction
+      const gridSpacing1 = 1.0; // 1 meter grid
+      const gridExtent1 = 20; // Draw grid 20 meters in each direction
       
-      for (let x = -gridExtent; x <= gridExtent; x++) {
+      for (let x = -gridExtent1; x <= gridExtent1; x++) {
         if (x === 0) {
           ctx.strokeStyle = '#94a3b8'; // Darker line for axis
           ctx.lineWidth = 2;
@@ -373,12 +373,12 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         
         const xPixel = x / mapData.resolution;
         ctx.beginPath();
-        ctx.moveTo(xPixel, -gridExtent / mapData.resolution);
-        ctx.lineTo(xPixel, gridExtent / mapData.resolution);
+        ctx.moveTo(xPixel, -gridExtent1 / mapData.resolution);
+        ctx.lineTo(xPixel, gridExtent1 / mapData.resolution);
         ctx.stroke();
       }
       
-      for (let y = -gridExtent; y <= gridExtent; y++) {
+      for (let y = -gridExtent1; y <= gridExtent1; y++) {
         if (y === 0) {
           ctx.strokeStyle = '#94a3b8'; // Darker line for axis
           ctx.lineWidth = 2;
@@ -389,8 +389,8 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         
         const yPixel = y / mapData.resolution;
         ctx.beginPath();
-        ctx.moveTo(-gridExtent / mapData.resolution, yPixel);
-        ctx.lineTo(gridExtent / mapData.resolution, yPixel);
+        ctx.moveTo(-gridExtent1 / mapData.resolution, yPixel);
+        ctx.lineTo(gridExtent1 / mapData.resolution, yPixel);
         ctx.stroke();
       }
       
@@ -519,11 +519,11 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
       ctx.strokeStyle = '#e2e8f0'; // Light gray lines
       ctx.lineWidth = 1;
       
-      // Draw meter lines for the grid
-      const gridSpacing = 1.0; // 1 meter grid
-      const gridExtent = 20; // Draw grid 20 meters in each direction
+      // Draw meter lines for the grid - with unique variable names
+      const gridSpacing2 = 1.0; // 1 meter grid
+      const gridExtent2 = 20; // Draw grid 20 meters in each direction
       
-      for (let x = -gridExtent; x <= gridExtent; x++) {
+      for (let x = -gridExtent2; x <= gridExtent2; x++) {
         if (x === 0) {
           ctx.strokeStyle = '#94a3b8'; // Darker line for axis
           ctx.lineWidth = 2;
@@ -534,12 +534,12 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         
         const xPixel = x / mapData.resolution;
         ctx.beginPath();
-        ctx.moveTo(xPixel, -gridExtent / mapData.resolution);
-        ctx.lineTo(xPixel, gridExtent / mapData.resolution);
+        ctx.moveTo(xPixel, -gridExtent2 / mapData.resolution);
+        ctx.lineTo(xPixel, gridExtent2 / mapData.resolution);
         ctx.stroke();
       }
       
-      for (let y = -gridExtent; y <= gridExtent; y++) {
+      for (let y = -gridExtent2; y <= gridExtent2; y++) {
         if (y === 0) {
           ctx.strokeStyle = '#94a3b8'; // Darker line for axis
           ctx.lineWidth = 2;
@@ -550,8 +550,8 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         
         const yPixel = y / mapData.resolution;
         ctx.beginPath();
-        ctx.moveTo(-gridExtent / mapData.resolution, yPixel);
-        ctx.lineTo(gridExtent / mapData.resolution, yPixel);
+        ctx.moveTo(-gridExtent2 / mapData.resolution, yPixel);
+        ctx.lineTo(gridExtent2 / mapData.resolution, yPixel);
         ctx.stroke();
       }
       
@@ -623,38 +623,6 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
       }
       
       // We've already drawn a background grid above, so we don't need to do it twice
-      
-      for (let x = -gridExtent; x <= gridExtent; x++) {
-        if (x === 0) {
-          ctx.strokeStyle = '#94a3b8'; // Darker line for axis
-          ctx.lineWidth = 2;
-        } else {
-          ctx.strokeStyle = '#e2e8f0';
-          ctx.lineWidth = 1;
-        }
-        
-        const xPixel = x / mapData.resolution;
-        ctx.beginPath();
-        ctx.moveTo(xPixel, -gridExtent / mapData.resolution);
-        ctx.lineTo(xPixel, gridExtent / mapData.resolution);
-        ctx.stroke();
-      }
-      
-      for (let y = -gridExtent; y <= gridExtent; y++) {
-        if (y === 0) {
-          ctx.strokeStyle = '#94a3b8'; // Darker line for axis
-          ctx.lineWidth = 2;
-        } else {
-          ctx.strokeStyle = '#e2e8f0';
-          ctx.lineWidth = 1;
-        }
-        
-        const yPixel = y / mapData.resolution;
-        ctx.beginPath();
-        ctx.moveTo(-gridExtent / mapData.resolution, yPixel);
-        ctx.lineTo(gridExtent / mapData.resolution, yPixel);
-        ctx.stroke();
-      }
       
       // Now draw the actual map image ON TOP of the grid
       try {
@@ -919,234 +887,120 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
       }
       
       // Draw LiDAR data if available and enabled - with enhanced visual effects
-      // Always render visualization if LiDAR is enabled, even without actual LiDAR data
-      if (showLidar && positionData) {
-        // Get the robot position in pixel coordinates
-        const robotPos = worldToPixel(positionData.x, positionData.y, mapData);
-        const mapOriginX = -mapImage.width / 2;
-        const mapOriginY = -mapImage.height / 2;
-        
-        // Draw an advanced scan circle effect around the robot with pulse animation
-        const now = Date.now();
-        const pulsePhase = (now % 3000) / 3000; // 3-second pulse cycle
-        const pulseSize = 50 + Math.sin(pulsePhase * Math.PI * 2) * 10; // Size oscillates between 40-60
-        
-        // Create animated pulse effect
-        ctx.beginPath();
-        ctx.arc(
-          robotPos.x + mapOriginX,
-          robotPos.y + mapOriginY,
-          pulseSize, 0, 2 * Math.PI
-        );
-        
-        // Use a high-tech looking gradient with multiple color stops
-        const scanGradient = ctx.createRadialGradient(
-          robotPos.x + mapOriginX,
-          robotPos.y + mapOriginY,
-          0,
-          robotPos.x + mapOriginX,
-          robotPos.y + mapOriginY,
-          pulseSize
-        );
-        
-        // Cyan to green gradient for a more futuristic look
-        scanGradient.addColorStop(0, 'rgba(0, 255, 225, 0.15)');
-        scanGradient.addColorStop(0.4, 'rgba(0, 255, 170, 0.12)');
-        scanGradient.addColorStop(0.7, 'rgba(0, 255, 85, 0.07)');
-        scanGradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
-        
-        ctx.fillStyle = scanGradient;
-        ctx.fill();
-        
-        // Add a subtle pulsing circle outline
-        ctx.beginPath();
-        ctx.arc(
-          robotPos.x + mapOriginX,
-          robotPos.y + mapOriginY,
-          pulseSize, 0, 2 * Math.PI
-        );
-        ctx.strokeStyle = `rgba(0, 255, 170, ${0.3 + Math.sin(pulsePhase * Math.PI * 2) * 0.2})`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // Add an animated scanner effect that works even without LiDAR data
-        const scannerTime = Date.now() / 1000;
-        const scannerAngle = (scannerTime % 4) * Math.PI / 2; // Complete rotation every 4 seconds
-        
-        // Draw a rotating scanner line
-        ctx.beginPath();
-        ctx.moveTo(robotPos.x + mapOriginX, robotPos.y + mapOriginY);
-        const scannerLength = 100; // Length of scanner beam
-        ctx.lineTo(
-          robotPos.x + mapOriginX + Math.cos(scannerAngle) * scannerLength,
-          robotPos.y + mapOriginY + Math.sin(scannerAngle) * scannerLength
-        );
-        
-        // Create line gradient
-        const lineGradient = ctx.createLinearGradient(
-          robotPos.x + mapOriginX, 
-          robotPos.y + mapOriginY,
-          robotPos.x + mapOriginX + Math.cos(scannerAngle) * scannerLength,
-          robotPos.y + mapOriginY + Math.sin(scannerAngle) * scannerLength
-        );
-        lineGradient.addColorStop(0, 'rgba(0, 255, 255, 0.9)');
-        lineGradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
-        
-        ctx.strokeStyle = lineGradient;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Draw scan arc for the current angle
-        ctx.beginPath();
-        ctx.arc(
-          robotPos.x + mapOriginX, 
-          robotPos.y + mapOriginY,
-          scannerLength * 0.8, 
-          scannerAngle - 0.1, 
-          scannerAngle + 0.1
-        );
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.7)';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        
-        // Render point cloud data if available with improved styling
-        if (lidarData && lidarData.points && lidarData.points.length) {
-          // Draw points with gradient colors based on distance from robot
-          lidarData.points.forEach(point => {
-            const pointPixel = worldToPixel(point.x, point.y, mapData);
-            
-            // Calculate distance from robot to point (in pixels)
-            const dx = pointPixel.x - robotPos.x;
-            const dy = pointPixel.y - robotPos.y;
-            const distance = Math.sqrt(dx*dx + dy*dy);
-            
-            // Normalize distance to get color gradient
-            // Closer points will be more yellow, farther points more green
-            const maxDistance = 500; // pixels
-            const normalizedDistance = Math.min(distance / maxDistance, 1);
-            
-            // Create color that transitions from yellow to green
-            const r = Math.floor(180 * (1 - normalizedDistance));
-            const g = 220;
-            const b = Math.floor(20 * normalizedDistance);
-            const alpha = 0.7;
-            
-            // Draw outer glow
-            ctx.beginPath();
-            ctx.arc(
-              pointPixel.x + mapOriginX, 
-              pointPixel.y + mapOriginY, 
-              pointSize + 2, 0, 2 * Math.PI
-            );
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
-            ctx.fill();
-            
-            // Draw main point
-            ctx.beginPath();
-            ctx.arc(
-              pointPixel.x + mapOriginX, 
-              pointPixel.y + mapOriginY, 
-              pointSize, 0, 2 * Math.PI
-            );
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            ctx.fill();
-          });
-        } 
-        // Fall back to range-based rendering if no point cloud - with improved styling
-        else if (lidarData && lidarData.ranges && lidarData.ranges.length) {
-          const { ranges, angle_min, angle_increment } = lidarData;
+      if (showLidar && lidarData) {
+        // Check for scan data
+        if (lidarData.ranges && lidarData.ranges.length > 0) {
+          const { angle_min, angle_increment } = lidarData;
           
-          // First, draw connecting lines to create a "radar sweep" effect
-          if (ranges.length > 10) {
+          // Draw the robot's scanning effect - a sweeping line that rotates
+          const mapOriginX = -mapImage.width / 2;
+          const mapOriginY = -mapImage.height / 2;
+          
+          if (positionData) {
+            const robotPos = worldToPixel(positionData.x, positionData.y, mapData);
+            
+            // Animate a scanner line
+            const now = Date.now();
+            const scannerAngle = (now % 2000) / 2000 * Math.PI * 2; // Full rotation every 2 seconds
+            const scannerLength = 500; // Length of the scanner line
+            
+            // Draw animated scanner line
             ctx.beginPath();
-            let firstValid = true;
             
-            ranges.forEach((range: number, index: number) => {
-              if (range > 0) {
-                const angle = angle_min + index * angle_increment;
-                
-                // Convert to world coordinates first
-                const worldX = positionData.x + range * Math.cos(angle + positionData.theta);
-                const worldY = positionData.y + range * Math.sin(angle + positionData.theta);
-                
-                // Then convert to pixel coordinates
-                const pointPixel = worldToPixel(worldX, worldY, mapData);
-                
-                if (firstValid) {
-                  ctx.moveTo(pointPixel.x + mapOriginX, pointPixel.y + mapOriginY);
-                  firstValid = false;
-                } else {
-                  ctx.lineTo(pointPixel.x + mapOriginX, pointPixel.y + mapOriginY);
-                }
-              }
-            });
+            // Create a gradient for the scanner line
+            const lineGradient = ctx.createRadialGradient(
+              robotPos.x + mapOriginX, 
+              robotPos.y + mapOriginY, 
+              0,
+              robotPos.x + mapOriginX, 
+              robotPos.y + mapOriginY, 
+              scannerLength
+            );
             
-            // Close path back to first point to create filled polygon
-            ctx.closePath();
-            ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-            ctx.lineWidth = 1;
+            ctx.moveTo(robotPos.x + mapOriginX, robotPos.y + mapOriginY);
+            ctx.lineTo(
+              robotPos.x + mapOriginX + Math.cos(scannerAngle) * scannerLength,
+              robotPos.y + mapOriginY + Math.sin(scannerAngle) * scannerLength
+            );
+            lineGradient.addColorStop(0, 'rgba(0, 255, 255, 0.9)');
+            lineGradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+            
+            ctx.strokeStyle = lineGradient;
+            ctx.lineWidth = 2;
             ctx.stroke();
-          }
-          
-          // Then draw individual points with distance-based coloring
-          ranges.forEach((range: number, index: number) => {
-            if (range > 0) { // Only draw valid ranges
-              const angle = angle_min + index * angle_increment;
-              
-              // Convert to world coordinates first
-              const worldX = positionData.x + range * Math.cos(angle + positionData.theta);
-              const worldY = positionData.y + range * Math.sin(angle + positionData.theta);
-              
-              // Then convert to pixel coordinates
-              const pointPixel = worldToPixel(worldX, worldY, mapData);
-              
-              // Use distance to adjust color (normalize to 0-1 range)
-              const normalizedRange = Math.min(range / 10, 1); // 10 meters as max for color scaling
-              
-              // Create color that transitions from yellow to green
-              const r = Math.floor(180 * (1 - normalizedRange));
-              const g = 220;
-              const b = Math.floor(20 * normalizedRange);
-              
-              // Draw point with glow
-              ctx.beginPath();
-              ctx.arc(
-                pointPixel.x + mapOriginX, 
-                pointPixel.y + mapOriginY, 
-                pointSize + 1, 0, 2 * Math.PI
-              );
-              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
-              ctx.fill();
-              
-              // Draw main point
-              ctx.beginPath();
-              ctx.arc(
-                pointPixel.x + mapOriginX, 
-                pointPixel.y + mapOriginY, 
-                pointSize, 0, 2 * Math.PI
-              );
-              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.7)`;
-              ctx.fill();
+            
+            // Draw scan arc for the current angle
+            ctx.beginPath();
+            ctx.arc(
+              robotPos.x + mapOriginX, 
+              robotPos.y + mapOriginY,
+              scannerLength * 0.8, 
+              scannerAngle - 0.1, 
+              scannerAngle + 0.1
+            );
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.7)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            
+            // Render point cloud data if available with improved styling
+            if (lidarData && lidarData.points && lidarData.points.length) {
+              // Draw points with gradient colors based on distance from robot
+              lidarData.points.forEach(point => {
+                const pointPixel = worldToPixel(point.x, point.y, mapData);
+                
+                // Calculate distance from robot to point (in pixels)
+                const dx = pointPixel.x - robotPos.x;
+                const dy = pointPixel.y - robotPos.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                
+                // Normalize distance to get color gradient
+                // Closer points will be more yellow, farther points more green
+                const maxDistance = 500; // pixels
+                const normalizedDistance = Math.min(distance / maxDistance, 1);
+                
+                // Create color that transitions from yellow to green
+                const r = Math.floor(180 * (1 - normalizedDistance));
+                const g = 220;
+                const b = Math.floor(20 * normalizedDistance);
+                const alpha = 0.7;
+                
+                // Draw outer glow
+                ctx.beginPath();
+                ctx.arc(
+                  pointPixel.x + mapOriginX, 
+                  pointPixel.y + mapOriginY, 
+                  pointSize + 2, 0, 2 * Math.PI
+                );
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha / 2})`;
+                ctx.fill();
+                
+                // Draw main point
+                ctx.beginPath();
+                ctx.arc(
+                  pointPixel.x + mapOriginX, 
+                  pointPixel.y + mapOriginY, 
+                  pointSize, 0, 2 * Math.PI
+                );
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                ctx.fill();
+              });
             }
-          });
+          }
         }
       }
       
-      // Draw pickup and dropoff points
-      if (pickupPoint || dropoffPoint) {
-        const mapOriginX = -mapImage.width / 2;
-        const mapOriginY = -mapImage.height / 2;
-        
+      // Draw task points if available - enhanced visualization
+      if (showObstacles) {
         // Draw pickup point with animated pulse effect
         if (pickupPoint) {
           const pickupPos = worldToPixel(pickupPoint.x, pickupPoint.y, mapData);
+          const mapOriginX = -mapImage.width / 2;
+          const mapOriginY = -mapImage.height / 2;
           
-          // Create animated pulse for pickup
+          // Create pulsing animation effect
           const now = Date.now();
-          const pulsePhase = (now % 2000) / 2000; // 2-second pulse cycle
-          const pulseSize = 12 + Math.sin(pulsePhase * Math.PI * 2) * 4; // Size oscillates between 8-16
+          const pulsePhase = (now % 2000) / 2000; // 2 second cycle
+          const pulseSize = 12 + Math.sin(pulsePhase * Math.PI * 2) * 4;
           
           // Draw outer glow for pickup
           ctx.beginPath();
@@ -1155,7 +1009,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
             pickupPos.y + mapOriginY, 
             pulseSize + 6, 0, 2 * Math.PI
           );
-          ctx.fillStyle = `rgba(0, 200, 0, ${0.2 + Math.sin(pulsePhase * Math.PI * 2) * 0.1})`;
+          ctx.fillStyle = `rgba(0, 180, 0, ${0.2 + Math.sin(pulsePhase * Math.PI * 2) * 0.1})`;
           ctx.fill();
           
           // Draw pickup circle
@@ -1165,7 +1019,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
             pickupPos.y + mapOriginY, 
             pulseSize, 0, 2 * Math.PI
           );
-          ctx.fillStyle = "rgba(0, 200, 0, 0.7)";
+          ctx.fillStyle = "rgba(0, 180, 0, 0.7)";
           ctx.fill();
           
           // Draw pickup icon
@@ -1184,8 +1038,10 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
         // Draw dropoff point with animated pulse effect
         if (dropoffPoint) {
           const dropoffPos = worldToPixel(dropoffPoint.x, dropoffPoint.y, mapData);
+          const mapOriginX = -mapImage.width / 2;
+          const mapOriginY = -mapImage.height / 2;
           
-          // Slightly offset pulse phase for dropoff
+          // Create pulsing animation effect - offset from pickup
           const now = Date.now();
           const pulsePhase = ((now + 1000) % 2000) / 2000; // Offset by 1 second
           const pulseSize = 12 + Math.sin(pulsePhase * Math.PI * 2) * 4;
@@ -1239,7 +1095,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
           pathGradient.addColorStop(0, "rgba(0, 200, 0, 0.6)");   // Green at pickup
           pathGradient.addColorStop(1, "rgba(0, 100, 200, 0.6)"); // Blue at dropoff
           
-          // Draw path with dashed line
+          // Draw dashed line connecting pickup and dropoff
           ctx.beginPath();
           ctx.moveTo(pickupPos.x + mapOriginX, pickupPos.y + mapOriginY);
           ctx.lineTo(dropoffPos.x + mapOriginX, dropoffPos.y + mapOriginY);
@@ -1247,9 +1103,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
           ctx.strokeStyle = pathGradient;
           ctx.lineWidth = 3;
           ctx.stroke();
-          
-          // Reset dash pattern
-          ctx.setLineDash([]);
+          ctx.setLineDash([]); // Reset dash
         }
       }
       
@@ -1257,219 +1111,157 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
       ctx.restore();
     };
     
-    // Convert base64 map data to image
-    // Add proper error handling for the image
-    mapImage.onerror = (err) => {
-      console.error("Error loading map image:", err);
-      console.log("Map data received:", { 
-        gridLength: mapData.grid?.length, 
-        gridType: typeof mapData.grid,
-        gridPrefix: mapData.grid?.substring(0, 50) + '...' 
-      });
-      
-      // Set error state to show error message to user
-      setError(new Error("Failed to load map image. Please check the robot connection."));
-      
-      // Clear the loading state
-      setIsLoading(false);
-    };
-    
-    // Validate the grid data before trying to use it
-    if (!mapData.grid || typeof mapData.grid !== 'string' || mapData.grid.length < 100) {
-      console.error("Invalid or empty grid data received");
-      setError(new Error("Invalid map data received from robot. The grid data is missing or corrupted."));
-      setIsLoading(false);
-      return;
+    // Set the source of the image - now that we have handlers defined
+    try {
+      mapImage.src = `data:image/png;base64,${mapData.grid}`;
+      console.log("Set map image source from grid data");
+    } catch (error) {
+      console.error("Error setting map image source:", error);
+      renderWithoutMap();
     }
     
-    console.log("Setting map image source with data length:", mapData.grid.length);
-    
-    // Start with PNG format first
-    mapImage.src = `data:image/png;base64,${mapData.grid}`;
-    
-  }, [mapData, lidarData, positionData, positionHistory, scale, offset, showLidar, showGrid, showPath, pointSize, worldToPixel]);
-
-  // Apply cursor style based on drag state
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.style.cursor = isDragging ? 'grabbing' : 'grab';
-    }
-  }, [isDragging]);
-
-  if (isLoading) {
-    return (
-      <Card className="w-full h-[500px] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <div className="ml-2">Loading map data...</div>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="w-full h-[500px] flex items-center justify-center">
-        <div className="text-destructive">Error loading map data: {error.message}</div>
-      </Card>
-    );
-  }
-
+  }, [mapData, offset, scale, positionData, positionHistory, worldToPixel, showPath, showGrid, showLidar, showObstacles, pickupPoint, dropoffPoint, pointSize]);
+  
+  // Render component
   return (
-    <Card className="w-full">
-      <CardContent className="p-0">
-        <div className="flex flex-col">
-          <div className="p-3 flex justify-between items-center border-b bg-slate-100">
-            <div className="font-semibold text-blue-600">Enhanced Robot Digital Twin Map</div>
-            {showControls && (
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleZoom('in')}
-                  title="Zoom In"
-                  className="bg-blue-50 hover:bg-blue-100"
-                >
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleZoom('out')}
-                  title="Zoom Out"
-                  className="bg-blue-50 hover:bg-blue-100"
-                >
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={resetView}
-                  title="Reset View"
-                  className="bg-blue-50 hover:bg-blue-100"
-                >
-                  <Crosshair className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={fetchData}
-                  title="Sync with Robot"
-                  className={`bg-blue-50 hover:bg-blue-100 ${isSyncing ? "opacity-50" : ""}`}
-                  disabled={isSyncing}
-                >
-                  <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                </Button>
+    <Card className="w-full h-full overflow-hidden">
+      <CardContent className="p-0 relative flex flex-col h-full">
+        <div 
+          ref={containerRef}
+          className="flex-grow relative overflow-hidden"
+          onMouseDown={handleMouseDown}
+          onMouseMove={(e) => {
+            handleMouseMove(e);
+            handleMouseMoveCoords(e);
+          }}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          {isLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+              <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+              <span className="ml-2 text-blue-500 font-medium">Loading map data...</span>
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+              <div className="text-red-500 text-center p-4">
+                <h3 className="text-lg font-bold">Error Loading Map</h3>
+                <p>{error.message}</p>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <canvas 
+              ref={canvasRef} 
+              className="w-full h-full" 
+            />
+          )}
           
-          <div className="flex">
-            <div
-              ref={containerRef}
-              className="relative w-full h-[500px] overflow-hidden"
-              onMouseDown={handleMouseDown}
-              onMouseMove={(e) => {
-                handleMouseMove(e);
-                handleMouseMoveCoords(e);
-              }}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            >
-              <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />
+          {/* Coordinate Debug Display */}
+          {cursorPosition && worldCursorPosition && (
+            <div className="absolute bottom-2 left-2 bg-black/70 text-white p-2 rounded text-xs font-mono">
+              <div>Canvas: ({cursorPosition.x.toFixed(0)}, {cursorPosition.y.toFixed(0)})</div>
+              <div>World: ({worldCursorPosition.x.toFixed(2)}m, {worldCursorPosition.y.toFixed(2)}m)</div>
+            </div>
+          )}
+          
+          {/* Display robot position when available */}
+          {positionData && (
+            <div className="absolute top-2 left-2 bg-black/70 text-white p-2 rounded text-xs">
+              <div className="font-bold">Robot Position</div>
+              <div>X: {positionData.x.toFixed(2)}m</div>
+              <div>Y: {positionData.y.toFixed(2)}m</div>
+              <div>θ: {(positionData.theta * 180 / Math.PI).toFixed(1)}°</div>
+            </div>
+          )}
+        </div>
+        
+        {/* Controls */}
+        {showControls && (
+          <div className="border-t border-gray-200 bg-gray-50 p-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleZoom('in')}
+                title="Zoom In"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
               
-              {!mapData && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                  <p>No map data available</p>
-                </div>
-              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleZoom('out')}
+                title="Zoom Out"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={resetView}
+                title="Reset View"
+              >
+                <Crosshair className="h-4 w-4" />
+              </Button>
             </div>
             
-            {showControls && (
-              <div className="w-64 border-l p-3 flex flex-col space-y-4">
-              <div>
-                <div className="text-sm font-medium mb-2">Map Layers</div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">LiDAR Points</span>
-                    <Toggle
-                      pressed={showLidar}
-                      onPressedChange={setShowLidar}
-                      aria-label="Toggle LiDAR"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Meter Grid</span>
-                    <Toggle
-                      pressed={showGrid}
-                      onPressedChange={setShowGrid}
-                      aria-label="Toggle Grid"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Robot Path</span>
-                    <Toggle
-                      pressed={showPath}
-                      onPressedChange={setShowPath}
-                      aria-label="Toggle Path"
-                    />
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center gap-2">
+              <Toggle 
+                pressed={showPath} 
+                onPressedChange={setShowPath}
+                title="Show Path"
+                size="sm"
+                aria-label="Toggle path visibility"
+              >
+                <MousePointer className="h-4 w-4 mr-1" /> Path
+              </Toggle>
               
-              <div>
-                <div className="text-sm font-medium mb-2">LiDAR Point Size</div>
-                <Slider 
-                  value={[pointSize]} 
-                  min={1} 
-                  max={5} 
-                  step={0.5} 
-                  onValueChange={(value) => setPointSize(value[0])} 
-                />
-              </div>
-              
-              <div>
-                <div className="text-sm font-medium mb-2">Position Info</div>
-                {positionData && (
-                  <div className="space-y-1">
-                    <div className="text-xs">
-                      Robot: X: {positionData.x.toFixed(2)}, Y: {positionData.y.toFixed(2)}
-                    </div>
-                    <div className="text-xs">
-                      Rotation: {(positionData.theta * (180/Math.PI)).toFixed(2)}°
-                    </div>
-                    {worldCursorPosition && (
-                      <>
-                        <div className="text-xs mt-2">
-                          Cursor: X: {worldCursorPosition.x.toFixed(2)}, Y: {worldCursorPosition.y.toFixed(2)}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <div className="text-sm font-medium mb-2">Map Info</div>
-                {mapData && (
-                  <div className="space-y-1">
-                    <div className="text-xs">
-                      Size: {mapData.size[0]} x {mapData.size[1]} px
-                    </div>
-                    <div className="text-xs">
-                      Resolution: {mapData.resolution.toFixed(3)} m/px
-                    </div>
-                    <div className="text-xs">
-                      Origin: {mapData.origin[0].toFixed(2)}, {mapData.origin[1].toFixed(2)}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <Toggle 
+                pressed={showGrid} 
+                onPressedChange={setShowGrid}
+                title="Show Grid"
+                size="sm"
+                aria-label="Toggle grid visibility"
+              >
+                <Grid className="h-4 w-4 mr-1" /> Grid
+              </Toggle>
             </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Point Size</span>
+              <Slider
+                defaultValue={[pointSize]}
+                min={1}
+                max={10}
+                step={1}
+                className="w-24"
+                onValueChange={(values) => setPointSize(values[0])}
+              />
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  setIsSyncing(true);
+                  fetchData().finally(() => setIsSyncing(false));
+                }}
+                disabled={isSyncing}
+                title="Refresh Data"
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+            
+            {lastSyncTime && (
+              <div className="text-xs text-gray-500">
+                Last Updated: {lastSyncTime.toLocaleTimeString()}
+              </div>
             )}
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
 };
-
-// Export is now done via named export above
