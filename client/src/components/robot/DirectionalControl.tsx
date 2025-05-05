@@ -72,43 +72,45 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
       if (direction === 'forward') {
         console.log(`Using joystick API for forward movement with speed ${speed}`);
         
-        // Send joystick command with linear velocity for forward movement
+        // Get the robot's current position for forward movement
+        const posResponse = await fetch(`/api/robots/position/${serialNumber}`);
+        const position = await posResponse.json();
+        
+        // Log the complete position data for debugging
+        console.log('Robot position data from API before forward movement:', JSON.stringify(position, null, 2));
+        
+        const currentX = position.x || 0;
+        const currentY = position.y || 0;
+        const currentOrientation = position.orientation || position.theta || 0;
+        
+        // Calculate target position 1 meter in front of the robot
+        const moveDistance = 1.0; // Exactly 1 meter as requested
+        const targetX = currentX + Math.cos(currentOrientation) * moveDistance;
+        const targetY = currentY + Math.sin(currentOrientation) * moveDistance;
+        
+        console.log(`FORWARD movement with fixed 1m distance: current (${currentX}, ${currentY}), orientation: ${currentOrientation}, target: (${targetX}, ${targetY})`);
+        
+        // Send joystick command with position parameters for exactly 1 meter movement
         const joystickResponse = await fetch(`/api/robots/joystick/${serialNumber}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            linear: speed, // Linear velocity in m/s (positive for forward)
-            angular: 0     // No angular velocity (straight ahead)
+            linear: 1.0, // Full speed for precise 1-meter movement
+            angular: 0,  // No angular velocity (straight ahead)
+            exactDistance: moveDistance, // Flag for exact 1-meter movement
+            targetX: targetX,
+            targetY: targetY
           }),
         });
         
         if (joystickResponse.ok) {
           console.log('FORWARD joystick command sent successfully');
+          const response = await joystickResponse.json();
+          console.log('Joystick response:', response);
           
-          // Stop the robot after a short time to prevent continuous movement
-          setTimeout(async () => {
-            try {
-              const stopResponse = await fetch(`/api/robots/joystick/${serialNumber}/stop`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              });
-              
-              if (stopResponse.ok) {
-                console.log('Joystick stop command sent successfully');
-              } else {
-                console.error('Joystick stop command failed:', await stopResponse.text());
-              }
-            } catch (error) {
-              console.error('Error sending joystick stop command:', error);
-            } finally {
-              setIsSendingCommand(false);
-            }
-          }, 1000); // Stop after 1 second
-          
+          setIsSendingCommand(false);
           return; // Return early since we're using a different API for forward movement
         } else {
           console.error('FORWARD joystick command failed:', await joystickResponse.text());

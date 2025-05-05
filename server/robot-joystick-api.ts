@@ -106,9 +106,9 @@ export function registerRobotJoystickApiRoutes(app: Express) {
   app.post('/api/robots/joystick/:serialNumber', async (req: Request, res: Response) => {
     try {
       const { serialNumber } = req.params;
-      const { linear, angular } = req.body;
+      const { linear, angular, exactDistance, targetX: clientTargetX, targetY: clientTargetY } = req.body;
       
-      console.log(`Joystick control for robot ${serialNumber}: linear=${linear}, angular=${angular}`);
+      console.log(`Joystick control for robot ${serialNumber}: linear=${linear}, angular=${angular}, exactDistance=${exactDistance}`);
       
       // Validate parameters
       if (linear === undefined || angular === undefined) {
@@ -162,58 +162,49 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       }
       
       // Calculate new targets based on joystick input
-      // For small incremental movements in the direction of joystick
-      const distance = linear * 0.3; // 0.3 meter per joystick command
-      const turnAngle = angular * 0.3; // 0.3 radians per joystick command
-      
-      // Whether we're moving or turning
-      const isMoving = Math.abs(linear) > 0.05;
-      const isTurning = Math.abs(angular) > 0.05;
-      
-      // Calculate new position and orientation
       let targetX = currentX;
       let targetY = currentY;
       let targetOri = currentOri;
       
-      if (isMoving) {
-        // Move in the direction the robot is currently facing
-        targetX = currentX + distance * Math.cos(currentOri);
-        targetY = currentY + distance * Math.sin(currentOri);
-      }
-      
-      if (isTurning) {
-        // Adjust orientation
-        targetOri = currentOri + turnAngle;
+      // Handle special case for exact 1-meter forward movement
+      if (exactDistance && exactDistance === 1.0 && clientTargetX !== undefined && clientTargetY !== undefined) {
+        console.log(`Using exact 1-meter movement coordinates from client: (${clientTargetX}, ${clientTargetY})`);
+        targetX = clientTargetX;
+        targetY = clientTargetY;
+      } else {
+        // Regular joystick movement calculation
+        const distance = linear * 0.3; // 0.3 meter per joystick command
+        const turnAngle = angular * 0.3; // 0.3 radians per joystick command
+        
+        // Whether we're moving or turning
+        const isMoving = Math.abs(linear) > 0.05;
+        const isTurning = Math.abs(angular) > 0.05;
+        
+        if (isMoving) {
+          // Move in the direction the robot is currently facing
+          targetX = currentX + distance * Math.cos(currentOri);
+          targetY = currentY + distance * Math.sin(currentOri);
+        }
+        
+        if (isTurning) {
+          // Adjust orientation
+          targetOri = currentOri + turnAngle;
+        }
       }
       
       // Create a standard move command with position-based parameters
       const joystickCommand: JoystickCommand = {
         type: "standard",
-        creator: "web_interface"
-      };
-      
-      // Only add the necessary parameters to avoid API validation errors
-      if (isMoving) {
-        joystickCommand.target_x = targetX;
-        joystickCommand.target_y = targetY;
-      }
-      
-      if (isTurning) {
-        joystickCommand.target_ori = targetOri;
-      }
-      
-      // If neither moving nor turning, add a minimal command to maintain position
-      if (!isMoving && !isTurning) {
-        joystickCommand.target_x = currentX;
-        joystickCommand.target_y = currentY;
-      }
-      
-      // Add other parameters
-      joystickCommand.target_accuracy = 0.2; // More lenient accuracy for joystick control
-      joystickCommand.properties = {
-        auto_hold: false, // Don't pause at the destination
-        max_speed: Math.abs(linear) * 0.8,  // Set speed based on joystick input
-        max_angular_speed: Math.abs(angular) * 0.78  // Set angular speed based on joystick input
+        creator: "web_interface",
+        target_x: targetX,
+        target_y: targetY,
+        target_ori: targetOri,
+        target_accuracy: exactDistance ? 0.05 : 0.2, // More precise for exact movements
+        properties: {
+          auto_hold: exactDistance ? true : false, // Hold position for exact movements
+          max_speed: Math.abs(linear) * 0.8,  // Set speed based on joystick input
+          max_angular_speed: Math.abs(angular) * 0.78  // Set angular speed based on joystick input
+        }
       };
       
       // Send position-based movement command to robot
