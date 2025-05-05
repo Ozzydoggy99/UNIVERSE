@@ -1,6 +1,7 @@
 import { Request, Response, Express } from 'express';
 import fetch from 'node-fetch';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { getRobotCalibrator } from './robot-position-calibration';
 
 // Cache for robot parameters
 let robotParamsCache: any = null;
@@ -69,7 +70,12 @@ export function registerRobotMoveApiRoutes(app: Express) {
   const ROBOT_API_BASE_URL = ROBOT_API_URL;
   
   // Helper function to handle cancel logic in the background
-  async function processCancelRequest(serialNumber: string, apiBaseUrl: string) {
+  async function processCancelRequest(serialNumber: string | undefined, apiBaseUrl: string) {
+    // Early return if no serial number
+    if (!serialNumber) {
+      console.error('Cannot process cancel request: No serial number provided');
+      return;
+    }
     try {
       console.log(`Cancelling movement for robot ${serialNumber}`);
 
@@ -285,7 +291,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
       res.status(202).json({ status: 'accepted', message: 'Cancel command sent to robot' });
       
       // Process the cancellation in the background
-      processCancelRequest(serialNumber, ROBOT_API_BASE_URL).catch(error => {
+      processCancelRequest(serialNumber || '', ROBOT_API_BASE_URL).catch(error => {
         console.error('Background cancel error:', error);
       });
     } catch (error) {
