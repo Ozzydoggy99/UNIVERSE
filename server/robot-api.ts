@@ -737,6 +737,33 @@ export async function executeCommand(serialNumber: string, command: string): Pro
 }
 
 export function registerRobotApiRoutes(app: Express) {
+  // Get the IP address of a robot
+  app.get('/api/robots/ip/:serial', (req: Request, res: Response) => {
+    const { serial } = req.params;
+    
+    // For the physical robot, return the IP address from the ROBOT_API_URL
+    if (serial === PHYSICAL_ROBOT_SERIAL) {
+      try {
+        // Parse the ROBOT_API_URL to extract the hostname/IP
+        const urlObj = new URL(ROBOT_API_URL);
+        const robotIp = urlObj.hostname;
+        return res.json({ ip: robotIp });
+      } catch (error) {
+        console.error('Error parsing robot API URL:', error);
+        // Default to the known IP address
+        return res.json({ ip: '47.180.91.99' });
+      }
+    }
+    
+    // For other robots, check if they're registered
+    const robot = storage.getRobotBySerial(serial);
+    if (!robot) {
+      return res.status(404).json({ error: 'Robot not found' });
+    }
+    
+    return res.json({ ip: robot.ip || '127.0.0.1' });
+  });
+  
   // Register a physical robot for remote communication
   app.get('/api/robots/register-physical/:serialNumber', async (req: Request, res: Response) => {
     try {

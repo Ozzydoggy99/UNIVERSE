@@ -1,0 +1,113 @@
+✅ 🔧 REPLIT FIX PROMPT: Live Robot Position via WebSocket
+🧠 PROBLEM:
+The robot's live position does not appear on the map because the app is using REST data instead of real-time WebSocket updates.
+
+As described in the AXBot REST WebSocket Guide, the robot sends live pose updates at:
+
+bash
+Copy
+Edit
+ws://<ROBOT_IP>/websocket/robot/{serial}/pose
+✅ OBJECTIVE:
+Connect to the robot’s WebSocket pose stream.
+
+Use the live pose data to render the robot’s real-time location on the map.
+
+Display it as a red dot overlay on the map in SimpleMapDigitalTwin.tsx.
+
+🧩 STEP 1: Create a New Hook useRobotPoseWebSocket.ts
+Location: client/src/hooks/use-robot-pose-websocket.ts
+
+tsx
+Copy
+Edit
+import { useEffect, useState } from "react";
+
+interface Position {
+  x: number;
+  y: number;
+  theta: number;
+}
+
+export function useRobotPoseWebSocket(robotSerial: string): Position | null {
+  const [position, setPosition] = useState<Position | null>(null);
+
+  useEffect(() => {
+    if (!robotSerial) return;
+
+    const socket = new WebSocket(`ws://<ROBOT_IP>/websocket/robot/${robotSerial}/pose`);
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data?.x !== undefined && data?.y !== undefined) {
+          setPosition(data);
+        }
+      } catch (err) {
+        console.error("Pose message parse error:", err);
+      }
+    };
+
+    socket.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+
+    return () => socket.close();
+  }, [robotSerial]);
+
+  return position;
+}
+🔁 Replace <ROBOT_IP> with the IP address or hostname of the robot.
+
+🧩 STEP 2: Use the Hook in robot-maps-page.tsx
+Import and use the live WebSocket position instead of REST:
+
+tsx
+Copy
+Edit
+import { useRobotPoseWebSocket } from "@/hooks/use-robot-pose-websocket";
+
+const livePose = useRobotPoseWebSocket(robotSerial);
+Pass livePose as positionData into the map component:
+
+tsx
+Copy
+Edit
+<SimpleMapDigitalTwin
+  robotSerial={robotSerial}
+  mapData={mapData}
+  positionData={livePose}
+/>
+🧩 STEP 3: Render the Red Dot in SimpleMapDigitalTwin.tsx
+Make sure this code exists in the JSX of SimpleMapDigitalTwin.tsx, inside the CardContent area:
+
+tsx
+Copy
+Edit
+{positionData && mapData?.resolution && (
+  <div
+    style={{
+      position: "absolute",
+      top: `${positionData.y / mapData.resolution}px`,
+      left: `${positionData.x / mapData.resolution}px`,
+      width: "12px",
+      height: "12px",
+      backgroundColor: "red",
+      borderRadius: "50%",
+      transform: "translate(-50%, -50%)",
+      zIndex: 10,
+    }}
+  />
+)}
+And that CardContent is wrapped like this:
+
+tsx
+Copy
+Edit
+<CardContent className="relative p-0 overflow-hidden">
+  {/* ...map image and overlays... */}
+</CardContent>
+✅ EXPECTED RESULT
+The robot’s live position now updates in real time using the WebSocket API.
+
+You’ll see a red dot overlay that moves as the robot moves.
