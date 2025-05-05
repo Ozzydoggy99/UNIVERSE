@@ -100,7 +100,7 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       }
       
       // Get the current robot position to calculate a very small relative move
-      const positionResponse = await fetch(`${ROBOT_API_URL}/chassis/pose`, {
+      const positionResponse = await fetch(`${ROBOT_API_URL}/chassis/tracked_pose`, {
         headers: ROBOT_HEADERS
       });
       
@@ -196,7 +196,7 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       console.log(`Stopping robot ${serialNumber} via joystick command`);
       
       // First get current robot position to send a stop command
-      const positionResponse = await fetch(`${ROBOT_API_URL}/chassis/pose`, {
+      const positionResponse = await fetch(`${ROBOT_API_URL}/chassis/tracked_pose`, {
         headers: ROBOT_HEADERS
       });
       
