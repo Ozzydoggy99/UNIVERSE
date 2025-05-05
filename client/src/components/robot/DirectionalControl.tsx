@@ -68,55 +68,8 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
     setIsSendingCommand(true);
     
     try {
-      // For forward movement, use the joystick API which is more reliable
-      if (direction === 'forward') {
-        console.log(`Using joystick API for forward movement with speed ${speed}`);
-        
-        // Get the robot's current position for forward movement
-        const posResponse = await fetch(`/api/robots/position/${serialNumber}`);
-        const position = await posResponse.json();
-        
-        // Log the complete position data for debugging
-        console.log('Robot position data from API before forward movement:', JSON.stringify(position, null, 2));
-        
-        const currentX = position.x || 0;
-        const currentY = position.y || 0;
-        const currentOrientation = position.orientation || position.theta || 0;
-        
-        // Calculate target position 1 meter in front of the robot
-        const moveDistance = 1.0; // Exactly 1 meter as requested
-        const targetX = currentX + Math.cos(currentOrientation) * moveDistance;
-        const targetY = currentY + Math.sin(currentOrientation) * moveDistance;
-        
-        console.log(`FORWARD movement with fixed 1m distance: current (${currentX}, ${currentY}), orientation: ${currentOrientation}, target: (${targetX}, ${targetY})`);
-        
-        // Send joystick command with position parameters for exactly 1 meter movement
-        const joystickResponse = await fetch(`/api/robots/joystick/${serialNumber}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            linear: 1.0, // Full speed for precise 1-meter movement
-            angular: 0,  // No angular velocity (straight ahead)
-            exactDistance: moveDistance, // Flag for exact 1-meter movement
-            targetX: targetX,
-            targetY: targetY
-          }),
-        });
-        
-        if (joystickResponse.ok) {
-          console.log('FORWARD joystick command sent successfully');
-          const response = await joystickResponse.json();
-          console.log('Joystick response:', response);
-          
-          setIsSendingCommand(false);
-          return; // Return early since we're using a different API for forward movement
-        } else {
-          console.error('FORWARD joystick command failed:', await joystickResponse.text());
-          // Fall back to standard movement if joystick command fails
-        }
-      }
+      // Use standard movement API for all directions
+      // We've determined that the joystick API approach doesn't work reliably for forward
       
       // Get the robot's current position for other directions or fallback
       const response = await fetch(`/api/robots/position/${serialNumber}`);
@@ -153,19 +106,19 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
       
       switch (direction) {
         case 'forward':
-          // FORWARD: Move in direction of current orientation
-          // The critical fix is to explicitly use the robot's theta value for orientation calculation
-          // Note that theta is the correct orientation parameter from the server, not "orientation"
+          // FORWARD MOVEMENT - Using a different approach with fixed distance
+          // Get the most accurate orientation value
           const theta = position.theta !== undefined ? position.theta : currentOrientation;
           
-          // Calculate target position based on theta for the forward direction
-          // Important: We need to use a larger distance to make forward movement noticeable
-          // Increase the distance by multiplying by 1.5 to make forward movement more effective
-          const adjustedDistance = distance * 1.5;
-          const forwardX = currentX + Math.cos(theta) * adjustedDistance;
-          const forwardY = currentY + Math.sin(theta) * adjustedDistance;
+          // Use a fixed 1.0 meter distance for forward movement
+          // This is the key change - always move exactly 1.0 meter forward
+          const FIXED_DISTANCE = 1.0; 
           
-          console.log(`Forward move calculation - Current pos: (${currentX}, ${currentY}), theta: ${theta}, distance: ${adjustedDistance}, target: (${forwardX}, ${forwardY})`);
+          // Calculate target position based on theta and fixed distance
+          const forwardX = currentX + Math.cos(theta) * FIXED_DISTANCE;
+          const forwardY = currentY + Math.sin(theta) * FIXED_DISTANCE;
+          
+          console.log(`FIXED 1m forward move - Current pos: (${currentX}, ${currentY}), theta: ${theta}, target: (${forwardX}, ${forwardY})`);
           
           moveData = {
             creator: "web_interface",
@@ -173,30 +126,32 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_x: forwardX,
             target_y: forwardY,
             target_z: 0,
-            target_ori: theta, // Use theta for orientation to maintain direction
-            target_accuracy: 0.2, // Even more lenient accuracy for forward movement
+            target_ori: theta, // Keep the same orientation
+            target_accuracy: 0.1, // More precise for forward movement
             use_target_zone: true,
-            target_orientation_accuracy: 0.2, // More lenient orientation accuracy for forward movement
+            target_orientation_accuracy: 0.3, // More lenient on orientation to prioritize forward movement
             properties: {
-              inplace_rotate: false, // Ensure it's not an in-place rotation
-              follow_path: true // Add follow_path property which helps with forward movement
+              inplace_rotate: false, // Not rotating in place
+              follow_path: true, // Important for planning the path
+              max_speed: 0.4, // Control speed explicitly for forward movement
+              max_angular_speed: 0.3 // Control angular speed explicitly
             }
           };
           break;
           
         case 'backward':
-          // BACKWARD: Move opposite to current orientation
-          // Use theta for consistency with forward movement
+          // BACKWARD MOVEMENT - Using same fixed distance approach as forward movement
+          // Get the most accurate orientation value
           const thetaBack = position.theta !== undefined ? position.theta : currentOrientation;
           
-          // Calculate target position based on theta for the backward direction
-          // Important: We need to use a larger distance to make backward movement noticeable
-          // Increase the distance by multiplying by 1.5 to make backward movement more effective
-          const adjustedDistanceBack = distance * 1.5;
-          const backwardX = currentX - Math.cos(thetaBack) * adjustedDistanceBack;
-          const backwardY = currentY - Math.sin(thetaBack) * adjustedDistanceBack;
+          // Use a fixed 1.0 meter distance for backward movement to match forward
+          const FIXED_DISTANCE_BACK = 1.0;
           
-          console.log(`Backward move calculation - Current pos: (${currentX}, ${currentY}), theta: ${thetaBack}, distance: ${adjustedDistanceBack}, target: (${backwardX}, ${backwardY})`);
+          // Calculate target position (negative of forward direction)
+          const backwardX = currentX - Math.cos(thetaBack) * FIXED_DISTANCE_BACK;
+          const backwardY = currentY - Math.sin(thetaBack) * FIXED_DISTANCE_BACK;
+          
+          console.log(`FIXED 1m backward move - Current pos: (${currentX}, ${currentY}), theta: ${thetaBack}, target: (${backwardX}, ${backwardY})`);
           
           moveData = {
             creator: "web_interface",
@@ -204,13 +159,15 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
             target_x: backwardX,
             target_y: backwardY,
             target_z: 0,
-            target_ori: thetaBack, // Use theta for orientation to maintain direction
-            target_accuracy: 0.2, // Slightly more lenient accuracy for movement
+            target_ori: thetaBack, // Keep the same orientation
+            target_accuracy: 0.1, // More precise for backward movement
             use_target_zone: true,
-            target_orientation_accuracy: 0.2, // More lenient orientation accuracy
+            target_orientation_accuracy: 0.3, // More lenient on orientation to prioritize movement
             properties: {
-              inplace_rotate: false, // Ensure it's not an in-place rotation
-              follow_path: true // Add follow_path property which helps with movement
+              inplace_rotate: false, // Not rotating in place
+              follow_path: true, // Important for planning the path
+              max_speed: 0.4, // Control speed explicitly for backward movement
+              max_angular_speed: 0.3 // Control angular speed explicitly
             }
           };
           break;

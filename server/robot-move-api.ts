@@ -222,6 +222,31 @@ export function registerRobotMoveApiRoutes(app: Express) {
             ? robotParams['/planning/auto_hold'] 
             : true;
         }
+        
+        // Special handling for forward movement (when not rotating in place)
+        if (moveData.properties.inplace_rotate === false) {
+          console.log('Detected forward/backward movement, applying special handling');
+          
+          // Ensure we have follow_path set for better navigation
+          moveData.properties.follow_path = true;
+          
+          // Set explicit speed limits for more controlled movement
+          if (!moveData.properties.max_speed) {
+            moveData.properties.max_speed = 0.4; // Moderate speed for reliability
+          }
+          
+          if (!moveData.properties.max_angular_speed) {
+            moveData.properties.max_angular_speed = 0.3; // Moderate angular speed
+          }
+          
+          // Ensure target accuracy is set appropriately
+          if (!moveData.target_accuracy) {
+            moveData.target_accuracy = 0.1;
+          }
+          
+          // Use target zone for more flexible positioning
+          moveData.use_target_zone = true;
+        }
       }
 
       // Log detailed move command data for debugging
