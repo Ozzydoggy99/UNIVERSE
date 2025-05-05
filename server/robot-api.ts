@@ -26,9 +26,7 @@ import {
   updateServiceHealth,
   attemptServiceRecovery,
   checkLidarPowerServiceHealth,
-  remotePowerCycleRobot,
-  getPowerCycleStatus,
-  powerCycleState
+  // Power cycle functionality has been removed
 } from './service-health';
 
 // Enum for LiDAR power action
@@ -2047,78 +2045,6 @@ export function registerRobotApiRoutes(app: Express) {
    * Power cycle (restart or shutdown) the robot
    * Based on the Robot Service API for restart and shutdown
    */
-  app.post('/api/robots/:serialNumber/power-cycle', async (req: Request, res: Response) => {
-    try {
-      const { serialNumber } = req.params;
-      const { method = 'restart' } = req.body as { method?: 'restart' | 'shutdown' };
-      
-      // Validate method
-      if (method !== 'restart' && method !== 'shutdown') {
-        return res.status(400).json({ 
-          error: 'Invalid method', 
-          message: 'Method must be either "restart" or "shutdown"' 
-        });
-      }
-      
-      // Check robot connection
-      const isConnected = isRobotConnected();
-      console.log(`Robot connection status before power cycle: ${isConnected ? 'Connected' : 'Not connected'}`);
-      
-      // Get current power cycle status
-      const currentStatus = getPowerCycleStatus();
-      
-      // If already in progress, return status
-      if (currentStatus.inProgress) {
-        return res.status(409).json({
-          error: 'Power cycle in progress',
-          message: `A power cycle operation is already in progress. Started at ${currentStatus.lastAttempt}`,
-          status: currentStatus
-        });
-      }
-      
-      console.log(`Power cycling robot ${serialNumber} using method: ${method}`);
-      
-      // Attempt remote power cycle
-      const result = await remotePowerCycleRobot(method);
-      
-      if (result.success) {
-        // Return success with status info
-        const updatedStatus = getPowerCycleStatus();
-        res.json({ 
-          success: true, 
-          message: result.message,
-          status: updatedStatus
-        });
-      } else {
-        // Return error
-        res.status(500).json({ 
-          error: 'Power cycle failed', 
-          message: result.message,
-          status: getPowerCycleStatus()
-        });
-      }
-    } catch (error) {
-      console.error('Error during power cycle operation:', error);
-      res.status(500).json({ 
-        error: 'Failed to power cycle robot',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-  
-  /**
-   * Get current power cycle status
-   */
-  app.get('/api/robots/:serialNumber/power-cycle-status', async (req: Request, res: Response) => {
-    try {
-      const status = getPowerCycleStatus();
-      res.json(status);
-    } catch (error) {
-      console.error('Error getting power cycle status:', error);
-      res.status(500).json({ error: 'Failed to get power cycle status' });
-    }
-  });
-  
   /**
    * Test power cycle functionality
    * This endpoint simulates a power cycle by setting the appropriate state values
@@ -2179,37 +2105,6 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
 
-  app.post('/api/robots/:serialNumber/test-power-cycle', async (req: Request, res: Response) => {
-    try {
-      const { serialNumber } = req.params;
-      const { simulateFailure } = req.body;
-      
-      console.log(`Starting TEST power cycle for robot ${serialNumber} ${simulateFailure ? '(with failure simulation)' : ''}`);
-      
-      // Set the power cycle state to "in progress"
-      const now = Date.now();
-      powerCycleState.inProgress = true;
-      powerCycleState.lastAttempt = now;
-      powerCycleState.success = false;
-      powerCycleState.error = undefined;
-      powerCycleState.recoveryFailed = false;
-      powerCycleState.robotConnected = false;
-      powerCycleState.recoveryProgress = 0;
-      
-      // Use actual production recovery times for real-world testing
-      const isLiveTest = req.body.liveTest === true;
-      
-      if (isLiveTest) {
-        // Use real recovery times for live testing (same as production)
-        powerCycleState.maxRecoveryTime = 5 * 60 * 1000; // 5 minutes max recovery time for real robot
-        const restartMethod = req.body.method || 'power';
-        powerCycleState.expectedRecoveryTime = now + (restartMethod === 'restart' ? 2 * 60 * 1000 : 5 * 60 * 1000);
-        console.log(`[POWER CYCLE] LIVE TEST: Using real recovery times - expected: ${Math.round((powerCycleState.expectedRecoveryTime - now)/1000)}s, max: ${Math.round(powerCycleState.maxRecoveryTime/1000)}s`);
-      } else {
-        // Use shortened times for simulated testing
-        powerCycleState.maxRecoveryTime = 30 * 1000; // 30 seconds for simulated test
-        powerCycleState.expectedRecoveryTime = now + 30 * 1000; // 30 seconds for simulated test
-        console.log(`[POWER CYCLE] SIMULATION TEST: Using shortened recovery times - ${Math.round(powerCycleState.maxRecoveryTime/1000)}s`);
       }
       
       // Return the initial state
