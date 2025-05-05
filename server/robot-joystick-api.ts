@@ -24,10 +24,13 @@ interface JoystickCommand {
   target_y?: number;     // Target Y position 
   target_ori?: number;   // Target orientation in radians (optional)
   target_accuracy?: number; // How close to get to target (meters)
+  use_target_zone?: boolean; // Whether to use target zone for movement
   properties?: {
     auto_hold?: boolean;    // Whether to hold position at destination
     max_speed?: number;    // Maximum forward speed
     max_angular_speed?: number; // Maximum rotation speed
+    inplace_rotate?: boolean; // Whether to rotate in place without moving forward
+    follow_path?: boolean;  // Whether to follow a path for smoother movement
   }
 }
 
@@ -199,11 +202,14 @@ export function registerRobotJoystickApiRoutes(app: Express) {
         target_x: targetX,
         target_y: targetY,
         target_ori: targetOri,
-        target_accuracy: exactDistance ? 0.05 : 0.2, // More precise for exact movements
+        target_accuracy: exactDistance ? 0.03 : 0.05, // More precise accuracy for better control
+        use_target_zone: true, // Essential for joystick-style movement
         properties: {
-          auto_hold: exactDistance ? true : false, // Hold position for exact movements
-          max_speed: Math.abs(linear) * 0.8,  // Set speed based on joystick input
-          max_angular_speed: Math.abs(angular) * 0.78  // Set angular speed based on joystick input
+          auto_hold: true, // Always hold position for more stability
+          inplace_rotate: Math.abs(linear) < 0.05 && Math.abs(angular) > 0.05, // Rotate in place only if turning without moving
+          follow_path: true, // Follow a path for smoother movement
+          max_speed: Math.min(Math.abs(linear) * 0.4, 0.3),  // Lower speed for better control, max 0.3 m/s
+          max_angular_speed: Math.min(Math.abs(angular) * 0.4, 0.3)  // Lower angular speed for better control
         }
       };
       
@@ -217,6 +223,82 @@ export function registerRobotJoystickApiRoutes(app: Express) {
       console.log('Properties:', joystickCommand.properties);
       console.log('Target accuracy:', joystickCommand.target_accuracy);
       console.log('======================================');
+      
+      // First, let's check the current planning state
+      try {
+        console.log('Checking robot planning state before sending movement command...');
+        const planningStateResponse = await fetch(`${ROBOT_API_URL}/planning_state`, {
+          method: 'GET',
+          headers: ROBOT_HEADERS
+        });
+        
+        if (planningStateResponse.ok) {
+          const planningState = await planningStateResponse.json() as { 
+            move_state?: string; 
+            action_type?: string; 
+            remaining_distance?: number 
+          };
+          console.log('Current planning state:', planningState);
+          console.log('Move state:', planningState.move_state);
+          console.log('Action type:', planningState.action_type);
+          console.log('Remaining distance:', planningState.remaining_distance);
+          
+          // Check if there's a current action that might prevent movement
+          if (planningState.move_state === 'moving') {
+            console.log('NOTICE: Robot is currently moving. May need to cancel current action first.');
+          }
+        } else {
+          console.log('Failed to get planning state:', await planningStateResponse.text());
+        }
+      } catch (error) {
+        console.log('Error checking planning state:', error);
+      }
+      
+      // Check wheel state and switch to manual mode if needed
+      try {
+        console.log('Checking robot wheel state...');
+        const wheelStateResponse = await fetch(`${ROBOT_API_URL}/wheel_state`, {
+          method: 'GET',
+          headers: ROBOT_HEADERS
+        });
+        
+        if (wheelStateResponse.ok) {
+          const wheelState = await wheelStateResponse.json() as { control_mode: string, emergency_stop_pressed: boolean };
+          console.log('Current wheel state:', wheelState);
+          console.log('Control mode:', wheelState.control_mode);
+          console.log('Emergency stop pressed:', wheelState.emergency_stop_pressed);
+          
+          // Switch to manual mode if not already in it
+          if (wheelState.control_mode !== 'manual') {
+            console.log('Robot is in', wheelState.control_mode, 'mode. Switching to manual mode...');
+            
+            try {
+              // Switch to manual mode using the control_mode service
+              const setModeResponse = await fetch(`${ROBOT_API_URL}/services/set_control_mode`, {
+                method: 'POST',
+                headers: ROBOT_HEADERS,
+                body: JSON.stringify({ mode: 'manual' })
+              });
+              
+              if (setModeResponse.ok) {
+                console.log('Successfully switched robot to manual mode');
+              } else {
+                console.error('Failed to switch robot to manual mode:', await setModeResponse.text());
+                // Still try to send the command, but warn about potential failure
+                console.warn('Movement command might fail due to incorrect control mode');
+              }
+            } catch (modeError) {
+              console.error('Error switching to manual mode:', modeError);
+              // Still try to send the command, but warn about potential failure
+              console.warn('Movement command might fail due to incorrect control mode');
+            }
+          }
+        } else {
+          console.log('Failed to get wheel state:', await wheelStateResponse.text());
+        }
+      } catch (error) {
+        console.log('Error checking wheel state:', error);
+      }
       
       try {
         // Send position-based movement command to robot using the correct endpoint
