@@ -385,6 +385,27 @@ const RobotMapsPage: React.FC = () => {
               )}
             </CardContent>
           </Card>
+          
+          {/* Add a map preview card for the assignments tab */}
+          {selectedMap && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Map Preview</CardTitle>
+                <CardDescription>Preview of the currently selected map</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MapDigitalTwin 
+                  robotSerial={PHYSICAL_ROBOT_SERIAL}
+                  key={`assignment-map-${selectedMap}`} 
+                  mapId={selectedMap}
+                  // Don't show controls in the assignment preview
+                  showControls={false}
+                  showGridByDefault={true}
+                  showPathByDefault={false}
+                />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
