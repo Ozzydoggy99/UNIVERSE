@@ -68,7 +68,55 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
     setIsSendingCommand(true);
     
     try {
-      // Get the robot's current position
+      // For forward movement, use the joystick API which is more reliable
+      if (direction === 'forward') {
+        console.log(`Using joystick API for forward movement with speed ${speed}`);
+        
+        // Send joystick command with linear velocity for forward movement
+        const joystickResponse = await fetch(`/api/robots/joystick/${serialNumber}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            linear: speed, // Linear velocity in m/s (positive for forward)
+            angular: 0     // No angular velocity (straight ahead)
+          }),
+        });
+        
+        if (joystickResponse.ok) {
+          console.log('FORWARD joystick command sent successfully');
+          
+          // Stop the robot after a short time to prevent continuous movement
+          setTimeout(async () => {
+            try {
+              const stopResponse = await fetch(`/api/robots/joystick/${serialNumber}/stop`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+              
+              if (stopResponse.ok) {
+                console.log('Joystick stop command sent successfully');
+              } else {
+                console.error('Joystick stop command failed:', await stopResponse.text());
+              }
+            } catch (error) {
+              console.error('Error sending joystick stop command:', error);
+            } finally {
+              setIsSendingCommand(false);
+            }
+          }, 1000); // Stop after 1 second
+          
+          return; // Return early since we're using a different API for forward movement
+        } else {
+          console.error('FORWARD joystick command failed:', await joystickResponse.text());
+          // Fall back to standard movement if joystick command fails
+        }
+      }
+      
+      // Get the robot's current position for other directions or fallback
       const response = await fetch(`/api/robots/position/${serialNumber}`);
       const position = await response.json();
       
