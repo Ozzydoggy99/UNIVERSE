@@ -16,13 +16,19 @@ interface RobotPosition {
   cov?: number[][];
 }
 
-// Interface for velocity-based joystick commands
-interface VelocityCommand {
-  vel_x: number;   // Forward/backward velocity
-  vel_y: number;   // Left/right velocity (always 0 for non-holonomic robots)
-  ang_z: number;   // Angular velocity for turning
-  motion_name: string;
-  duration: number; // Command duration in seconds
+// Interface for joystick commands (using standard move type)
+interface JoystickCommand {
+  type: string;          // Always "standard" for this robot
+  creator: string;       // Source of the command
+  target_x: number;      // Target X position
+  target_y: number;      // Target Y position 
+  target_ori: number;    // Target orientation in radians
+  target_accuracy: number; // How close to get to target (meters)
+  properties: {
+    auto_hold: boolean;    // Whether to hold position at destination
+    max_speed?: number;    // Maximum forward speed
+    max_angular_speed?: number; // Maximum rotation speed
+  }
 }
 
 // Helper function to cancel all active moves
@@ -109,16 +115,90 @@ export function registerRobotJoystickApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Missing linear or angular velocity parameter' });
       }
       
-      // We'll use direct velocity control instead of position-based movement
-      // This is more reliable when we don't have accurate position data
+      // Get the current robot position from WebSocket cache
+      const websocketPosition = getRobotPosition(serialNumber);
       
-      // Create a velocity-based joystick command
-      const joystickCommand: VelocityCommand = {
-        vel_x: linear * 0.5, // Forward/backward velocity (scaled down for safety)
-        vel_y: 0,           // Always 0 for non-holonomic robots
-        ang_z: angular * 0.4, // Angular velocity for turning
-        motion_name: "joystick_control",
-        duration: 0.5       // Short duration for responsive control
+      // Variables for position data
+      let currentX = 0;
+      let currentY = 0;
+      let currentOri = 0;
+      
+      console.log("Actual robot WebSocket connection status:", websocketPosition ? 
+        (websocketPosition.connectionStatus === 'connected' ? "Connected" : "Disconnected") : 
+        "No data");
+      
+      // If we have a valid websocket position, use it
+      if (websocketPosition && websocketPosition.connectionStatus === 'connected') {
+        console.log('Using websocket position data:', websocketPosition);
+        
+        // The position data format is different from the tracked_pose endpoint
+        // WebSocket position has x, y, orientation properties
+        currentX = websocketPosition.x || 0;
+        currentY = websocketPosition.y || 0;
+        currentOri = websocketPosition.orientation || 0;
+      } else {
+        // Fallback to direct API call
+        try {
+          const positionResponse = await fetch(`${ROBOT_API_URL}/chassis/tracked_pose`, {
+            headers: ROBOT_HEADERS
+          });
+          
+          if (positionResponse.ok) {
+            const positionData = await positionResponse.json() as RobotPosition;
+            console.log('Current robot position from API:', positionData);
+            
+            // Get position and orientation from robot
+            currentX = positionData.pos?.[0] || 0;
+            currentY = positionData.pos?.[1] || 0;
+            currentOri = positionData.ori || 0;
+          } else {
+            console.error('Error fetching robot position:', positionResponse.status);
+            return res.status(500).json({ error: 'Failed to fetch robot position' });
+          }
+        } catch (error) {
+          console.error('Failed to get robot position:', error);
+          return res.status(500).json({ error: 'Failed to fetch robot position' });
+        }
+      }
+      
+      // Calculate new targets based on joystick input
+      // For small incremental movements in the direction of joystick
+      const distance = linear * 0.3; // 0.3 meter per joystick command
+      const turnAngle = angular * 0.3; // 0.3 radians per joystick command
+      
+      // Whether we're moving or turning
+      const isMoving = Math.abs(linear) > 0.05;
+      const isTurning = Math.abs(angular) > 0.05;
+      
+      // Calculate new position and orientation
+      let targetX = currentX;
+      let targetY = currentY;
+      let targetOri = currentOri;
+      
+      if (isMoving) {
+        // Move in the direction the robot is currently facing
+        targetX = currentX + distance * Math.cos(currentOri);
+        targetY = currentY + distance * Math.sin(currentOri);
+      }
+      
+      if (isTurning) {
+        // Adjust orientation
+        targetOri = currentOri + turnAngle;
+      }
+      
+      // Create a standard move command with position-based parameters
+      const joystickCommand: JoystickCommand = {
+        type: "standard",
+        creator: "web_interface",
+        target_x: targetX,
+        target_y: targetY,
+        target_ori: targetOri,
+        target_accuracy: 0.2, // More lenient accuracy for joystick control
+        properties: {
+          auto_hold: false, // Don't pause at the destination
+          max_speed: Math.abs(linear) * 0.8,  // Set speed based on joystick input
+          max_angular_speed: Math.abs(angular) * 0.78  // Set angular speed based on joystick input
+        }
       };
       
       // Send velocity-based joystick command to robot
