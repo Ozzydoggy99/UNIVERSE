@@ -290,8 +290,26 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
     setIsSendingCommand(true);
     
     try {
-      // Send a stop command through the server API
-      const response = await fetch(`/api/robots/move/${serialNumber}/cancel`, {
+      // First try to stop using the joystick API (to handle joystick-based movement)
+      try {
+        const joystickStopResponse = await fetch(`/api/robots/joystick/${serialNumber}/stop`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (joystickStopResponse.ok) {
+          console.log('Joystick stop command sent successfully');
+        } else {
+          console.error('Joystick stop command failed:', await joystickStopResponse.text());
+        }
+      } catch (joystickError) {
+        console.error('Error sending joystick stop command:', joystickError);
+      }
+      
+      // Also send the regular stop command to ensure we handle all movement types
+      const moveStopResponse = await fetch(`/api/robots/move/${serialNumber}/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -299,13 +317,13 @@ export function DirectionalControl({ serialNumber, disabled = false, compact = f
         body: JSON.stringify({ state: "cancelled" }),
       });
       
-      if (response.ok) {
-        console.log('Stop command sent successfully');
+      if (moveStopResponse.ok) {
+        console.log('Move stop command sent successfully');
       } else {
-        console.error('Stop command failed:', await response.text());
+        console.error('Move stop command failed:', await moveStopResponse.text());
       }
     } catch (error) {
-      console.error('Error sending stop command:', error);
+      console.error('Error sending stop commands:', error);
     } finally {
       setTimeout(() => {
         setIsSendingCommand(false);
