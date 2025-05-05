@@ -289,7 +289,13 @@ const RobotMapsPage: React.FC = () => {
                 ) : (
                   <MapDigitalTwin 
                     robotSerial={PHYSICAL_ROBOT_SERIAL}
-                    key={`map-${selectedMap}-${Date.now()}`} 
+                    key={`map-${selectedMap}`} 
+                    // Explicitly pass map ID to ensure proper rendering
+                    mapId={selectedMap}
+                    // Enhance visualization with additional props
+                    showControls={true}
+                    showGridByDefault={true}
+                    showPathByDefault={true}
                   />
                 )}
               </CardContent>

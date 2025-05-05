@@ -12,6 +12,10 @@ type Point = {
 
 interface MapDigitalTwinProps {
   robotSerial: string;
+  mapId?: string;
+  showControls?: boolean;
+  showGridByDefault?: boolean;
+  showPathByDefault?: boolean;
 }
 
 // Define proper type for map data
@@ -56,7 +60,13 @@ interface PositionData {
   };
 }
 
-export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) => {
+export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ 
+  robotSerial, 
+  mapId,
+  showControls = true,
+  showGridByDefault = true,
+  showPathByDefault = true
+}) => {
   // Updated with enhanced visualization on May 5, 2025
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -65,8 +75,8 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<Point>({ x: 0, y: 0 });
   const [showLidar, setShowLidar] = useState<boolean>(true);
-  const [showPath, setShowPath] = useState<boolean>(true);
-  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [showPath, setShowPath] = useState<boolean>(showPathByDefault);
+  const [showGrid, setShowGrid] = useState<boolean>(showGridByDefault);
   const [showObstacles, setShowObstacles] = useState<boolean>(true);
   const [pointSize, setPointSize] = useState<number>(2);
   
@@ -113,8 +123,11 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
     try {
       setIsSyncing(true);
       
-      // Fetch map data
-      const mapResponse = await fetch(`/api/robots/map/${robotSerial}`);
+      // Fetch map data - use mapId if provided
+      const mapUrl = mapId 
+        ? `/api/robots/map/${robotSerial}?mapId=${mapId}` 
+        : `/api/robots/map/${robotSerial}`;
+      const mapResponse = await fetch(mapUrl);
       if (!mapResponse.ok) throw new Error('Failed to fetch map data');
       const mapJson = await mapResponse.json();
       setMapData(mapJson);
@@ -139,7 +152,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({ robotSerial }) =
       setIsLoading(false);
       setIsSyncing(false);
     }
-  }, [robotSerial]);
+  }, [robotSerial, mapId]);
   
   // Initial data fetch on component mount
   useEffect(() => {
