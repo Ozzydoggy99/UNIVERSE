@@ -229,10 +229,50 @@ function setupWebSockets(httpServer: Server) {
   
   // Handle new connections
   wss.on('connection', (ws) => {
-    console.log('New WebSocket connection for camera control');
+    console.log('New WebSocket connection for camera/position control');
     
     // Add to connected clients
     connectedClients.push(ws);
+    
+    // Flags to track which clients are requesting position updates
+    const clientInfo = {
+      wantsPositionUpdates: false,
+      topics: [] as string[]
+    };
+    
+    // Set up forwarding of robot position updates to the client
+    const robotWs = require('./robot-websocket');
+    let positionUpdateListener: ((serialNumber: string, data: any) => void) | null = null;
+    
+    // Handle robot position updates to forward to the clients
+    const setupPositionTracking = () => {
+      if (positionUpdateListener) return; // Already set up
+      
+      positionUpdateListener = (serialNumber: string, data: any) => {
+        if (!clientInfo.wantsPositionUpdates) return;
+        
+        try {
+          // Only forward if the client is interested in this topic
+          if (data.topic && clientInfo.topics.includes(data.topic)) {
+            // Send the position data to the client
+            const message = {
+              type: 'robot_data',
+              serialNumber,
+              data
+            };
+            
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify(message));
+            }
+          }
+        } catch (err) {
+          console.error('Error forwarding position update:', err);
+        }
+      };
+      
+      // Subscribe to position updates
+      robotWs.subscribeToRobotUpdates('position_update', positionUpdateListener);
+    };
     
     // Handle messages
     ws.on('message', (message) => {
@@ -245,7 +285,7 @@ function setupWebSockets(httpServer: Server) {
         }
         else if (data.type === 'start_mapping_streams') {
           // Start mapping-specific WebSocket topics
-          console.log('Starting mapping streams for real-time map building visualization');
+          console.log('Starting mapping streams for real-time map building or position tracking');
           
           // Use client-provided topics if available, otherwise use defaults
           let mappingTopics = data.topics || [
@@ -266,12 +306,19 @@ function setupWebSockets(httpServer: Server) {
             mappingTopics = [mappingTopics];
           }
           
+          // Store the topics the client is interested in
+          clientInfo.topics = mappingTopics;
+          
+          // Check if position tracking is requested
+          if (mappingTopics.includes('/tracked_pose')) {
+            clientInfo.wantsPositionUpdates = true;
+            setupPositionTracking();
+          }
+          
           console.log(`Enabling ${mappingTopics.length} mapping topics for robot ${data.serialNumber || 'L382502104987ir'}`);
           
           // Send the request to the robot WebSocket
           try {
-            const robotWs = require('./robot-websocket');
-            
             // Check if robotWs is connected
             if (robotWs.isRobotConnected()) {
               // Enable all mapping topics
@@ -308,7 +355,7 @@ function setupWebSockets(httpServer: Server) {
         }
         else if (data.type === 'stop_mapping_streams') {
           // Stop mapping-specific WebSocket topics
-          console.log('Stopping mapping streams for real-time map building visualization');
+          console.log('Stopping mapping streams for real-time map building or position tracking');
           
           // Use client-provided topics if available, otherwise use defaults
           let mappingTopics = data.topics || [
@@ -329,12 +376,18 @@ function setupWebSockets(httpServer: Server) {
             mappingTopics = [mappingTopics];
           }
           
+          // Check if position tracking is being stopped
+          if (mappingTopics.includes('/tracked_pose')) {
+            clientInfo.wantsPositionUpdates = false;
+          }
+          
+          // Clean up any topics the client is no longer interested in
+          clientInfo.topics = clientInfo.topics.filter(topic => !mappingTopics.includes(topic));
+          
           console.log(`Disabling ${mappingTopics.length} mapping topics for robot ${data.serialNumber || 'L382502104987ir'}`);
           
           // Send the request to the robot WebSocket
           try {
-            const robotWs = require('./robot-websocket');
-            
             // Check if robotWs is connected
             if (robotWs.isRobotConnected()) {
               // Disable all mapping topics
@@ -384,6 +437,24 @@ function setupWebSockets(httpServer: Server) {
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
       
+      // Clean up the position update listener
+      if (positionUpdateListener) {
+        try {
+          // Unsubscribe by passing the same function reference
+          // This pattern matches how event emitters typically allow unsubscribing
+          robotWs.subscribeToRobotUpdates('position_update', positionUpdateListener);
+          
+          // Also disable the topics if they're still active
+          if (clientInfo.wantsPositionUpdates && clientInfo.topics.includes('/tracked_pose')) {
+            robotWs.disableTopics(['/tracked_pose']);
+          }
+          
+          positionUpdateListener = null;
+        } catch (err) {
+          console.error('Error unsubscribing from position updates:', err);
+        }
+      }
+      
       // Remove from connected clients
       const index = connectedClients.indexOf(ws);
       if (index !== -1) {
@@ -399,7 +470,7 @@ function setupWebSockets(httpServer: Server) {
     // Send initial message
     ws.send(JSON.stringify({ 
       type: 'connected',
-      message: 'Connected to camera control WebSocket' 
+      message: 'Connected to camera/position control WebSocket' 
     }));
   });
   
