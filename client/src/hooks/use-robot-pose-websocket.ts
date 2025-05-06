@@ -25,11 +25,15 @@ export function useRobotPoseWebSocket(robotSerial: string): Position | null {
     let isMounted = true;
 
     const connect = () => {
-      // Direct connection to the robot's WebSocket endpoint using PUBLIC IP
-      const wsUrl = `ws://47.180.91.99/websocket/robot/${robotSerial}/pose`;
+      // Connect via our secure WebSocket relay server instead of directly to the robot
+      // This approach solves mixed content issues with HTTPS frontend connecting to WS backend
+      // Determine if we're in development or production
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      const wsUrl = `${protocol}//${host}/ws/pose`;
 
       try {
-        console.log(`[WebSocket] Connecting directly to robot at public IP: ${wsUrl}`);
+        console.log(`[WebSocket] Connecting to robot via relay server at: ${wsUrl}`);
         socketRef.current = new WebSocket(wsUrl);
 
         socketRef.current.onopen = () => {

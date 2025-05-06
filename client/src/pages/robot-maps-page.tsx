@@ -100,7 +100,7 @@ export default function RobotMapsPage() {
             {!websocketPosition && (
               <Badge variant="outline" className="flex gap-2 items-center bg-amber-50">
                 <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-                <span>Connecting to robot at 47.180.91.99...</span>
+                <span>Connecting to robot via WebSocket relay...</span>
               </Badge>
             )}
           </div>
@@ -109,7 +109,7 @@ export default function RobotMapsPage() {
           Live digital twin visualization for robot {robotSerial} with direct WebSocket position tracking
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Note: Direct WebSocket connection requires the robot to be accessible via its public IP at 47.180.91.99
+          Note: WebSocket connection is established through a secure relay server to ensure HTTPS compatibility
         </p>
       </div>
       

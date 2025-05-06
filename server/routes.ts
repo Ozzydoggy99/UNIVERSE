@@ -201,11 +201,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
  * Set up WebSocket servers
  */
 function setupWebSockets(httpServer: Server) {
-  // Create WebSocket server for camera control with error handling for port conflicts
-  let wss: WebSocketServer;
+  // Create WebSocket servers with error handling for port conflicts
+  let cameraWss: WebSocketServer;
+  let poseRelayWss: WebSocketServer;
   
+  // Setup robot position WebSocket relay
   try {
-    wss = new WebSocketServer({ 
+    // WebSocket relay server for robot position data
+    // This solves HTTPS/WSS compatibility issues when connecting to the robot directly
+    poseRelayWss = new WebSocketServer({
+      server: httpServer,
+      path: '/ws/pose',
+      clientTracking: true
+    });
+    
+    // Handle server-level errors
+    poseRelayWss.on('error', (error: any) => {
+      console.error('Pose relay WebSocket server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.log('WebSocket port is already in use, will use the HTTP server port chosen by the dynamic port selection');
+      }
+    });
+    
+    // Setup the WebSocket relay for position data
+    poseRelayWss.on('connection', (clientSocket) => {
+      console.log('[Relay] Client connected to pose relay WebSocket');
+      
+      // Connect to the robot WebSocket
+      const ROBOT_WS = "ws://47.180.91.99/websocket/robot/L382502104987ir/pose";
+      const robotSocket = new WebSocket(ROBOT_WS);
+      
+      robotSocket.on('open', () => {
+        console.log('[Relay] Connected to robot position WebSocket');
+      });
+      
+      robotSocket.on('message', (data) => {
+        if (clientSocket.readyState === WebSocket.OPEN) {
+          console.log('[Relay] Forwarding robot position data');
+          clientSocket.send(data);
+        }
+      });
+      
+      robotSocket.on('error', (err) => {
+        console.error('[Relay] Robot WebSocket error:', err);
+      });
+      
+      robotSocket.on('close', () => {
+        console.log('[Relay] Robot WebSocket closed');
+      });
+      
+      clientSocket.on('close', () => {
+        console.log('[Relay] Client disconnected from pose relay');
+        robotSocket.close();
+      });
+    });
+    
+  } catch (error) {
+    console.error('Failed to create pose relay WebSocket server:', error);
+  }
+  
+  // Create WebSocket server for camera control
+  try {
+    cameraWss = new WebSocketServer({ 
       server: httpServer, 
       path: '/api/ws/camera',
       // Add error handling for the WebSocket server
@@ -213,14 +270,14 @@ function setupWebSockets(httpServer: Server) {
     });
     
     // Handle server-level errors
-    wss.on('error', (error: any) => {
-      console.error('WebSocket server error:', error);
+    cameraWss.on('error', (error: any) => {
+      console.error('Camera WebSocket server error:', error);
       if (error.code === 'EADDRINUSE') {
         console.log('WebSocket port is already in use, will use the HTTP server port chosen by the dynamic port selection');
       }
     });
   } catch (error) {
-    console.error('Failed to create WebSocket server:', error);
+    console.error('Failed to create camera WebSocket server:', error);
     return; // Exit if we can't create the WebSocket server
   }
   
@@ -228,7 +285,7 @@ function setupWebSockets(httpServer: Server) {
   const connectedClients: WebSocket[] = [];
   
   // Handle new connections
-  wss.on('connection', (ws) => {
+  cameraWss.on('connection', (ws) => {
     console.log('New WebSocket connection for camera/position control');
     
     // Add to connected clients
