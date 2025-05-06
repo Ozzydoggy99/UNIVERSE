@@ -28,6 +28,7 @@ import {
   BatteryFull,
   BatteryMedium,
   BatteryLow,
+  Clipboard,
   BatteryWarning,
   Thermometer,
   Droplets,
@@ -56,6 +57,7 @@ import { DirectionalControl } from '@/components/robot/DirectionalControl';
 import { LidarVisualization } from '@/components/robot/LidarVisualization';
 import { PowerCycleButton } from '@/components/robot/PowerCycleButton';
 import InstallerButton from '@/components/robot/installer-button';
+import RobotBinTaskPanel from '@/components/robot-mission/RobotBinTaskPanel';
 
 interface RobotStatus {
   model: string;

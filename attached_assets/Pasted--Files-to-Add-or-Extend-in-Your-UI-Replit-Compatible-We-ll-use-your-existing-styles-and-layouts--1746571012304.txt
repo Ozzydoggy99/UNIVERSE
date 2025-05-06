@@ -1,0 +1,102 @@
+✅ Files to Add or Extend in Your UI (Replit-Compatible)
+We'll use your existing styles and layouts. This just wires in real robot commands.
+
+1. client/hooks/useRobotPoints.ts
+Loads and groups shelf points by map.
+
+ts
+Copy
+Edit
+// client/hooks/useRobotPoints.ts
+import { useState, useEffect } from "react";
+import axios from "axios";
+
+export function useRobotPoints(robotId: string) {
+  const [shelfPoints, setShelfPoints] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadPoints() {
+      const res = await axios.get(`/api/fetch-points?robot=${robotId}`);
+      const points = res.data.points;
+
+      const shelves = points.filter(
+        (p: any) => !["drop", "pick", "desk"].some(tag => p.id.toLowerCase().includes(tag))
+      ).map((p: any) => p.id);
+
+      setShelfPoints(shelves);
+      setLoading(false);
+    }
+    loadPoints();
+  }, [robotId]);
+
+  return { shelfPoints, loading };
+}
+2. client/components/RobotBinTaskPanel.tsx
+tsx
+Copy
+Edit
+// client/components/RobotBinTaskPanel.tsx
+import { useState } from "react";
+import { useRobotPoints } from "../hooks/useRobotPoints";
+
+export default function RobotBinTaskPanel({ robotId }: { robotId: string }) {
+  const { shelfPoints, loading } = useRobotPoints(robotId);
+  const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
+  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const runTask = async () => {
+    if (!selectedShelf) return;
+    setStatus("Running...");
+
+    const res = await fetch("/api/robot-task", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode, shelfId: selectedShelf }),
+    });
+
+    const data = await res.json();
+    setStatus(data.success ? "✅ Task complete" : "❌ Failed");
+  };
+
+  return (
+    <div className="task-panel">
+      <h3>Robot Bin Task</h3>
+
+      <div className="radio-group">
+        <label>
+          <input type="radio" value="pickup" checked={mode === "pickup"} onChange={() => setMode("pickup")} />
+          Pick up from shelf
+        </label>
+        <label>
+          <input type="radio" value="dropoff" checked={mode === "dropoff"} onChange={() => setMode("dropoff")} />
+          Drop off to shelf
+        </label>
+      </div>
+
+      {loading ? (
+        <p>Loading shelves...</p>
+      ) : (
+        <select onChange={(e) => setSelectedShelf(e.target.value)}>
+          <option>Select shelf point</option>
+          {shelfPoints.map((pt) => (
+            <option key={pt} value={pt}>{pt}</option>
+          ))}
+        </select>
+      )}
+
+      <button disabled={!selectedShelf} onClick={runTask}>
+        Run Task
+      </button>
+
+      {status && <p className="status">{status}</p>}
+    </div>
+  );
+}
+3. Wire It In: Wherever You Show a Robot (like RobotDetailsPage.tsx)
+tsx
+Copy
+Edit
+<RobotBinTaskPanel robotId="SN-001" />
+Or dynamically pass in from the robot's metadata.
