@@ -73,6 +73,8 @@ export default function Sidebar() {
     { href: "/control-panel", label: "Control Panel", icon: <Laptop className="h-5 w-5" /> },
     { href: "/sensor-data", label: "Sensor Data", icon: <Gauge className="h-5 w-5" /> },
     { href: "/navigation", label: "Navigation", icon: <MapIcon className="h-5 w-5" /> },
+    { href: "/robot-mission", label: "Mission Control", icon: <ListTodo className="h-5 w-5" /> },
+    { href: "/maps", label: "Maps", icon: <MapIcon className="h-5 w-5" /> },
     { href: "/history", label: "History", icon: <History className="h-5 w-5" /> },
     { href: "/ai-assistant", label: "AI Assistant", icon: <BrainCircuit className="h-5 w-5" /> },
     { href: "/settings", label: "Settings", icon: <Settings className="h-5 w-5" /> },
