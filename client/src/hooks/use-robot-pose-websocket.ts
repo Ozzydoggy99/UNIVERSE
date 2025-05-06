@@ -73,22 +73,43 @@ export function useRobotPoseWebSocket(robotSerial: string): Position | null {
             if (data) {
               let positionData = null;
               
-              // Direct position format we expect
+              // If it's already in the right format with x and y properties
               if (typeof data.x === "number" && typeof data.y === "number") {
                 positionData = data;
                 console.log("[WebSocket] Found direct position format:", { x: data.x, y: data.y, theta: data.theta });
               } 
-              // Message may be a wrapper with type field (from our relay server)
+              // Handle special server message types
               else if (data.type === 'connected') {
                 console.log("[WebSocket] Connected to relay server");
                 return;
+              }
+              // Handle the exact AxBot format with topic, pos array, and ori
+              else if (data.topic === '/tracked_pose' && Array.isArray(data.pos) && data.pos.length >= 2) {
+                positionData = {
+                  x: data.pos[0],
+                  y: data.pos[1],
+                  theta: typeof data.ori === 'number' ? data.ori : 0,
+                  timestamp: Date.now()
+                };
+                console.log("[WebSocket] Extracted AxBot tracked_pose format:", positionData);
+              }
+              // Handle the pos array format without topic field (may be transformed data)
+              else if (Array.isArray(data.pos) && data.pos.length >= 2) {
+                positionData = {
+                  x: data.pos[0],
+                  y: data.pos[1],
+                  theta: data.ori || data.theta || 0,
+                  timestamp: Date.now()
+                };
+                console.log("[WebSocket] Extracted position from pos array:", positionData);
               }
               // Check for pose.position format (common in ROS)
               else if (data.pose && typeof data.pose.position === 'object') {
                 positionData = {
                   x: data.pose.position.x,
                   y: data.pose.position.y,
-                  theta: getTheta(data.pose.orientation)
+                  theta: getTheta(data.pose.orientation),
+                  timestamp: Date.now()
                 };
                 console.log("[WebSocket] Extracted position from pose:", positionData);
               }
@@ -97,23 +118,37 @@ export function useRobotPoseWebSocket(robotSerial: string): Position | null {
                 positionData = {
                   x: data.position.x,
                   y: data.position.y,
-                  theta: data.theta || data.angle || getTheta(data.orientation) || 0
+                  theta: data.theta || data.angle || getTheta(data.orientation) || 0,
+                  timestamp: Date.now()
                 };
                 console.log("[WebSocket] Extracted position from position object:", positionData);
               }
               // Check for commonly named position fields
               else {
                 for (const key of ['location', 'coordinates', 'pos', 'current_position']) {
-                  if (data[key] && typeof data[key] === 'object' &&
-                      typeof data[key].x === 'number' && 
-                      typeof data[key].y === 'number') {
-                    positionData = {
-                      x: data[key].x,
-                      y: data[key].y,
-                      theta: data[key].theta || data[key].angle || 0
-                    };
-                    console.log(`[WebSocket] Extracted position from ${key}:`, positionData);
-                    break;
+                  if (data[key]) {
+                    // If it's an object with x,y properties
+                    if (typeof data[key] === 'object' && typeof data[key].x === 'number' && typeof data[key].y === 'number') {
+                      positionData = {
+                        x: data[key].x,
+                        y: data[key].y,
+                        theta: data[key].theta || data[key].angle || 0,
+                        timestamp: Date.now()
+                      };
+                      console.log(`[WebSocket] Extracted position from ${key} object:`, positionData);
+                      break;
+                    }
+                    // If it's an array with at least 2 elements
+                    else if (Array.isArray(data[key]) && data[key].length >= 2) {
+                      positionData = {
+                        x: data[key][0],
+                        y: data[key][1],
+                        theta: data.ori || data.theta || data.angle || 0,
+                        timestamp: Date.now()
+                      };
+                      console.log(`[WebSocket] Extracted position from ${key} array:`, positionData);
+                      break;
+                    }
                   }
                 }
               }
