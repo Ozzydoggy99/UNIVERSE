@@ -1,3 +1,28 @@
+✅ 🔧 REPLIT FIX PROMPT: Live Robot Position via WebSocket (With Real IP)
+Problem:
+The WebSocket connection for the robot’s live position fails when using window.location.host, because your Replit frontend is not hosted on the same LAN as the robot.
+
+According to the AXBot API, live position must be retrieved from:
+
+bash
+Copy
+Edit
+ws://<ROBOT_IP>/websocket/robot/{serial}/pose
+✅ OBJECTIVE:
+Connect to the robot at 192.168.4.31 using WebSocket
+
+Automatically reconnect if the connection drops
+
+Pass the live position to your UI for rendering
+
+🧩 STEP: REPLACE FILE
+Replace the contents of
+client/src/hooks/use-robot-pose-websocket.ts
+with the following:
+
+tsx
+Copy
+Edit
 import { useEffect, useState, useRef } from "react";
 
 interface Position {
@@ -25,11 +50,10 @@ export function useRobotPoseWebSocket(robotSerial: string): Position | null {
     let isMounted = true;
 
     const connect = () => {
-      // Direct connection to the robot's WebSocket endpoint
+      // 👇 Your actual robot IP is hardcoded here for local testing
       const wsUrl = `ws://192.168.4.31/websocket/robot/${robotSerial}/pose`;
 
       try {
-        console.log(`[WebSocket] Connecting directly to robot at: ${wsUrl}`);
         socketRef.current = new WebSocket(wsUrl);
 
         socketRef.current.onopen = () => {
@@ -40,8 +64,6 @@ export function useRobotPoseWebSocket(robotSerial: string): Position | null {
           try {
             const data = JSON.parse(event.data);
             if (data && typeof data.x === "number" && typeof data.y === "number") {
-              console.log("Received direct robot position update:", data);
-              
               if (isMounted) {
                 setPosition(data);
               }
@@ -64,11 +86,6 @@ export function useRobotPoseWebSocket(robotSerial: string): Position | null {
         };
       } catch (err) {
         console.error("WebSocket connection failed:", err);
-        // Try to reconnect after a delay
-        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = setTimeout(() => {
-          if (isMounted) connect();
-        }, 3000);
       }
     };
 

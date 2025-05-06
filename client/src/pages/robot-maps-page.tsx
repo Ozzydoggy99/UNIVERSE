@@ -81,10 +81,19 @@ export default function RobotMapsPage() {
                 <span>Live Position Updated: {lastUpdateTime}</span>
               </Badge>
             )}
+            {!websocketPosition && (
+              <Badge variant="outline" className="flex gap-2 items-center bg-amber-50">
+                <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+                <span>Connecting to robot at 192.168.4.31...</span>
+              </Badge>
+            )}
           </div>
         </div>
         <p className="text-muted-foreground">
-          Live digital twin visualization for robot {robotSerial} with real-time position tracking
+          Live digital twin visualization for robot {robotSerial} with direct WebSocket position tracking
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Note: Direct WebSocket connection requires the robot to be accessible on your local network at 192.168.4.31
         </p>
       </div>
       
