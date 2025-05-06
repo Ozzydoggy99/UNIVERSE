@@ -830,6 +830,10 @@ export default function RobotDetails() {
                     <Camera className="h-4 w-4" />
                     Camera
                   </TabsTrigger>
+                  <TabsTrigger value="tasks" className="flex items-center gap-1">
+                    <Clipboard className="h-4 w-4" />
+                    Tasks
+                  </TabsTrigger>
                 </TabsList>
                 
                 <div className="h-[calc(100%-50px)]">
@@ -906,6 +910,59 @@ export default function RobotDetails() {
                   </TabsContent>
                   
 
+                  
+                  <TabsContent value="tasks" className="h-full m-0">
+                    <div className="h-full border rounded-md p-4 bg-white overflow-auto">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium flex items-center gap-2">
+                          <Clipboard className="h-5 w-5 text-primary" />
+                          Robot Tasks
+                        </h3>
+                      </div>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="text-md font-medium mb-2">Shelf Tasks</h4>
+                          <RobotBinTaskPanel robotId={serialNumber || "L382502104987ir"} />
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-md font-medium mb-2">Task History</h4>
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-sm">Recent Tasks</CardTitle>
+                              <CardDescription>Recent tasks performed by this robot</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                              <div className="border-t">
+                                <div className="flex justify-between p-3 border-b">
+                                  <div className="flex flex-col">
+                                    <span className="font-semibold">Pickup from Shelf 3</span>
+                                    <span className="text-xs text-muted-foreground">Completed 5 minutes ago</span>
+                                  </div>
+                                  <Badge>Success</Badge>
+                                </div>
+                                <div className="flex justify-between p-3 border-b">
+                                  <div className="flex flex-col">
+                                    <span className="font-semibold">Dropoff at Bin 2</span>
+                                    <span className="text-xs text-muted-foreground">Completed 15 minutes ago</span>
+                                  </div>
+                                  <Badge>Success</Badge>
+                                </div>
+                                <div className="flex justify-between p-3">
+                                  <div className="flex flex-col">
+                                    <span className="font-semibold">Navigate to Charging Station</span>
+                                    <span className="text-xs text-muted-foreground">Completed 1 hour ago</span>
+                                  </div>
+                                  <Badge>Success</Badge>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
                   
                   <TabsContent value="camera" className="h-full m-0">
                     <div className="h-full border rounded-md p-4 bg-white overflow-auto">
