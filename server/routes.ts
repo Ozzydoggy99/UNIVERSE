@@ -229,9 +229,13 @@ function setupWebSockets(httpServer: Server) {
       
       // Connect to the robot WebSocket with authentication headers
       const ROBOT_SERIAL = "L382502104987ir";
-      // Try using port 8090 which is the same port used for REST API
-      const ROBOT_WS = `ws://47.180.91.99:8090/websocket/robot/${ROBOT_SERIAL}/pose`;
+      // Based on the logs, the robot WebSocket endpoint should be '/ws'
+      const ROBOT_WS = `ws://47.180.91.99:8090/ws`;
       console.log(`[Relay] Connecting to robot WebSocket at ${ROBOT_WS}`);
+      
+      // Looking at the logs earlier, the robot has these enabled topics we can subscribe to
+      console.log('[Relay] Will subscribe to /tracked_pose topic for position updates');
+      console.log('[Relay] Robot also supports /map, /slam/state, /wheel_state, /battery_state etc.');
       
       // Robot requires authentication headers for WebSocket connection
       const ROBOT_AUTH_KEY = ROBOT_SERIAL; // The key is the robot serial number
@@ -261,6 +265,16 @@ function setupWebSockets(httpServer: Server) {
         // Set up all event handlers
         robotSocket.on('open', () => {
           console.log('[Relay] Connected to robot position WebSocket');
+          
+          // Subscribe to the tracked_pose topic for position updates
+          // The format is {"command": "enable_topics", "topics": ["/tracked_pose"]}
+          robotSocket.send(JSON.stringify({
+            command: "enable_topics",
+            topics: ["/tracked_pose"]
+          }));
+          
+          console.log('[Relay] Subscribed to /tracked_pose topic for position updates');
+          
           if (clientSocket.readyState === WebSocket.OPEN) {
             clientSocket.send(JSON.stringify({ 
               type: 'connected',
@@ -276,37 +290,60 @@ function setupWebSockets(httpServer: Server) {
               const dataStr = data.toString();
               console.log('[Relay] Raw robot position data:', dataStr.substring(0, 200)); // Log first 200 chars to avoid flooding
               
-              // Make sure the data is in JSON format with x, y properties
-              // If it's just a string or doesn't have those properties, wrap it
               try {
                 const parsedData = JSON.parse(dataStr);
                 
-                // If the data is in proper format, send it directly
-                if (typeof parsedData.x === 'number' && typeof parsedData.y === 'number') {
-                  console.log('[Relay] Forwarding parsed position data:', { x: parsedData.x, y: parsedData.y, theta: parsedData.theta });
-                  clientSocket.send(data);
-                } else {
-                  // Try to extract x, y, theta from the data if it's in a different format
-                  // For example, some robot WebSockets return data in a nested object or array
-                  let positionData = extractPositionData(parsedData);
-                  if (positionData) {
-                    console.log('[Relay] Extracted position data:', positionData);
-                    clientSocket.send(JSON.stringify(positionData));
-                  } else {
-                    console.log('[Relay] Could not extract position data from:', parsedData);
-                    // Forward the raw data anyway, client might know how to handle it
-                    clientSocket.send(data);
-                  }
+                // Check if this is a tracked_pose message as seen in logs
+                if (parsedData.topic === '/tracked_pose' && Array.isArray(parsedData.pos) && parsedData.pos.length >= 2) {
+                  // Convert from robot format to our client format
+                  const positionData = {
+                    x: parsedData.pos[0],
+                    y: parsedData.pos[1],
+                    theta: parsedData.ori || 0,
+                    timestamp: Date.now()
+                  };
+                  
+                  console.log('[Relay] Extracted tracked_pose data:', positionData);
+                  clientSocket.send(JSON.stringify(positionData));
+                  return;
                 }
+                
+                // If the data is already in the expected x,y format, send it directly  
+                if (typeof parsedData.x === 'number' && typeof parsedData.y === 'number') {
+                  console.log('[Relay] Forwarding position data:', { x: parsedData.x, y: parsedData.y, theta: parsedData.theta });
+                  clientSocket.send(data);
+                  return;
+                }
+                
+                // Try to extract position data from other formats
+                const positionData = extractPositionData(parsedData);
+                if (positionData) {
+                  console.log('[Relay] Extracted position data:', positionData);
+                  clientSocket.send(JSON.stringify(positionData));
+                  return;
+                }
+                
+                // If we couldn't extract data but it has a topic field
+                if (parsedData.topic) {
+                  // Log what topic we received but don't forward to client
+                  console.log(`[Relay] Received message for topic ${parsedData.topic}, not forwarding`);
+                  return;
+                }
+                
+                // If it's a command acknowledgement or enabled_topics list
+                if (parsedData.enabled_topics) {
+                  console.log('[Relay] Received enabled_topics list:', parsedData.enabled_topics);
+                  return;
+                }
+                
+                // Unknown format, log it but don't forward
+                console.log('[Relay] Unknown data format:', parsedData);
               } catch (parseError) {
-                // If it's not JSON, wrap it in a simple object
-                console.log('[Relay] Data is not JSON, forwarding raw');
-                clientSocket.send(data);
+                // If it's not JSON, log the error
+                console.error('[Relay] JSON parse error:', parseError);
               }
             } catch (err) {
               console.error('[Relay] Error processing robot data:', err);
-              // Forward the raw data anyway
-              clientSocket.send(data);
             }
           }
         });
@@ -314,6 +351,25 @@ function setupWebSockets(httpServer: Server) {
         // Helper function to extract position data from various formats
         function extractPositionData(data: any): { x: number, y: number, theta: number } | null {
           // Different robots may have different data formats, try to handle common ones
+          
+          // AxBot specific format found in logs:
+          // topic: "/tracked_pose", pos: [-0.435, 3.265], ori: 4.34
+          if (data.topic === '/tracked_pose' && Array.isArray(data.pos) && data.pos.length >= 2) {
+            return {
+              x: data.pos[0],
+              y: data.pos[1],
+              theta: typeof data.ori === 'number' ? data.ori : 0
+            };
+          }
+          
+          // Check if data has pos as array (as seen in the robot logs)
+          if (Array.isArray(data.pos) && data.pos.length >= 2) {
+            return {
+              x: data.pos[0],
+              y: data.pos[1],
+              theta: data.ori || data.theta || data.angle || 0
+            };
+          }
           
           // Check if data has pose property (common in ROS-based systems)
           if (data.pose && typeof data.pose.position === 'object') {
@@ -335,14 +391,23 @@ function setupWebSockets(httpServer: Server) {
           
           // Check if data has x,y directly in a different property
           for (const key of ['location', 'coordinates', 'pos', 'current_position']) {
-            if (data[key] && typeof data[key] === 'object' && 
-                typeof data[key].x === 'number' && 
-                typeof data[key].y === 'number') {
-              return {
-                x: data[key].x,
-                y: data[key].y,
-                theta: data[key].theta || data[key].angle || extractTheta(data[key].orientation) || 0
-              };
+            if (data[key] && typeof data[key] === 'object') {
+              // Check if it's an object with x,y properties
+              if (typeof data[key].x === 'number' && typeof data[key].y === 'number') {
+                return {
+                  x: data[key].x,
+                  y: data[key].y,
+                  theta: data[key].theta || data[key].angle || extractTheta(data[key].orientation) || 0
+                };
+              }
+              // Check if it's an array with at least 2 elements
+              else if (Array.isArray(data[key]) && data[key].length >= 2) {
+                return {
+                  x: data[key][0],
+                  y: data[key][1],
+                  theta: data.ori || data.theta || data.angle || 0
+                };
+              }
             }
           }
           
