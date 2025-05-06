@@ -227,32 +227,85 @@ function setupWebSockets(httpServer: Server) {
     poseRelayWss.on('connection', (clientSocket) => {
       console.log('[Relay] Client connected to pose relay WebSocket');
       
-      // Connect to the robot WebSocket
-      const ROBOT_WS = "ws://47.180.91.99/websocket/robot/L382502104987ir/pose";
-      const robotSocket = new WebSocket(ROBOT_WS);
+      // Connect to the robot WebSocket with authentication headers
+      const ROBOT_SERIAL = "L382502104987ir";
+      const ROBOT_WS = `ws://47.180.91.99/websocket/robot/${ROBOT_SERIAL}/pose`;
       
-      robotSocket.on('open', () => {
-        console.log('[Relay] Connected to robot position WebSocket');
-      });
+      // Robot requires authentication headers for WebSocket connection
+      const ROBOT_AUTH_KEY = ROBOT_SERIAL; // The key is the robot serial number
+      const ROBOT_AUTH_SECRET = process.env.ROBOT_SECRET; // Secret from environment variables
       
-      robotSocket.on('message', (data) => {
-        if (clientSocket.readyState === WebSocket.OPEN) {
-          console.log('[Relay] Forwarding robot position data');
-          clientSocket.send(data);
+      // Connection options with auth headers
+      const connectionOptions = {
+        headers: {
+          "x-auth-key": ROBOT_AUTH_KEY,
+          "x-auth-secret": ROBOT_AUTH_SECRET || ""
         }
-      });
+      };
       
-      robotSocket.on('error', (err) => {
-        console.error('[Relay] Robot WebSocket error:', err);
-      });
+      // Variable to hold the WebSocket connection to the robot
+      let robotSocket: WebSocket;
       
-      robotSocket.on('close', () => {
-        console.log('[Relay] Robot WebSocket closed');
-      });
+      // Function to create a new robot socket connection
+      const createRobotSocketConnection = () => {
+        // Close existing socket if it exists
+        if (robotSocket && robotSocket.readyState === WebSocket.OPEN) {
+          robotSocket.close();
+        }
+        
+        // Create new socket with authentication headers
+        robotSocket = new WebSocket(ROBOT_WS, connectionOptions);
+        
+        // Set up all event handlers
+        robotSocket.on('open', () => {
+          console.log('[Relay] Connected to robot position WebSocket');
+          if (clientSocket.readyState === WebSocket.OPEN) {
+            clientSocket.send(JSON.stringify({ 
+              type: 'connected',
+              message: 'Connected to robot WebSocket' 
+            }));
+          }
+        });
+        
+        robotSocket.on('message', (data) => {
+          if (clientSocket.readyState === WebSocket.OPEN) {
+            console.log('[Relay] Forwarding robot position data');
+            clientSocket.send(data);
+          }
+        });
+        
+        robotSocket.on('error', (err) => {
+          console.error('[Relay] Robot WebSocket error:', err.message || err);
+        });
+        
+        robotSocket.on('close', (code, reason) => {
+          console.log(`[Relay] Robot WebSocket closed with code ${code}${reason ? ': ' + reason : ''}`);
+          
+          // Automatically attempt to reconnect if client is still connected
+          if (clientSocket.readyState === WebSocket.OPEN) {
+            console.log('[Relay] Attempting to reconnect to robot WebSocket in 2 seconds...');
+            
+            // Wait a moment before reconnecting
+            setTimeout(() => {
+              if (clientSocket.readyState === WebSocket.OPEN) {
+                console.log('[Relay] Reconnecting to robot WebSocket...');
+                createRobotSocketConnection();
+              }
+            }, 2000);
+          }
+        });
+        
+        return robotSocket;
+      };
+      
+      // Initial connection
+      robotSocket = createRobotSocketConnection();
       
       clientSocket.on('close', () => {
         console.log('[Relay] Client disconnected from pose relay');
-        robotSocket.close();
+        if (robotSocket && robotSocket.readyState === WebSocket.OPEN) {
+          robotSocket.close();
+        }
       });
     });
     

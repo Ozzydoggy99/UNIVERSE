@@ -1,0 +1,90 @@
+✅ 🔧 REPLIT FIX PROMPT: Relay Server WebSocket Auth Headers (AutoXing Robot)
+🚨 Problem:
+The robot WebSocket connection is being closed immediately because it's missing the required authentication headers (x-auth-key, x-auth-secret) as documented by AutoXing.
+
+These must be sent as custom headers during the initial WebSocket handshake, which is not possible directly from the browser.
+
+Since Replit has access to the key and secret already, please inject those headers when the backend relay connects to the robot.
+
+✅ Objective:
+Update the backend relay (relay-server.js) so that when it connects to the robot at:
+
+bash
+Copy
+Edit
+ws://47.180.91.99/websocket/robot/L382502104987ir/pose
+…it includes the correct authentication headers.
+
+🧩 File: relay-server.js
+Update the connection code to include headers like this:
+
+js
+Copy
+Edit
+const WebSocket = require("ws");
+const express = require("express");
+const http = require("http");
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server, path: "/ws/pose" });
+
+// Robot WebSocket endpoint
+const ROBOT_SERIAL = "L382502104987ir";
+const ROBOT_WS_URL = `ws://47.180.91.99/websocket/robot/${ROBOT_SERIAL}/pose`;
+
+// 👇 Replit: you already have the key and secret — fill them in here
+const ROBOT_AUTH_KEY = "FILL_IN_AUTH_KEY";
+const ROBOT_AUTH_SECRET = "FILL_IN_AUTH_SECRET";
+
+wss.on("connection", (clientSocket) => {
+  console.log("[Relay] Client connected");
+
+  // Relay connects to robot WS with auth headers
+  const robotSocket = new WebSocket(ROBOT_WS_URL, {
+    headers: {
+      "x-auth-key": ROBOT_AUTH_KEY,
+      "x-auth-secret": ROBOT_AUTH_SECRET
+    }
+  });
+
+  robotSocket.on("open", () => {
+    console.log("[Relay] Connected to robot WebSocket");
+  });
+
+  robotSocket.on("message", (data) => {
+    if (clientSocket.readyState === WebSocket.OPEN) {
+      clientSocket.send(data);
+    }
+  });
+
+  robotSocket.on("error", (err) => {
+    console.error("[Relay] Robot WebSocket error:", err.message);
+  });
+
+  robotSocket.on("close", (code, reason) => {
+    console.warn(`[Relay] Robot socket closed: ${code} - ${reason}`);
+  });
+
+  clientSocket.on("close", () => {
+    console.log("[Relay] Client disconnected");
+    robotSocket.close();
+  });
+});
+
+app.get("/", (req, res) => {
+  res.send("Relay WebSocket Server is running.");
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Relay server running on port ${PORT}`);
+});
+✅ Result
+Replit’s relay now connects to the robot using proper x-auth-key and x-auth-secret headers
+
+The WebSocket session will no longer be rejected or closed
+
+Your frontend will receive live pose updates via the secure wss://.../ws/pose path
+
+💡 Replit: Please remember to securely fill in the correct header values where marked. Let me know if you'd like the headers loaded from a .env file instead.
