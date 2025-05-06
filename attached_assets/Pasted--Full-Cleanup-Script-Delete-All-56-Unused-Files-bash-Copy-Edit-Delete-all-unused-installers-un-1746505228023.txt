@@ -1,0 +1,63 @@
+🧹 Full Cleanup Script: Delete All 56 Unused Files
+bash
+Copy
+Edit
+# Delete all unused installers, unpackers, and redundant files
+
+rm -f AI_modules/installer-test.py
+rm -f Legacy/robot-installer.js
+rm -f Legacy/robot-installer-test.py
+rm -f Legacy/zip-handler.js
+rm -f android-content-installer.py
+rm -f android-extract-script.sh
+rm -f android-robot-installer.py
+rm -f auto-installer.sh
+rm -f auto-unpacker-test.py
+rm -f auto-unzip-handler.py
+rm -f bin/robot-ai-unpacker.py
+rm -f bin/robot-installer-helper.sh
+rm -f bin/robot-installer.sh
+rm -f bin/robot-self-extractor.py
+rm -f bin/temp-unzip.sh
+rm -f client/src/components/robot/installer-button.tsx
+rm -f client/src/modules/unpack-utils.ts
+rm -f client/src/utils/test-installer.ts
+rm -f client/tests/unpack.test.ts
+rm -f devtools/install-batch.bat
+rm -f devtools/robot-zip-packer.py
+rm -f devtools/setup-copy-script.sh
+rm -f helpers/robot-upload-test.py
+rm -f install-payload.sh
+rm -f installer-demo.sh
+rm -f installer/README-INSTALLERS.md
+rm -f installer/android-unpack-test.py
+rm -f installer/legacy-installer.sh
+rm -f installer/robot-unzip-module.py
+rm -f legacy_modules/robot-ai-installer.sh
+rm -f legacy_modules/robot-installer-legacy.py
+rm -f minimal-installers/install-minimal.bat
+rm -f minimal-installers/minimal-installer.py
+rm -f old_robot_modules/robot-ai-unpack.py
+rm -f old_robot_modules/robot-unzip-handler.py
+rm -f old_robot_modules/unpack-core.py
+rm -f robot-ai-unpack-controller.py
+rm -f robot-payload-creator.py
+rm -f robot_upload.sh
+rm -f robot_unzip_util.sh
+rm -f scripts/robot-ai-auto-installer.sh
+rm -f scripts/robot-zip-helper.py
+rm -f scripts/unzip-check.sh
+rm -f shell/install.sh
+rm -f shell/setup.sh
+rm -f shell/test-installer.sh
+rm -f shell/unpack_test.sh
+rm -f shell/unzip_payload.sh
+rm -f temp/install-temp.sh
+rm -f temp/unpack-temp.py
+rm -f test/robot-installer.test.js
+rm -f tools/robot-zip-extractor.py
+rm -f tools/unpacker-utils.py
+rm -f upload-payload.py
+rm -f zip-handler.py
+
+echo "✅ All 56 files removed successfully."
