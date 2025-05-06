@@ -9,6 +9,7 @@ import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
 import { registerRobotJoystickApiRoutes } from './robot-joystick-api';
+import { registerRobotPointsApiRoutes } from './robot-points-api';
 import missionRouter from './mission-routes';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -33,6 +34,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register robot joystick API routes
   registerRobotJoystickApiRoutes(app);
+  
+  // Register robot points API routes
+  registerRobotPointsApiRoutes(app);
   
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
