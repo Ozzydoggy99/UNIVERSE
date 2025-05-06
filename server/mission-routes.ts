@@ -1,0 +1,67 @@
+// server/mission-routes.ts
+import { Request, Response, Router } from "express";
+import { runMission } from "./backend/mission-runner";
+
+// Define the interface for the request body
+interface RobotTaskRequest {
+  mode: "pickup" | "dropoff";
+  shelfId: string;
+}
+
+// Create a router for mission-related endpoints
+const missionRouter = Router();
+
+/**
+ * Endpoint to run a robot task
+ * POST /api/robot-task
+ * Body: { mode: "pickup" | "dropoff", shelfId: string }
+ */
+missionRouter.post("/robot-task", async (req: Request, res: Response) => {
+  try {
+    const { mode, shelfId } = req.body as RobotTaskRequest;
+    
+    // Validate request parameters
+    if (!mode || !["pickup", "dropoff"].includes(mode)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Invalid mode. Must be 'pickup' or 'dropoff'." 
+      });
+    }
+    
+    if (!shelfId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Missing shelfId parameter." 
+      });
+    }
+
+    // Run the mission
+    await runMission({ uiMode: mode, shelfId });
+    
+    // Return success response
+    res.json({ 
+      success: true,
+      message: `Mission ${mode} completed successfully for shelf ${shelfId}`
+    });
+  } catch (err: any) {
+    console.error("❌ Error running robot task:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      error: err.message 
+    });
+  }
+});
+
+/**
+ * Endpoint to get mission status (placeholder for future implementation)
+ * GET /api/robot-task/status
+ */
+missionRouter.get("/robot-task/status", async (req: Request, res: Response) => {
+  // This could be expanded to return the current status of any active mission
+  res.json({ 
+    success: true,
+    status: "No active mission" 
+  });
+});
+
+export default missionRouter;

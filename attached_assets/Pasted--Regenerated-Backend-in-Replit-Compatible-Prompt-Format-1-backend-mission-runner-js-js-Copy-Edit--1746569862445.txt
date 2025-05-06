@@ -1,0 +1,134 @@
+✅ Regenerated Backend in Replit-Compatible Prompt Format
+1. backend/mission-runner.js
+js
+Copy
+Edit
+// backend/mission-runner.js
+import axios from "axios";
+
+const robotIp = process.env.ROBOT_IP || "192.168.4.31";
+const secretKey = process.env.ROBOT_SECRET_KEY;
+
+async function fetchPoints() {
+  const url = `http://${robotIp}:8090/maps/current_map/points`;
+  const res = await axios.get(url, {
+    headers: { "x-api-key": secretKey }
+  });
+  return res.data.points;
+}
+
+function categorize(points) {
+  let pickup = null, dropoff = null, standby = null, shelves = [];
+
+  for (const p of points) {
+    const label = p.id.toLowerCase();
+    if (label.includes("pick")) pickup = p;
+    else if (label.includes("drop")) dropoff = p;
+    else if (label.includes("desk")) standby = p;
+    else shelves.push(p);
+  }
+
+  return { pickup, dropoff, standby, shelves };
+}
+
+async function moveToPoint(pointId) {
+  const url = `http://${robotIp}:8090/chassis/move_to_point`;
+  await axios.post(url, {
+    point_id: pointId,
+    creator: "backend-system"
+  }, {
+    headers: { "x-api-key": secretKey }
+  });
+}
+
+function wait(ms) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
+// Mission based on human UI perspective
+export async function runMission({ uiMode, shelfId }) {
+  const allPoints = await fetchPoints();
+  const { pickup, dropoff, standby, shelves } = categorize(allPoints);
+
+  const shelf = shelves.find(p => p.id === shelfId);
+  if (!shelf) throw new Error(`Shelf point ${shelfId} not found.`);
+
+  if (uiMode === "dropoff") {
+    // Human wants to drop a bin at a shelf → Robot: pick up → shelf → home
+    await moveToPoint(pickup.id);
+    console.log(`📦 Picked up bin at ${pickup.id}`);
+    await wait(4000);
+
+    await moveToPoint(shelf.id);
+    console.log(`📤 Dropped bin at shelf ${shelf.id}`);
+    await wait(4000);
+  }
+
+  if (uiMode === "pickup") {
+    // Human wants to pick up from shelf → Robot: shelf → dropoff → home
+    await moveToPoint(shelf.id);
+    console.log(`📦 Picked up bin at shelf ${shelf.id}`);
+    await wait(4000);
+
+    await moveToPoint(dropoff.id);
+    console.log(`📤 Dropped bin at ${dropoff.id}`);
+    await wait(4000);
+  }
+
+  if (standby) {
+    await moveToPoint(standby.id);
+    console.log(`🛑 Returned to standby (${standby.id})`);
+  }
+}
+2. server.js
+js
+Copy
+Edit
+// server.js
+import express from "express";
+import { runMission } from "./backend/mission-runner.js";
+
+const app = express();
+app.use(express.json());
+
+app.post("/api/robot-task", async (req, res) => {
+  const { mode, shelfId } = req.body; // mode: 'pickup' or 'dropoff'
+
+  try {
+    await runMission({ uiMode: mode, shelfId });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.listen(3000, () => console.log("🚀 Mission server running on http://localhost:3000"));
+3. main.sh
+bash
+Copy
+Edit
+# Replit-compatible shell start file
+npm install express axios
+node server.js
+4. .env in Replit (Secrets Panel)
+ini
+Copy
+Edit
+ROBOT_SECRET_KEY=your-secret-key
+ROBOT_IP=192.168.4.31
+🧪 Example Call to Test It
+bash
+Copy
+Edit
+curl -X POST http://localhost:3000/api/robot-task \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"dropoff", "shelfId":"132"}'
+Or to pick up from shelf 145:
+
+bash
+Copy
+Edit
+curl -X POST http://localhost:3000/api/robot-task \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"pickup", "shelfId":"145"}'
