@@ -1,0 +1,119 @@
+✅ OVERVIEW
+🧩 Goal:
+Replit frontend (HTTPS) ←→ Node.js relay ←→ robot (ws://192.168.4.31:80/...)
+
+✅ Benefits:
+Bypasses browser's mixed content restrictions
+
+Keeps frontend safe, simple, and clean
+
+Relay is lightweight and works on Replit or anywhere Node.js is hosted
+
+🧱 FILE 1: relay-server.js (Node WebSocket proxy)
+Create this file in Replit (Node.js project):
+
+js
+Copy
+Edit
+// relay-server.js
+
+const WebSocket = require("ws");
+const express = require("express");
+const http = require("http");
+
+const ROBOT_WS = "ws://192.168.4.31/websocket/robot/L382502104987ir/pose"; // your internal robot endpoint
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server, path: "/ws/pose" });
+
+wss.on("connection", (clientSocket) => {
+  console.log("[Relay] Client connected");
+
+  const robotSocket = new WebSocket(ROBOT_WS);
+
+  robotSocket.on("open", () => {
+    console.log("[Relay] Connected to robot WebSocket");
+  });
+
+  robotSocket.on("message", (data) => {
+    if (clientSocket.readyState === WebSocket.OPEN) {
+      clientSocket.send(data);
+    }
+  });
+
+  robotSocket.on("error", (err) => {
+    console.error("[Relay] Robot WebSocket error:", err);
+  });
+
+  robotSocket.on("close", () => {
+    console.log("[Relay] Robot WebSocket closed");
+  });
+
+  clientSocket.on("close", () => {
+    console.log("[Relay] Client disconnected");
+    robotSocket.close();
+  });
+});
+
+app.get("/", (req, res) => {
+  res.send("Relay WebSocket Server is running.");
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Relay server running on port ${PORT}`);
+});
+🧩 STEP 2: package.json Dependencies
+In package.json, make sure you add:
+
+json
+Copy
+Edit
+"dependencies": {
+  "express": "^4.18.2",
+  "ws": "^8.13.0"
+}
+▶️ STEP 3: Run the Relay on Replit
+Open Replit
+
+Set your Run command to:
+
+nginx
+Copy
+Edit
+node relay-server.js
+Start the server
+
+You’ll see logs like:
+
+arduino
+Copy
+Edit
+Relay server running on port 3000
+[Relay] Client connected
+[Relay] Connected to robot WebSocket
+🧠 TEST: Your Relay URL
+If your Replit project is called my-relay, your WebSocket endpoint will be:
+
+arduino
+Copy
+Edit
+wss://my-relay.replit.app/ws/pose
+You can test it with PieSocket Tester or your frontend.
+
+🧩 STEP 4: Update Your Frontend (Replit UI)
+In useRobotPoseWebSocket.ts, replace:
+
+ts
+Copy
+Edit
+const wsUrl = `ws://192.168.4.31/...`;
+with:
+
+ts
+Copy
+Edit
+const wsUrl = `wss://my-relay.replit.app/ws/pose`;
+Now your frontend will get real robot pose data via a secure WebSocket — no browser errors, and the red dot should work.
+
