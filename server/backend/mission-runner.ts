@@ -1,8 +1,6 @@
 // server/backend/mission-runner.ts
 import axios from "axios";
-
-const robotIp = process.env.ROBOT_IP || "192.168.4.31";
-const secretKey = process.env.ROBOT_SECRET || "";
+import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
 
 interface Point {
   id: string;
@@ -29,10 +27,10 @@ interface MissionParams {
  */
 async function fetchPoints(): Promise<Point[]> {
   try {
-    const url = `http://${robotIp}:8090/maps/current_map/points`;
+    const url = `${ROBOT_API_URL}/maps/current_map/points`;
     console.log(`Fetching points from: ${url}`);
     const res = await axios.get(url, {
-      headers: { "x-api-key": secretKey }
+      headers: { "x-api-key": ROBOT_SECRET }
     });
     return res.data.points;
   } catch (error: any) {
@@ -64,13 +62,13 @@ function categorize(points: Point[]): CategorizedPoints {
  */
 async function moveToPoint(pointId: string): Promise<void> {
   try {
-    const url = `http://${robotIp}:8090/chassis/move_to_point`;
+    const url = `${ROBOT_API_URL}/chassis/move_to_point`;
     console.log(`Sending move command to: ${url} for point: ${pointId}`);
     await axios.post(url, {
       point_id: pointId,
       creator: "backend-system"
     }, {
-      headers: { "x-api-key": secretKey }
+      headers: { "x-api-key": ROBOT_SECRET }
     });
   } catch (error: any) {
     console.error(`Error moving to point ${pointId}:`, error.message);
@@ -93,13 +91,13 @@ function wait(ms: number): Promise<void> {
 export async function runMission({ uiMode, shelfId }: MissionParams): Promise<void> {
   console.log(`Starting mission: mode=${uiMode}, shelfId=${shelfId}`);
   
-  // Ensure we have a valid robot IP and secret key
-  if (!robotIp) {
-    throw new Error("Robot IP is not configured. Please set ROBOT_IP environment variable.");
+  // Ensure we have a valid robot API URL and secret key
+  if (!ROBOT_API_URL) {
+    throw new Error("Robot API URL is not configured.");
   }
   
-  if (!secretKey) {
-    throw new Error("Robot secret key is not configured. Please set ROBOT_SECRET environment variable.");
+  if (!ROBOT_SECRET) {
+    throw new Error("Robot secret key is not configured. Please check environment variable.");
   }
 
   // Fetch and categorize all points
