@@ -7,6 +7,20 @@ import { Badge } from "@/components/ui/badge";
 
 const robotSerial = "L382502104987ir"; // Using the physical robot serial
 
+// Define the PositionData interface for proper type checking
+interface PositionData {
+  x: number;
+  y: number;
+  z: number;
+  theta: number;
+  orientation: {
+    x: number;
+    y: number;
+    z: number;
+    w: number;
+  };
+}
+
 export default function RobotMapsPage() {
   // Get map data from the REST API
   const { mapData, isLoading: mapLoading, error: mapError, refetch } = useRobotData(robotSerial);
@@ -15,9 +29,9 @@ export default function RobotMapsPage() {
   const websocketPosition = useRobotPoseWebSocket(robotSerial);
   
   // Convert websocket position to the format expected by SimpleMapDigitalTwin
-  const [positionData, setPositionData] = useState(null);
+  const [positionData, setPositionData] = useState<PositionData | undefined>(undefined);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdateTime, setLastUpdateTime] = useState(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
 
   // Update position data when websocket data changes
   useEffect(() => {
@@ -25,7 +39,7 @@ export default function RobotMapsPage() {
       console.log("Received websocket position update:", websocketPosition);
       
       // Convert the format to what SimpleMapDigitalTwin expects
-      setPositionData({
+      const formattedPosition: PositionData = {
         x: websocketPosition.x,
         y: websocketPosition.y,
         z: 0, // Z is usually 0 for 2D maps
@@ -36,7 +50,9 @@ export default function RobotMapsPage() {
           z: 0,
           w: 1
         }
-      });
+      };
+      
+      setPositionData(formattedPosition);
       
       // Update the last update time
       setLastUpdateTime(new Date().toLocaleTimeString());

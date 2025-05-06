@@ -53,6 +53,9 @@ export function SimpleMapDigitalTwin({
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState<number>(1);
   
+  // Debug logging for position data
+  console.log("Live robot position:", positionData);
+  
   // Convert robot position from world coordinates (meters) to pixel coordinates
   const getPositionPixels = () => {
     if (!mapData || !positionData) return { x: 0, y: 0 };
@@ -91,114 +94,111 @@ export function SimpleMapDigitalTwin({
   return (
     <Card className="w-full">
       <CardContent className="relative p-0 overflow-hidden">
-        <div className="relative h-[500px] w-full border rounded-md overflow-hidden">
-          {isLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Loading map data...</p>
-              </div>
+        {isLoading ? (
+          <div className="h-[500px] flex items-center justify-center bg-gray-100/50">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Loading map data...</p>
             </div>
-          ) : error ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50 text-destructive">
-              <div className="text-center max-w-md p-4">
-                <p className="font-semibold mb-2">Error loading map</p>
-                <p className="text-sm">{error}</p>
-              </div>
+          </div>
+        ) : error ? (
+          <div className="h-[500px] flex items-center justify-center bg-gray-100/50 text-destructive">
+            <div className="text-center max-w-md p-4">
+              <p className="font-semibold mb-2">Error loading map</p>
+              <p className="text-sm">{error}</p>
             </div>
-          ) : (
-            <>
-              {/* Direct rendering of map image and robot position */}
-              <div className="relative w-full h-full">
-                {mapData?.grid ? (
-                  <div className="relative w-full h-full" style={{ transform: `scale(${scale})`, transformOrigin: 'center' }}>
-                    <img
-                      src={`data:image/png;base64,${mapData.grid}`}
-                      alt="Robot Map"
-                      className="w-full h-full object-contain"
-                      style={{ 
-                        imageRendering: 'pixelated'
-                      }}
-                    />
-                    
-                    {/* Robot position marker */}
-                    {positionData && mapData?.resolution && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: `${getPositionPixels().y}px`,
-                          left: `${getPositionPixels().x}px`,
-                          width: "12px",
-                          height: "12px",
-                          backgroundColor: "red",
-                          borderRadius: "50%",
-                          transform: `translate(-50%, -50%) rotate(${positionData.theta}rad)`,
-                          pointerEvents: "none",
-                          zIndex: 10,
-                          boxShadow: "0 0 5px 1px rgba(255, 0, 0, 0.7)"
-                        }}
-                      >
-                        {/* Direction indicator */}
-                        <div 
-                          style={{
-                            position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            width: "10px",
-                            height: "2px",
-                            backgroundColor: "white",
-                            transform: "translateY(-50%)",
-                            transformOrigin: "0 0"
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p>No map data available</p>
-                  </div>
-                )}
+          </div>
+        ) : (
+          <div className="relative h-[500px]">
+            {/* MAP IMAGE */}
+            {mapData?.grid ? (
+              <img
+                src={`data:image/png;base64,${mapData.grid}`}
+                alt="Digital Twin Map"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  imageRendering: "pixelated",
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'center'
+                }}
+              />
+            ) : (
+              <p className="p-4 text-center text-muted-foreground">No map available</p>
+            )}
+
+            {/* ROBOT POSITION MARKER */}
+            {positionData && mapData?.resolution && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: `${getPositionPixels().y}px`,
+                  left: `${getPositionPixels().x}px`,
+                  width: "20px",
+                  height: "20px",
+                  backgroundColor: "red",
+                  border: "2px solid white",
+                  borderRadius: "50%",
+                  transform: `translate(-50%, -50%) rotate(${positionData.theta}rad)`,
+                  zIndex: 9999,
+                  pointerEvents: "none",
+                  boxShadow: "0 0 8px 2px rgba(255, 0, 0, 0.7)"
+                }}
+              >
+                {/* Direction indicator */}
+                <div 
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    width: "12px",
+                    height: "3px",
+                    backgroundColor: "white",
+                    transform: "translateY(-50%)",
+                    transformOrigin: "0 0"
+                  }}
+                />
               </div>
-              
-              {/* Controls */}
-              <div className="absolute bottom-4 right-4 flex gap-2 bg-background/80 backdrop-blur-sm p-2 rounded-md shadow-md border">
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={() => handleZoom('in')}
-                  title="Zoom In"
-                >
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={() => handleZoom('out')}
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={onRefresh}
-                  title="Refresh Map Data"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
+            )}
+            
+            {/* Controls */}
+            <div className="absolute bottom-4 right-4 flex gap-2 bg-background/80 backdrop-blur-sm p-2 rounded-md shadow-md border">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => handleZoom('in')}
+                title="Zoom In"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => handleZoom('out')}
+                title="Zoom Out"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={onRefresh}
+                title="Refresh Map Data"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Coordinates display */}
+            {positionData && (
+              <div className="absolute bottom-4 left-4 bg-background/80 backdrop-blur-sm p-2 rounded-md shadow-md text-xs font-mono border">
+                <div>X: {positionData.x.toFixed(3)}m</div>
+                <div>Y: {positionData.y.toFixed(3)}m</div>
               </div>
-              
-              {/* Coordinates display */}
-              {positionData && (
-                <div className="absolute bottom-4 left-4 bg-background/80 backdrop-blur-sm p-2 rounded-md shadow-md text-xs font-mono border">
-                  <div>X: {positionData.x.toFixed(3)}m</div>
-                  <div>Y: {positionData.y.toFixed(3)}m</div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

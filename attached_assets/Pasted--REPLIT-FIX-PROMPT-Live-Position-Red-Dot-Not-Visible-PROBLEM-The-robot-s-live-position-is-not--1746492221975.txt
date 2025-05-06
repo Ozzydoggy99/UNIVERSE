@@ -1,0 +1,85 @@
+✅ 🔧 REPLIT FIX PROMPT: Live Position Red Dot Not Visible
+PROBLEM:
+The robot’s live position is not being visualized because:
+
+The red dot might be too small or hidden behind the map
+
+The positioning container might not be styled correctly
+
+The WebSocket may be returning data but not being rendered
+
+You’re already fetching the correct positionData via:
+
+ts
+Copy
+Edit
+const wsUrl = `ws://192.168.4.31/websocket/robot/${robotSerial}/pose`;
+✅ OBJECTIVE
+Update the red dot in SimpleMapDigitalTwin.tsx to:
+
+Be larger and styled for visibility
+
+Sit properly on top of the map image
+
+Use accurate positioning
+
+🧩 STEP 1: Modify JSX in SimpleMapDigitalTwin.tsx
+Find the <CardContent> block and replace it with this:
+
+tsx
+Copy
+Edit
+<CardContent className="relative p-0 overflow-hidden">
+  {/* MAP IMAGE */}
+  {mapData?.grid ? (
+    <img
+      src={`data:image/png;base64,${mapData.grid}`}
+      alt="Digital Twin Map"
+      style={{
+        width: "100%",
+        display: "block",
+        imageRendering: "pixelated",
+      }}
+    />
+  ) : (
+    <p className="p-4 text-center text-muted-foreground">No map available</p>
+  )}
+
+  {/* ROBOT POSITION MARKER */}
+  {positionData && mapData?.resolution && (
+    <div
+      style={{
+        position: "absolute",
+        top: `${positionData.y / mapData.resolution}px`,
+        left: `${positionData.x / mapData.resolution}px`,
+        width: "20px",
+        height: "20px",
+        backgroundColor: "red",
+        border: "2px solid white",
+        borderRadius: "50%",
+        transform: "translate(-50%, -50%)",
+        zIndex: 9999,
+        pointerEvents: "none",
+      }}
+    />
+  )}
+</CardContent>
+🧪 STEP 2: Add Debug Logging
+To confirm data is coming in from WebSocket, add:
+
+tsx
+Copy
+Edit
+console.log("Live robot position:", positionData);
+Place this at the top of your SimpleMapDigitalTwin component, just inside the function body.
+
+✅ RESULT
+Once this is implemented:
+
+The red dot will be 20px large, bordered in white, and easily visible
+
+The position will be centered using transform
+
+The dot will render above the map due to zIndex: 9999
+
+You’ll be able to confirm live data with the console
