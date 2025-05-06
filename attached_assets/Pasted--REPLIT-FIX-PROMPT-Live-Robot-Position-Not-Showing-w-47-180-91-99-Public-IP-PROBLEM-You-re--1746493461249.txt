@@ -1,0 +1,84 @@
+✅ 🔧 REPLIT FIX PROMPT: Live Robot Position Not Showing (w/ 47.180.91.99 Public IP)
+PROBLEM:
+You're hosting your robot on 47.180.91.99 via port forwarding, but the live position is not rendering.
+
+Causes:
+
+The frontend WebSocket is still pointing to 192.168.x.x (local)
+
+positionData is null because the socket fails silently
+
+The red dot is misrendered or scaled incorrectly
+
+✅ OBJECTIVE
+Connect to the robot’s public IP WebSocket via Replit
+
+Confirm position data is received with debug logs
+
+Show the red dot accurately scaled and positioned
+
+🧩 STEP 1: Update WebSocket Hook
+In client/src/hooks/use-robot-pose-websocket.ts, replace the WebSocket connection with:
+
+ts
+Copy
+Edit
+const wsUrl = `ws://47.180.91.99/websocket/robot/${robotSerial}/pose`;
+Also add a debug log:
+
+ts
+Copy
+Edit
+socketRef.current.onmessage = (event) => {
+  try {
+    const data = JSON.parse(event.data);
+    console.log("POSE DATA RECEIVED:", data); // ✅ Confirm this prints
+    if (data && typeof data.x === "number" && typeof data.y === "number") {
+      if (isMounted) {
+        setPosition(data);
+      }
+    }
+  } catch (err) {
+    console.error("WebSocket parse error:", err);
+  }
+};
+✅ This ensures you're connecting to the robot's live pose stream via public IP.
+
+🧩 STEP 2: Fix Red Dot Rendering
+In SimpleMapDigitalTwin.tsx, locate your map overlay JSX and use this:
+
+tsx
+Copy
+Edit
+{positionData && mapData?.resolution && (
+  <div
+    style={{
+      position: "absolute",
+      top: `${positionData.y / mapData.resolution}px`,
+      left: `${positionData.x / mapData.resolution}px`,
+      width: "20px",
+      height: "20px",
+      backgroundColor: "red",
+      border: "2px solid white",
+      borderRadius: "50%",
+      transform: `translate(-50%, -50%) rotate(${positionData.theta}rad)`,
+      zIndex: 9999,
+      pointerEvents: "none",
+    }}
+  />
+)}
+Also ensure this wrapping container exists:
+
+tsx
+Copy
+Edit
+<CardContent className="relative p-0 overflow-hidden">
+🧪 Debug Tip
+Temporarily add this inside your JSX to verify the robot’s pose data is arriving:
+
+tsx
+Copy
+Edit
+<pre style={{ position: "absolute", top: 0, left: 0, color: "lime", zIndex: 9999 }}>
+  {JSON.stringify(positionData, null, 2)}
+</pre>

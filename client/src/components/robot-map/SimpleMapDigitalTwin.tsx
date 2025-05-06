@@ -110,6 +110,11 @@ export function SimpleMapDigitalTwin({
           </div>
         ) : (
           <div className="relative h-[500px]">
+            {/* Debug Overlay */}
+            <pre style={{ position: "absolute", top: 0, left: 0, color: "lime", zIndex: 9999, background: "rgba(0,0,0,0.7)", padding: "4px", fontSize: "10px" }}>
+              {JSON.stringify(positionData, null, 2)}
+            </pre>
+            
             {/* MAP IMAGE */}
             {mapData?.grid ? (
               <img

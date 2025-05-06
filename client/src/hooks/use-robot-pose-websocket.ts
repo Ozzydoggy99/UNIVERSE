@@ -25,29 +25,29 @@ export function useRobotPoseWebSocket(robotSerial: string): Position | null {
     let isMounted = true;
 
     const connect = () => {
-      // Direct connection to the robot's WebSocket endpoint
-      const wsUrl = `ws://192.168.4.31/websocket/robot/${robotSerial}/pose`;
+      // Direct connection to the robot's WebSocket endpoint using PUBLIC IP
+      const wsUrl = `ws://47.180.91.99/websocket/robot/${robotSerial}/pose`;
 
       try {
-        console.log(`[WebSocket] Connecting directly to robot at: ${wsUrl}`);
+        console.log(`[WebSocket] Connecting directly to robot at public IP: ${wsUrl}`);
         socketRef.current = new WebSocket(wsUrl);
 
         socketRef.current.onopen = () => {
-          console.log("[WebSocket] Connected to robot pose stream");
+          console.log("[WebSocket] Connected to robot pose stream at public IP");
         };
 
         socketRef.current.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            console.log("POSE DATA RECEIVED:", data); // ✅ Confirm this prints
+            
             if (data && typeof data.x === "number" && typeof data.y === "number") {
-              console.log("Received direct robot position update:", data);
-              
               if (isMounted) {
                 setPosition(data);
               }
             }
           } catch (err) {
-            console.error("Failed to parse pose message:", err);
+            console.error("WebSocket parse error:", err);
           }
         };
 
