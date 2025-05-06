@@ -1,0 +1,105 @@
+✅ Scalable, Multi-Robot Architecture (Using Your Existing System)
+🔁 What Stays from Your Code
+robot-ws-client.js: real-time bridge (per robot or multiplexed)
+
+robot-client.js: REST fallbacks or batch commands
+
+robot-ai-core.py, task-queue.py: offboard intelligence
+
+robot-ai-web-interface.html OR the React /client/: front-end robot dashboard
+
+Live robot dashboard per physical robot, already working
+
+🧠 Scalable Control Flow
+text
+Copy
+Edit
+[ Replit / Cloud / DevOps Server ]
+ ├─ [ robot-manager.js ] ← tracks 1000s of robots by ID
+ │   ├─ connects to each robot’s WebSocket
+ │   ├─ registers, maps, assigns templates
+ │   └─ feeds into...
+ │
+ ├─ [ robot-router.js ] ← maps events to AI modules
+ │   └─ per-robot task queue + AI behaviors
+ │
+ ├─ [ Dashboard: React or HTML ] ← already exists
+ │   └─ Shows each robot, its state, map, task queue
+ │
+ └─ [ External AI Modules: Python ]
+     ├─ robot-ai-core.py
+     ├─ robot-ai-elevator-controller.py
+     └─ robot-ai-map-visualizer.py
+📦 Replit Startup Prompt (Honors Existing Code Structure)
+Here’s a Replit-compatible main.sh that launches everything you already have and keeps it scalable:
+
+bash
+Copy
+Edit
+#!/bin/bash
+
+export ROBOT_SECRET_KEY="your-secret-key"
+export ROBOT_API_HOST="192.168.4.31"
+export ROBOT_API_PORT="8090"
+
+echo "🔌 Starting universal multi-robot interface..."
+
+# Start robot manager (connects to many robots via WebSocket)
+node robot-manager.js &
+
+# Start dashboard UI (assumes React client already works)
+npm install --prefix client
+npm run dev --prefix client &
+
+# Start AI modules (modular and scalable per robot)
+python3 robot-ai-core.py &
+python3 robot-ai-task-queue.py &
+🧠 Key Components You’ll Want (If Not Already Built)
+✅ robot-manager.js
+Responsible for:
+
+Tracking all active robots by serialNumber or robotId
+
+Opening WebSocket connections (or pooling them)
+
+Fetching map/template info via API
+
+Injecting events into your dashboard frontend
+
+Suggested structure:
+
+js
+Copy
+Edit
+const robots = {
+  "SN-001": connectToRobot("192.168.4.31"),
+  "SN-002": connectToRobot("192.168.4.32"),
+  ...
+}
+✅ robot-router.js
+Middleware that routes:
+
+Events from robot → AI handler
+
+Commands from dashboard → robot WebSocket/REST
+
+🌍 In Your Dashboard (Already Built per Robot)
+Expand to:
+
+Live map based on odometry or SLAM
+
+Realtime template/zone assignment
+
+Task progress (queue from task-queue.py)
+
+Health & telemetry (battery, sensors, errors)
+
+📋 API & Auth (per your robot's setup)
+Every robot call must include:
+
+http
+Copy
+Edit
+x-api-key: <ROBOT_SECRET_KEY>
+Whether through axios, requests, or WebSocket headers — this remains consistent and you already have it embedded.
+
