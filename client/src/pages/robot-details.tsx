@@ -526,24 +526,17 @@ export default function RobotDetails() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
-        <div className="md:w-1/3 space-y-6">
-          {/* Robot Info Card */}
+        {/* Sidebar Component */}
+        <div className="md:w-1/4 lg:w-1/5 space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <div className="flex justify-between items-start">
-                <CardTitle className="text-xl flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
                   {displayAssignment?.name || `Robot ${serialNumber}`}
                 </CardTitle>
-                <div className="flex items-center gap-2">
-                  <InstallerButton serialNumber={serialNumber} size="sm" />
-                  <PowerCycleButton serialNumber={serialNumber} size="sm" />
-                  <Badge className={getStatusColor(finalStatus.status)}>
-                    {finalStatus.status?.toUpperCase() || 'UNKNOWN'}
-                  </Badge>
-                </div>
               </div>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 {displayTemplate?.name || `Template #${displayAssignment?.templateId}`}
               </CardDescription>
             </CardHeader>
@@ -794,20 +787,26 @@ export default function RobotDetails() {
           </Card>
         </div>
 
-        <div className="md:w-2/3">
+        {/* Main Content Area */}
+        <div className="md:w-3/4 lg:w-4/5">
           <Card className="h-full">
             <CardHeader className="pb-2">
               <div className="flex justify-between items-center">
-                <CardTitle>Robot Information</CardTitle>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="flex items-center gap-1"
-                  onClick={() => refreshData()}
-                >
-                  <RotateCw className="h-4 w-4" />
-                  Refresh
-                </Button>
+                <CardTitle>Robot Dashboard</CardTitle>
+                <div className="flex gap-2 items-center">
+                  <Badge className={`${getStatusColor(finalStatus.status)} mr-2`}>
+                    {finalStatus.status?.toUpperCase() || 'UNKNOWN'}
+                  </Badge>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={() => refreshData()}
+                  >
+                    <RotateCw className="h-4 w-4" />
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="h-[calc(100%-70px)]">
