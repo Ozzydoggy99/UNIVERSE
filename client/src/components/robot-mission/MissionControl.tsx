@@ -18,11 +18,15 @@ export interface MissionControlProps {
 export function MissionControl({ shelfPoints }: MissionControlProps) {
   const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
   const [selectedShelf, setSelectedShelf] = useState<string>("");
+  const { toast } = useToast();
 
   // Mission execution mutation
   const { mutate, isPending, isError, error } = useMutation({
     mutationFn: async (data: { mode: "pickup" | "dropoff"; shelfId: string }) => {
-      const response = await apiRequest("POST", "/api/robot-task", data);
+      const response = await apiRequest("/api/robot-task", { 
+        method: "POST", 
+        data: data 
+      });
       return response.json();
     },
     onSuccess: () => {

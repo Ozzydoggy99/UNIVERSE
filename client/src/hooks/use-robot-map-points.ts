@@ -20,7 +20,7 @@ interface CategorizedPoints {
 export function useRobotMapPoints() {
   const { data, isLoading, error } = useQuery<Point[], Error>({
     queryKey: ["/api/robots/points"],
-    queryFn: getQueryFn({}),
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
   // Categorize points into types (pickup, dropoff, standby, shelves)

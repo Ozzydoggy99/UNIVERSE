@@ -30,6 +30,7 @@ import RobotInstaller from "@/pages/robot-installer";
 import InstallerDebugPage from "@/pages/installer-debug";
 import RemoteExecutor from "@/pages/remote-executor";
 import RobotMapsPage from "@/pages/robot-maps-page";
+import RobotMissionPage from "@/pages/robot-mission-page";
 import Sidebar, { SidebarProvider, useSidebar } from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -439,6 +440,16 @@ function Router() {
         component={() => (
           <AppLayout>
             <RobotMapsPage />
+          </AppLayout>
+        )} 
+      />
+      
+      {/* Robot Mission Page */}
+      <ProtectedRoute 
+        path="/robot-mission" 
+        component={() => (
+          <AppLayout>
+            <RobotMissionPage />
           </AppLayout>
         )} 
       />

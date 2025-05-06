@@ -30,7 +30,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       throw new Error(`Failed to fetch map points: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as { points: Point[] };
     
     if (!data.points || !Array.isArray(data.points)) {
       throw new Error('Invalid response format: missing points array');
