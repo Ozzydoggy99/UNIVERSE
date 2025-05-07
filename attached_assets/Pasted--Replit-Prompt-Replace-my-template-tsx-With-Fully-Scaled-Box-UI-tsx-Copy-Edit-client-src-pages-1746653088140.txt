@@ -1,3 +1,7 @@
+🧩 Replit Prompt: Replace my-template.tsx With Fully Scaled Box UI
+tsx
+Copy
+Edit
 // client/src/pages/my-template.tsx
 import { useState } from "react";
 import { useSimplifiedRobotTask } from "@/hooks/use-simplified-robot-task";
@@ -135,3 +139,12 @@ export default function MyTemplate() {
     </div>
   );
 }
+🧱 Changes Made
+All buttons are now full-height blocks, 2–4 per row
+
+Uses Tailwind’s grid to auto-flow layout responsively
+
+Sizes (h-40, text-2xl, p-10) optimized for tablet and phone use
+
+Matches your earlier UI screenshots almost identically
+
