@@ -42,35 +42,60 @@ export function useSimplifiedRobotTask() {
         
         const data = await res.json();
         
-        // Filter out special-purpose points like Standby and Charging Station
-        const validPoints = (data.points || []).filter((p: Point) => {
+        // Get all available points
+        const allAvailablePoints = data.points || [];
+        console.log("All available points:", allAvailablePoints.map(p => p.id));
+
+        // Filter out special-purpose points for our shelf selection UI
+        const validPoints = allAvailablePoints.filter((p: Point) => {
           const label = p.id?.toLowerCase();
-          return (
-            label &&
-            !label.includes("standby") &&
-            !label.includes("charging") &&
-            !label.includes("drop") &&
-            !label.includes("pick")
-          );
+          // Skip points that don't have an ID
+          if (!label) return false;
+          
+          // Skip special purpose points, they're not shelf locations to show in UI
+          const isSpecialPoint = 
+            label.includes("standby") || 
+            label.includes("charging") || 
+            label.includes("drop") || 
+            label.includes("pick");
+            
+          return !isSpecialPoint;
         });
 
-        console.log("Filtered points:", validPoints);
+        console.log("Filtered points for UI:", validPoints.map(p => p.id));
 
-        // Organize points by floor number (from the first digit of the ID)
+        // Organize points by floor number 
         const buckets: Record<string, Point[]> = {};
-        // Ensure floor 1 always exists
-        buckets["1"] = [];
-
+        
         for (const point of validPoints) {
-          // Extract the floor number from the point ID
-          const floorMatch = point.id.match(/^(\d+)/);
-          const floorId = floorMatch ? floorMatch[1] : "1"; // Default to floor 1
+          // First, try to extract a floor number from the beginning of the ID
+          let floorId = "1"; // Default to floor 1
+          
+          // Check if the ID is a simple number (like "1", "2", etc.)
+          if (/^\d+$/.test(point.id)) {
+            floorId = point.id; // Use the number itself as the floor
+          } 
+          // If it starts with a number followed by other chars (like "1-A", "2_shelf", etc.)
+          else if (/^(\d+)/.test(point.id)) {
+            const floorMatch = point.id.match(/^(\d+)/);
+            if (floorMatch) floorId = floorMatch[1];
+          }
+          // If it has a number with a space after "floor" or "level"
+          else if (/floor\s+(\d+)/i.test(point.id) || /level\s+(\d+)/i.test(point.id)) {
+            const floorMatch = point.id.match(/(?:floor|level)\s+(\d+)/i);
+            if (floorMatch) floorId = floorMatch[1];
+          }
           
           // Create the floor bucket if it doesn't exist
           if (!buckets[floorId]) buckets[floorId] = [];
           
           // Add the point to its floor bucket
           buckets[floorId].push(point);
+        }
+        
+        // Make sure we have at least one floor bucket
+        if (Object.keys(buckets).length === 0) {
+          buckets["1"] = validPoints;
         }
 
         console.log("Organized into floors:", buckets);
