@@ -1,3 +1,9 @@
+🛠️ Replit Fix Prompt: Update mission-runner.ts to Accept All Points
+ts
+Copy
+Edit
+// Replace the entire contents of server/backend/mission-runner.ts with this:
+
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
 
