@@ -1,108 +1,40 @@
 // client/src/pages/my-template.tsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useQuery } from "@tanstack/react-query";
 import { Loader2, LogOut } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-
-type Point = { id: string };
+import { useSimplifiedRobotTask } from "@/hooks/use-simplified-robot-task";
 
 export default function MyTemplate() {
   const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
-  const [floorMap, setFloorMap] = useState<Record<string, Point[]>>({});
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const { toast } = useToast();
   const { user, logoutMutation } = useAuth();
-
-  // Fetch points from the robot
-  const { data: pointsData, isLoading: pointsLoading, error: pointsError } = useQuery({
-    queryKey: ['/api/robots/points'],
-    queryFn: async () => {
-      const response = await fetch('/api/robots/points');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch points: ${response.status}`);
-      }
-      return response.json();
-    },
-  });
-
-  // Process points into floor-based groups once data is available
-  useEffect(() => {
-    if (pointsData) {
-      const floorBuckets: Record<string, Point[]> = {};
-
-      for (const point of pointsData) {
-        const id = point.id.toLowerCase();
-        
-        // Skip non-shelf points
-        if (id.includes("pick") || id.includes("drop") || id.includes("desk") || id.includes("standby")) {
-          continue;
-        }
-
-        // Use first character of ID as floor number (e.g., "2" from "245")
-        const floor = point.id.slice(0, 1);
-        if (!floorBuckets[floor]) {
-          floorBuckets[floor] = [];
-        }
-        floorBuckets[floor].push(point);
-      }
-
-      setFloorMap(floorBuckets);
-      
-      // If there's only one floor, auto-select it
-      const floors = Object.keys(floorBuckets);
-      if (floors.length === 1) {
-        setSelectedFloor(floors[0]);
-      }
-    }
-  }, [pointsData]);
+  
+  // Use our custom hook to manage robot tasks
+  const { 
+    floorMap, 
+    isLoading, 
+    error, 
+    isRunning, 
+    runTask 
+  } = useSimplifiedRobotTask();
 
   // Handle the task execution
   const handleGo = async () => {
     if (!selectedShelf) return;
     
     setStatus("Running task...");
-    setIsRunning(true);
-
+    
     try {
-      const response = await fetch("/api/robot-task", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, shelfId: selectedShelf })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        setStatus("✅ Task completed successfully");
-        toast({
-          title: "Task Complete",
-          description: `Successfully completed the ${mode} task for shelf ${selectedShelf}`,
-        });
-      } else {
-        setStatus(`❌ Task failed: ${result.error || 'Unknown error'}`);
-        toast({
-          variant: "destructive",
-          title: "Task Failed",
-          description: result.error || "Failed to complete the task",
-        });
-      }
+      // Use our custom hook to run the task
+      runTask(mode, selectedShelf);
+      setStatus("✅ Task completed successfully");
     } catch (err: any) {
       setStatus(`❌ Task failed: ${err.message || 'Unknown error'}`);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: err.message || "An error occurred while running the task",
-      });
-      console.error("Error running task:", err);
-    } finally {
-      setIsRunning(false);
     }
   };
 
@@ -120,7 +52,7 @@ export default function MyTemplate() {
   };
 
   // Show loading state while fetching data
-  if (pointsLoading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -129,13 +61,13 @@ export default function MyTemplate() {
   }
 
   // Show error if points couldn't be loaded
-  if (pointsError) {
+  if (error) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <Alert variant="destructive">
           <AlertDescription>
-            {pointsError instanceof Error 
-              ? pointsError.message 
+            {error instanceof Error 
+              ? error.message 
               : "Failed to load map points from the robot"}
           </AlertDescription>
         </Alert>
