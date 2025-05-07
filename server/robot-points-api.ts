@@ -64,44 +64,21 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   }
 
   const points: Point[] = overlays.features
-    .filter((feature: GeoJSONFeature) =>
-      feature.geometry.type === 'Point' &&
-      feature.properties &&
-      (
-        feature.properties.type === 'Label' ||
-        feature.properties.type === '34' ||  // shelf
-        feature.properties.type === '11' ||  // general
-        feature.properties.type === '10' ||  // standby
-        feature.properties.type === '9'      // charging
-      )
-    )
+    .filter((feature: GeoJSONFeature) => feature.geometry.type === 'Point')
     .map((feature: GeoJSONFeature) => {
       const { properties, geometry } = feature;
       const id = String(properties.name || properties.text || "").trim();
 
-      // Ensure coordinates are numbers
-      const x = typeof properties.x === 'number' ? properties.x : geometry.coordinates[0];
-      const y = typeof properties.y === 'number' ? properties.y : geometry.coordinates[1];
-      
-      // Handle orientation/yaw conversion - convert all possible sources to number
-      let ori = 0; // Default orientation
-
-      if (typeof properties.orientation === 'number') {
-        ori = properties.orientation;
-      } else if (typeof properties.yaw === 'number') {
-        ori = properties.yaw;
-      } else if (typeof properties.orientation === 'string') {
-        ori = parseFloat(properties.orientation);
-      } else if (typeof properties.yaw === 'string') {
-        ori = parseFloat(properties.yaw);
-      }
+      const x = properties.x ?? geometry.coordinates[0];
+      const y = properties.y ?? geometry.coordinates[1];
+      const ori = parseFloat(properties.yaw || properties.orientation || "0");
 
       return {
         id,
         x,
         y,
         ori,
-        floorId,
+        floorId,  // ✅ <- ensure every point includes this
         description: id,
       };
     });
