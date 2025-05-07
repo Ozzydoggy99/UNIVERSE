@@ -1,0 +1,90 @@
+🧩 Replit Prompt: Replace runMission() in mission-runner.ts
+ts
+Copy
+Edit
+import axios from "axios";
+import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
+import { Point, RobotTaskRequest } from "../types";
+import { appendLog } from "../debug-log";
+
+async function waitForArrival(targetX: number, targetY: number) {
+  const headers = { "x-api-key": ROBOT_SECRET };
+  const threshold = 0.5;
+  const maxRetries = 30;
+
+  for (let i = 0; i < maxRetries; i++) {
+    const res = await axios.get(`${ROBOT_API_URL}/chassis/status`, { headers });
+    const { x, y, state } = res.data;
+
+    const dx = Math.abs(targetX - x);
+    const dy = Math.abs(targetY - y);
+
+    if (state === "idle" && dx < threshold && dy < threshold) {
+      appendLog(`✅ Robot arrived at (${x.toFixed(2)}, ${y.toFixed(2)})`);
+      return;
+    }
+
+    appendLog(`⏳ Waiting... state: ${state}, position: (${x.toFixed(2)}, ${y.toFixed(2)}), Δx=${dx.toFixed(2)}, Δy=${dy.toFixed(2)}`);
+    await new Promise(res => setTimeout(res, 2000));
+  }
+
+  appendLog("⚠️ Timed out waiting for robot to arrive");
+}
+
+export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
+  const normalize = (val: string) => String(val).trim().toLowerCase();
+
+  const pickup = points.find(p => normalize(p.id) === "pick-up");
+  const dropoff = points.find(p => normalize(p.id) === "drop-off");
+  const standby = points.find(p => normalize(p.id) === "desk");
+  const shelf = points.find(p => normalize(p.id) === normalize(shelfId));
+
+  appendLog("=== New Mission Start ===");
+  appendLog(`uiMode: ${uiMode}`);
+  appendLog(`Shelf: ${shelf?.id} (${shelf?.x}, ${shelf?.y})`);
+  appendLog(`Drop-off: ${dropoff?.id} (${dropoff?.x}, ${dropoff?.y})`);
+  appendLog(`Pickup: ${pickup?.id} (${pickup?.x}, ${pickup?.y})`);
+  appendLog(`Desk: ${standby?.id} (${standby?.x}, ${standby?.y})`);
+
+  if (!pickup || !dropoff || !standby || !shelf) {
+    throw new Error("❌ One or more required points (pickup/dropoff/desk/shelf) not found.");
+  }
+
+  const steps: Point[] = [];
+
+  if (uiMode === "pickup") {
+    steps.push(shelf);
+    steps.push(dropoff);
+  } else {
+    steps.push(standby);
+    steps.push(pickup);
+    steps.push(shelf);
+  }
+
+  steps.push(standby);
+
+  const executed = [];
+
+  for (const point of steps) {
+    appendLog(`➡️ Sending robot to: ${point.id} (${point.x}, ${point.y})`);
+
+    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+      action: "move_to",
+      target_x: point.x,
+      target_y: point.y,
+    }, {
+      headers: { "x-api-key": ROBOT_SECRET },
+    });
+
+    appendLog(`✅ Move to ${point.id} acknowledged with: ${JSON.stringify(response.data)}`);
+    executed.push({ to: point.id, result: response.data });
+
+    await waitForArrival(point.x, point.y);
+  }
+
+  return {
+    mission: `${uiMode}-${shelfId}-${Date.now()}`,
+    status: "complete",
+    executed,
+  };
+}
