@@ -45,10 +45,11 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
 export async function runMission({ uiMode, shelfId }: MissionParams): Promise<string> {
   const points = await fetchRobotMapPoints();
 
-  console.log("🧾 All available point IDs:", points.map(p => p.id));
+  console.log("🧾 Matching shelf ID:", shelfId);
+  console.log("🧾 All point IDs:", points.map(p => `"${p.id}"`).join(", "));
 
-  const shelf = points.find(p => p.id === shelfId);
-  if (!shelf) throw new Error(`Shelf point ${shelfId} not found`);
+  const shelf = points.find(p => p.id?.trim() === String(shelfId).trim());
+  if (!shelf) throw new Error(`Shelf point "${shelfId}" not found`);
 
   const standby = points.find(p => {
     const label = p.id.toLowerCase();
