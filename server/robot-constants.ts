@@ -31,6 +31,15 @@ export function updateRobotConnectionURLs(apiUrl: string, wsUrl: string) {
   console.log(`Updated robot connection URLs: API=${apiUrl}, WS=${wsUrl}`);
 }
 
+// Utility functions to get robot URL and secret key
+export function getRobotUrl(): string {
+  return ROBOT_API_URL;
+}
+
+export function getRobotSecretKey(): string {
+  return ROBOT_SECRET;
+}
+
 // Check if robot secret is set and log warning if not
 if (!ROBOT_SECRET) {
   console.warn('ROBOT_SECRET_KEY environment variable is not set. Robot API requests may fail authentication.');

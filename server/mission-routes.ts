@@ -2,12 +2,7 @@
 import { Request, Response, Router } from "express";
 import { runMission } from "./backend/mission-runner";
 import { fetchRobotMapPoints } from './robot-points-api'; // Make sure this is already imported
-
-// Define the interface for the request body
-interface RobotTaskRequest {
-  mode: "pickup" | "dropoff";
-  shelfId: string;
-}
+import { RobotTaskRequest } from './types';
 
 // Create a router for mission-related endpoints
 const missionRouter = Router();
@@ -20,7 +15,8 @@ const missionRouter = Router();
 missionRouter.post("/robot-task", async (req: Request, res: Response) => {
   try {
     console.log('👉 Starting robot task with request:', req.body);
-    const { mode, shelfId } = req.body as RobotTaskRequest;
+    const { mode, shelfId } = req.body;
+    const uiMode = mode; // Convert to uiMode for task request
     
     // Validate request parameters
     if (!mode || !["pickup", "dropoff"].includes(mode)) {

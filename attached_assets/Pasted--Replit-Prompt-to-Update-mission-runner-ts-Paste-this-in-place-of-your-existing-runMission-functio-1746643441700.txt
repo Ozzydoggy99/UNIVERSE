@@ -1,44 +1,14 @@
+🔧 Replit Prompt to Update mission-runner.ts
+Paste this in place of your existing runMission function inside server/backend/mission-runner.ts:
+
+ts
+Copy
+Edit
 import axios from "axios";
 import { getRobotSecretKey, getRobotUrl } from "../robot-constants";
 import { RobotTaskRequest } from "../types";
 
-interface Point {
-  id: string;
-  x: number;
-  y: number;
-  ori: number;
-  floorId?: string;
-}
-
-export async function fetchRobotMapPoints(): Promise<Point[]> {
-  const headers = { "x-api-key": getRobotSecretKey() };
-
-  // Get first available map
-  const mapsRes = await axios.get(`${getRobotUrl()}/maps/`, { headers });
-  const maps = mapsRes.data || [];
-  const activeMap = maps[0];
-
-  if (!activeMap) throw new Error("❌ No map found");
-
-  const rawName = activeMap.name || activeMap.map_name || "";
-  const floorMatch = rawName.match(/^(\d+)/);
-  const floorId = floorMatch ? floorMatch[1] : "1";
-
-  const mapRes = await axios.get(`${getRobotUrl()}/maps/${activeMap.id}`, { headers });
-  const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
-
-  return overlays
-    .filter((o: any) => o.type === "Label")
-    .map((o: any) => ({
-      id: o.text?.trim(),
-      x: o.x,
-      y: o.y,
-      ori: o.orientation ?? 0,
-      floorId,
-    }));
-}
-
-export async function runMission(request: RobotTaskRequest, pointsFromUI?: Point[]): Promise<any> {
+export async function runMission(request: RobotTaskRequest, pointsFromUI?: any[]) {
   const { uiMode, shelfId } = request;
   const robotURL = getRobotUrl();
   const secret = getRobotSecretKey();
@@ -63,10 +33,10 @@ export async function runMission(request: RobotTaskRequest, pointsFromUI?: Point
 
   const normalized = (str: string) => String(str).trim().toLowerCase();
 
-  const shelf = points.find((p: any) => normalized(p.id) === normalized(shelfId));
-  const pickup = points.find((p: any) => normalized(p.id).includes("pick"));
-  const dropoff = points.find((p: any) => normalized(p.id).includes("drop"));
-  const standby = points.find((p: any) => normalized(p.id).includes("desk") || normalized(p.id).includes("standby"));
+  const shelf = points.find(p => normalized(p.id) === normalized(shelfId));
+  const pickup = points.find(p => normalized(p.id).includes("pick"));
+  const dropoff = points.find(p => normalized(p.id).includes("drop"));
+  const standby = points.find(p => normalized(p.id).includes("desk") || normalized(p.id).includes("standby"));
 
   if (!shelf) throw new Error(`❌ Shelf point "${shelfId}" not found`);
   if (!pickup) throw new Error(`❌ Pickup point not found`);
