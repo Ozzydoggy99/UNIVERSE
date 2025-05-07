@@ -1,6 +1,7 @@
 // server/mission-routes.ts
 import { Request, Response, Router } from "express";
 import { runMission } from "./backend/mission-runner";
+import { fetchRobotMapPoints } from './robot-points-api'; // Make sure this is already imported
 
 // Define the interface for the request body
 interface RobotTaskRequest {
@@ -69,6 +70,30 @@ missionRouter.get("/robot-task/status", async (req: Request, res: Response) => {
     success: true,
     status: "No active mission" 
   });
+});
+
+/**
+ * Direct mission endpoint with improved point handling
+ * POST /api/
+ * Body: { uiMode: "pickup" | "dropoff", shelfId: string }
+ */
+missionRouter.post('/', async (req, res) => {
+  try {
+    const { uiMode, shelfId } = req.body;
+    console.log("📥 Received request:", { uiMode, shelfId });
+
+    // ✅ Fetch fresh points from the robot here
+    const points = await fetchRobotMapPoints();
+
+    // ✅ Debug output to confirm data is coming through
+    console.log("🧾 Points passed to mission-runner:", points.map(p => `"${p.id}"`).join(", "));
+
+    const result = await runMission({ uiMode, shelfId }, points);
+    res.json(result);
+  } catch (err: any) {
+    console.error("❌ Error running robot task:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default missionRouter;
