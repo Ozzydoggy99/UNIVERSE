@@ -13,20 +13,20 @@ const missionRouter = Router();
 
 /**
  * Endpoint to run a robot task
- * POST /api/robot-task
- * Body: { mode: "pickup" | "dropoff", shelfId: string }
+ * POST /api/mission
+ * Body: { uiMode: "pickup" | "dropoff", shelfId: string }
  */
-missionRouter.post("/robot-task", async (req: Request, res: Response) => {
+missionRouter.post("/mission", async (req: Request, res: Response) => {
   try {
     console.log('👉 Starting robot task with request:', req.body);
-    const { mode, shelfId } = req.body as RobotTaskRequest;
+    const { uiMode, shelfId } = req.body;
     
     // Validate request parameters
-    if (!mode || !["pickup", "dropoff"].includes(mode)) {
-      console.log('❌ Invalid mode:', mode);
+    if (!uiMode || !["pickup", "dropoff"].includes(uiMode)) {
+      console.log('❌ Invalid uiMode:', uiMode);
       return res.status(400).json({ 
         success: false, 
-        error: "Invalid mode. Must be 'pickup' or 'dropoff'." 
+        error: "Invalid uiMode. Must be 'pickup' or 'dropoff'." 
       });
     }
     
