@@ -42,13 +42,11 @@ missionRouter.post('/mission', async (req: Request, res: Response) => {
 
     console.log(`📢 Received mission request - Mode: ${uiMode}, Shelf ID: ${shelfId}`);
     
-    // Fetch points first using the debug endpoint to ensure we get proper data
+    // Fetch points to use for the mission
     const points = await fetchRobotMapPoints();
     
-    // Log the exact points we're using to check for potential issues
-    console.log("Available points for mission:", 
-      points.map(p => `${p.id} (${p.description})`).join(", ")
-    );
+    // Log the available points to help diagnose any issues
+    console.log("🧾 Available points for mission:", points.map(p => `"${p.id}"`).join(", "));
     
     // Execute the mission with the fetched points
     const result = await runMission({ uiMode, shelfId, points });

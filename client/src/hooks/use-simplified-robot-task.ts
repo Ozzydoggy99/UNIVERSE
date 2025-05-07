@@ -17,13 +17,30 @@ export const useSimplifiedRobotTask = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Use the existing debug-points endpoint which already works
-    fetch("/api/debug-points")
+    // Use the mission-points endpoint to get points grouped by floor
+    fetch("/api/mission-points")
       .then(res => res.json())
       .then(data => {
         console.log("Received map points:", data);
-        setPointsByFloor(data.pointsByFloor || {});
-        setError(null);
+        if (data.pointsByFloor) {
+          setPointsByFloor(data.pointsByFloor);
+          setError(null);
+        } else {
+          // If we just got a flat array, organize by floor
+          const points = data.points || [];
+          const byFloor: Record<string, Point[]> = {};
+          
+          points.forEach((point: Point) => {
+            const floorId = point.floorId || '1';
+            if (!byFloor[floorId]) {
+              byFloor[floorId] = [];
+            }
+            byFloor[floorId].push(point);
+          });
+          
+          setPointsByFloor(byFloor);
+          setError(null);
+        }
       })
       .catch(err => {
         console.error("❌ Failed to fetch points:", err);
