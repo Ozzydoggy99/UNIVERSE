@@ -63,7 +63,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
 
       const x = typeof properties.x === "number" ? properties.x : geometry.coordinates[0];
       const y = typeof properties.y === "number" ? properties.y : geometry.coordinates[1];
-      const ori = parseFloat(properties.yaw || properties.orientation || "0");
+      const ori = parseFloat(String(properties.yaw || properties.orientation || "0"));
 
       return {
         id,

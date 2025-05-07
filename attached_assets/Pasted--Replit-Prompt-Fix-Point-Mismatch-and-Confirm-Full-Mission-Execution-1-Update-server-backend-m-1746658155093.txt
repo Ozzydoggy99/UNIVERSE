@@ -1,22 +1,16 @@
+🧩 Replit Prompt: Fix Point Mismatch and Confirm Full Mission Execution
+1. ✅ Update server/backend/mission-runner.ts to log all point resolutions and execution steps
+Paste this entire function to replace your current runMission():
+
+ts
+Copy
+Edit
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
-import { fetchRobotMapPoints as fetchPoints } from "../robot-points-api";
 import { Point, RobotTaskRequest } from "../types";
-
-// This function has been moved to robot-points-api.ts
-// We keep this import/export signature for backward compatibility
-export async function fetchRobotMapPoints(): Promise<Point[]> {
-  // Forward to the real implementation
-  return fetchPoints();
-}
 
 export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
   const normalize = (val: string) => String(val).trim().toLowerCase();
-
-  if (!points || points.length === 0) {
-    console.log("No points provided, fetching from robot...");
-    points = await fetchPoints();
-  }
 
   const pickup = points.find(p => normalize(p.id) === "pick-up");
   const dropoff = points.find(p => normalize(p.id) === "drop-off");
@@ -69,3 +63,19 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
     executed,
   };
 }
+2. ❌ Disable fallback point injection (optional but recommended)
+If you're still using robot-map-data.ts, comment out any imports like this:
+
+ts
+Copy
+Edit
+// import { ROBOT_MAP_POINTS } from './robot-map-data'; // Disable this
+3. 🔁 Restart Replit App and Re-Test
+Then run this in the Replit shell to verify:
+
+bash
+Copy
+Edit
+curl -X POST http://localhost:5000/api/mission \
+  -H "Content-Type: application/json" \
+  -d '{"uiMode": "pickup", "shelfId": "104"}'
