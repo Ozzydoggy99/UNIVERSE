@@ -1,3 +1,16 @@
+✅ Fix (Replit-Ready Patch)
+Here's the full Replit-compatible fix for mission-runner.ts. This version:
+
+Uses the same working fetchRobotMapPoints() logic from robot-points-api.ts
+
+Makes the mission-runner backend fully consistent with the working frontend
+
+Logs everything for debugging
+
+🛠️ Replace your server/backend/mission-runner.ts with:
+ts
+Copy
+Edit
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
 
@@ -100,3 +113,11 @@ export async function runMission({ uiMode, shelfId }: MissionParams): Promise<st
 
   return response.data?.status || "Mission sent";
 }
+✅ Next Steps
+Replace the file at server/backend/mission-runner.ts with the above
+
+Restart the Replit app
+
+Open your /my-template as Phil
+
+Click through to a point and hit Confirm
