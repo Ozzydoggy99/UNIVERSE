@@ -31,22 +31,22 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       throw new Error('No maps found on the robot');
     }
     
-    // Find Phil's map by name
-    const maps = mapsResponse.data;
-    const philMap = maps.find((m: any) => m.map_name?.toLowerCase().includes("phil"));
+    const maps = mapsResponse.data || [];
+
+    // Just use map ID 2 directly (since we know it works)
+    const activeMap = maps.find((m: any) => m.id === 2) || maps[0];
+
+    if (!activeMap) throw new Error("❌ No map found");
+
+    // Extract floor ID from map name (e.g. "2 - Track")
+    const rawName = activeMap.name || activeMap.map_name || "";
+    const floorMatch = rawName.match(/^(\d+)/);
+    const floorIdFromMap = floorMatch ? floorMatch[1] : "2";  // fallback to 2
     
-    if (!philMap) {
-      throw new Error('❌ "Phil" map not found');
-    }
-    
-    // Extract floor prefix from map name (e.g., "2-Phil's Map" → 2)
-    const floorPrefixMatch = philMap.map_name.match(/^(\d)-/);
-    const floorIdFromMap = floorPrefixMatch ? floorPrefixMatch[1] : "0";
-    
-    console.log(`Using map ID ${philMap.id} named "${philMap.map_name}" with floor ID: ${floorIdFromMap}`);
+    console.log(`Using map ID ${activeMap.id} named "${rawName}" with floor ID: ${floorIdFromMap}`);
     
     // Now fetch the full map data to get the overlays
-    const mapUrl = `${ROBOT_API_URL}/maps/${philMap.id}`;
+    const mapUrl = `${ROBOT_API_URL}/maps/${activeMap.id}`;
     console.log(`Fetching map data from ${mapUrl}`);
     
     const response = await axios.get(mapUrl, {
