@@ -2,11 +2,7 @@ import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
 import { Point, RobotTaskRequest } from "../types";
 
-interface RobotTaskRequest {
-  shelfId: string;
-  uiMode: "pickup" | "dropoff";
-  points: Point[];
-}
+// RobotTaskRequest is now imported from ../types
 
 export async function fetchRobotMapPoints(): Promise<Point[]> {
   const headers = { "x-api-key": ROBOT_SECRET };
@@ -42,15 +38,20 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
         floorId,
       };
     })
-    .filter((p: any) => p.id); // Filter out any points without an ID
+    .filter((p: Point) => p.id); // Filter out any points without an ID
 
   console.log(`📍 Found ${points.length} map points with floor ID ${floorId}:`, 
-    points.map(p => `"${p.id}"`).join(", "));
+    points.map((p: Point) => `"${p.id}"`).join(", "));
 
   return points;
 }
 
 export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
+  if (!points || points.length === 0) {
+    // If points aren't provided, fetch them
+    points = await fetchRobotMapPoints();
+  }
+
   const normalize = (val: string) => String(val).trim().toLowerCase();
 
   const pickupPoint = points.find(p => normalize(p.id) === "pick-up");
@@ -59,7 +60,7 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   const shelfPoint = points.find(p => normalize(p.id) === normalize(shelfId));
 
   if (!pickupPoint || !dropoffPoint || !standbyPoint || !shelfPoint) {
-    throw new Error("❌ One or more required points not found.");
+    throw new Error(`❌ One or more required points not found. Looking for: pick-up, drop-off, desk, and ${shelfId}`);
   }
 
   const steps = uiMode === "pickup"
@@ -76,7 +77,7 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
 
   console.log("📥 Creating mission:", mission.name);
   const createRes = await axios.post(`${ROBOT_API_URL}/missions`, mission, {
-    headers: { "x-api-key": ROBOT_SECRET_KEY },
+    headers: { "x-api-key": ROBOT_SECRET },
   });
 
   const missionId = createRes.data?.id;
@@ -84,7 +85,7 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
 
   console.log("🚀 Starting mission ID:", missionId);
   const startRes = await axios.post(`${ROBOT_API_URL}/missions/${missionId}/start`, null, {
-    headers: { "x-api-key": ROBOT_SECRET_KEY },
+    headers: { "x-api-key": ROBOT_SECRET },
   });
 
   return startRes.data;

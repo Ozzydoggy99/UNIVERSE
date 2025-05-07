@@ -1,0 +1,79 @@
+🧩 Replit Prompt to Paste — Updates client/src/hooks/use-simplified-robot-task.ts
+bash
+Copy
+Edit
+cat <<EOF > client/src/hooks/use-simplified-robot-task.ts
+import { useState, useEffect } from "react";
+
+export interface Point {
+  id: string;
+  description?: string;
+  floorId?: string;
+  x: number;
+  y: number;
+  ori: number;
+}
+
+export const useSimplifiedRobotTask = () => {
+  const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
+  const [pointsByFloor, setPointsByFloor] = useState<Record<string, Point[]>>({});
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/debug-points")
+      .then(res => res.json())
+      .then(data => {
+        setPointsByFloor(data.pointsByFloor || {});
+        setError(null);
+      })
+      .catch(err => {
+        console.error("❌ Failed to fetch points:", err);
+        setError("Failed to fetch points");
+      });
+  }, []);
+
+  const runTask = async () => {
+    if (!selectedPointId) {
+      setError("No shelf point selected");
+      return;
+    }
+
+    try {
+      setStatus("Sending task to robot...");
+      const res = await fetch("/api/mission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uiMode: mode,
+          shelfId: selectedPointId
+        }),
+      });
+
+      const result = await res.json();
+      if (res.ok) {
+        setStatus(`✅ Mission started: ${result?.message || "Success"}`);
+        setError(null);
+      } else {
+        throw new Error(result?.error || "Unknown failure");
+      }
+    } catch (err: any) {
+      console.error("🚨 Mission error:", err);
+      setError(err.message || "Task failed");
+      setStatus(null);
+    }
+  };
+
+  return {
+    mode,
+    setMode,
+    pointsByFloor,
+    selectedPointId,
+    setSelectedPointId,
+    runTask,
+    status,
+    error,
+  };
+};
+EOF
