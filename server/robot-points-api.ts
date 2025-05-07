@@ -136,8 +136,18 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
 }
 
 /**
- * Register API routes for robot points
+ * Debug utility to get a list of all maps on the robot
+ * @returns Array of map names with IDs
  */
+export async function debugRobotMapList(): Promise<string[]> {
+  const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, {
+    headers: { "x-api-key": ROBOT_SECRET },
+  });
+
+  const maps = mapsRes.data || [];
+  return maps.map((m: any) => `${m.id}: ${m.name || m.map_name || JSON.stringify(m)}`);
+}
+
 export function registerRobotPointsApiRoutes(app: Express) {
   /**
    * GET /api/robots/points

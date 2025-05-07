@@ -9,7 +9,7 @@ import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
 import { registerRobotJoystickApiRoutes } from './robot-joystick-api';
-import { registerRobotPointsApiRoutes } from './robot-points-api';
+import { registerRobotPointsApiRoutes, debugRobotMapList } from './robot-points-api';
 import missionRouter from './mission-routes';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -37,6 +37,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register robot points API routes
   registerRobotPointsApiRoutes(app);
+  
+  // Debug endpoint for listing all robot maps
+  app.get('/api/debug-maps', async (req: Request, res: Response) => {
+    try {
+      const list = await debugRobotMapList();
+      res.json({ maps: list });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+  
+  // Debug endpoint for showing point data with floor IDs
+  app.get('/api/debug-points', async (req, res) => {
+    try {
+      const fetchRobotMapPoints = (await import('./robot-points-api')).fetchRobotMapPoints;
+      const points = await fetchRobotMapPoints();
+      
+      // Group points by floor ID
+      const pointsByFloor: Record<string, any[]> = {};
+      
+      for (const point of points) {
+        const floorId = point.floorId || 'unknown';
+        if (!pointsByFloor[floorId]) {
+          pointsByFloor[floorId] = [];
+        }
+        pointsByFloor[floorId].push(point);
+      }
+      
+      res.json({ 
+        total: points.length,
+        pointsByFloor
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Error fetching debug points' });
+    }
+  });
   
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
