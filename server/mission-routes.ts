@@ -4,7 +4,7 @@ import { runMission } from "./backend/mission-runner";
 
 // Define the interface for the request body
 interface RobotTaskRequest {
-  uiMode: "pickup" | "dropoff";
+  mode: "pickup" | "dropoff";
   shelfId: string;
 }
 
@@ -13,20 +13,20 @@ const missionRouter = Router();
 
 /**
  * Endpoint to run a robot task
- * POST /api/mission
- * Body: { uiMode: "pickup" | "dropoff", shelfId: string }
+ * POST /api/robot-task
+ * Body: { mode: "pickup" | "dropoff", shelfId: string }
  */
-missionRouter.post("/mission", async (req: Request, res: Response) => {
+missionRouter.post("/robot-task", async (req: Request, res: Response) => {
   try {
     console.log('👉 Starting robot task with request:', req.body);
-    const { uiMode, shelfId } = req.body;
+    const { mode, shelfId } = req.body as RobotTaskRequest;
     
     // Validate request parameters
-    if (!uiMode || !["pickup", "dropoff"].includes(uiMode)) {
-      console.log('❌ Invalid uiMode:', uiMode);
+    if (!mode || !["pickup", "dropoff"].includes(mode)) {
+      console.log('❌ Invalid mode:', mode);
       return res.status(400).json({ 
         success: false, 
-        error: "Invalid uiMode. Must be 'pickup' or 'dropoff'." 
+        error: "Invalid mode. Must be 'pickup' or 'dropoff'." 
       });
     }
     
@@ -38,17 +38,17 @@ missionRouter.post("/mission", async (req: Request, res: Response) => {
       });
     }
 
-    console.log('✓ Parameters validated, running mission with:', { uiMode, shelfId });
+    console.log('✓ Parameters validated, running mission with:', { mode, shelfId });
     
     // Run the mission
-    await runMission({ uiMode, shelfId });
+    await runMission({ uiMode: mode, shelfId });
     
     console.log('✅ Mission completed successfully');
     
     // Return success response
     res.json({ 
       success: true,
-      message: `Mission ${uiMode} completed successfully for shelf ${shelfId}`
+      message: `Mission ${mode} completed successfully for shelf ${shelfId}`
     });
   } catch (err: any) {
     console.error("❌ Error running robot task:", err.message);
@@ -61,9 +61,9 @@ missionRouter.post("/mission", async (req: Request, res: Response) => {
 
 /**
  * Endpoint to get mission status (placeholder for future implementation)
- * GET /api/mission/status
+ * GET /api/robot-task/status
  */
-missionRouter.get("/mission/status", async (req: Request, res: Response) => {
+missionRouter.get("/robot-task/status", async (req: Request, res: Response) => {
   // This could be expanded to return the current status of any active mission
   res.json({ 
     success: true,
