@@ -9,6 +9,7 @@ export interface Point {
   y: number;
   ori: number;
   floorId?: string;
+  description?: string;
 }
 
 export interface RobotTaskRequest {

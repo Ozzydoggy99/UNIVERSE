@@ -56,17 +56,34 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
 
 export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
   if (!points || points.length === 0) {
-    // If points aren't provided, fetch them
+    // If points aren't provided, fetch them directly
+    console.log("No points provided, fetching from robot...");
     points = await fetchRobotMapPoints();
   }
 
-  const normalize = (val: string) => String(val).trim().toLowerCase();
+  console.log(`📝 Total points available: ${points.length}`);
+  console.log(`🔍 Looking for: pickup/pick-up, dropoff/drop-off, desk, and ${shelfId}`);
+  
+  const normalize = (val: string) => String(val || "").trim().toLowerCase();
 
-  // Use case-insensitive matching to account for different casing in point names
-  const pickupPoint = points.find(p => normalize(p.id) === "pick-up" || normalize(p.id) === "pickup");
-  const dropoffPoint = points.find(p => normalize(p.id) === "drop-off" || normalize(p.id) === "dropoff");
+  // Improved case-insensitive matching with better logging
+  const pickupPoint = points.find(p => {
+    const id = normalize(p.id);
+    return id === "pick-up" || id === "pickup" || id === "pick up";
+  });
+  console.log("Pickup point found:", pickupPoint?.id);
+
+  const dropoffPoint = points.find(p => {
+    const id = normalize(p.id);
+    return id === "drop-off" || id === "dropoff" || id === "drop off";
+  });
+  console.log("Dropoff point found:", dropoffPoint?.id);
+
   const standbyPoint = points.find(p => normalize(p.id) === "desk");
+  console.log("Standby point found:", standbyPoint?.id);
+
   const shelfPoint = points.find(p => normalize(p.id) === normalize(shelfId));
+  console.log("Shelf point found:", shelfPoint?.id);
   
   console.log("Available point IDs:", points.map(p => p.id));
 

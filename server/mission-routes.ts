@@ -1,6 +1,7 @@
 // server/mission-routes.ts
 import { Request, Response, Router } from "express";
-import { fetchRobotMapPoints, runMission } from "./backend/mission-runner";
+import { runMission } from "./backend/mission-runner";
+import { fetchRobotMapPoints } from "./robot-points-api";
 import { RobotTaskRequest } from "./types";
 
 export const missionRouter = Router();
@@ -41,10 +42,15 @@ missionRouter.post('/mission', async (req: Request, res: Response) => {
 
     console.log(`📢 Received mission request - Mode: ${uiMode}, Shelf ID: ${shelfId}`);
     
-    // Get map points for the mission
+    // Fetch points first using the debug endpoint to ensure we get proper data
     const points = await fetchRobotMapPoints();
     
-    // Execute the mission with the points
+    // Log the exact points we're using to check for potential issues
+    console.log("Available points for mission:", 
+      points.map(p => `${p.id} (${p.description})`).join(", ")
+    );
+    
+    // Execute the mission with the fetched points
     const result = await runMission({ uiMode, shelfId, points });
     
     return res.json({ 
