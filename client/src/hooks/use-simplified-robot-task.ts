@@ -48,8 +48,11 @@ export const useSimplifiedRobotTask = () => {
       });
   }, []);
 
-  const runTask = async () => {
-    if (!selectedPointId) {
+  const runTask = async (taskMode: "pickup" | "dropoff" = mode, shelfId?: string) => {
+    // Use the provided shelfId or fall back to the selected point ID
+    const targetShelfId = shelfId || selectedPointId;
+    
+    if (!targetShelfId) {
       setError("No shelf point selected");
       return;
     }
@@ -60,8 +63,8 @@ export const useSimplifiedRobotTask = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          uiMode: mode,
-          shelfId: selectedPointId
+          uiMode: taskMode,
+          shelfId: targetShelfId
         }),
       });
 

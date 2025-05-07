@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSimplifiedRobotTask } from "@/hooks/use-simplified-robot-task";
+import { Point } from "@/hooks/use-simplified-robot-task";
 import { LogOut, CheckCircle2 } from "lucide-react";
 
 export default function MyTemplate() {
@@ -9,7 +10,14 @@ export default function MyTemplate() {
   const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
-  const { floorMap, isLoading, error, isRunning, runTask } = useSimplifiedRobotTask();
+  const { 
+    pointsByFloor,
+    error, 
+    status,
+    runTask 
+  } = useSimplifiedRobotTask();
+  
+  const isRunning = status?.includes("started");
 
   const floorColors: Record<string, string> = {
     "1": "bg-red-600",
@@ -38,6 +46,20 @@ export default function MyTemplate() {
         </div>
       </div>
 
+      {/* Status Display */}
+      {status && (
+        <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md">
+          {status}
+        </div>
+      )}
+      
+      {/* Error Display */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 text-red-800 rounded-md">
+          {error}
+        </div>
+      )}
+
       {/* Mode Selection */}
       <div className="flex gap-4 mb-6">
         <button
@@ -58,7 +80,7 @@ export default function MyTemplate() {
       <div className="mb-4">
         <h2 className="text-lg font-semibold mb-2">Select Floor</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {Object.keys(floorMap).map((floorId) => (
+          {Object.keys(pointsByFloor).map((floorId) => (
             <button
               key={floorId}
               onClick={() => {
@@ -76,13 +98,13 @@ export default function MyTemplate() {
       </div>
 
       {/* Shelf Selection */}
-      {selectedFloor && (
+      {selectedFloor && pointsByFloor[selectedFloor] && (
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2">
             Select Shelf Point on Floor {selectedFloor}
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {floorMap[selectedFloor]?.map((point) => (
+            {pointsByFloor[selectedFloor].map((point: Point) => (
               <button
                 key={point.id}
                 onClick={() => setSelectedShelf(point.id)}
