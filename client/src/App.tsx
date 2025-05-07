@@ -223,12 +223,11 @@ function Router() {
       
       <ProtectedRoute 
         path="/my-template" 
-        component={({ user }) => (
-          <AppLayout>
-            <div className="h-full">
-              <TemplateRenderer user={user} />
-            </div>
-          </AppLayout>
+        component={() => (
+          <div className="h-full min-h-screen">
+            {/* Using our new simplified template UI */}
+            {React.createElement(require('@/pages/my-template').default)}
+          </div>
         )} 
       />
       
