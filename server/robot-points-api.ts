@@ -30,8 +30,11 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       throw new Error('No maps found on the robot');
     }
     
-    // We're going to use the first map in the list (or map with ID 2 if available)
-    let targetMap = mapsResponse.data.find(map => map.id === 2) || mapsResponse.data[0];
+    // Try to find "Phil's Map" first, then map ID 2 (Track), then just use the first map
+    let targetMap = mapsResponse.data.find((m: any) => m.map_name === "Phil's Map") || 
+                    mapsResponse.data.find((m: any) => m.id === 2) || 
+                    mapsResponse.data[0];
+    
     const mapId = targetMap.id;
     
     console.log(`Using map ID ${mapId} named "${targetMap.map_name}"`);
@@ -73,7 +76,8 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       };
     }
     
-    // Extract points from the features
+    // Extract points from the features - handle both "Label" type points 
+    // and our specific known point types (34, 11, 10, 9)
     const points: Point[] = overlays.features
       .filter((feature: GeoJSONFeature) => 
         feature.geometry.type === 'Point' && 
@@ -81,15 +85,29 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
         (feature.properties.type === '34' || // Pickup points (shelves)
          feature.properties.type === '11' || // General points
          feature.properties.type === '10' || // Standby points
-         feature.properties.type === '9')    // Charging station
+         feature.properties.type === '9'  || // Charging station
+         feature.properties.type === 'Label') // Label type as mentioned in provided code
       )
-      .map((feature: GeoJSONFeature) => ({
-        id: feature.properties.name || feature.id,
-        x: feature.geometry.coordinates[0], 
-        y: feature.geometry.coordinates[1],
-        ori: parseFloat(feature.properties.yaw || '0'),
-        description: feature.properties.name || ''
-      }));
+      .map((feature: GeoJSONFeature) => {
+        // Handle both formats (Label type vs. our existing types)
+        if (feature.properties.type === 'Label') {
+          return {
+            id: feature.properties.text || feature.id,
+            x: feature.properties.x || feature.geometry.coordinates[0],
+            y: feature.properties.y || feature.geometry.coordinates[1],
+            ori: feature.properties.orientation || 0,
+            description: feature.properties.text || ''
+          };
+        } else {
+          return {
+            id: feature.properties.name || feature.id,
+            x: feature.geometry.coordinates[0], 
+            y: feature.geometry.coordinates[1],
+            ori: parseFloat(feature.properties.yaw || '0'),
+            description: feature.properties.name || ''
+          };
+        }
+      });
     
     console.log(`Successfully extracted ${points.length} map points from overlays`);
     return points;

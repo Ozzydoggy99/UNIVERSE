@@ -1,3 +1,7 @@
+✅ Upgraded /my-template.tsx (Replit-Compatible)
+tsx
+Copy
+Edit
 // client/src/pages/my-template.tsx
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
@@ -113,3 +117,15 @@ export default function MyTemplate() {
     </div>
   );
 }
+🎯 Summary of Features Included
+✅ Green/black mode toggle (Pickup / Dropoff)
+
+✅ Floor selection in red/green/blue/yellow boxes
+
+✅ Shelf grid with active selection highlight
+
+✅ Confirm button with CheckCircle icon
+
+✅ “Phil” + logout button in top right
+
+✅ Fully mobile/touch optimized
