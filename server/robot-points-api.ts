@@ -17,38 +17,82 @@ interface Point {
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
   try {
-    // First try to get the current map ID
-    console.log(`Fetching current map from robot at ${ROBOT_API_URL}/maps/current_map`);
+    // First, get a list of all maps
+    console.log(`Fetching all maps from robot at ${ROBOT_API_URL}/maps/`);
     
-    const currentMapResponse = await axios.get(`${ROBOT_API_URL}/maps/current_map`, {
+    const mapsResponse = await axios.get(`${ROBOT_API_URL}/maps/`, {
       headers: {
         'x-api-key': ROBOT_SECRET
       }
     });
     
-    if (!currentMapResponse.data || !currentMapResponse.data.id) {
-      throw new Error('Could not determine current map ID');
+    if (!Array.isArray(mapsResponse.data) || mapsResponse.data.length === 0) {
+      throw new Error('No maps found on the robot');
     }
     
-    const currentMapId = currentMapResponse.data.id;
-    console.log(`Current map ID: ${currentMapId}`);
+    // We're going to use the first map in the list (or map with ID 2 if available)
+    let targetMap = mapsResponse.data.find(map => map.id === 2) || mapsResponse.data[0];
+    const mapId = targetMap.id;
     
-    // Now fetch the points for this map ID
-    const pointsUrl = `${ROBOT_API_URL}/maps/${currentMapId}/points`;
-    console.log(`Fetching map points from ${pointsUrl}`);
+    console.log(`Using map ID ${mapId} named "${targetMap.map_name}"`);
     
-    const response = await axios.get(pointsUrl, {
+    // Now fetch the full map data to get the overlays
+    const mapUrl = `${ROBOT_API_URL}/maps/${mapId}`;
+    console.log(`Fetching map data from ${mapUrl}`);
+    
+    const response = await axios.get(mapUrl, {
       headers: {
         'x-api-key': ROBOT_SECRET
       }
     });
     
-    if (!response.data || !Array.isArray(response.data)) {
-      throw new Error('Invalid response format: expected array of points');
+    if (!response.data || !response.data.overlays) {
+      throw new Error('Invalid response format: missing overlays data');
     }
     
-    console.log(`Successfully fetched ${response.data.length} map points`);
-    return response.data;
+    // The overlays property contains a JSON string with all the map points
+    const overlays = JSON.parse(response.data.overlays);
+    
+    if (!overlays || !overlays.features || !Array.isArray(overlays.features)) {
+      throw new Error('Invalid overlays format: missing features array');
+    }
+    
+    // Define interfaces for GeoJSON structure
+    interface GeoJSONFeature {
+      id: string;
+      type: string;
+      geometry: {
+        type: string;
+        coordinates: number[];
+      };
+      properties: {
+        name?: string;
+        type: string;
+        yaw?: string;
+        [key: string]: any;
+      };
+    }
+    
+    // Extract points from the features
+    const points: Point[] = overlays.features
+      .filter((feature: GeoJSONFeature) => 
+        feature.geometry.type === 'Point' && 
+        feature.properties && 
+        (feature.properties.type === '34' || // Pickup points (shelves)
+         feature.properties.type === '11' || // General points
+         feature.properties.type === '10' || // Standby points
+         feature.properties.type === '9')    // Charging station
+      )
+      .map((feature: GeoJSONFeature) => ({
+        id: feature.properties.name || feature.id,
+        x: feature.geometry.coordinates[0], 
+        y: feature.geometry.coordinates[1],
+        ori: parseFloat(feature.properties.yaw || '0'),
+        description: feature.properties.name || ''
+      }));
+    
+    console.log(`Successfully extracted ${points.length} map points from overlays`);
+    return points;
   } catch (error: any) {
     console.error('Error fetching robot map points:', error.message || error);
     throw new Error(`Failed to fetch map points: ${error.message || 'Unknown error'}`);
