@@ -35,8 +35,65 @@ export function useSimplifiedRobotTask() {
     const load = async () => {
       setIsLoading(true);
       try {
-        // Try the simplified API endpoint
-        const res = await fetch("/api/fetch-points");
+        // First, try our new debug-points endpoint that provides points grouped by floor
+        let res = await fetch("/api/debug-points");
+        
+        if (res.ok) {
+          const data = await res.json();
+          
+          if (data.pointsByFloor) {
+            console.log("Using enhanced debug-points endpoint with floor-organized data");
+            
+            // The data is already organized by floor ID
+            const pointsByFloor = data.pointsByFloor;
+            
+            // Filter out special-purpose points for each floor
+            const filteredPointsByFloor: Record<string, Point[]> = {};
+            const allFilteredPoints: Point[] = [];
+            
+            Object.entries(pointsByFloor).forEach(([floorId, points]) => {
+              // Filter out special purpose points
+              const filteredPoints = (points as Point[]).filter((p: Point) => {
+                const label = p.id?.toLowerCase();
+                // Skip points that don't have an ID
+                if (!label) return false;
+                
+                // Skip special purpose points, they're not shelf locations to show in UI
+                const isSpecialPoint = 
+                  label.includes("standby") || 
+                  label.includes("charging") || 
+                  label.includes("drop") || 
+                  label.includes("pick");
+                  
+                return !isSpecialPoint;
+              });
+              
+              if (filteredPoints.length > 0) {
+                filteredPointsByFloor[floorId] = filteredPoints;
+                allFilteredPoints.push(...filteredPoints);
+              }
+            });
+            
+            console.log("Filtered points by floor:", filteredPointsByFloor);
+            console.log("Total filtered points:", allFilteredPoints.length);
+            
+            // Make sure we have at least one floor bucket
+            if (Object.keys(filteredPointsByFloor).length === 0) {
+              filteredPointsByFloor["1"] = allFilteredPoints;
+            }
+            
+            setAllPoints(allFilteredPoints);
+            setFloorMap(filteredPointsByFloor);
+            setError(null);
+            setIsLoading(false);
+            return; // Exit early if we successfully used the debug-points endpoint
+          }
+        }
+        
+        // Fall back to the original simplified API endpoint
+        console.log("Debug-points endpoint failed, falling back to fetch-points");
+        res = await fetch("/api/fetch-points");
+        
         if (!res.ok) {
           throw new Error(`Failed to fetch points: ${res.status} ${res.statusText}`);
         }

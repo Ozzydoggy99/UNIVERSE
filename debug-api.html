@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Debug Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    button {
+      margin: 10px 0;
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      overflow: auto;
+      max-height: 400px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Robot API Debug Tool</h1>
+  <div class="container">
+    <div>
+      <h2>Debug Maps</h2>
+      <button id="fetchMaps">Fetch Maps</button>
+      <pre id="mapsResult">Results will appear here...</pre>
+    </div>
+    <div>
+      <h2>Debug Points</h2>
+      <button id="fetchPoints">Fetch Points</button>
+      <pre id="pointsResult">Results will appear here...</pre>
+    </div>
+  </div>
+
+  <script>
+    // Function to format JSON with indentation
+    function formatJSON(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+    // Function to fetch and display maps
+    document.getElementById('fetchMaps').addEventListener('click', async () => {
+      const mapsResult = document.getElementById('mapsResult');
+      mapsResult.textContent = 'Loading...';
+      
+      try {
+        const response = await fetch('/api/debug-maps');
+        const data = await response.json();
+        mapsResult.textContent = formatJSON(data);
+      } catch (error) {
+        mapsResult.textContent = `Error: ${error.message}`;
+      }
+    });
+
+    // Function to fetch and display points
+    document.getElementById('fetchPoints').addEventListener('click', async () => {
+      const pointsResult = document.getElementById('pointsResult');
+      pointsResult.textContent = 'Loading...';
+      
+      try {
+        const response = await fetch('/api/debug-points');
+        const data = await response.json();
+        pointsResult.textContent = formatJSON(data);
+      } catch (error) {
+        pointsResult.textContent = `Error: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>
