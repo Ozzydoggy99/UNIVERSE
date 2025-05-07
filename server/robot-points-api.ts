@@ -10,9 +10,8 @@ import { Point } from './types';
  * @returns Array of map points
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
-  const headers = { 'x-api-key': ROBOT_SECRET };
+  const headers = { "x-api-key": ROBOT_SECRET };
 
-  console.log(`Fetching maps from ${ROBOT_API_URL}/maps/`);
   const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
   const maps = mapsRes.data || [];
 
@@ -23,30 +22,23 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   const floorMatch = rawName.match(/^(\d+)/);
   const floorId = floorMatch ? floorMatch[1] : "1";
 
-  console.log(`🔍 Using map ID ${activeMap.id} — name: ${rawName} with floor ID: ${floorId}`);
-
   const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
   const mapData = mapDetailRes.data;
 
-  if (!mapData || !mapData.overlays) {
-    throw new Error('Invalid response format: missing overlays data');
-  }
+  if (!mapData || !mapData.overlays) throw new Error("Missing overlays");
 
   let overlays;
   try {
     overlays = JSON.parse(mapData.overlays);
   } catch (e) {
-    console.error('Failed to parse overlays JSON:', e);
-    throw new Error('Invalid overlays format: failed to parse JSON');
+    throw new Error("Failed to parse overlays JSON");
   }
 
-  if (!overlays || !overlays.features || !Array.isArray(overlays.features)) {
-    throw new Error('Invalid overlays format: missing features array');
-  }
+  const features = overlays.features || [];
 
   interface GeoJSONFeature {
-    id: string;
-    type: string;
+    id?: string;
+    type?: string;
     geometry: {
       type: string;
       coordinates: number[];
@@ -54,7 +46,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     properties: {
       name?: string;
       text?: string;
-      type: string;
+      type?: string;
       yaw?: string | number;
       orientation?: string | number;
       x?: number;
@@ -63,14 +55,14 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     };
   }
 
-  const points: Point[] = overlays.features
-    .filter((feature: GeoJSONFeature) => feature.geometry.type === 'Point')
-    .map((feature: GeoJSONFeature) => {
-      const { properties, geometry } = feature;
+  const points: Point[] = features
+    .filter((f: any) => f.geometry?.type === "Point" && f.properties)
+    .map((f: GeoJSONFeature) => {
+      const { properties, geometry } = f;
       const id = String(properties.name || properties.text || "").trim();
 
-      const x = properties.x ?? geometry.coordinates[0];
-      const y = properties.y ?? geometry.coordinates[1];
+      const x = typeof properties.x === "number" ? properties.x : geometry.coordinates[0];
+      const y = typeof properties.y === "number" ? properties.y : geometry.coordinates[1];
       const ori = parseFloat(properties.yaw || properties.orientation || "0");
 
       return {
@@ -78,7 +70,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
         x,
         y,
         ori,
-        floorId,  // ✅ <- ensure every point includes this
+        floorId, // ✅ Always include
         description: id,
       };
     });
@@ -97,7 +89,7 @@ export async function debugRobotMapList(): Promise<string[]> {
     });
 
     const maps = mapsRes.data || [];
-    return maps.map((m: any) => `${String(m.id || m.uid)}: ${m.name || m.map_name || JSON.stringify(m)}`);
+    return maps.map((m: any) => `${String(m.id || m.uid)}: ${String(m.name || m.map_name) || JSON.stringify(m)}`);
   } catch (error) {
     console.error('Error getting map list:', error);
     return ["Error fetching maps: Using hardcoded data instead"];
