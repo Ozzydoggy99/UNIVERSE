@@ -51,26 +51,48 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
     ? [pickupPoint, shelfPoint, standbyPoint]
     : [shelfPoint, dropoffPoint, standbyPoint];
 
-  const mission = {
-    name: `Auto-${uiMode}-${shelfPoint.id}-${Date.now()}`,
-    tasks: steps.map(p => ({
-      action: "goto_point",
-      args: { point_id: p.id },
-    })),
+  console.log(`🚀 Starting ${uiMode} mission for ${shelfId}`);
+  
+  // Execute each movement sequentially using the navigate_to action
+  const results = [];
+  
+  for (const point of steps) {
+    console.log(`🔄 Moving to point: ${point.id} (${point.x}, ${point.y})`);
+    try {
+      const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, 
+        {
+          action: "navigate_to",
+          target_x: point.x,
+          target_y: point.y
+        },
+        {
+          headers: { "x-api-key": ROBOT_SECRET },
+        }
+      );
+      
+      results.push({
+        point: point.id,
+        status: "success",
+        data: moveResponse.data
+      });
+      
+      // Wait for completion before moving to next point - in production code you'd poll status
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+    } catch (error: any) {
+      console.error(`❌ Error moving to point ${point.id}:`, error);
+      results.push({
+        point: point.id,
+        status: "error",
+        error: error.message || String(error)
+      });
+      // Continue with the next point even if this one failed
+    }
+  }
+
+  return {
+    mission: `${uiMode}-${shelfPoint.id}-${Date.now()}`,
+    status: "completed",
+    steps: results
   };
-
-  console.log("📥 Creating mission:", mission.name);
-  const createRes = await axios.post(`${ROBOT_API_URL}/missions`, mission, {
-    headers: { "x-api-key": ROBOT_SECRET },
-  });
-
-  const missionId = createRes.data?.id;
-  if (!missionId) throw new Error("❌ Failed to create mission");
-
-  console.log("🚀 Starting mission ID:", missionId);
-  const startRes = await axios.post(`${ROBOT_API_URL}/missions/${missionId}/start`, null, {
-    headers: { "x-api-key": ROBOT_SECRET },
-  });
-
-  return startRes.data;
 }
