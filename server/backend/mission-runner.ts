@@ -45,17 +45,17 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
 export async function runMission({ uiMode, shelfId }: MissionParams): Promise<string> {
   const points = await fetchRobotMapPoints();
 
-  // Add these lines before your shelf lookup
-  console.log("🧾 Matching shelf ID:", shelfId);
-  console.log("🧾 All point IDs:", points.map(p => `"${p.id}"`).join(", "));
+  const normalizedShelfId = String(shelfId).trim().toLowerCase();
+  const shelf = points.find(p => String(p.id).trim().toLowerCase() === normalizedShelfId);
 
-  // With this line:
-  const shelf = points.find(p => String(p.id).trim() === String(shelfId).trim());
-  if (!shelf) throw new Error(`Shelf point ${shelfId} not found`);
+  console.log("🧾 Requested shelfId:", normalizedShelfId);
+  console.log("🧾 Available points:", points.map(p => `"${p.id}"`).join(", "));
+
+  if (!shelf) throw new Error(`Shelf point "${shelfId}" not found`);
 
   const standby = points.find(p => {
-    const label = p.id.toLowerCase();
-    return label.includes("standby") || label.includes("charging") || label.includes("desk");
+    const id = p.id.toLowerCase();
+    return id.includes("standby") || id.includes("desk") || id.includes("charging");
   });
 
   const pickup = points.find(p => p.id.toLowerCase().includes("pick"));
@@ -65,7 +65,7 @@ export async function runMission({ uiMode, shelfId }: MissionParams): Promise<st
   const to = uiMode === "pickup" ? dropoff : shelf;
 
   if (!from || !to || !standby) {
-    throw new Error(`Missing required point(s). Mode: ${uiMode}. From: ${from?.id}, To: ${to?.id}, Standby: ${standby?.id}`);
+    throw new Error(`Missing critical points: from=${from?.id}, to=${to?.id}, standby=${standby?.id}`);
   }
 
   const payload = {
@@ -74,11 +74,11 @@ export async function runMission({ uiMode, shelfId }: MissionParams): Promise<st
     returnId: standby.id,
   };
 
-  console.log("🚀 Mission Payload:", payload);
+  console.log("🚀 Sending mission:", payload);
 
   const res = await axios.post(`${ROBOT_API_URL}/missions/run`, payload, {
     headers: { "x-api-key": ROBOT_SECRET }
   });
 
-  return res.data?.status || "Mission sent";
+  return res.data?.status || "Mission sent.";
 }
