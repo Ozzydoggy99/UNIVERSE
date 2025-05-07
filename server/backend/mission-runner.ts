@@ -1,20 +1,18 @@
 import axios from "axios";
-import { getRobotSecretKey, getRobotUrl } from "../robot-constants";
-import { RobotTaskRequest } from "../types";
+import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
+import { Point, RobotTaskRequest } from "../types";
 
-interface Point {
-  id: string;
-  x: number;
-  y: number;
-  ori: number;
-  floorId?: string;
+interface RobotTaskRequest {
+  shelfId: string;
+  uiMode: "pickup" | "dropoff";
+  points: Point[];
 }
 
 export async function fetchRobotMapPoints(): Promise<Point[]> {
-  const headers = { "x-api-key": getRobotSecretKey() };
+  const headers = { "x-api-key": ROBOT_SECRET };
 
   // Get first available map
-  const mapsRes = await axios.get(`${getRobotUrl()}/maps/`, { headers });
+  const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
   const maps = mapsRes.data || [];
   const activeMap = maps[0];
 
@@ -27,7 +25,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   const floorMatch = rawName.match(/^(\d+)/);
   const floorId = floorMatch ? floorMatch[1] : "1";
 
-  const mapRes = await axios.get(`${getRobotUrl()}/maps/${activeMap.id}`, { headers });
+  const mapRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
   const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
 
   // Extract and normalize point data from overlays
@@ -52,85 +50,42 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   return points;
 }
 
-export async function runMission(request: RobotTaskRequest, pointsFromUI?: Point[]): Promise<any> {
-  const { uiMode, shelfId } = request;
-  const robotURL = getRobotUrl();
-  const secret = getRobotSecretKey();
+export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
+  const normalize = (val: string) => String(val).trim().toLowerCase();
 
-  console.log("🔧 Running mission with:", { uiMode, shelfId });
+  const pickupPoint = points.find(p => normalize(p.id) === "pick-up");
+  const dropoffPoint = points.find(p => normalize(p.id) === "drop-off");
+  const standbyPoint = points.find(p => normalize(p.id) === "desk");
+  const shelfPoint = points.find(p => normalize(p.id) === normalize(shelfId));
 
-  // 1. Fetch map and points
-  const mapRes = await axios.get(`${robotURL}/maps/`, {
-    headers: { "x-api-key": secret },
+  if (!pickupPoint || !dropoffPoint || !standbyPoint || !shelfPoint) {
+    throw new Error("❌ One or more required points not found.");
+  }
+
+  const steps = uiMode === "pickup"
+    ? [pickupPoint, shelfPoint, standbyPoint]
+    : [shelfPoint, dropoffPoint, standbyPoint];
+
+  const mission = {
+    name: `Auto-${uiMode}-${shelfPoint.id}-${Date.now()}`,
+    tasks: steps.map(p => ({
+      action: "goto_point",
+      args: { point_id: p.id },
+    })),
+  };
+
+  console.log("📥 Creating mission:", mission.name);
+  const createRes = await axios.post(`${ROBOT_API_URL}/missions`, mission, {
+    headers: { "x-api-key": ROBOT_SECRET_KEY },
   });
-  const maps = mapRes.data;
-  const activeMap = maps?.[0]; // use the only map or default
-  if (!activeMap) throw new Error("No maps found on robot");
 
-  const mapId = activeMap.id;
-  const mapDetail = await axios.get(`${robotURL}/maps/${mapId}`, {
-    headers: { "x-api-key": secret },
+  const missionId = createRes.data?.id;
+  if (!missionId) throw new Error("❌ Failed to create mission");
+
+  console.log("🚀 Starting mission ID:", missionId);
+  const startRes = await axios.post(`${ROBOT_API_URL}/missions/${missionId}/start`, null, {
+    headers: { "x-api-key": ROBOT_SECRET_KEY },
   });
 
-  const overlays = Array.isArray(mapDetail.data.overlays) ? mapDetail.data.overlays : [];
-  
-  // Extract points data from the overlays
-  // The API response may have points directly in overlay or in overlay.point
-  const points = overlays
-    .filter((o: any) => o.type === "Label")
-    .map((o: any) => {
-      // If the overlay has a point property, use it; otherwise use the overlay itself
-      const point = o.point || o;
-      return {
-        id: point.text || point.id,
-        x: point.x,
-        y: point.y,
-        ori: point.orientation || point.ori || 0
-      };
-    })
-    .filter((p: any) => p.id); // Filter out any points without an ID
-
-  // Debug point data
-  console.log(`📍 Found ${points.length} map points`);
-  
-  const normalized = (str: string) => String(str || "").trim().toLowerCase();
-
-  const shelf = points.find((p: any) => normalized(p.id) === normalized(shelfId));
-  const pickup = points.find((p: any) => normalized(p.id).includes("pick"));
-  const dropoff = points.find((p: any) => normalized(p.id).includes("drop"));
-  const standby = points.find((p: any) => normalized(p.id).includes("desk") || normalized(p.id).includes("standby"));
-
-  if (!shelf) throw new Error(`❌ Shelf point "${shelfId}" not found`);
-  if (!pickup) throw new Error(`❌ Pickup point not found`);
-  if (!dropoff) throw new Error(`❌ Dropoff point not found`);
-  if (!standby) throw new Error(`❌ Standby point not found`);
-
-  // 2. Build path list based on uiMode
-  const pathList =
-    uiMode === "pickup"
-      ? [pickup.id, shelf.id, standby.id]
-      : [shelf.id, dropoff.id, standby.id];
-
-  // 3. Create task
-  const createTaskRes = await axios.post(
-    `${robotURL}/tasks`,
-    {
-      name: `AutoTask_${Date.now()}`,
-      map_id: mapId,
-      path: pathList,
-    },
-    { headers: { "x-api-key": secret } }
-  );
-
-  const taskId = createTaskRes.data?.id;
-  if (!taskId) throw new Error("❌ Failed to create task");
-
-  // 4. Run task
-  const execRes = await axios.post(
-    `${robotURL}/tasks/${taskId}/execute`,
-    {},
-    { headers: { "x-api-key": secret } }
-  );
-
-  return { taskId, status: execRes.status, message: "✅ Mission launched" };
+  return startRes.data;
 }

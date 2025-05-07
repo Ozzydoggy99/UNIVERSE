@@ -3,8 +3,17 @@
  * Type definitions for the server
  */
 
+export interface Point {
+  id: string;
+  x: number;
+  y: number;
+  ori: number;
+  floorId?: string;
+}
+
 export interface RobotTaskRequest {
   uiMode: "pickup" | "dropoff";
   shelfId: string;
+  points?: Point[]; // Points data for the mission
   mode?: "pickup" | "dropoff"; // For backward compatibility with existing code
 }
