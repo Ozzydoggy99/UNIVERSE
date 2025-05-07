@@ -2,6 +2,7 @@
 import express from "express";
 import { runMission } from "./backend/mission-runner";
 import { fetchRobotMapPoints } from "./robot-points-api";
+import { Point } from "./types";
 
 export const missionRouter = express.Router();
 
@@ -11,7 +12,7 @@ missionRouter.get('/mission-points', async (req, res) => {
     const points = await fetchRobotMapPoints();
     
     // Group points by floor ID for the frontend to display
-    const pointsByFloor = {};
+    const pointsByFloor: Record<string, Point[]> = {};
     points.forEach(point => {
       const floorId = point.floorId || '1';
       if (!pointsByFloor[floorId]) {
@@ -21,7 +22,7 @@ missionRouter.get('/mission-points', async (req, res) => {
     });
 
     return res.json({ pointsByFloor });
-  } catch (err) {
+  } catch (err: any) {
     console.error("❌ Error fetching points:", err.message);
     return res.status(500).json({ 
       error: "Failed to fetch map points", 
@@ -44,7 +45,7 @@ missionRouter.post('/mission', async (req, res) => {
     const result = await runMission({ shelfId, uiMode, points });
 
     res.json(result);
-  } catch (err) {
+  } catch (err: any) {
     console.error("❌ Mission error:", err.message);
     res.status(500).json({ error: err.message });
   }

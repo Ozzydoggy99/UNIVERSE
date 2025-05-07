@@ -15,6 +15,8 @@ function normalize(id: string | number) {
 }
 
 async function sendMoveTo(point: Point) {
+  console.log("➡️ Sending robot to:", point.id, "at", point.x, point.y);
+  
   const movePayload = {
     action: "move_to",
     target_x: point.x,
@@ -29,12 +31,16 @@ async function sendMoveTo(point: Point) {
 }
 
 export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
+  console.log("[DEBUG] Incoming runMission payload:", { uiMode, shelfId });
+  
   if (!points || points.length === 0) {
     console.log("No points provided, fetching from robot...");
     points = await fetchPoints();
   }
-
+  
+  console.log("[DEBUG] Points available:", points.map(p => p.id));
   console.log(`🧾 Starting mission: ${uiMode} to shelf ${shelfId}`);
+  
   const shelf = points.find(p => normalize(p.id) === normalize(shelfId));
   const dropoff = points.find(p => normalize(p.id) === "drop-off");
   const pickup = points.find(p => normalize(p.id) === "pick-up");
