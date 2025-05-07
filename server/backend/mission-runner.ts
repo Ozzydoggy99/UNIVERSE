@@ -1,3 +1,4 @@
+// server/backend/mission-runner.ts
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
 
@@ -6,7 +7,6 @@ interface Point {
   x: number;
   y: number;
   ori: number;
-  floorId?: string;
   description?: string;
 }
 
@@ -22,92 +22,169 @@ interface MissionParams {
   shelfId: string;
 }
 
-export async function fetchRobotMapPoints(): Promise<Point[]> {
+/**
+ * Fetches all points from the robot's current map
+ */
+async function fetchPoints(): Promise<Point[]> {
   try {
-    const headers = { "x-api-key": ROBOT_SECRET };
-
-    // Get maps and select the first one
-    const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
-    const maps = mapsRes.data || [];
-    const activeMap = maps[0];
-
-    if (!activeMap) throw new Error("❌ No map found on robot");
-
-    const rawName = activeMap.name || activeMap.map_name || "";
-    const floorMatch = rawName.match(/^(\d+)/);
-    const floorId = floorMatch ? floorMatch[1] : "1";
-
-    const mapRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
-    const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
-
-    console.log("🧠 Overlay labels:", overlays.map((o: any) => o.text || o.type));
-
-    // ✅ This is the FIX — make sure floorId is included in each point
-    const points = overlays
-      .filter((o: any) => o.type === "Label")
-      .map((o: any) => ({
-        id: o.text?.trim(),
-        x: o.x,
-        y: o.y,
-        ori: o.orientation ?? 0,
-        floorId,
-        description: o.text?.trim() || '',
-      }));
-      
-    console.log(`Successfully extracted ${points.length} map points with floorId ${floorId}`);
-    return points;
+    const url = `${ROBOT_API_URL}/maps/current_map/points`;
+    console.log(`Fetching points from: ${url}`);
+    const res = await axios.get(url, {
+      headers: { "x-api-key": ROBOT_SECRET }
+    });
+    return res.data.points;
   } catch (error: any) {
-    console.error('Error fetching robot map points:', error.message || error);
-    throw new Error(`Failed to fetch map points: ${error.message || 'Unknown error'}`);
+    console.error("Error fetching points:", error.message);
+    throw new Error(`Failed to fetch points: ${error.message}`);
   }
 }
 
+/**
+ * Categorizes points from the map into pickup, dropoff, standby, and shelves
+ */
 function categorizePoints(points: Point[]): CategorizedPoints {
-  const categories: CategorizedPoints = {
-    pickup: null,
-    dropoff: null,
-    standby: null,
-    shelves: [],
+  console.log('Categorizing points:', points.map(p => p.id));
+  
+  const categories = {
+    pickup: null as Point | null,
+    dropoff: null as Point | null,
+    standby: null as Point | null,
+    shelves: [] as Point[],
   };
-
+  
+  // First, find the special points
   for (const p of points) {
     const label = p.id.toLowerCase();
-
-    if (label.includes("pick")) categories.pickup = p;
-    else if (label.includes("drop")) categories.dropoff = p;
-    else if (label.includes("standby") || label.includes("desk") || label.includes("charging")) categories.standby = p;
-    else if (!isNaN(Number(p.id))) categories.shelves.push(p);
+    
+    // Try to find the pickup point (labeled "pickup", "pick", etc.)
+    if (label.includes("pick")) {
+      console.log('Found pickup point:', p.id);
+      categories.pickup = p;
+    }
+    // Try to find the dropoff point (labeled "dropoff", "drop", etc.)
+    else if (label.includes("drop")) {
+      console.log('Found dropoff point:', p.id);
+      categories.dropoff = p;
+    }
+    // Try to find the standby point (labeled "standby", "desk", "charging station", etc.)
+    else if (
+      label.includes("desk") || 
+      label.includes("standby") || 
+      label.includes("charging")
+    ) {
+      console.log('Found standby point:', p.id);
+      categories.standby = p;
+    }
+    // All other points are considered shelves
+    else {
+      categories.shelves.push(p);
+    }
   }
-
+  
+  // Sort shelves by ID for predictable ordering
+  categories.shelves.sort((a, b) => a.id.localeCompare(b.id));
+  
+  console.log(`Categorized ${points.length} points into:`, {
+    pickup: categories.pickup?.id,
+    dropoff: categories.dropoff?.id,
+    standby: categories.standby?.id,
+    shelves: categories.shelves.map(s => s.id),
+  });
+  
   return categories;
 }
 
-export async function runMission({ uiMode, shelfId }: MissionParams): Promise<string> {
-  const points = await fetchRobotMapPoints();
+/**
+ * Commands the robot to move to a specific point
+ */
+async function moveToPoint(pointId: string): Promise<void> {
+  try {
+    const url = `${ROBOT_API_URL}/chassis/move_to_point`;
+    console.log(`Sending move command to: ${url} for point: ${pointId}`);
+    await axios.post(
+      url,
+      { point_id: pointId, creator: "backend-system" },
+      { headers: { "x-api-key": ROBOT_SECRET } }
+    );
+  } catch (error: any) {
+    console.error(`Error moving to point ${pointId}:`, error.message);
+    throw new Error(`Failed to move to point ${pointId}: ${error.message}`);
+  }
+}
+
+/**
+ * Simple wait function for delays between operations
+ */
+function wait(ms: number): Promise<void> {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
+/**
+ * Runs a mission based on human UI perspective
+ * - pickup mode: Robot moves to shelf, then to dropoff point, then to standby
+ * - dropoff mode: Robot moves to pickup point, then to shelf, then to standby
+ */
+export async function runMission({ uiMode, shelfId }: MissionParams): Promise<void> {
+  console.log(`Starting mission: mode=${uiMode}, shelfId=${shelfId}`);
+  
+  // Ensure we have a valid robot API URL and secret key
+  if (!ROBOT_API_URL) {
+    throw new Error("Robot API URL is not configured.");
+  }
+  
+  if (!ROBOT_SECRET) {
+    throw new Error("Robot secret key is not configured. Please check environment variable.");
+  }
+
+  // Fetch and categorize all points
+  const points = await fetchPoints();
+  console.log(`Retrieved ${points.length} points from robot map`);
+  
   const { pickup, dropoff, standby, shelves } = categorizePoints(points);
+  
+  if (!pickup) {
+    throw new Error("No pickup point found on the map. Ensure a point with 'pick' in its ID exists.");
+  }
+  
+  if (!dropoff) {
+    throw new Error("No dropoff point found on the map. Ensure a point with 'drop' in its ID exists.");
+  }
 
+  // Find the requested shelf
   const shelf = shelves.find(p => p.id === shelfId);
-  if (!shelf) throw new Error(`Shelf point ${shelfId} not found`);
+  if (!shelf) {
+    throw new Error(`Shelf point ${shelfId} not found. Available shelves: ${shelves.map(s => s.id).join(', ')}`);
+  }
 
-  const home = standby;
-  if (!home) throw new Error("No standby/home point defined");
+  if (uiMode === "dropoff") {
+    // Human wants to drop a bin at a shelf → Robot: pick up → shelf → home
+    await moveToPoint(pickup.id);
+    console.log(`📦 Picked up at ${pickup.id}`);
+    await wait(4000);
 
-  const from = uiMode === "pickup" ? shelf : pickup;
-  const to = uiMode === "pickup" ? dropoff : shelf;
+    await moveToPoint(shelf.id);
+    console.log(`🚚 Dropped off at shelf ${shelf.id}`);
+    await wait(4000);
+  }
 
-  if (!from || !to) throw new Error(`Missing from/to point (mode: ${uiMode})`);
+  if (uiMode === "pickup") {
+    // Human wants to pick up from shelf → Robot: shelf → dropoff → home
+    await moveToPoint(shelf.id);
+    console.log(`📦 Picked up from shelf ${shelf.id}`);
+    await wait(4000);
 
-  const payload = {
-    fromId: from.id,
-    toId: to.id,
-    returnId: home.id,
-  };
+    await moveToPoint(dropoff.id);
+    console.log(`🚚 Dropped at ${dropoff.id}`);
+    await wait(4000);
+  }
 
-  console.log("🚀 Sending mission:", payload);
-
-  const response = await axios.post(`${ROBOT_API_URL}/missions/run`, payload, {
-    headers: { "x-api-key": ROBOT_SECRET }
-  });
-
-  return response.data?.status || "Mission sent";
+  // Return to standby point if available
+  if (standby) {
+    await moveToPoint(standby.id);
+    console.log(`🛑 Returned to standby: ${standby.id}`);
+  } else {
+    console.log("No standby point found, mission completed without returning to standby");
+  }
+  
+  console.log(`Mission completed successfully: ${uiMode} for shelf ${shelfId}`);
 }

@@ -18,37 +18,106 @@ interface Point {
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
   try {
-    const headers = { "x-api-key": ROBOT_SECRET };
+    const headers = { 'x-api-key': ROBOT_SECRET };
 
-    // Get maps and select the first one
+    // Fetch the only map (now Phil's Map)
+    console.log(`Fetching maps from ${ROBOT_API_URL}/maps/`);
     const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
     const maps = mapsRes.data || [];
-    const activeMap = maps[0];
 
-    if (!activeMap) throw new Error("❌ No map found on robot");
+    const activeMap = maps[0]; // only one map exists
+    if (!activeMap) throw new Error("❌ No map found");
 
+    console.log(`Found map with ID ${activeMap.id}`);
+
+    // Extract floor from map name like "1 - Phil's Map"
     const rawName = activeMap.name || activeMap.map_name || "";
     const floorMatch = rawName.match(/^(\d+)/);
-    const floorId = floorMatch ? floorMatch[1] : "1";
-
-    const mapRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
-    const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
-
-    console.log("🧠 Overlay labels:", overlays.map((o: any) => o.text || o.type));
-
-    // ✅ This is the FIX — make sure floorId is included in each point
-    const points = overlays
-      .filter((o: any) => o.type === "Label")
-      .map((o: any) => ({
-        id: o.text?.trim(),
-        x: o.x,
-        y: o.y,
-        ori: o.orientation ?? 0,
-        floorId,
-        description: o.text?.trim() || '',
-      }));
-      
+    const floorId = floorMatch ? floorMatch[1] : "1"; // fallback to 1
+    
+    console.log(`🔍 Using map ID ${activeMap.id} — name: ${rawName} with floor ID: ${floorId}`);
+    
+    // Load map details to get overlays
+    const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
+    const mapData = mapDetailRes.data;
+    
+    if (!mapData || !mapData.overlays) {
+      throw new Error('Invalid response format: missing overlays data');
+    }
+    
+    // Parse the overlays JSON
+    let overlays;
+    try {
+      overlays = JSON.parse(mapData.overlays);
+    } catch (e) {
+      console.error('Failed to parse overlays JSON:', e);
+      throw new Error('Invalid overlays format: failed to parse JSON');
+    }
+    
+    if (!overlays || !overlays.features || !Array.isArray(overlays.features)) {
+      throw new Error('Invalid overlays format: missing features array');
+    }
+    
+    // Define interfaces for GeoJSON structure
+    interface GeoJSONFeature {
+      id: string;
+      type: string;
+      geometry: {
+        type: string;
+        coordinates: number[];
+      };
+      properties: {
+        name?: string;
+        text?: string;
+        type: string;
+        yaw?: string;
+        orientation?: number;
+        x?: number;
+        y?: number;
+        [key: string]: any;
+      };
+    }
+    
+    // Extract points from the features - focus on "Label" type points
+    const points: Point[] = overlays.features
+      .filter((feature: GeoJSONFeature) => 
+        feature.geometry.type === 'Point' && 
+        feature.properties && 
+        (feature.properties.type === 'Label' || 
+         feature.properties.type === '34' || // Pickup points (shelves)
+         feature.properties.type === '11' || // General points
+         feature.properties.type === '10' || // Standby points
+         feature.properties.type === '9')    // Charging station
+      )
+      .map((feature: GeoJSONFeature) => {
+        // Handle both formats (Label type vs. our existing types)
+        if (feature.properties.type === 'Label') {
+          return {
+            id: feature.properties.text || feature.id,
+            x: feature.properties.x || feature.geometry.coordinates[0],
+            y: feature.properties.y || feature.geometry.coordinates[1],
+            ori: feature.properties.orientation || 0,
+            description: feature.properties.text || '',
+            floorId: floorId // Tag the floor ID directly
+          };
+        } else {
+          return {
+            id: feature.properties.name || feature.id,
+            x: feature.geometry.coordinates[0], 
+            y: feature.geometry.coordinates[1],
+            ori: parseFloat(feature.properties.yaw || '0'),
+            description: feature.properties.name || '',
+            floorId: floorId // Tag the floor ID directly
+          };
+        }
+      });
+    
     console.log(`Successfully extracted ${points.length} map points from overlays`);
+    
+    // Debug output to see what points we have
+    const pointIds = points.map(p => p.id).sort();
+    console.log('Available point IDs:', pointIds);
+    
     return points;
   } catch (error: any) {
     console.error('Error fetching robot map points:', error.message || error);
