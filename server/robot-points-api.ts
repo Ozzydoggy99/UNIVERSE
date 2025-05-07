@@ -81,39 +81,44 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
           };
         }
         
-        // Extract points from the features - focus on "Label" type points
-        const points: Point[] = overlays.features
-          .filter((feature: GeoJSONFeature) => 
-            feature.geometry.type === 'Point' && 
-            feature.properties && 
-            (feature.properties.type === 'Label' || 
-             feature.properties.type === '34' || // Pickup points (shelves)
-             feature.properties.type === '11' || // General points
-             feature.properties.type === '10' || // Standby points
-             feature.properties.type === '9')    // Charging station
-          )
-          .map((feature: GeoJSONFeature) => {
-            // Handle both formats (Label type vs. our existing types)
-            if (feature.properties.type === 'Label') {
-              return {
-                id: feature.properties.text || feature.id,
-                x: feature.properties.x || feature.geometry.coordinates[0],
-                y: feature.properties.y || feature.geometry.coordinates[1],
-                ori: feature.properties.orientation || 0,
-                description: feature.properties.text || '',
-                floorId: floorId // Tag the floor ID directly
-              };
-            } else {
-              return {
-                id: feature.properties.name || feature.id,
-                x: feature.geometry.coordinates[0], 
-                y: feature.geometry.coordinates[1],
-                ori: parseFloat(feature.properties.yaw || '0'),
-                description: feature.properties.name || '',
-                floorId: floorId // Tag the floor ID directly
-              };
-            }
-          });
+        // Extract points from the features - focus only on numeric labeled shelf points
+        const points: Point[] = [];
+
+        overlays.features.forEach((feature: GeoJSONFeature) => {
+          // Only process point features with properties
+          if (feature.geometry.type !== 'Point' || !feature.properties) return;
+
+          const { properties, geometry } = feature;
+
+          // Try multiple labels for robustness
+          const rawLabel = String(
+            properties.name ||
+            properties.text ||
+            properties.label ||
+            properties.description ||
+            ""
+          ).trim();
+
+          // Only include points that look like shelf numbers (e.g. 145, 146, etc.)
+          const label = rawLabel.match(/^\d+$/) ? rawLabel : "";
+
+          if (!label) return; // skip non-shelf points
+
+          const x = properties.x ?? geometry.coordinates[0];
+          const y = properties.y ?? geometry.coordinates[1];
+          const ori = parseFloat(properties.yaw || properties.orientation || 0);
+
+          if (typeof x === "number" && typeof y === "number") {
+            points.push({
+              id: label,
+              x,
+              y,
+              ori,
+              floorId: floorId,
+              description: rawLabel,
+            });
+          }
+        });
         
         console.log(`Successfully extracted ${points.length} map points from overlays`);
         
