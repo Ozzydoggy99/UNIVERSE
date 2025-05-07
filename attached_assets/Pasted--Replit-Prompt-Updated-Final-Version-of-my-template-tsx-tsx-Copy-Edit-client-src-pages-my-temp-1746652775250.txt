@@ -1,3 +1,7 @@
+🧩 Replit Prompt: Updated Final Version of my-template.tsx
+tsx
+Copy
+Edit
 // client/src/pages/my-template.tsx
 import { useState } from "react";
 import { useSimplifiedRobotTask } from "@/hooks/use-simplified-robot-task";
@@ -117,6 +121,19 @@ export default function MyTemplate() {
           </button>
         </div>
       )}
+
+      <div className="fixed bottom-4 right-4">
+        <button className="bg-violet-600 text-white px-4 py-2 rounded">View Static Map (No HMR)</button>
+      </div>
     </div>
   );
 }
+✅ This version:
+
+Works with your corrected backend
+
+Filters out all internal points (confirmed by your screenshot)
+
+Matches your step-based UI flow
+
+Fully ready to send multi-stage pickup/dropoff commands to the robot
