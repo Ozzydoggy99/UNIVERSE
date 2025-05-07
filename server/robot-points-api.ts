@@ -40,77 +40,20 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     // Load map details to get overlays
     const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
     const mapData = mapDetailRes.data;
+    const overlays = Array.isArray(mapData?.overlays) ? mapData.overlays : [];
     
-    if (!mapData || !mapData.overlays) {
-      throw new Error('Invalid response format: missing overlays data');
-    }
+    console.log("🧠 Overlays:", overlays.map((o: any) => o.text || o.type));
     
-    // Parse the overlays JSON
-    let overlays;
-    try {
-      overlays = JSON.parse(mapData.overlays);
-    } catch (e) {
-      console.error('Failed to parse overlays JSON:', e);
-      throw new Error('Invalid overlays format: failed to parse JSON');
-    }
-    
-    if (!overlays || !overlays.features || !Array.isArray(overlays.features)) {
-      throw new Error('Invalid overlays format: missing features array');
-    }
-    
-    // Define interfaces for GeoJSON structure
-    interface GeoJSONFeature {
-      id: string;
-      type: string;
-      geometry: {
-        type: string;
-        coordinates: number[];
-      };
-      properties: {
-        name?: string;
-        text?: string;
-        type: string;
-        yaw?: string;
-        orientation?: number;
-        x?: number;
-        y?: number;
-        [key: string]: any;
-      };
-    }
-    
-    // Extract points from the features - focus on "Label" type points
-    const points: Point[] = overlays.features
-      .filter((feature: GeoJSONFeature) => 
-        feature.geometry.type === 'Point' && 
-        feature.properties && 
-        (feature.properties.type === 'Label' || 
-         feature.properties.type === '34' || // Pickup points (shelves)
-         feature.properties.type === '11' || // General points
-         feature.properties.type === '10' || // Standby points
-         feature.properties.type === '9')    // Charging station
-      )
-      .map((feature: GeoJSONFeature) => {
-        // Handle both formats (Label type vs. our existing types)
-        if (feature.properties.type === 'Label') {
-          return {
-            id: feature.properties.text || feature.id,
-            x: feature.properties.x || feature.geometry.coordinates[0],
-            y: feature.properties.y || feature.geometry.coordinates[1],
-            ori: feature.properties.orientation || 0,
-            description: feature.properties.text || '',
-            floorId: floorId // Tag the floor ID directly
-          };
-        } else {
-          return {
-            id: feature.properties.name || feature.id,
-            x: feature.geometry.coordinates[0], 
-            y: feature.geometry.coordinates[1],
-            ori: parseFloat(feature.properties.yaw || '0'),
-            description: feature.properties.name || '',
-            floorId: floorId // Tag the floor ID directly
-          };
-        }
-      });
+    const points = overlays
+      .filter((o: any) => o.type === "Label")
+      .map((o: any) => ({
+        id: o.text?.trim(),
+        x: o.x,
+        y: o.y,
+        ori: o.orientation ?? 0,
+        floorId,
+        description: o.text?.trim() || '',
+      }));
     
     console.log(`Successfully extracted ${points.length} map points from overlays`);
     

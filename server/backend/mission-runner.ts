@@ -36,7 +36,8 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   const floorId = floorMatch ? floorMatch[1] : "1";
 
   const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
-  const overlays = mapDetailRes.data?.overlays || [];
+  const mapData = mapDetailRes.data;
+  const overlays = Array.isArray(mapData?.overlays) ? mapData.overlays : [];
 
   console.log("🧠 Overlays:", overlays.map((o: any) => o.text || o.type));
 
