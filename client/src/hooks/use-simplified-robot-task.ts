@@ -9,6 +9,7 @@ export interface Point {
   y: number;
   ori: number;
   description?: string;
+  floorId?: string;
 }
 
 // Type for our task execution parameters
@@ -64,27 +65,12 @@ export function useSimplifiedRobotTask() {
 
         console.log("Filtered points for UI:", validPoints.map((p: Point) => p.id));
 
-        // Organize points by floor number 
+        // Organize points by floor number (using the floorId property from backend)
         const buckets: Record<string, Point[]> = {};
         
         for (const point of validPoints) {
-          // First, try to extract a floor number from the beginning of the ID
-          let floorId = "1"; // Default to floor 1
-          
-          // Check if the ID is a simple number (like "1", "2", etc.)
-          if (/^\d+$/.test(point.id)) {
-            floorId = point.id; // Use the number itself as the floor
-          } 
-          // If it starts with a number followed by other chars (like "1-A", "2_shelf", etc.)
-          else if (/^(\d+)/.test(point.id)) {
-            const floorMatch = point.id.match(/^(\d+)/);
-            if (floorMatch) floorId = floorMatch[1];
-          }
-          // If it has a number with a space after "floor" or "level"
-          else if (/floor\s+(\d+)/i.test(point.id) || /level\s+(\d+)/i.test(point.id)) {
-            const floorMatch = point.id.match(/(?:floor|level)\s+(\d+)/i);
-            if (floorMatch) floorId = floorMatch[1];
-          }
+          // Use the floorId property directly from the backend
+          const floorId = point.floorId || "0"; // Default to floor 0 if none is specified
           
           // Create the floor bucket if it doesn't exist
           if (!buckets[floorId]) buckets[floorId] = [];

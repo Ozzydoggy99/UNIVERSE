@@ -9,6 +9,7 @@ interface Point {
   y: number;
   ori: number;
   description?: string;
+  floorId?: string;
 }
 
 /**
@@ -30,22 +31,22 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       throw new Error('No maps found on the robot');
     }
     
-    // Prefer Phil's Map (case-insensitive match), fallback to anything not ID 1
+    // Find Phil's map by name
     const maps = mapsResponse.data;
-    const philMap = maps.find((m: any) => m.map_name?.toLowerCase().includes("phil")) ||
-                    maps.find((m: any) => m.id === 2) ||
-                    maps.find((m: any) => m.id !== 1);
+    const philMap = maps.find((m: any) => m.map_name?.toLowerCase().includes("phil"));
     
     if (!philMap) {
-      throw new Error('❌ No valid map found - need Phil\'s Map or a non-ID 1 map');
+      throw new Error('❌ "Phil" map not found');
     }
     
-    const mapId = philMap.id;
+    // Extract floor prefix from map name (e.g., "2-Phil's Map" → 2)
+    const floorPrefixMatch = philMap.map_name.match(/^(\d)-/);
+    const floorIdFromMap = floorPrefixMatch ? floorPrefixMatch[1] : "0";
     
-    console.log(`Using map ID ${mapId} named "${philMap.map_name}"`);
+    console.log(`Using map ID ${philMap.id} named "${philMap.map_name}" with floor ID: ${floorIdFromMap}`);
     
     // Now fetch the full map data to get the overlays
-    const mapUrl = `${ROBOT_API_URL}/maps/${mapId}`;
+    const mapUrl = `${ROBOT_API_URL}/maps/${philMap.id}`;
     console.log(`Fetching map data from ${mapUrl}`);
     
     const response = await axios.get(mapUrl, {
@@ -59,7 +60,13 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     }
     
     // The overlays property contains a JSON string with all the map points
-    const overlays = JSON.parse(response.data.overlays);
+    let overlays;
+    try {
+      overlays = JSON.parse(response.data.overlays);
+    } catch (e) {
+      console.error('Failed to parse overlays JSON:', e);
+      throw new Error('Invalid overlays format: failed to parse JSON');
+    }
     
     if (!overlays || !overlays.features || !Array.isArray(overlays.features)) {
       throw new Error('Invalid overlays format: missing features array');
@@ -81,17 +88,16 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       };
     }
     
-    // Extract points from the features - handle both "Label" type points 
-    // and our specific known point types (34, 11, 10, 9)
+    // Extract points from the features - focus on "Label" type points
     const points: Point[] = overlays.features
       .filter((feature: GeoJSONFeature) => 
         feature.geometry.type === 'Point' && 
         feature.properties && 
-        (feature.properties.type === '34' || // Pickup points (shelves)
+        (feature.properties.type === 'Label' || 
+         feature.properties.type === '34' || // Pickup points (shelves)
          feature.properties.type === '11' || // General points
          feature.properties.type === '10' || // Standby points
-         feature.properties.type === '9'  || // Charging station
-         feature.properties.type === 'Label') // Label type as mentioned in provided code
+         feature.properties.type === '9')    // Charging station
       )
       .map((feature: GeoJSONFeature) => {
         // Handle both formats (Label type vs. our existing types)
@@ -101,7 +107,8 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
             x: feature.properties.x || feature.geometry.coordinates[0],
             y: feature.properties.y || feature.geometry.coordinates[1],
             ori: feature.properties.orientation || 0,
-            description: feature.properties.text || ''
+            description: feature.properties.text || '',
+            floorId: floorIdFromMap // Tag the floor ID directly
           };
         } else {
           return {
@@ -109,7 +116,8 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
             x: feature.geometry.coordinates[0], 
             y: feature.geometry.coordinates[1],
             ori: parseFloat(feature.properties.yaw || '0'),
-            description: feature.properties.name || ''
+            description: feature.properties.name || '',
+            floorId: floorIdFromMap // Tag the floor ID directly
           };
         }
       });
