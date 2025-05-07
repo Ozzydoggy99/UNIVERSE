@@ -170,6 +170,21 @@ export function registerRobotPointsApiRoutes(app: Express) {
   app.get('/api/fetch-points', async (req: Request, res: Response) => {
     try {
       const points = await fetchRobotMapPoints();
+      console.log('API DEBUG - All points from robot:', points.map(p => p.id));
+      
+      // Categorize points for better debugging
+      const special = points.filter(p => {
+        const label = p.id.toLowerCase();
+        return label.includes('charging') || 
+               label.includes('standby') || 
+               label.includes('pick') || 
+               label.includes('drop');
+      });
+
+      // Sort points by ID for better readability
+      points.sort((a, b) => a.id.localeCompare(b.id));
+      
+      console.log('API DEBUG - Special points:', special.map(p => p.id));
       res.json({ points });
     } catch (error: any) {
       console.error('Error fetching points:', error);

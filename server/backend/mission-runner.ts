@@ -43,21 +43,54 @@ async function fetchPoints(): Promise<Point[]> {
  * Categorizes points from the map into pickup, dropoff, standby, and shelves
  */
 function categorizePoints(points: Point[]): CategorizedPoints {
+  console.log('Categorizing points:', points.map(p => p.id));
+  
   const categories = {
     pickup: null as Point | null,
     dropoff: null as Point | null,
     standby: null as Point | null,
     shelves: [] as Point[],
   };
-
+  
+  // First, find the special points
   for (const p of points) {
     const label = p.id.toLowerCase();
-    if (label.includes("pick")) categories.pickup = p;
-    else if (label.includes("drop")) categories.dropoff = p;
-    else if (label.includes("desk") || label.includes("standby")) categories.standby = p;
-    else categories.shelves.push(p);
+    
+    // Try to find the pickup point (labeled "pickup", "pick", etc.)
+    if (label.includes("pick")) {
+      console.log('Found pickup point:', p.id);
+      categories.pickup = p;
+    }
+    // Try to find the dropoff point (labeled "dropoff", "drop", etc.)
+    else if (label.includes("drop")) {
+      console.log('Found dropoff point:', p.id);
+      categories.dropoff = p;
+    }
+    // Try to find the standby point (labeled "standby", "desk", "charging station", etc.)
+    else if (
+      label.includes("desk") || 
+      label.includes("standby") || 
+      label.includes("charging")
+    ) {
+      console.log('Found standby point:', p.id);
+      categories.standby = p;
+    }
+    // All other points are considered shelves
+    else {
+      categories.shelves.push(p);
+    }
   }
-
+  
+  // Sort shelves by ID for predictable ordering
+  categories.shelves.sort((a, b) => a.id.localeCompare(b.id));
+  
+  console.log(`Categorized ${points.length} points into:`, {
+    pickup: categories.pickup?.id,
+    dropoff: categories.dropoff?.id,
+    standby: categories.standby?.id,
+    shelves: categories.shelves.map(s => s.id),
+  });
+  
   return categories;
 }
 

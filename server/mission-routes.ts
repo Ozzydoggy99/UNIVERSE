@@ -18,10 +18,12 @@ const missionRouter = Router();
  */
 missionRouter.post("/robot-task", async (req: Request, res: Response) => {
   try {
+    console.log('👉 Starting robot task with request:', req.body);
     const { mode, shelfId } = req.body as RobotTaskRequest;
     
     // Validate request parameters
     if (!mode || !["pickup", "dropoff"].includes(mode)) {
+      console.log('❌ Invalid mode:', mode);
       return res.status(400).json({ 
         success: false, 
         error: "Invalid mode. Must be 'pickup' or 'dropoff'." 
@@ -29,14 +31,19 @@ missionRouter.post("/robot-task", async (req: Request, res: Response) => {
     }
     
     if (!shelfId) {
+      console.log('❌ Missing shelfId');
       return res.status(400).json({ 
         success: false, 
         error: "Missing shelfId parameter." 
       });
     }
 
+    console.log('✓ Parameters validated, running mission with:', { mode, shelfId });
+    
     // Run the mission
     await runMission({ uiMode: mode, shelfId });
+    
+    console.log('✅ Mission completed successfully');
     
     // Return success response
     res.json({ 
