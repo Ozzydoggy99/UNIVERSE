@@ -42,8 +42,9 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     }));
 }
 
-export async function runMission({ uiMode, shelfId }: MissionParams): Promise<string> {
-  const points = await fetchRobotMapPoints();
+export async function runMission({ uiMode, shelfId }: MissionParams, providedPoints?: Point[]): Promise<string> {
+  // Use provided points if available, otherwise fetch fresh points
+  const points = providedPoints || await fetchRobotMapPoints();
 
   const normalizedShelfId = String(shelfId).trim().toLowerCase();
   const shelf = points.find(p => String(p.id).trim().toLowerCase() === normalizedShelfId);
