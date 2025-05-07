@@ -72,20 +72,36 @@ export function useSimplifiedRobotTask() {
   // Group points by floor
   const floorMap: Record<string, Point[]> = {};
   
+  // Ensure floor 1 always exists even if we don't have points yet
+  floorMap["1"] = [];
+  
   for (const point of points) {
-    const id = point.id.toLowerCase();
-    
-    // Skip special points like pickup, dropoff, desk, standby
-    if (id.includes("pick") || id.includes("drop") || id.includes("desk") || id.includes("standby")) {
+    // Skip special points like Charging Station and Standby
+    if (point.id.toLowerCase().includes("charging") || 
+        point.id.toLowerCase().includes("standby")) {
       continue;
     }
     
-    // First character of ID is considered as floor number
-    const floor = point.id.slice(0, 1);
+    // Regular numbered shelf points like "1", "101"
+    // First character is considered the floor (e.g., "1" for point "101")
+    let floor = "1"; // Default to floor 1
+    
+    if (/^\d/.test(point.id)) {
+      // If the ID starts with a digit, use that as the floor
+      floor = point.id.charAt(0);
+    }
+    
+    // Ensure the floor exists in our map
     if (!floorMap[floor]) {
       floorMap[floor] = [];
     }
+    
     floorMap[floor].push(point);
+  }
+  
+  // If we have no points at all, add a placeholder for floor 1
+  if (Object.keys(floorMap).length === 0) {
+    floorMap["1"] = [];
   }
 
   // Mutation for running a task
