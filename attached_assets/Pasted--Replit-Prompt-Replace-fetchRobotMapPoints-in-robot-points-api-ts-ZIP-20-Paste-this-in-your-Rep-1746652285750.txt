@@ -1,0 +1,100 @@
+🧩 Replit Prompt: Replace fetchRobotMapPoints in robot-points-api.ts (ZIP 20)
+Paste this in your Replit to replace the full function:
+
+ts
+Copy
+Edit
+export async function fetchRobotMapPoints(): Promise<Point[]> {
+  const headers = { 'x-api-key': ROBOT_SECRET };
+
+  console.log(`Fetching maps from ${ROBOT_API_URL}/maps/`);
+  const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
+  const maps = mapsRes.data || [];
+
+  const activeMap = maps[0];
+  if (!activeMap) throw new Error("❌ No map found");
+
+  const rawName = activeMap.name || activeMap.map_name || "";
+  const floorMatch = rawName.match(/^(\d+)/);
+  const floorId = floorMatch ? floorMatch[1] : "1";
+
+  console.log(`🔍 Using map ID ${activeMap.id} — name: ${rawName} with floor ID: ${floorId}`);
+
+  const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
+  const mapData = mapDetailRes.data;
+
+  if (!mapData || !mapData.overlays) {
+    throw new Error('Invalid response format: missing overlays data');
+  }
+
+  let overlays;
+  try {
+    overlays = JSON.parse(mapData.overlays);
+  } catch (e) {
+    console.error('Failed to parse overlays JSON:', e);
+    throw new Error('Invalid overlays format: failed to parse JSON');
+  }
+
+  if (!overlays || !overlays.features || !Array.isArray(overlays.features)) {
+    throw new Error('Invalid overlays format: missing features array');
+  }
+
+  interface GeoJSONFeature {
+    id: string;
+    type: string;
+    geometry: {
+      type: string;
+      coordinates: number[];
+    };
+    properties: {
+      name?: string;
+      text?: string;
+      type: string;
+      yaw?: string;
+      orientation?: number;
+      x?: number;
+      y?: number;
+      [key: string]: any;
+    };
+  }
+
+  const points: Point[] = overlays.features
+    .filter((feature: GeoJSONFeature) =>
+      feature.geometry.type === 'Point' &&
+      feature.properties &&
+      (
+        feature.properties.type === 'Label' ||
+        feature.properties.type === '34' ||  // shelf
+        feature.properties.type === '11' ||  // general
+        feature.properties.type === '10' ||  // standby
+        feature.properties.type === '9'      // charging
+      )
+    )
+    .map((feature: GeoJSONFeature) => {
+      const { properties, geometry } = feature;
+      const id = String(properties.name || properties.text || "").trim();
+
+      const x = properties.x ?? geometry.coordinates[0];
+      const y = properties.y ?? geometry.coordinates[1];
+      const ori = parseFloat(properties.yaw || properties.orientation || "0");
+
+      return {
+        id,
+        x,
+        y,
+        ori,
+        floorId,
+        description: id,
+      };
+    });
+
+  return points;
+}
+✅ Result
+This will:
+
+Use the correct labels like 145, 146 again
+
+Preserve working move command system from ZIP 20
+
+Eliminate mislabeling introduced by fallback logic

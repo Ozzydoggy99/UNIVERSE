@@ -10,142 +10,103 @@ import { Point } from './types';
  * @returns Array of map points
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
-  try {
-    const headers = { 'x-api-key': ROBOT_SECRET };
+  const headers = { 'x-api-key': ROBOT_SECRET };
 
-    // First make sure we can even get maps list
-    try {
-      console.log(`Fetching maps from ${ROBOT_API_URL}/maps/`);
-      const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
-      const maps = mapsRes.data || [];
+  console.log(`Fetching maps from ${ROBOT_API_URL}/maps/`);
+  const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
+  const maps = mapsRes.data || [];
 
-      if (!maps.length) {
-        console.log("No maps found on robot, falling back to hardcoded data");
-        return ROBOT_MAP_POINTS; 
-      }
+  const activeMap = maps[0];
+  if (!activeMap) throw new Error("❌ No map found");
 
-      // We have maps, but the rest of the code requires map details with overlays
-      // which may not be supported by this robot. Let's try but be ready to fall back.
-      const activeMap = maps[0]; // only one map exists
-      const mapId = activeMap.uid || activeMap.id;
-      
-      // Extract floor from map name like "Phil's Map"
-      const rawName = activeMap.name || activeMap.map_name || "";
-      const floorMatch = rawName.match(/floor[_\s]*(\d+)/i);
-      const floorId = floorMatch ? floorMatch[1] : "1"; // fallback to 1
-      
-      console.log(`🔍 Using map ${rawName} (ID: ${mapId}) with floor ID: ${floorId}`);
-      
-      // This part might fail if the API doesn't support the detailed map endpoint
-      try {
-        // Load map details to get overlays
-        const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers });
-        const mapData = mapDetailRes.data;
-        
-        if (!mapData || !mapData.overlays) {
-          console.log('No overlays data in map details, falling back to hardcoded data');
-          return ROBOT_MAP_POINTS;
-        }
-        
-        // Parse the overlays JSON
-        let overlays;
-        try {
-          overlays = JSON.parse(mapData.overlays);
-        } catch (e) {
-          console.error('Failed to parse overlays JSON:', e);
-          return ROBOT_MAP_POINTS;
-        }
-        
-        if (!overlays || !overlays.features || !Array.isArray(overlays.features)) {
-          console.log('Invalid overlays format, falling back to hardcoded data');
-          return ROBOT_MAP_POINTS;
-        }
-        
-        // Define interfaces for GeoJSON structure
-        interface GeoJSONFeature {
-          id: string;
-          type: string;
-          geometry: {
-            type: string;
-            coordinates: number[];
-          };
-          properties: {
-            name?: string;
-            text?: string;
-            type: string;
-            yaw?: string;
-            orientation?: number;
-            x?: number;
-            y?: number;
-            [key: string]: any;
-          };
-        }
-        
-        // Extract points from the features - focus only on numeric labeled shelf points
-        const points: Point[] = [];
+  const rawName = activeMap.name || activeMap.map_name || "";
+  const floorMatch = rawName.match(/^(\d+)/);
+  const floorId = floorMatch ? floorMatch[1] : "1";
 
-        overlays.features.forEach((feature: GeoJSONFeature) => {
-          // Only process point features with properties
-          if (feature.geometry.type !== 'Point' || !feature.properties) return;
+  console.log(`🔍 Using map ID ${activeMap.id} — name: ${rawName} with floor ID: ${floorId}`);
 
-          const { properties, geometry } = feature;
+  const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
+  const mapData = mapDetailRes.data;
 
-          // Try multiple labels for robustness
-          const rawLabel = String(
-            properties.name ||
-            properties.text ||
-            properties.label ||
-            properties.description ||
-            ""
-          ).trim();
-
-          // Only include points that look like shelf numbers (e.g. 145, 146, etc.)
-          const label = rawLabel.match(/^\d+$/) ? rawLabel : "";
-
-          if (!label) return; // skip non-shelf points
-
-          const x = properties.x ?? geometry.coordinates[0];
-          const y = properties.y ?? geometry.coordinates[1];
-          const ori = parseFloat(properties.yaw || properties.orientation || 0);
-
-          if (typeof x === "number" && typeof y === "number") {
-            points.push({
-              id: label,
-              x,
-              y,
-              ori,
-              floorId: floorId,
-              description: rawLabel,
-            });
-          }
-        });
-        
-        console.log(`Successfully extracted ${points.length} map points from overlays`);
-        
-        if (points.length === 0) {
-          console.log('No points found in overlays, falling back to hardcoded data');
-          return ROBOT_MAP_POINTS;
-        }
-        
-        // Debug output to see what points we have
-        const pointIds = points.map(p => p.id).sort();
-        console.log('Available point IDs:', pointIds);
-        
-        return points;
-      } catch (error) {
-        // Map details endpoint failed, falling back to hardcoded data
-        console.error('Error fetching map details, falling back to hardcoded data:', error);
-        return ROBOT_MAP_POINTS;
-      }
-    } catch (error) {
-      // Even maps endpoint failed, definitely falling back to hardcoded data
-      console.error('Error fetching maps list, falling back to hardcoded data:', error);
-      return ROBOT_MAP_POINTS;
-    }
-  } catch (error: any) {
-    console.error('Error in fetchRobotMapPoints, using hardcoded data:', error.message || error);
-    return ROBOT_MAP_POINTS;
+  if (!mapData || !mapData.overlays) {
+    throw new Error('Invalid response format: missing overlays data');
   }
+
+  let overlays;
+  try {
+    overlays = JSON.parse(mapData.overlays);
+  } catch (e) {
+    console.error('Failed to parse overlays JSON:', e);
+    throw new Error('Invalid overlays format: failed to parse JSON');
+  }
+
+  if (!overlays || !overlays.features || !Array.isArray(overlays.features)) {
+    throw new Error('Invalid overlays format: missing features array');
+  }
+
+  interface GeoJSONFeature {
+    id: string;
+    type: string;
+    geometry: {
+      type: string;
+      coordinates: number[];
+    };
+    properties: {
+      name?: string;
+      text?: string;
+      type: string;
+      yaw?: string | number;
+      orientation?: string | number;
+      x?: number;
+      y?: number;
+      [key: string]: any;
+    };
+  }
+
+  const points: Point[] = overlays.features
+    .filter((feature: GeoJSONFeature) =>
+      feature.geometry.type === 'Point' &&
+      feature.properties &&
+      (
+        feature.properties.type === 'Label' ||
+        feature.properties.type === '34' ||  // shelf
+        feature.properties.type === '11' ||  // general
+        feature.properties.type === '10' ||  // standby
+        feature.properties.type === '9'      // charging
+      )
+    )
+    .map((feature: GeoJSONFeature) => {
+      const { properties, geometry } = feature;
+      const id = String(properties.name || properties.text || "").trim();
+
+      // Ensure coordinates are numbers
+      const x = typeof properties.x === 'number' ? properties.x : geometry.coordinates[0];
+      const y = typeof properties.y === 'number' ? properties.y : geometry.coordinates[1];
+      
+      // Handle orientation/yaw conversion - convert all possible sources to number
+      let ori = 0; // Default orientation
+
+      if (typeof properties.orientation === 'number') {
+        ori = properties.orientation;
+      } else if (typeof properties.yaw === 'number') {
+        ori = properties.yaw;
+      } else if (typeof properties.orientation === 'string') {
+        ori = parseFloat(properties.orientation);
+      } else if (typeof properties.yaw === 'string') {
+        ori = parseFloat(properties.yaw);
+      }
+
+      return {
+        id,
+        x,
+        y,
+        ori,
+        floorId,
+        description: id,
+      };
+    });
+
+  return points;
 }
 
 /**
@@ -159,7 +120,7 @@ export async function debugRobotMapList(): Promise<string[]> {
     });
 
     const maps = mapsRes.data || [];
-    return maps.map((m: any) => `${m.id || m.uid}: ${m.name || m.map_name || JSON.stringify(m)}`);
+    return maps.map((m: any) => `${String(m.id || m.uid)}: ${m.name || m.map_name || JSON.stringify(m)}`);
   } catch (error) {
     console.error('Error getting map list:', error);
     return ["Error fetching maps: Using hardcoded data instead"];
@@ -193,20 +154,28 @@ export function registerRobotPointsApiRoutes(app: Express) {
     try {
       const allPoints = await fetchRobotMapPoints();
       
-      // Filter to only include shelf points
+      // Filter to only include numeric shelf points
       const shelfPoints = allPoints.filter(point => {
-        const id = String(point.id).toLowerCase();
-        return !id.includes('pick') && !id.includes('drop') && !id.includes('desk') && !id.includes('standby') && !id.includes('charging');
+        const id = String(point.id);
+        // Keep only points with purely numeric IDs (shelf numbers)
+        return /^\d+$/.test(id);
       });
       
+      // Sort points by numerical ID for better display
+      shelfPoints.sort((a, b) => {
+        const aNum = parseInt(String(a.id));
+        const bNum = parseInt(String(b.id));
+        return aNum - bNum;
+      });
+      
+      console.log(`Found ${shelfPoints.length} shelf points with numeric IDs`);
       res.json(shelfPoints);
     } catch (error: any) {
       console.error('Error fetching shelf points:', error);
-      
-      // Fall back to hardcoded shelf points
-      const hardcodedShelfPoints = getShelfPoints();
-      console.log(`Falling back to ${hardcodedShelfPoints.length} hardcoded shelf points`);
-      res.json(hardcodedShelfPoints);
+      res.status(500).json({ 
+        error: 'Failed to fetch shelf points', 
+        details: error.message || 'Unknown error' 
+      });
     }
   });
   
@@ -219,7 +188,7 @@ export function registerRobotPointsApiRoutes(app: Express) {
       const points = await fetchRobotMapPoints();
       console.log('API DEBUG - All points from robot:', points.map(p => p.id));
       
-      // Categorize points for better debugging
+      // Categorize points by type for better debugging
       const special = points.filter(p => {
         const label = String(p.id).toLowerCase();
         return label.includes('charging') || 
@@ -228,18 +197,24 @@ export function registerRobotPointsApiRoutes(app: Express) {
                label.includes('drop');
       });
 
-      // Sort points by ID for better readability
-      points.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      // Sort points by ID for better readability (numeric order for shelf numbers)
+      points.sort((a, b) => {
+        const aNum = parseInt(String(a.id));
+        const bNum = parseInt(String(b.id));
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return aNum - bNum; // Sort numerically if both are numbers
+        }
+        return String(a.id).localeCompare(String(b.id)); // Otherwise alphabetically
+      });
       
       console.log('API DEBUG - Special points:', special.map(p => p.id));
       res.json({ points });
     } catch (error: any) {
       console.error('Error fetching points:', error);
-      
-      // Fall back to hardcoded points
-      const hardcodedPoints = ROBOT_MAP_POINTS;
-      console.log(`Falling back to ${hardcodedPoints.length} hardcoded points`);
-      res.json({ points: hardcodedPoints });
+      res.status(500).json({ 
+        error: 'Failed to fetch points', 
+        details: error.message || 'Unknown error' 
+      });
     }
   });
   
@@ -269,13 +244,29 @@ export function registerRobotPointsApiRoutes(app: Express) {
         console.error('Failed to get map points:', e);
       }
       
+      // Identify numeric points
+      const numericPoints = points.filter(p => /^\d+$/.test(String(p.id)));
+      console.log(`Found ${numericPoints.length} numeric points out of ${points.length} total points`);
+      
+      // Output detailed point information
+      points.forEach(p => {
+        console.log(`Point ID: "${p.id}", x: ${p.x}, y: ${p.y}, ori: ${p.ori}, floorId: ${p.floorId}`);
+      });
+      
       // Return debug info
       res.json({
         maps: mapsList,
         points_count: points.length,
-        points: points.map(p => ({ id: p.id, x: p.x, y: p.y })),
-        error: error ? error.message : null,
-        using_hardcoded: points.length > 0 && points[0] === ROBOT_MAP_POINTS[0]
+        numeric_points_count: numericPoints.length,
+        points: points.map(p => ({ 
+          id: p.id, 
+          x: p.x, 
+          y: p.y,
+          ori: p.ori,
+          floorId: p.floorId,
+          is_numeric: /^\d+$/.test(String(p.id))
+        })),
+        error: error ? error.message : null
       });
     } catch (error: any) {
       console.error('Error in debug endpoint:', error);
