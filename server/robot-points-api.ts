@@ -18,32 +18,25 @@ interface Point {
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
   try {
-    const headers = { 'x-api-key': ROBOT_SECRET };
+    const headers = { "x-api-key": ROBOT_SECRET };
 
-    // Fetch the only map (now Phil's Map)
-    console.log(`Fetching maps from ${ROBOT_API_URL}/maps/`);
+    // Get maps and select the first one
     const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
     const maps = mapsRes.data || [];
+    const activeMap = maps[0];
 
-    const activeMap = maps[0]; // only one map exists
-    if (!activeMap) throw new Error("❌ No map found");
+    if (!activeMap) throw new Error("❌ No map found on robot");
 
-    console.log(`Found map with ID ${activeMap.id}`);
-
-    // Extract floor from map name like "1 - Phil's Map"
     const rawName = activeMap.name || activeMap.map_name || "";
     const floorMatch = rawName.match(/^(\d+)/);
-    const floorId = floorMatch ? floorMatch[1] : "1"; // fallback to 1
-    
-    console.log(`🔍 Using map ID ${activeMap.id} — name: ${rawName} with floor ID: ${floorId}`);
-    
-    // Load map details to get overlays
-    const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
-    const mapData = mapDetailRes.data;
-    const overlays = Array.isArray(mapData?.overlays) ? mapData.overlays : [];
-    
-    console.log("🧠 Overlays:", overlays.map((o: any) => o.text || o.type));
-    
+    const floorId = floorMatch ? floorMatch[1] : "1";
+
+    const mapRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
+    const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
+
+    console.log("🧠 Overlay labels:", overlays.map((o: any) => o.text || o.type));
+
+    // ✅ This is the FIX — make sure floorId is included in each point
     const points = overlays
       .filter((o: any) => o.type === "Label")
       .map((o: any) => ({
@@ -54,13 +47,8 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
         floorId,
         description: o.text?.trim() || '',
       }));
-    
+      
     console.log(`Successfully extracted ${points.length} map points from overlays`);
-    
-    // Debug output to see what points we have
-    const pointIds = points.map(p => p.id).sort();
-    console.log('Available point IDs:', pointIds);
-    
     return points;
   } catch (error: any) {
     console.error('Error fetching robot map points:', error.message || error);

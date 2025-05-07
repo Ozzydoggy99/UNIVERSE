@@ -23,33 +23,43 @@ interface MissionParams {
 }
 
 export async function fetchRobotMapPoints(): Promise<Point[]> {
-  const headers = { "x-api-key": ROBOT_SECRET };
+  try {
+    const headers = { "x-api-key": ROBOT_SECRET };
 
-  // Get all maps and pick the first one
-  const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
-  const maps = mapsRes.data || [];
-  const activeMap = maps[0];
+    // Get maps and select the first one
+    const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
+    const maps = mapsRes.data || [];
+    const activeMap = maps[0];
 
-  if (!activeMap) throw new Error("❌ No map found on robot");
+    if (!activeMap) throw new Error("❌ No map found on robot");
 
-  const floorMatch = activeMap.name?.match(/^(\d+)/);
-  const floorId = floorMatch ? floorMatch[1] : "1";
+    const rawName = activeMap.name || activeMap.map_name || "";
+    const floorMatch = rawName.match(/^(\d+)/);
+    const floorId = floorMatch ? floorMatch[1] : "1";
 
-  const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
-  const mapData = mapDetailRes.data;
-  const overlays = Array.isArray(mapData?.overlays) ? mapData.overlays : [];
+    const mapRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
+    const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
 
-  console.log("🧠 Overlays:", overlays.map((o: any) => o.text || o.type));
+    console.log("🧠 Overlay labels:", overlays.map((o: any) => o.text || o.type));
 
-  return overlays
-    .filter((o: any) => o.type === "Label")
-    .map((o: any) => ({
-      id: o.text?.trim(),
-      x: o.x,
-      y: o.y,
-      ori: o.orientation ?? 0,
-      floorId,
-    }));
+    // ✅ This is the FIX — make sure floorId is included in each point
+    const points = overlays
+      .filter((o: any) => o.type === "Label")
+      .map((o: any) => ({
+        id: o.text?.trim(),
+        x: o.x,
+        y: o.y,
+        ori: o.orientation ?? 0,
+        floorId,
+        description: o.text?.trim() || '',
+      }));
+      
+    console.log(`Successfully extracted ${points.length} map points with floorId ${floorId}`);
+    return points;
+  } catch (error: any) {
+    console.error('Error fetching robot map points:', error.message || error);
+    throw new Error(`Failed to fetch map points: ${error.message || 'Unknown error'}`);
+  }
 }
 
 function categorizePoints(points: Point[]): CategorizedPoints {
