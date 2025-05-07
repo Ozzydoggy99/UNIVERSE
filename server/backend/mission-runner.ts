@@ -1,64 +1,20 @@
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
 import { Point, RobotTaskRequest } from "../types";
+import { fetchRobotMapPoints as fetchPoints } from "../robot-points-api";
 
-// RobotTaskRequest is now imported from ../types
-
+// This function has been moved to robot-points-api.ts
+// We keep this import/export signature for backward compatibility
 export async function fetchRobotMapPoints(): Promise<Point[]> {
-  const headers = { "x-api-key": ROBOT_SECRET };
-
-  // Get first available map
-  const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
-  const maps = mapsRes.data || [];
-  const activeMap = maps[0];
-
-  if (!activeMap) throw new Error("❌ No map found");
-
-  console.log("🗺️ Found active map:", activeMap.name || activeMap.map_name);
-
-  // Extract floor ID from map name if available
-  const rawName = activeMap.name || activeMap.map_name || "";
-  const floorMatch = rawName.match(/^(\d+)/);
-  const floorId = floorMatch ? floorMatch[1] : "1";
-
-  const mapRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
-  const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
-
-  // Extract and normalize point data from overlays
-  const points = overlays
-    .filter((o: any) => o.type === "Label")
-    .map((o: any) => {
-      // Points may be directly in the overlay or nested in a point property
-      const point = o.point || o;
-      const id = point.text?.trim() || point.id || "";
-      
-      return {
-        id,
-        description: id, // Use ID as description for better debugging
-        x: point.x,
-        y: point.y,
-        ori: point.orientation || point.ori || 0,
-        floorId,
-      };
-    })
-    .filter((p: Point) => p.id); // Filter out any points without an ID
-    
-  // Debug output of the actual overlay structure for better understanding
-  if (overlays.length > 0) {
-    console.log("Sample overlay structure:", JSON.stringify(overlays[0]));
-  }
-
-  console.log(`📍 Found ${points.length} map points with floor ID ${floorId}:`, 
-    points.map((p: Point) => `"${p.id}"`).join(", "));
-
-  return points;
+  // Forward to the real implementation
+  return fetchPoints();
 }
 
 export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
   if (!points || points.length === 0) {
-    // If points aren't provided, fetch them directly
+    // If points aren't provided, fetch them from the robot-points-api
     console.log("No points provided, fetching from robot...");
-    points = await fetchRobotMapPoints();
+    points = await fetchPoints();
   }
 
   console.log(`📝 Total points available: ${points.length}`);

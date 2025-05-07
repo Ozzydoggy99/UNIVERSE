@@ -51,7 +51,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Debug endpoint for showing point data with floor IDs
   app.get('/api/debug-points', async (req, res) => {
     try {
-      const fetchRobotMapPoints = (await import('./robot-points-api')).fetchRobotMapPoints;
+      const { fetchRobotMapPoints } = await import('./robot-points-api');
       const points = await fetchRobotMapPoints();
       
       // Group points by floor ID
@@ -65,11 +65,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pointsByFloor[floorId].push(point);
       }
       
+      // Debug logging to help diagnose point issues
+      console.log(`📍 Found ${points.length} total points across ${Object.keys(pointsByFloor).length} floors`);
+      Object.entries(pointsByFloor).forEach(([floorId, floorPoints]) => {
+        console.log(`   Floor ${floorId}: ${floorPoints.length} points - ${floorPoints.map(p => p.id).join(', ')}`);
+      });
+      
       res.json({ 
         total: points.length,
         pointsByFloor
       });
     } catch (err: any) {
+      console.error("❌ Error fetching debug points:", err);
       res.status(500).json({ error: err.message || 'Error fetching debug points' });
     }
   });
