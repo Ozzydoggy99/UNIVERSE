@@ -1,0 +1,77 @@
+✅ Step 1: Update mission-runner.ts
+Replace your runMission function with the following version:
+
+ts
+Copy
+Edit
+import axios from 'axios';
+import { ROBOT_IP, ROBOT_SECRET_KEY } from '../robot-constants';
+import { Point } from '../types';
+
+export async function runMission(uiMode: 'pickup' | 'dropoff', shelfId: string, points: Point[]) {
+  console.log('🧾 Running mission:', uiMode, shelfId);
+  console.log('🧾 Available points:', points.map(p => `"${p.id}"`).join(', '));
+
+  const normalize = (id: string | number) => String(id).trim().toLowerCase();
+
+  const shelf = points.find(p => normalize(p.id) === normalize(shelfId));
+  const standby = points.find(p => normalize(p.description) === 'desk');
+
+  if (!shelf) throw new Error(`❌ Shelf point "${shelfId}" not found`);
+  if (!standby) throw new Error(`❌ Desk (standby) point not found`);
+
+  const start = uiMode === 'pickup' ? shelf : standby;
+  const end = uiMode === 'pickup' ? standby : shelf;
+
+  console.log(`📍 Moving from "${start.id}" to "${end.id}"`);
+
+  const movePayload = {
+    action: 'move_to',
+    args: {
+      target_x: end.x,
+      target_y: end.y
+    }
+  };
+
+  const response = await axios.post(`http://${ROBOT_IP}:8090/chassis/moves`, movePayload, {
+    headers: { 'x-api-key': ROBOT_SECRET_KEY }
+  });
+
+  console.log('✅ Robot move initiated:', response.data);
+  return response.data;
+}
+✅ Step 2: Ensure Point type in types.ts includes:
+ts
+Copy
+Edit
+export interface Point {
+  id: string;
+  x: number;
+  y: number;
+  ori?: number;
+  description?: string;
+  floorId?: string;
+}
+✅ Step 3: Update mission-routes.ts endpoint
+Ensure your POST /api/mission route looks like this:
+
+ts
+Copy
+Edit
+import express from 'express';
+import { runMission } from './backend/mission-runner';
+import { fetchRobotMapPoints } from './robot-points-api';
+
+export const missionRouter = express.Router();
+
+missionRouter.post('/mission', async (req, res) => {
+  try {
+    const { uiMode, shelfId } = req.body;
+    const points = await fetchRobotMapPoints();
+    const result = await runMission(uiMode, shelfId, points);
+    res.json({ success: true, result });
+  } catch (err: any) {
+    console.error('❌ Mission error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});

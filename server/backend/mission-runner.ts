@@ -10,89 +10,58 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   return fetchPoints();
 }
 
+/**
+ * Run a mission (pickup or dropoff) using the robot
+ * Simplified version that uses direct point-to-point movement
+ */
 export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
+  // If no points provided, fetch them from robot
   if (!points || points.length === 0) {
-    // If points aren't provided, fetch them from the robot-points-api
     console.log("No points provided, fetching from robot...");
     points = await fetchPoints();
   }
 
-  console.log(`📝 Total points available: ${points.length}`);
-  console.log(`🔍 Looking for: pickup/pick-up, dropoff/drop-off, desk, and ${shelfId}`);
-  
-  const normalize = (val: string) => String(val || "").trim().toLowerCase();
+  console.log('🧾 Running mission:', uiMode, shelfId);
+  console.log('🧾 Available points:', points.map(p => `"${p.id}"`).join(', '));
 
-  // Improved case-insensitive matching with better logging
-  const pickupPoint = points.find(p => {
-    const id = normalize(p.id);
-    return id === "pick-up" || id === "pickup" || id === "pick up";
-  });
-  console.log("Pickup point found:", pickupPoint?.id);
+  const normalize = (id: string | number) => String(id).trim().toLowerCase();
 
-  const dropoffPoint = points.find(p => {
-    const id = normalize(p.id);
-    return id === "drop-off" || id === "dropoff" || id === "drop off";
-  });
-  console.log("Dropoff point found:", dropoffPoint?.id);
+  // Find the required points
+  const shelf = points.find(p => normalize(p.id) === normalize(shelfId));
+  const standby = points.find(p => normalize(p.id) === 'desk');
 
-  const standbyPoint = points.find(p => normalize(p.id) === "desk");
-  console.log("Standby point found:", standbyPoint?.id);
+  if (!shelf) throw new Error(`❌ Shelf point "${shelfId}" not found`);
+  if (!standby) throw new Error(`❌ Desk (standby) point not found`);
 
-  const shelfPoint = points.find(p => normalize(p.id) === normalize(shelfId));
-  console.log("Shelf point found:", shelfPoint?.id);
-  
-  console.log("Available point IDs:", points.map(p => p.id));
+  // Determine start and end points based on UI mode
+  const start = uiMode === 'pickup' ? shelf : standby;
+  const end = uiMode === 'pickup' ? standby : shelf;
 
-  if (!pickupPoint || !dropoffPoint || !standbyPoint || !shelfPoint) {
-    throw new Error(`❌ One or more required points not found. Looking for: pick-up, drop-off, desk, and ${shelfId}`);
+  console.log(`📍 Moving from "${start.id}" to "${end.id}"`);
+
+  try {
+    // Send the move command to the robot
+    const movePayload = {
+      action: 'navigate_to',  // Using navigate_to which works with our robot
+      target_x: end.x,
+      target_y: end.y
+    };
+
+    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, movePayload, {
+      headers: { 'x-api-key': ROBOT_SECRET }
+    });
+
+    console.log('✅ Robot move initiated:', response.data);
+    
+    return {
+      mission: `${uiMode}-${shelfId}-${Date.now()}`,
+      status: "in_progress",
+      move_id: response.data.id,
+      from: start.id,
+      to: end.id
+    };
+  } catch (error: any) {
+    console.error('❌ Error initiating robot movement:', error.message);
+    throw new Error(`Failed to start robot mission: ${error.message}`);
   }
-
-  const steps = uiMode === "pickup"
-    ? [pickupPoint, shelfPoint, standbyPoint]
-    : [shelfPoint, dropoffPoint, standbyPoint];
-
-  console.log(`🚀 Starting ${uiMode} mission for ${shelfId}`);
-  
-  // Execute each movement sequentially using the navigate_to action
-  const results = [];
-  
-  for (const point of steps) {
-    console.log(`🔄 Moving to point: ${point.id} (${point.x}, ${point.y})`);
-    try {
-      const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, 
-        {
-          action: "navigate_to",
-          target_x: point.x,
-          target_y: point.y
-        },
-        {
-          headers: { "x-api-key": ROBOT_SECRET },
-        }
-      );
-      
-      results.push({
-        point: point.id,
-        status: "success",
-        data: moveResponse.data
-      });
-      
-      // Wait for completion before moving to next point - in production code you'd poll status
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-    } catch (error: any) {
-      console.error(`❌ Error moving to point ${point.id}:`, error);
-      results.push({
-        point: point.id,
-        status: "error",
-        error: error.message || String(error)
-      });
-      // Continue with the next point even if this one failed
-    }
-  }
-
-  return {
-    mission: `${uiMode}-${shelfPoint.id}-${Date.now()}`,
-    status: "completed",
-    steps: results
-  };
 }

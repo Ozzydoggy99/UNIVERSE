@@ -246,7 +246,7 @@ export function registerRobotPointsApiRoutes(app: Express) {
     try {
       // Get maps list
       console.log('Attempting to get maps list...');
-      let mapsList = [];
+      let mapsList: string[] = [];
       try {
         mapsList = await debugRobotMapList();
       } catch (e) {
@@ -255,12 +255,12 @@ export function registerRobotPointsApiRoutes(app: Express) {
       
       // Try to get map points
       console.log('Attempting to get map points...');
-      let points = [];
-      let error = null;
+      let points: Point[] = [];
+      let error: Error | null = null;
       try {
         points = await fetchRobotMapPoints();
       } catch (e) {
-        error = e;
+        error = e as Error;
         console.error('Failed to get map points:', e);
       }
       
