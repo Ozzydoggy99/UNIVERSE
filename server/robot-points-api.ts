@@ -18,25 +18,32 @@ interface Point {
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
   try {
-    // Always fetch map ID 2
-    const mapId = 2;
     const headers = { 'x-api-key': ROBOT_SECRET };
 
-    // Confirm map details (optional for logging)
-    console.log(`Fetching map ID ${mapId} directly from ${ROBOT_API_URL}/maps/${mapId}`);
-    const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers });
+    // Fetch the only map (now Phil's Map)
+    console.log(`Fetching maps from ${ROBOT_API_URL}/maps/`);
+    const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
+    const maps = mapsRes.data || [];
+
+    const activeMap = maps[0]; // only one map exists
+    if (!activeMap) throw new Error("❌ No map found");
+
+    console.log(`Found map with ID ${activeMap.id}`);
+
+    // Extract floor from map name like "1 - Phil's Map"
+    const rawName = activeMap.name || activeMap.map_name || "";
+    const floorMatch = rawName.match(/^(\d+)/);
+    const floorId = floorMatch ? floorMatch[1] : "1"; // fallback to 1
+    
+    console.log(`🔍 Using map ID ${activeMap.id} — name: ${rawName} with floor ID: ${floorId}`);
+    
+    // Load map details to get overlays
+    const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
     const mapData = mapDetailRes.data;
     
     if (!mapData || !mapData.overlays) {
       throw new Error('Invalid response format: missing overlays data');
     }
-
-    // Extract floor ID from name like "2-Phil's Map" or "2 - Track"
-    const rawMapName = mapData.name || mapData.map_name || "";
-    const floorMatch = rawMapName.match(/^(\d+)/);
-    const floorId = floorMatch ? floorMatch[1] : "2";  // default to 2
-    
-    console.log(`🔍 Using map ID ${mapId} — name: ${rawMapName} with floor ID: ${floorId}`);
     
     // Parse the overlays JSON
     let overlays;
