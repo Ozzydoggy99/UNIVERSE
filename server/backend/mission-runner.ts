@@ -30,8 +30,11 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     .map((o: any) => {
       // Points may be directly in the overlay or nested in a point property
       const point = o.point || o;
+      const id = point.text?.trim() || point.id || "";
+      
       return {
-        id: point.text?.trim() || point.id,
+        id,
+        description: id, // Use ID as description for better debugging
         x: point.x,
         y: point.y,
         ori: point.orientation || point.ori || 0,
@@ -39,6 +42,11 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       };
     })
     .filter((p: Point) => p.id); // Filter out any points without an ID
+    
+  // Debug output of the actual overlay structure for better understanding
+  if (overlays.length > 0) {
+    console.log("Sample overlay structure:", JSON.stringify(overlays[0]));
+  }
 
   console.log(`📍 Found ${points.length} map points with floor ID ${floorId}:`, 
     points.map((p: Point) => `"${p.id}"`).join(", "));
@@ -54,10 +62,13 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
 
   const normalize = (val: string) => String(val).trim().toLowerCase();
 
-  const pickupPoint = points.find(p => normalize(p.id) === "pick-up");
-  const dropoffPoint = points.find(p => normalize(p.id) === "drop-off");
+  // Use case-insensitive matching to account for different casing in point names
+  const pickupPoint = points.find(p => normalize(p.id) === "pick-up" || normalize(p.id) === "pickup");
+  const dropoffPoint = points.find(p => normalize(p.id) === "drop-off" || normalize(p.id) === "dropoff");
   const standbyPoint = points.find(p => normalize(p.id) === "desk");
   const shelfPoint = points.find(p => normalize(p.id) === normalize(shelfId));
+  
+  console.log("Available point IDs:", points.map(p => p.id));
 
   if (!pickupPoint || !dropoffPoint || !standbyPoint || !shelfPoint) {
     throw new Error(`❌ One or more required points not found. Looking for: pick-up, drop-off, desk, and ${shelfId}`);
