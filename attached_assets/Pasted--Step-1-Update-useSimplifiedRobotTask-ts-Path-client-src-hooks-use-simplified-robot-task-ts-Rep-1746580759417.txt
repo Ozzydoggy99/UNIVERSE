@@ -1,0 +1,102 @@
+🔧 Step 1: Update useSimplifiedRobotTask.ts
+Path: client/src/hooks/use-simplified-robot-task.ts
+
+Replace its contents with:
+
+ts
+Copy
+Edit
+import { useEffect, useState } from "react";
+
+export function useSimplifiedRobotTask() {
+  const [allPoints, setAllPoints] = useState<{ id: string }[]>([]);
+  const [floorMap, setFloorMap] = useState<Record<string, { id: string }[]>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRunning, setIsRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/fetch-points");
+        const data = await res.json();
+        const validPoints = (data.points || []).filter((p: any) => {
+          const label = p.id?.toLowerCase();
+          return (
+            label &&
+            !label.includes("standby") &&
+            !label.includes("charging") &&
+            !label.includes("drop") &&
+            !label.includes("pick")
+          );
+        });
+
+        const buckets: Record<string, { id: string }[]> = {};
+
+        for (const point of validPoints) {
+          const floorMatch = point.id.match(/^(\d+)/);
+          const floorId = floorMatch ? floorMatch[1] : "0";
+          if (!buckets[floorId]) buckets[floorId] = [];
+          buckets[floorId].push(point);
+        }
+
+        setAllPoints(validPoints);
+        setFloorMap(buckets);
+      } catch (err: any) {
+        setError(err.message || "Unknown error");
+      }
+      setIsLoading(false);
+    };
+
+    load();
+  }, []);
+
+  async function runTask(mode: "pickup" | "dropoff", shelfId: string) {
+    setIsRunning(true);
+    try {
+      const res = await fetch("/api/robot-task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, shelfId }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Task failed");
+    } catch (err: any) {
+      console.error("❌ runTask failed:", err.message);
+    }
+    setIsRunning(false);
+  }
+
+  return { floorMap, allPoints, isLoading, error, isRunning, runTask };
+}
+🔧 Step 2: Update mission-runner.ts
+Path: server/backend/mission-runner.ts (or wherever your backend mission logic lives)
+
+Update your point classification logic like this:
+
+ts
+Copy
+Edit
+function classifyPoints(points: any[]) {
+  let pickup = null;
+  let dropoff = null;
+  let standby = null;
+  const shelves: any[] = [];
+
+  for (const p of points) {
+    const label = p.id.toLowerCase();
+    if (label.includes("pick") || label.includes("collect")) pickup = p;
+    else if (label.includes("drop") || label.includes("offload")) dropoff = p;
+    else if (label.includes("desk") || label.includes("standby") || label.includes("charging")) standby = p;
+    else shelves.push(p);
+  }
+
+  return { pickup, dropoff, standby, shelves };
+}
+✅ After Applying These:
+Your floors will auto-categorize only valid shelf points
+
+Your backend mission runner will correctly identify robot control points
+
+The UI should now show all shelves grouped correctly and work end-to-end

@@ -1,8 +1,6 @@
 // client/src/hooks/use-simplified-robot-task.ts
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { getQueryFn } from "@/lib/queryClient";
 
 // Point type returned from API
 export interface Point {
@@ -25,133 +23,107 @@ export interface TaskParams {
  * - Provides mutations for running a task
  */
 export function useSimplifiedRobotTask() {
-  const { toast } = useToast();
+  const [allPoints, setAllPoints] = useState<Point[]>([]);
+  const [floorMap, setFloorMap] = useState<Record<string, Point[]>>({});
+  const [isLoading, setIsLoading] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const { toast } = useToast();
 
-  // Attempt to fetch points from both the old endpoint (/api/robots/points)
-  // and the new simplified endpoint (/api/fetch-points)
-  const {
-    data: pointsData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery<{ points: Point[] } | Point[], Error>({
-    queryKey: ["/api/fetch-points"],
-    queryFn: async () => {
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
       try {
-        // Try the simplified API endpoint first
-        const response = await fetch("/api/fetch-points");
-        
-        if (response.ok) {
-          const data = await response.json();
-          // The simplified API returns { points: [...] }
-          return data;
+        // Try the simplified API endpoint
+        const res = await fetch("/api/fetch-points");
+        if (!res.ok) {
+          throw new Error(`Failed to fetch points: ${res.status} ${res.statusText}`);
         }
         
-        // Fall back to the original endpoint
-        const oldResponse = await fetch("/api/robots/points");
-        if (!oldResponse.ok) {
-          throw new Error("Failed to fetch points from both endpoints");
-        }
+        const data = await res.json();
         
-        // Original endpoint returns points array directly
-        const points = await oldResponse.json();
-        return points;
+        // Filter out special-purpose points like Standby and Charging Station
+        const validPoints = (data.points || []).filter((p: Point) => {
+          const label = p.id?.toLowerCase();
+          return (
+            label &&
+            !label.includes("standby") &&
+            !label.includes("charging") &&
+            !label.includes("drop") &&
+            !label.includes("pick")
+          );
+        });
+
+        console.log("Filtered points:", validPoints);
+
+        // Organize points by floor number (from the first digit of the ID)
+        const buckets: Record<string, Point[]> = {};
+        // Ensure floor 1 always exists
+        buckets["1"] = [];
+
+        for (const point of validPoints) {
+          // Extract the floor number from the point ID
+          const floorMatch = point.id.match(/^(\d+)/);
+          const floorId = floorMatch ? floorMatch[1] : "1"; // Default to floor 1
+          
+          // Create the floor bucket if it doesn't exist
+          if (!buckets[floorId]) buckets[floorId] = [];
+          
+          // Add the point to its floor bucket
+          buckets[floorId].push(point);
+        }
+
+        console.log("Organized into floors:", buckets);
+
+        setAllPoints(validPoints);
+        setFloorMap(buckets);
+        setError(null);
       } catch (err: any) {
-        console.error("Error fetching points:", err);
-        throw new Error(err.message || "Failed to fetch points");
+        console.error("Error loading points:", err);
+        setError(err instanceof Error ? err : new Error(err?.message || "Unknown error"));
       }
-    },
-  });
+      setIsLoading(false);
+    };
 
-  // Extract points array regardless of API format
-  const points = Array.isArray(pointsData) 
-    ? pointsData                 // Original API format
-    : pointsData?.points || [];  // Simplified API format
+    load();
+  }, []);
 
-  // Group points by floor
-  const floorMap: Record<string, Point[]> = {};
-  
-  // Ensure floor 1 always exists even if we don't have points yet
-  floorMap["1"] = [];
-  
-  for (const point of points) {
-    // Skip special points like Charging Station and Standby
-    if (point.id.toLowerCase().includes("charging") || 
-        point.id.toLowerCase().includes("standby")) {
-      continue;
-    }
-    
-    // Regular numbered shelf points like "1", "101"
-    // First character is considered the floor (e.g., "1" for point "101")
-    let floor = "1"; // Default to floor 1
-    
-    if (/^\d/.test(point.id)) {
-      // If the ID starts with a digit, use that as the floor
-      floor = point.id.charAt(0);
-    }
-    
-    // Ensure the floor exists in our map
-    if (!floorMap[floor]) {
-      floorMap[floor] = [];
-    }
-    
-    floorMap[floor].push(point);
-  }
-  
-  // If we have no points at all, add a placeholder for floor 1
-  if (Object.keys(floorMap).length === 0) {
-    floorMap["1"] = [];
-  }
-
-  // Mutation for running a task
-  const taskMutation = useMutation({
-    mutationFn: async (params: TaskParams) => {
-      setIsRunning(true);
-      
-      const response = await fetch("/api/robot-task", {
+  async function runTask(mode: "pickup" | "dropoff", shelfId: string) {
+    setIsRunning(true);
+    try {
+      const res = await fetch("/api/robot-task", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params)
+        body: JSON.stringify({ mode, shelfId }),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to execute task");
+      const data = await res.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || "Task failed");
       }
       
-      return response.json();
-    },
-    onSuccess: (data, variables) => {
       toast({
         title: "Task Completed",
-        description: `Successfully completed ${variables.mode} task for shelf ${variables.shelfId}`,
+        description: `Successfully completed ${mode} task for shelf ${shelfId}`,
       });
-    },
-    onError: (error: Error) => {
+    } catch (err: any) {
+      console.error("❌ runTask failed:", err.message);
       toast({
         variant: "destructive",
         title: "Task Failed",
-        description: error.message || "Failed to complete the task",
+        description: err.message || "Failed to complete the task",
       });
-    },
-    onSettled: () => {
-      setIsRunning(false);
     }
-  });
-
-  // Helper method to run a task
-  const runTask = (mode: "pickup" | "dropoff", shelfId: string) => {
-    taskMutation.mutate({ mode, shelfId });
-  };
+    setIsRunning(false);
+  }
 
   return {
-    points,
+    points: allPoints,
     floorMap,
     isLoading,
     error,
-    isRunning: isRunning || taskMutation.isPending,
-    runTask,
-    refetchPoints: refetch,
+    isRunning,
+    runTask
   };
 }
