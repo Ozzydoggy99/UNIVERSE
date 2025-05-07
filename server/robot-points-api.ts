@@ -18,51 +18,30 @@ interface Point {
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
   try {
-    // First, get a list of all maps
-    console.log(`Fetching all maps from robot at ${ROBOT_API_URL}/maps/`);
-    
-    const mapsResponse = await axios.get(`${ROBOT_API_URL}/maps/`, {
-      headers: {
-        'x-api-key': ROBOT_SECRET
-      }
-    });
-    
-    if (!Array.isArray(mapsResponse.data) || mapsResponse.data.length === 0) {
-      throw new Error('No maps found on the robot');
-    }
-    
-    const maps = mapsResponse.data || [];
+    // Always fetch map ID 2
+    const mapId = 2;
+    const headers = { 'x-api-key': ROBOT_SECRET };
 
-    // Just use map ID 2 directly (since we know it works)
-    const activeMap = maps.find((m: any) => m.id === 2) || maps[0];
-
-    if (!activeMap) throw new Error("❌ No map found");
-
-    // Extract floor ID from map name (e.g. "2 - Track")
-    const rawName = activeMap.name || activeMap.map_name || "";
-    const floorMatch = rawName.match(/^(\d+)/);
-    const floorIdFromMap = floorMatch ? floorMatch[1] : "2";  // fallback to 2
+    // Confirm map details (optional for logging)
+    console.log(`Fetching map ID ${mapId} directly from ${ROBOT_API_URL}/maps/${mapId}`);
+    const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers });
+    const mapData = mapDetailRes.data;
     
-    console.log(`Using map ID ${activeMap.id} named "${rawName}" with floor ID: ${floorIdFromMap}`);
-    
-    // Now fetch the full map data to get the overlays
-    const mapUrl = `${ROBOT_API_URL}/maps/${activeMap.id}`;
-    console.log(`Fetching map data from ${mapUrl}`);
-    
-    const response = await axios.get(mapUrl, {
-      headers: {
-        'x-api-key': ROBOT_SECRET
-      }
-    });
-    
-    if (!response.data || !response.data.overlays) {
+    if (!mapData || !mapData.overlays) {
       throw new Error('Invalid response format: missing overlays data');
     }
+
+    // Extract floor ID from name like "2-Phil's Map" or "2 - Track"
+    const rawMapName = mapData.name || mapData.map_name || "";
+    const floorMatch = rawMapName.match(/^(\d+)/);
+    const floorId = floorMatch ? floorMatch[1] : "2";  // default to 2
     
-    // The overlays property contains a JSON string with all the map points
+    console.log(`🔍 Using map ID ${mapId} — name: ${rawMapName} with floor ID: ${floorId}`);
+    
+    // Parse the overlays JSON
     let overlays;
     try {
-      overlays = JSON.parse(response.data.overlays);
+      overlays = JSON.parse(mapData.overlays);
     } catch (e) {
       console.error('Failed to parse overlays JSON:', e);
       throw new Error('Invalid overlays format: failed to parse JSON');
@@ -82,8 +61,12 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       };
       properties: {
         name?: string;
+        text?: string;
         type: string;
         yaw?: string;
+        orientation?: number;
+        x?: number;
+        y?: number;
         [key: string]: any;
       };
     }
@@ -108,7 +91,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
             y: feature.properties.y || feature.geometry.coordinates[1],
             ori: feature.properties.orientation || 0,
             description: feature.properties.text || '',
-            floorId: floorIdFromMap // Tag the floor ID directly
+            floorId: floorId // Tag the floor ID directly
           };
         } else {
           return {
@@ -117,7 +100,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
             y: feature.geometry.coordinates[1],
             ori: parseFloat(feature.properties.yaw || '0'),
             description: feature.properties.name || '',
-            floorId: floorIdFromMap // Tag the floor ID directly
+            floorId: floorId // Tag the floor ID directly
           };
         }
       });
@@ -125,7 +108,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     console.log(`Successfully extracted ${points.length} map points from overlays`);
     
     // Debug output to see what points we have
-    const pointIds = points.map(p => p.id);
+    const pointIds = points.map(p => p.id).sort();
     console.log('Available point IDs:', pointIds);
     
     return points;
