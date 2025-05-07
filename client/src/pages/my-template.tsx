@@ -6,7 +6,7 @@ import { LogOut, CheckCircle2 } from "lucide-react";
 
 export default function MyTemplate() {
   const { user, logoutMutation } = useAuth();
-  const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
+  const [uiMode, setUiMode] = useState<"pickup" | "dropoff">("pickup");
   const [selectedFloor, setSelectedFloor] = useState<string | null>(null);
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
   const { floorMap, isLoading, error, isRunning, runTask } = useSimplifiedRobotTask();
@@ -20,7 +20,7 @@ export default function MyTemplate() {
 
   const handleSubmit = async () => {
     if (!selectedShelf || isRunning) return;
-    await runTask(mode, selectedShelf);
+    await runTask(uiMode, selectedShelf);
     setSelectedShelf(null);
     setSelectedFloor(null);
   };
@@ -41,14 +41,14 @@ export default function MyTemplate() {
       {/* Mode Selection */}
       <div className="flex gap-4 mb-6">
         <button
-          onClick={() => setMode("pickup")}
-          className={`w-32 py-2 rounded shadow ${mode === "pickup" ? "bg-white text-black border border-black" : "bg-black text-white"}`}
+          onClick={() => setUiMode("pickup")}
+          className={`w-32 py-2 rounded shadow ${uiMode === "pickup" ? "bg-white text-black border border-black" : "bg-black text-white"}`}
         >
           Pickup
         </button>
         <button
-          onClick={() => setMode("dropoff")}
-          className={`w-32 py-2 rounded shadow ${mode === "dropoff" ? "bg-white text-black border border-black" : "bg-black text-white"}`}
+          onClick={() => setUiMode("dropoff")}
+          className={`w-32 py-2 rounded shadow ${uiMode === "dropoff" ? "bg-white text-black border border-black" : "bg-black text-white"}`}
         >
           Dropoff
         </button>

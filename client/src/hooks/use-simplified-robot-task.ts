@@ -14,7 +14,7 @@ export interface Point {
 
 // Type for our task execution parameters
 export interface TaskParams {
-  mode: "pickup" | "dropoff";
+  uiMode: "pickup" | "dropoff";
   shelfId: string;
 }
 
@@ -156,13 +156,13 @@ export function useSimplifiedRobotTask() {
     load();
   }, []);
 
-  async function runTask(mode: "pickup" | "dropoff", shelfId: string) {
+  async function runTask(uiMode: "pickup" | "dropoff", shelfId: string) {
     setIsRunning(true);
     try {
-      const res = await fetch("/api/robot-task", {
+      const res = await fetch("/api/mission", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, shelfId }),
+        body: JSON.stringify({ uiMode, shelfId }),
       });
       
       const data = await res.json();
@@ -173,7 +173,7 @@ export function useSimplifiedRobotTask() {
       
       toast({
         title: "Task Completed",
-        description: `Successfully completed ${mode} task for shelf ${shelfId}`,
+        description: `Successfully completed ${uiMode} task for shelf ${shelfId}`,
       });
     } catch (err: any) {
       console.error("❌ runTask failed:", err.message);
