@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSimplifiedRobotTask } from "@/hooks/use-simplified-robot-task";
 import { Point } from "@/hooks/use-simplified-robot-task";
-import { LogOut, CheckCircle2 } from "lucide-react";
+import { LogOut, CheckCircle2, Loader2 } from "lucide-react";
 
 export default function MyTemplate() {
   const { user, logoutMutation } = useAuth();
@@ -14,10 +14,9 @@ export default function MyTemplate() {
     pointsByFloor,
     error, 
     status,
+    isRunning,
     runTask 
   } = useSimplifiedRobotTask();
-  
-  const isRunning = status?.includes("started");
 
   const floorColors: Record<string, string> = {
     "1": "bg-red-600",
@@ -79,22 +78,29 @@ export default function MyTemplate() {
       {/* Floor Selection */}
       <div className="mb-4">
         <h2 className="text-lg font-semibold mb-2">Select Floor</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {Object.keys(pointsByFloor).map((floorId) => (
-            <button
-              key={floorId}
-              onClick={() => {
-                setSelectedFloor(floorId);
-                setSelectedShelf(null);
-              }}
-              className={`text-white text-xl font-bold rounded-lg p-6 shadow ${
-                selectedFloor === floorId ? "ring-4 ring-black" : ""
-              } ${floorColors[floorId] || "bg-gray-400"}`}
-            >
-              {floorId}
-            </button>
-          ))}
-        </div>
+        {Object.keys(pointsByFloor).length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {Object.keys(pointsByFloor).map((floorId) => (
+              <button
+                key={floorId}
+                onClick={() => {
+                  setSelectedFloor(floorId);
+                  setSelectedShelf(null);
+                }}
+                className={`text-white text-xl font-bold rounded-lg p-6 shadow ${
+                  selectedFloor === floorId ? "ring-4 ring-black" : ""
+                } ${floorColors[floorId] || "bg-gray-400"}`}
+              >
+                {floorId}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 bg-gray-100 rounded-lg flex flex-col items-center justify-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            <p>Loading map data from robot...</p>
+          </div>
+        )}
       </div>
 
       {/* Shelf Selection */}

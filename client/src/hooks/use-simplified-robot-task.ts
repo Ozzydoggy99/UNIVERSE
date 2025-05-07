@@ -15,8 +15,10 @@ export const useSimplifiedRobotTask = () => {
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
 
   useEffect(() => {
+    console.log("Fetching mission points data...");
     // Use the mission-points endpoint to get points grouped by floor
     fetch("/api/mission-points")
       .then(res => res.json())
@@ -58,6 +60,7 @@ export const useSimplifiedRobotTask = () => {
     }
 
     try {
+      setIsRunning(true);
       setStatus("Sending task to robot...");
       const res = await fetch("/api/mission", {
         method: "POST",
@@ -79,6 +82,8 @@ export const useSimplifiedRobotTask = () => {
       console.error("🚨 Mission error:", err);
       setError(err.message || "Task failed");
       setStatus(null);
+    } finally {
+      setIsRunning(false);
     }
   };
 
@@ -91,5 +96,6 @@ export const useSimplifiedRobotTask = () => {
     runTask,
     status,
     error,
+    isRunning,
   };
 };
