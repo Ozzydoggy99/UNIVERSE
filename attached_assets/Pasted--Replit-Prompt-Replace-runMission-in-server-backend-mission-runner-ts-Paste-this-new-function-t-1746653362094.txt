@@ -1,14 +1,14 @@
+🧩 Replit Prompt: Replace runMission() in server/backend/mission-runner.ts
+Paste this new function that performs multi-stage movements based on uiMode.
+
+ts
+Copy
+Edit
+// server/backend/mission-runner.ts
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
 import { fetchRobotMapPoints as fetchPoints } from "../robot-points-api";
 import { Point, RobotTaskRequest } from "../types";
-
-// This function has been moved to robot-points-api.ts
-// We keep this import/export signature for backward compatibility
-export async function fetchRobotMapPoints(): Promise<Point[]> {
-  // Forward to the real implementation
-  return fetchPoints();
-}
 
 function normalize(id: string | number) {
   return String(id).trim().toLowerCase();
@@ -71,3 +71,13 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
     executed,
   };
 }
+✅ What This Fixes
+UI stays simple (just passes pickup or dropoff + shelfId)
+
+Backend:
+
+Determines all points: shelf, pickup, dropoff, standby
+
+Executes them in multi-step order
+
+Logs and returns each move ID
