@@ -44,7 +44,7 @@ export function useSimplifiedRobotTask() {
         
         // Get all available points
         const allAvailablePoints = data.points || [];
-        console.log("All available points:", allAvailablePoints.map(p => p.id));
+        console.log("All available points:", allAvailablePoints.map((p: Point) => p.id));
 
         // Filter out special-purpose points for our shelf selection UI
         const validPoints = allAvailablePoints.filter((p: Point) => {
@@ -62,7 +62,7 @@ export function useSimplifiedRobotTask() {
           return !isSpecialPoint;
         });
 
-        console.log("Filtered points for UI:", validPoints.map(p => p.id));
+        console.log("Filtered points for UI:", validPoints.map((p: Point) => p.id));
 
         // Organize points by floor number 
         const buckets: Record<string, Point[]> = {};

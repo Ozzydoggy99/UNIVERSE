@@ -30,14 +30,19 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       throw new Error('No maps found on the robot');
     }
     
-    // Try to find "Phil's Map" first, then map ID 2 (Track), then just use the first map
-    let targetMap = mapsResponse.data.find((m: any) => m.map_name === "Phil's Map") || 
-                    mapsResponse.data.find((m: any) => m.id === 2) || 
-                    mapsResponse.data[0];
+    // Prefer Phil's Map (case-insensitive match), fallback to anything not ID 1
+    const maps = mapsResponse.data;
+    const philMap = maps.find((m: any) => m.map_name?.toLowerCase().includes("phil")) ||
+                    maps.find((m: any) => m.id === 2) ||
+                    maps.find((m: any) => m.id !== 1);
     
-    const mapId = targetMap.id;
+    if (!philMap) {
+      throw new Error('❌ No valid map found - need Phil\'s Map or a non-ID 1 map');
+    }
     
-    console.log(`Using map ID ${mapId} named "${targetMap.map_name}"`);
+    const mapId = philMap.id;
+    
+    console.log(`Using map ID ${mapId} named "${philMap.map_name}"`);
     
     // Now fetch the full map data to get the overlays
     const mapUrl = `${ROBOT_API_URL}/maps/${mapId}`;
@@ -110,6 +115,11 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       });
     
     console.log(`Successfully extracted ${points.length} map points from overlays`);
+    
+    // Debug output to see what points we have
+    const pointIds = points.map(p => p.id);
+    console.log('Available point IDs:', pointIds);
+    
     return points;
   } catch (error: any) {
     console.error('Error fetching robot map points:', error.message || error);
