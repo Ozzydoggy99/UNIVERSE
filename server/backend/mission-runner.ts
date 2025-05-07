@@ -20,6 +20,9 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
 
   if (!activeMap) throw new Error("❌ No map found");
 
+  console.log("🗺️ Found active map:", activeMap.name || activeMap.map_name);
+
+  // Extract floor ID from map name if available
   const rawName = activeMap.name || activeMap.map_name || "";
   const floorMatch = rawName.match(/^(\d+)/);
   const floorId = floorMatch ? floorMatch[1] : "1";
@@ -27,15 +30,26 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   const mapRes = await axios.get(`${getRobotUrl()}/maps/${activeMap.id}`, { headers });
   const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
 
-  return overlays
+  // Extract and normalize point data from overlays
+  const points = overlays
     .filter((o: any) => o.type === "Label")
-    .map((o: any) => ({
-      id: o.text?.trim(),
-      x: o.x,
-      y: o.y,
-      ori: o.orientation ?? 0,
-      floorId,
-    }));
+    .map((o: any) => {
+      // Points may be directly in the overlay or nested in a point property
+      const point = o.point || o;
+      return {
+        id: point.text?.trim() || point.id,
+        x: point.x,
+        y: point.y,
+        ori: point.orientation || point.ori || 0,
+        floorId,
+      };
+    })
+    .filter((p: any) => p.id); // Filter out any points without an ID
+
+  console.log(`📍 Found ${points.length} map points with floor ID ${floorId}:`, 
+    points.map(p => `"${p.id}"`).join(", "));
+
+  return points;
 }
 
 export async function runMission(request: RobotTaskRequest, pointsFromUI?: Point[]): Promise<any> {
@@ -59,9 +73,27 @@ export async function runMission(request: RobotTaskRequest, pointsFromUI?: Point
   });
 
   const overlays = Array.isArray(mapDetail.data.overlays) ? mapDetail.data.overlays : [];
-  const points = overlays.map((o: any) => o.point).filter(Boolean);
+  
+  // Extract points data from the overlays
+  // The API response may have points directly in overlay or in overlay.point
+  const points = overlays
+    .filter((o: any) => o.type === "Label")
+    .map((o: any) => {
+      // If the overlay has a point property, use it; otherwise use the overlay itself
+      const point = o.point || o;
+      return {
+        id: point.text || point.id,
+        x: point.x,
+        y: point.y,
+        ori: point.orientation || point.ori || 0
+      };
+    })
+    .filter((p: any) => p.id); // Filter out any points without an ID
 
-  const normalized = (str: string) => String(str).trim().toLowerCase();
+  // Debug point data
+  console.log(`📍 Found ${points.length} map points`);
+  
+  const normalized = (str: string) => String(str || "").trim().toLowerCase();
 
   const shelf = points.find((p: any) => normalized(p.id) === normalized(shelfId));
   const pickup = points.find((p: any) => normalized(p.id).includes("pick"));

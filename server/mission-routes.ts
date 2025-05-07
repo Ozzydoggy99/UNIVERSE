@@ -5,7 +5,7 @@ import { fetchRobotMapPoints } from './robot-points-api'; // Make sure this is a
 import { RobotTaskRequest } from './types';
 
 // Create a router for mission-related endpoints
-const missionRouter = Router();
+export const missionRouter = Router();
 
 /**
  * Endpoint to run a robot task
@@ -92,4 +92,28 @@ missionRouter.post('/', async (req, res) => {
   }
 });
 
-export default missionRouter;
+/**
+ * Endpoint for mission API following the new suggested implementation
+ * POST /api/mission
+ * Body: { uiMode: "pickup" | "dropoff", shelfId: string }
+ */
+missionRouter.post("/api/mission", async (req, res) => {
+  try {
+    const { uiMode, shelfId } = req.body;
+
+    if (!uiMode || !shelfId) {
+      return res.status(400).json({ error: "Missing uiMode or shelfId" });
+    }
+
+    // Optional: fetch points ahead of time if needed
+    const points = await fetchRobotMapPoints();
+
+    const result = await runMission({ uiMode, shelfId }, points);
+    res.json(result);
+  } catch (err: any) {
+    console.error("❌ Error launching mission:", err);
+    res.status(500).json({ error: err.message || "Unknown error" });
+  }
+});
+
+// Export missionRouter through named export at the top of the file

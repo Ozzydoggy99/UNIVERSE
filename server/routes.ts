@@ -10,7 +10,7 @@ import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
 import { registerRobotJoystickApiRoutes } from './robot-joystick-api';
 import { registerRobotPointsApiRoutes, debugRobotMapList } from './robot-points-api';
-import missionRouter from './mission-routes';
+import { missionRouter } from './mission-routes';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
