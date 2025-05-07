@@ -1,3 +1,9 @@
+🛠️ Replit Fix Prompt: Update mission-runner.ts With Working Map Logic
+ts
+Copy
+Edit
+// Replace the entire contents of server/backend/mission-runner.ts with this:
+
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
 
@@ -36,15 +42,15 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   const floorId = floorMatch ? floorMatch[1] : "1";
 
   const mapRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
-  const overlays = JSON.parse(mapRes.data?.overlays || "{}");
+  const overlays = Array.isArray(mapRes.data?.overlays) ? mapRes.data.overlays : [];
 
-  return overlays.features
+  return overlays
     .filter((o: any) => o.type === "Label")
     .map((o: any) => ({
-      id: o.properties.text?.trim(),
-      x: o.properties.x,
-      y: o.properties.y,
-      ori: o.properties.orientation ?? 0,
+      id: o.text?.trim(),
+      x: o.x,
+      y: o.y,
+      ori: o.orientation ?? 0,
       floorId,
     }));
 }
@@ -65,7 +71,6 @@ function categorizePoints(points: Point[]): CategorizedPoints {
     else if (label.includes("standby") || label.includes("charging") || label.includes("desk"))
       categories.standby = p;
     else if (!isNaN(Number(p.id))) categories.shelves.push(p);
-    else categories.shelves.push(p);
   }
 
   return categories;
