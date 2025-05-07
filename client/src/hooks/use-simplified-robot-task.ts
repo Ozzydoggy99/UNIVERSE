@@ -28,36 +28,64 @@ export function useSimplifiedRobotTask() {
   const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
 
-  // Fetch all map points
+  // Attempt to fetch points from both the old endpoint (/api/robots/points)
+  // and the new simplified endpoint (/api/fetch-points)
   const {
-    data: points,
+    data: pointsData,
     isLoading,
     error,
     refetch,
-  } = useQuery<Point[], Error>({
-    queryKey: ["/api/robots/points"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
+  } = useQuery<{ points: Point[] } | Point[], Error>({
+    queryKey: ["/api/fetch-points"],
+    queryFn: async () => {
+      try {
+        // Try the simplified API endpoint first
+        const response = await fetch("/api/fetch-points");
+        
+        if (response.ok) {
+          const data = await response.json();
+          // The simplified API returns { points: [...] }
+          return data;
+        }
+        
+        // Fall back to the original endpoint
+        const oldResponse = await fetch("/api/robots/points");
+        if (!oldResponse.ok) {
+          throw new Error("Failed to fetch points from both endpoints");
+        }
+        
+        // Original endpoint returns points array directly
+        const points = await oldResponse.json();
+        return points;
+      } catch (err: any) {
+        console.error("Error fetching points:", err);
+        throw new Error(err.message || "Failed to fetch points");
+      }
+    },
   });
+
+  // Extract points array regardless of API format
+  const points = Array.isArray(pointsData) 
+    ? pointsData                 // Original API format
+    : pointsData?.points || [];  // Simplified API format
 
   // Group points by floor
   const floorMap: Record<string, Point[]> = {};
   
-  if (points) {
-    for (const point of points) {
-      const id = point.id.toLowerCase();
-      
-      // Skip special points like pickup, dropoff, desk, standby
-      if (id.includes("pick") || id.includes("drop") || id.includes("desk") || id.includes("standby")) {
-        continue;
-      }
-      
-      // First character of ID is considered as floor number
-      const floor = point.id.slice(0, 1);
-      if (!floorMap[floor]) {
-        floorMap[floor] = [];
-      }
-      floorMap[floor].push(point);
+  for (const point of points) {
+    const id = point.id.toLowerCase();
+    
+    // Skip special points like pickup, dropoff, desk, standby
+    if (id.includes("pick") || id.includes("drop") || id.includes("desk") || id.includes("standby")) {
+      continue;
     }
+    
+    // First character of ID is considered as floor number
+    const floor = point.id.slice(0, 1);
+    if (!floorMap[floor]) {
+      floorMap[floor] = [];
+    }
+    floorMap[floor].push(point);
   }
 
   // Mutation for running a task

@@ -1,6 +1,6 @@
 // server/robot-points-api.ts
 import { Express, Request, Response } from 'express';
-import fetch from 'node-fetch';
+import axios from 'axios';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 
 interface Point {
@@ -19,28 +19,21 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
   try {
     console.log(`Fetching map points from ${ROBOT_API_URL}/maps/current_map/points`);
     
-    const response = await fetch(`${ROBOT_API_URL}/maps/current_map/points`, {
+    const response = await axios.get(`${ROBOT_API_URL}/maps/current_map/points`, {
       headers: {
-        'x-api-key': ROBOT_SECRET || '',
-        'Content-Type': 'application/json'
+        'x-api-key': ROBOT_SECRET
       }
     });
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch map points: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json() as { points: Point[] };
-    
-    if (!data.points || !Array.isArray(data.points)) {
+    if (!response.data.points || !Array.isArray(response.data.points)) {
       throw new Error('Invalid response format: missing points array');
     }
     
-    console.log(`Successfully fetched ${data.points.length} map points`);
-    return data.points;
-  } catch (error) {
-    console.error('Error fetching robot map points:', error);
-    throw error;
+    console.log(`Successfully fetched ${response.data.points.length} map points`);
+    return response.data.points;
+  } catch (error: any) {
+    console.error('Error fetching robot map points:', error.message || error);
+    throw new Error(`Failed to fetch map points: ${error.message || 'Unknown error'}`);
   }
 }
 
@@ -87,6 +80,20 @@ export function registerRobotPointsApiRoutes(app: Express) {
         error: 'Failed to fetch shelf points', 
         details: error.message 
       });
+    }
+  });
+  
+  /**
+   * GET /api/fetch-points
+   * Alternative endpoint for fetching points (from simplified server)
+   */
+  app.get('/api/fetch-points', async (req: Request, res: Response) => {
+    try {
+      const points = await fetchRobotMapPoints();
+      res.json({ points });
+    } catch (error: any) {
+      console.error('Error fetching points:', error);
+      res.status(500).json({ error: 'Could not fetch points.' });
     }
   });
 }

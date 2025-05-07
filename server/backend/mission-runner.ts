@@ -42,19 +42,23 @@ async function fetchPoints(): Promise<Point[]> {
 /**
  * Categorizes points from the map into pickup, dropoff, standby, and shelves
  */
-function categorize(points: Point[]): CategorizedPoints {
-  let pickup = null, dropoff = null, standby = null;
-  const shelves: Point[] = [];
+function categorizePoints(points: Point[]): CategorizedPoints {
+  const categories = {
+    pickup: null as Point | null,
+    dropoff: null as Point | null,
+    standby: null as Point | null,
+    shelves: [] as Point[],
+  };
 
   for (const p of points) {
     const label = p.id.toLowerCase();
-    if (label.includes("pick")) pickup = p;
-    else if (label.includes("drop")) dropoff = p;
-    else if (label.includes("desk") || label.includes("standby")) standby = p;
-    else shelves.push(p);
+    if (label.includes("pick")) categories.pickup = p;
+    else if (label.includes("drop")) categories.dropoff = p;
+    else if (label.includes("desk") || label.includes("standby")) categories.standby = p;
+    else categories.shelves.push(p);
   }
 
-  return { pickup, dropoff, standby, shelves };
+  return categories;
 }
 
 /**
@@ -64,12 +68,11 @@ async function moveToPoint(pointId: string): Promise<void> {
   try {
     const url = `${ROBOT_API_URL}/chassis/move_to_point`;
     console.log(`Sending move command to: ${url} for point: ${pointId}`);
-    await axios.post(url, {
-      point_id: pointId,
-      creator: "backend-system"
-    }, {
-      headers: { "x-api-key": ROBOT_SECRET }
-    });
+    await axios.post(
+      url,
+      { point_id: pointId, creator: "backend-system" },
+      { headers: { "x-api-key": ROBOT_SECRET } }
+    );
   } catch (error: any) {
     console.error(`Error moving to point ${pointId}:`, error.message);
     throw new Error(`Failed to move to point ${pointId}: ${error.message}`);
@@ -80,7 +83,7 @@ async function moveToPoint(pointId: string): Promise<void> {
  * Simple wait function for delays between operations
  */
 function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((res) => setTimeout(res, ms));
 }
 
 /**
@@ -101,10 +104,10 @@ export async function runMission({ uiMode, shelfId }: MissionParams): Promise<vo
   }
 
   // Fetch and categorize all points
-  const allPoints = await fetchPoints();
-  console.log(`Retrieved ${allPoints.length} points from robot map`);
+  const points = await fetchPoints();
+  console.log(`Retrieved ${points.length} points from robot map`);
   
-  const { pickup, dropoff, standby, shelves } = categorize(allPoints);
+  const { pickup, dropoff, standby, shelves } = categorizePoints(points);
   
   if (!pickup) {
     throw new Error("No pickup point found on the map. Ensure a point with 'pick' in its ID exists.");
@@ -122,34 +125,30 @@ export async function runMission({ uiMode, shelfId }: MissionParams): Promise<vo
 
   if (uiMode === "dropoff") {
     // Human wants to drop a bin at a shelf → Robot: pick up → shelf → home
-    console.log("Starting dropoff mission sequence");
-    
     await moveToPoint(pickup.id);
-    console.log(`📦 Picked up bin at ${pickup.id}`);
-    await wait(4000); // Wait for 4 seconds to simulate pickup action
+    console.log(`📦 Picked up at ${pickup.id}`);
+    await wait(4000);
 
     await moveToPoint(shelf.id);
-    console.log(`📤 Dropped bin at shelf ${shelf.id}`);
-    await wait(4000); // Wait for 4 seconds to simulate dropoff action
+    console.log(`🚚 Dropped off at shelf ${shelf.id}`);
+    await wait(4000);
   }
 
   if (uiMode === "pickup") {
     // Human wants to pick up from shelf → Robot: shelf → dropoff → home
-    console.log("Starting pickup mission sequence");
-    
     await moveToPoint(shelf.id);
-    console.log(`📦 Picked up bin at shelf ${shelf.id}`);
-    await wait(4000); // Wait for 4 seconds to simulate pickup action
+    console.log(`📦 Picked up from shelf ${shelf.id}`);
+    await wait(4000);
 
     await moveToPoint(dropoff.id);
-    console.log(`📤 Dropped bin at ${dropoff.id}`);
-    await wait(4000); // Wait for 4 seconds to simulate dropoff action
+    console.log(`🚚 Dropped at ${dropoff.id}`);
+    await wait(4000);
   }
 
   // Return to standby point if available
   if (standby) {
     await moveToPoint(standby.id);
-    console.log(`🛑 Returned to standby (${standby.id})`);
+    console.log(`🛑 Returned to standby: ${standby.id}`);
   } else {
     console.log("No standby point found, mission completed without returning to standby");
   }
