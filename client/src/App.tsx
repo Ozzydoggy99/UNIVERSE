@@ -28,6 +28,7 @@ import LayeredMapPage from "@/pages/layered-map-page";
 import PowerCycleTestPage from "@/pages/power-cycle-test";
 import RobotInstaller from "@/pages/robot-installer";
 import InstallerDebugPage from "@/pages/installer-debug";
+import MyTemplate from "@/pages/my-template";
 import RemoteExecutor from "@/pages/remote-executor";
 import RobotMapsPage from "@/pages/robot-maps-page";
 import RobotMissionPage from "@/pages/robot-mission-page";
@@ -226,7 +227,7 @@ function Router() {
         component={() => (
           <div className="h-full min-h-screen">
             {/* Using our new simplified template UI */}
-            {React.createElement(require('@/pages/my-template').default)}
+            <MyTemplate />
           </div>
         )} 
       />
