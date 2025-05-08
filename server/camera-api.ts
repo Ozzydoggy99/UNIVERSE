@@ -2,16 +2,6 @@ import { Express, Request, Response } from 'express';
 import { storage } from './mem-storage';
 import { WebSocket } from 'ws';
 import axios from 'axios';
-import { createReadStream } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-// Get the current file path for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Stream buffer to use as fallback when a camera is offline or unreachable
-const DEFAULT_CAMERA_IMAGE_PATH = join(__dirname, '../attached_assets/IMG_1576.jpeg');
 
 // Only support our single physical robot
 const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
@@ -30,10 +20,9 @@ export function registerCameraApiRoutes(app: Express) {
       
       // Only support our physical robot
       if (serialNumber !== PHYSICAL_ROBOT_SERIAL) {
-        // If the camera is not available, return a default image
-        console.log('Camera not available or not enabled, returning default image');
-        res.setHeader('Content-Type', 'image/jpeg');
-        return createReadStream(DEFAULT_CAMERA_IMAGE_PATH).pipe(res);
+        const error = 'Camera not available or not enabled for this robot serial number';
+        console.error(error);
+        return res.status(404).json({ error });
       }
       
       // Build target URL based on parameters
@@ -279,10 +268,13 @@ export function registerCameraApiRoutes(app: Express) {
           }
         }
         
-        // If all else fails, return the default image
-        console.log('Returning default image after all streaming attempts failed');
-        res.setHeader('Content-Type', 'image/jpeg');
-        return createReadStream(DEFAULT_CAMERA_IMAGE_PATH).pipe(res);
+        // If all else fails, return an error
+        const error = 'All camera streaming approaches failed';
+        console.error(error);
+        return res.status(503).json({ 
+          error,
+          message: 'Camera streaming unavailable - please check robot connection'
+        });
       }
     } catch (error) {
       console.error('Unhandled error in camera stream proxy:', error);

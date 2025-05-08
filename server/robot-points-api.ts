@@ -5,7 +5,6 @@ import axios from 'axios';
 import { Point } from './types';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 import { 
-  ROBOT_MAP_POINTS, 
   getShelfPoints, 
   fetchRobotMapPoints as fetchLiveMapPoints,
   getShelfPointsByFloor,
@@ -14,67 +13,60 @@ import {
 } from './robot-map-data';
 
 /**
- * Retrieve map points from robot API or fallback to hardcoded points
- * This function is used to fetch current map points from the robot or our fallback data
+ * Retrieve map points from the robot API - throws error if API is unavailable 
+ * or returns invalid data
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
+  // First try to fetch points from the live API implementation
+  console.log(`Fetching live map points from robot API at ${ROBOT_API_URL}...`);
+  console.log(`Using auth secret starting with: ${ROBOT_SECRET.substring(0, 4)}...`);
+  
+  // First test if the robot API is accessible - try different endpoints
   try {
-    // First try to fetch points from the live API implementation
-    console.log(`Fetching live map points from robot API at ${ROBOT_API_URL}...`);
-    console.log(`Using auth secret starting with: ${ROBOT_SECRET.substring(0, 4)}...`);
+    // Try different endpoints to find one that works
+    const testEndpoints = [
+      '/status', 
+      '/device/info', 
+      '/state',
+      '/maps',
+      '/chassis/moves/latest'
+    ];
     
-    // First test if the robot API is accessible - try different endpoints
-    try {
-      // Try different endpoints to find one that works
-      const testEndpoints = [
-        '/status', 
-        '/device/info', 
-        '/state',
-        '/maps',
-        '/chassis/moves/latest'
-      ];
-      
-      let connected = false;
-      for (const endpoint of testEndpoints) {
-        try {
-          console.log(`Trying endpoint: ${ROBOT_API_URL}${endpoint}`);
-          const testResponse = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
-            headers: { 'x-api-key': ROBOT_SECRET }
-          });
-          console.log(`✅ Robot API connection test successful with endpoint ${endpoint}: ${JSON.stringify(testResponse.data).substring(0, 100)}...`);
-          connected = true;
-          break;
-        } catch (err) {
-          const endpointError = err as Error;
-          console.log(`Endpoint ${endpoint} failed: ${endpointError.message}`);
-        }
+    let connected = false;
+    for (const endpoint of testEndpoints) {
+      try {
+        console.log(`Trying endpoint: ${ROBOT_API_URL}${endpoint}`);
+        const testResponse = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
+          headers: { 'x-api-key': ROBOT_SECRET }
+        });
+        console.log(`✅ Robot API connection test successful with endpoint ${endpoint}: ${JSON.stringify(testResponse.data).substring(0, 100)}...`);
+        connected = true;
+        break;
+      } catch (err) {
+        const endpointError = err as Error;
+        console.log(`Endpoint ${endpoint} failed: ${endpointError.message}`);
       }
-      
-      if (!connected) {
-        throw new Error('All connection test endpoints failed');
-      }
-    } catch (err) {
-      const testError = err as Error;
-      console.error(`❌ Robot API connection test failed:`, testError.message);
-      throw new Error(`Robot API connection failed: ${testError.message}`);
     }
     
-    const livePoints = await fetchLiveMapPoints();
-    
-    if (livePoints && livePoints.length > 0) {
-      console.log(`✅ Successfully fetched ${livePoints.length} live map points`);
-      return livePoints;
+    if (!connected) {
+      throw new Error('All connection test endpoints failed');
     }
-    
-    // If we get here with empty points, fall back to the hardcoded data
-    console.log('No live points found, using fallback data');
-    return [...ROBOT_MAP_POINTS];
-  } catch (error) {
-    console.error('Failed to fetch robot map points:', error);
-    // Return hardcoded points as a fallback
-    console.log('Error fetching live points, using fallback data');
-    return [...ROBOT_MAP_POINTS];
+  } catch (err) {
+    const testError = err as Error;
+    console.error(`❌ Robot API connection test failed:`, testError.message);
+    throw new Error(`Robot API connection failed: ${testError.message}`);
   }
+  
+  // Now fetch the actual map points
+  const livePoints = await fetchLiveMapPoints();
+  
+  if (livePoints && livePoints.length > 0) {
+    console.log(`✅ Successfully fetched ${livePoints.length} live map points`);
+    return livePoints;
+  }
+  
+  // If we get here with empty points, throw an error - no fallbacks
+  throw new Error('No map points found from robot API');
 }
 
 /**

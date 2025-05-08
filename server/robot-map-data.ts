@@ -16,8 +16,9 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     const activeMap = maps[0];  // Get the first map (typically current/active map)
     
     if (!activeMap) {
-      console.log('❌ No maps found from robot API');
-      return [...ROBOT_MAP_POINTS]; // Return fallback data if no maps
+      const error = 'No maps found from robot API';
+      console.error('❌ ' + error);
+      throw new Error(error);
     }
 
     // Extract floor ID from map name if possible
@@ -32,8 +33,9 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     const mapData = mapDetailRes.data;
     
     if (!mapData || !mapData.overlays) {
-      console.log('❌ No overlay data in map');
-      return [...ROBOT_MAP_POINTS]; // Return fallback data if no overlay data
+      const error = 'No overlay data in map';
+      console.error('❌ ' + error);
+      throw new Error(error);
     }
 
     // Parse the overlay JSON
@@ -41,8 +43,9 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     try {
       overlays = JSON.parse(mapData.overlays);
     } catch (e) {
-      console.error('Failed to parse overlays JSON:', e);
-      return [...ROBOT_MAP_POINTS]; // Return fallback data if JSON parsing fails
+      const error = 'Failed to parse overlays JSON: ' + (e instanceof Error ? e.message : String(e));
+      console.error('❌ ' + error);
+      throw new Error(error);
     }
 
     // Extract point features from the overlays
@@ -74,12 +77,13 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       console.log(`✅ Successfully extracted ${points.length} map points from robot`);
       return points;
     } else {
-      console.log('❌ No point features found in map overlays');
-      return [...ROBOT_MAP_POINTS]; // Return fallback data if no point features
+      const error = 'No point features found in map overlays';
+      console.error('❌ ' + error);
+      throw new Error(error);
     }
   } catch (error) {
     console.error('Error fetching robot map points:', error);
-    return [...ROBOT_MAP_POINTS]; // Return fallback data on any error
+    throw error instanceof Error ? error : new Error('Unknown error fetching map points');
   }
 }
 
@@ -126,94 +130,32 @@ export function getAllFloors(points: Point[]): string[] {
 }
 
 /**
- * Hard-coded map points as a fallback
- * These are only used as a fallback if the above API calls fail
- */
-export const ROBOT_MAP_POINTS: Point[] = [
-  {
-    id: "Charging Station",
-    x: -23.24,
-    y: 1.64,
-    ori: 0,
-    floorId: "1"
-  },
-  {
-    id: "Pick-up",
-    x: -11.94,
-    y: 6.31,
-    ori: 0,
-    floorId: "1"
-  },
-  {
-    id: "Drop-off",
-    x: 0.5,
-    y: 4.2,
-    ori: 0,
-    floorId: "1"
-  },
-  {
-    id: "Desk",
-    x: -5.75,
-    y: 5.12,
-    ori: 0,
-    floorId: "1"
-  },
-  {
-    id: "145",
-    x: -13.6,
-    y: 2.1,
-    ori: 0,
-    floorId: "1"
-  },
-  {
-    id: "146",
-    x: -10.2,
-    y: 2.1,
-    ori: 0,
-    floorId: "1"
-  },
-  {
-    id: "147",
-    x: -6.8,
-    y: 2.1,
-    ori: 0,
-    floorId: "1"
-  },
-  {
-    id: "148",
-    x: -3.4,
-    y: 2.1,
-    ori: 0,
-    floorId: "1"
-  },
-  {
-    id: "149",
-    x: 0,
-    y: 2.1,
-    ori: 0,
-    floorId: "1"
-  }
-];
-
-/**
  * Validate if a shelf ID exists in our map data
  * @param shelfId The shelf ID to validate
+ * @param points Array of points to search through
  * @returns True if the shelf ID exists, false otherwise
  */
-export function validateShelfId(shelfId: string): boolean {
-  return ROBOT_MAP_POINTS.some(point => 
+export function validateShelfId(shelfId: string, points: Point[]): boolean {
+  if (!points || points.length === 0) {
+    throw new Error('No map points available for shelf ID validation');
+  }
+  
+  return points.some(point => 
     String(point.id).toLowerCase() === String(shelfId).toLowerCase());
 }
 
 /**
  * Get a list of all available shelf points (excludes special points like pickup/dropoff)
+ * @param points Array of points to filter (required)
  * @returns Array of shelf points
  */
-export function getShelfPoints(points?: Point[]): Point[] {
-  const pointsToFilter = points || ROBOT_MAP_POINTS;
+export function getShelfPoints(points: Point[]): Point[] {
+  if (!points || points.length === 0) {
+    throw new Error('No map points available for shelf filtering');
+  }
   
   // Filter and return only numeric points (like shelf IDs)
-  const numericPoints = pointsToFilter.filter(point => {
+  const numericPoints = points.filter(point => {
     const id = String(point.id || "").trim();
     return /^\d+$/.test(id);
   });
