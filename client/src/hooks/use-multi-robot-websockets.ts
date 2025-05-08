@@ -61,8 +61,8 @@ export function useMultiRobotWebSockets() {
 
     // Initialize the state for all categories
     const initialState: Record<string, ChannelState> = {};
-    categories.forEach(({ label }) => {
-      initialState[label] = { 
+    categories.forEach((category) => {
+      initialState[category.label] = { 
         status: "connecting", 
         lastMessage: "", 
         connectionAttempts: 0 
@@ -79,9 +79,9 @@ export function useMultiRobotWebSockets() {
         // Update all categories to connecting status
         setState((prev) => {
           const updated = { ...prev };
-          categories.forEach(({ label }) => {
-            updated[label] = { 
-              ...prev[label], 
+          categories.forEach((category) => {
+            updated[category.label] = { 
+              ...prev[category.label], 
               status: "connecting",
               connectionAttempts: attempt
             };
@@ -101,9 +101,9 @@ export function useMultiRobotWebSockets() {
           // Update all categories to connected status
           setState((prev) => {
             const updated = { ...prev };
-            categories.forEach(({ label }) => {
-              updated[label] = { 
-                ...prev[label], 
+            categories.forEach((category) => {
+              updated[category.label] = { 
+                ...prev[category.label], 
                 status: "connected",
                 lastError: undefined
               };
@@ -119,9 +119,9 @@ export function useMultiRobotWebSockets() {
           // Update all categories to disconnected status
           setState((prev) => {
             const updated = { ...prev };
-            categories.forEach(({ label }) => {
-              updated[label] = { 
-                ...prev[label], 
+            categories.forEach((category) => {
+              updated[category.label] = { 
+                ...prev[category.label], 
                 status: "disconnected",
                 lastError: `Connection closed: ${event.code}`
               };
@@ -146,9 +146,9 @@ export function useMultiRobotWebSockets() {
           // Update all categories to error status
           setState((prev) => {
             const updated = { ...prev };
-            categories.forEach(({ label }) => {
-              updated[label] = { 
-                ...prev[label], 
+            categories.forEach((category) => {
+              updated[category.label] = { 
+                ...prev[category.label], 
                 status: "error",
                 lastError: "Connection error"
               };
@@ -169,10 +169,10 @@ export function useMultiRobotWebSockets() {
             setState((prev) => {
               const updated = { ...prev };
               
-              categories.forEach(({ label, filter }) => {
-                if (filter === null || filter(data)) {
-                  updated[label] = {
-                    ...prev[label],
+              categories.forEach((category) => {
+                if (category.filter === null || category.filter(data)) {
+                  updated[category.label] = {
+                    ...prev[category.label],
                     lastMessage: messageDisplay
                   };
                 }
@@ -199,9 +199,9 @@ export function useMultiRobotWebSockets() {
         // Update all categories to error status
         setState((prev) => {
           const updated = { ...prev };
-          categories.forEach(({ label }) => {
-            updated[label] = { 
-              ...prev[label], 
+          categories.forEach((category) => {
+            updated[category.label] = { 
+              ...prev[category.label], 
               status: "error",
               lastError: err instanceof Error ? err.message : String(err)
             };
