@@ -12,6 +12,8 @@ import { registerRobotMoveApiRoutes } from './robot-move-api';
 import { registerRobotPointRoutes } from './robot-points-api';
 // Task assignment API for AutoXing structured mission execution
 import { registerAssignTaskRoute } from './assign-task';
+// Local pickup handling with jack up/down operations
+import { registerLocalPickupRoute } from './assign-task-local';
 import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
@@ -41,6 +43,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register AutoXing task assignment API (new version)
   registerAssignTaskRoute(app);
+  
+  // Register local pickup route with jack up/down operations
+  registerLocalPickupRoute(app);
   
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
