@@ -13,7 +13,7 @@ export function registerAssignTaskRoute(app: express.Express) {
       }
 
       const headers = { 'x-api-key': ROBOT_SECRET };
-      const robotId = standby.robotId || 'robot_001'; // Replace if you have dynamic IDs
+      const robotId = 'L382502104987ir'; // correct AutoXing serial number for your robot
 
       const points: any[] = [];
 
