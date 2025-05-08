@@ -1,1 +1,60 @@
-[]
+[
+  {
+    "id": "mission_1746747810302_rmmgkwb",
+    "name": "Local Pickup - Shelf pickup-shelf to Pickup pickup-point",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 15,
+          "y": 25,
+          "ori": 0,
+          "label": "shelf pickup-shelf"
+        },
+        "completed": false,
+        "retryCount": 0,
+        "errorMessage": "Robot API endpoint not available: move to shelf pickup-shelf failed"
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 35,
+          "y": 45,
+          "ori": 0,
+          "label": "pickup pickup-point"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 55,
+          "y": 65,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-08T23:43:30.302Z",
+    "updatedAt": "2025-05-08T23:43:33.698Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
+  }
+]
