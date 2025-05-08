@@ -42,9 +42,30 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     try {
       console.log('Sending task assignment:', params);
       
-      const response = await axios.post('/robots/assign-task', params);
+      let response;
+      // Choose the appropriate API endpoint based on task mode
+      if (params.mode === 'pickup') {
+        // Use local pickup endpoint for pickup operations
+        response = await axios.post('/robots/assign-task/local/pickup', {
+          shelf: params.shelf,
+          pickup: params.pickup,
+          standby: params.standby
+        });
+        console.log('Local pickup task assignment successful:', response.data);
+      } else if (params.mode === 'dropoff') {
+        // Use local dropoff endpoint for dropoff operations
+        response = await axios.post('/robots/assign-task/local/dropoff', {
+          shelf: params.shelf,
+          pickup: params.pickup,
+          standby: params.standby
+        });
+        console.log('Local dropoff task assignment successful:', response.data);
+      } else {
+        // Fallback to general task assignment
+        response = await axios.post('/robots/assign-task', params);
+        console.log('General task assignment successful:', response.data);
+      }
       
-      console.log('Task assignment successful:', response.data);
       setSuccess(true);
       
       toast({

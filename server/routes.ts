@@ -14,6 +14,8 @@ import { registerRobotPointRoutes } from './robot-points-api';
 import { registerAssignTaskRoute } from './assign-task';
 // Local pickup handling with jack up/down operations
 import { registerLocalPickupRoute } from './assign-task-local';
+// Local dropoff handling with jack up/down operations (reverse of pickup)
+import { registerLocalDropoffRoute } from './assign-task-local-dropoff';
 import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
@@ -46,6 +48,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register local pickup route with jack up/down operations
   registerLocalPickupRoute(app);
+  
+  // Register local dropoff route with jack up/down operations (reverse flow)
+  registerLocalDropoffRoute(app);
   
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
