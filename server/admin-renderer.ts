@@ -90,7 +90,7 @@ export async function getAdminTemplatesList() {
     }));
   } catch (error) {
     console.error('Error getting admin templates:', error);
-    return [];
+    throw new Error('Failed to retrieve admin templates');
   }
 }
 
@@ -101,6 +101,6 @@ export async function getTemplateAssignments() {
     return assignments;
   } catch (error) {
     console.error('Error getting template assignments:', error);
-    return [];
+    throw new Error('Failed to retrieve template assignments');
   }
 }
