@@ -6,11 +6,17 @@ import path from 'path';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 
 export function registerAssignTaskRoute(app: express.Express) {
-  app.post('/robots/assign-task', async (req: Request, res: Response) => {
-    const logPath = path.resolve(__dirname, '../robot-debug.log');
-
+  // Skip all auth middleware for this endpoint since it needs to be accessible from anywhere
+  app.post('/robots/assign-task', express.json(), async (req: Request, res: Response) => {
+    // Use a direct path to the current directory for the log file
+    const logPath = 'robot-debug.log';
+    
     function logToFile(text: string) {
-      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${text}\n`);
+      try {
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${text}\n`);
+      } catch (error) {
+        console.error('Error writing to log file:', error);
+      }
     }
 
     try {
