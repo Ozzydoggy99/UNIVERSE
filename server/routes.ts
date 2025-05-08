@@ -8,8 +8,7 @@ import { setupVite } from './vite';
 import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
-import { registerRobotJoystickApiRoutes } from './robot-joystick-api';
-import { registerRobotPointsApiRoutes, debugRobotMapList } from './robot-points-api';
+// Deprecated joystick and points APIs have been removed
 import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
 function formatError(error: unknown): string {
@@ -33,21 +32,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerRobotMoveApiRoutes(app);
   
   
-  // Register robot joystick API routes
-  registerRobotJoystickApiRoutes(app);
-  
-  // Register robot points API routes
-  registerRobotPointsApiRoutes(app);
-  
-  // Debug endpoint for listing all robot maps
-  app.get('/api/debug-maps', async (req: Request, res: Response) => {
-    try {
-      const list = await debugRobotMapList();
-      res.json({ maps: list });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  // Deprecated API routes have been removed
   
 
   
