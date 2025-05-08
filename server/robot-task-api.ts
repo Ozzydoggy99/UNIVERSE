@@ -2,7 +2,7 @@
 import express, { Request, Response } from 'express';
 import fetch from 'node-fetch';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
-import { Point } from '@shared/types';
+import { Point } from './types';
 
 interface TaskRequest {
   mode: 'pickup' | 'dropoff';
