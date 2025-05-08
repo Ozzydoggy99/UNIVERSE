@@ -27,6 +27,7 @@ interface UseRobotTaskReturn {
     charging: boolean;
     message: string;
     duration?: number;
+    missionId?: string;
   } | null;
 }
 
@@ -43,6 +44,7 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     charging: boolean;
     message: string;
     duration?: number;
+    missionId?: string;
   } | null>(null);
   
   // Check robot charging status when the hook loads
@@ -169,6 +171,8 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     error,
     success,
     isCharging,
-    lastTaskResult
+    lastTaskResult,
+    // The latest mission ID that was created
+    latestMissionId: lastTaskResult?.missionId
   };
 }
