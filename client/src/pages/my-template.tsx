@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 
 export default function MyTemplatePage() {
   const { data, loading, error } = useRobotMapData();
-  const { assignTask, loading: taskLoading, error: taskError, success } = useSimplifiedRobotTask();
+  const { assignTask, loading: taskLoading, error: taskError, success, isCharging, lastTaskResult } = useSimplifiedRobotTask();
   
   const [mode, setMode] = useState<'pickup' | 'dropoff' | null>(null);
   const [floor, setFloor] = useState<string | null>(null);
@@ -28,6 +28,12 @@ export default function MyTemplatePage() {
 
   const handleConfirm = async () => {
     if (!selectedShelf || !floor || !mode || !data.specialPoints) return;
+    
+    // Ensure that all required special points exist
+    if (!data.specialPoints.pickup || !data.specialPoints.dropoff || !data.specialPoints.standby) {
+      console.error("Missing required special points", data.specialPoints);
+      return;
+    }
 
     // Ensure all points have the required name property
     const taskRequest = {
@@ -87,6 +93,13 @@ export default function MyTemplatePage() {
           <p>Floor: <strong>{floor}</strong></p>
           <p>Shelf: <strong>{selectedShelf.id}</strong></p>
           
+          {isCharging && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-700 p-2 rounded-md mb-2">
+              <p><strong>⚠️ Robot is currently charging</strong></p>
+              <p className="text-sm">The mission will be completed in simplified mode without bin operations.</p>
+            </div>
+          )}
+          
           {taskError && (
             <div className="bg-red-50 border border-red-200 text-red-700 p-2 rounded-md mb-2">
               {taskError}
@@ -113,7 +126,19 @@ export default function MyTemplatePage() {
       {success && (
         <Card className="p-4 text-center">
           <h2 className="text-lg font-semibold">Task Submitted ✅</h2>
-          <p>Robot is on the move...</p>
+          
+          {lastTaskResult && lastTaskResult.charging ? (
+            <div className="bg-amber-50 border border-amber-200 text-amber-700 p-2 rounded-md my-2 text-left">
+              <p><strong>⚠️ Robot is charging</strong></p>
+              <p>Task completed in simplified mode without bin operations.</p>
+              {lastTaskResult.duration && (
+                <p className="text-xs mt-1">Duration: {Math.round(lastTaskResult.duration / 1000)}s</p>
+              )}
+            </div>
+          ) : (
+            <p>Robot has completed the mission successfully.</p>
+          )}
+          
           <Button 
             onClick={() => window.location.reload()} 
             className="mt-4"
