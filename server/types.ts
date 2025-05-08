@@ -8,7 +8,7 @@ export interface Point {
   x: number;
   y: number;
   ori: number;
-  floorId?: string;
+  floorId: string;  // Changed from optional to required
   description?: string;
   name?: string; // Added for compatibility with mission-routes.ts
 }

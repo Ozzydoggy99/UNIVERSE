@@ -4,7 +4,7 @@ import express, { Request, Response } from 'express';
 import axios from 'axios';
 import { Point } from './types';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
-import { ROBOT_MAP_POINTS, getShelfPoints } from './robot-map-data';
+import { ROBOT_MAP_POINTS, getShelfPoints, fetchRobotMapPoints as fetchLiveMapPoints } from './robot-map-data';
 
 /**
  * Retrieve map points from robot API or fallback to hardcoded points
@@ -12,11 +12,22 @@ import { ROBOT_MAP_POINTS, getShelfPoints } from './robot-map-data';
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
   try {
-    // This is for compatibility with existing code after cleanup
+    // First try to fetch points from the live API implementation
+    console.log('Fetching live map points from robot API...');
+    const livePoints = await fetchLiveMapPoints();
+    
+    if (livePoints && livePoints.length > 0) {
+      console.log(`✅ Successfully fetched ${livePoints.length} live map points`);
+      return livePoints;
+    }
+    
+    // If we get here with empty points, fall back to the hardcoded data
+    console.log('No live points found, using fallback data');
     return [...ROBOT_MAP_POINTS];
   } catch (error) {
     console.error('Failed to fetch robot map points:', error);
     // Return hardcoded points as a fallback
+    console.log('Error fetching live points, using fallback data');
     return [...ROBOT_MAP_POINTS];
   }
 }

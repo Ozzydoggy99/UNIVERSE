@@ -1,0 +1,89 @@
+🔧 Paste this into server/robot-map-data.ts (replaces the whole file)
+ts
+Copy
+Edit
+// server/robot-map-data.ts
+import { Point } from './types';
+import axios from 'axios';
+import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+
+/**
+ * Fetch all map points from the robot’s current map using overlays
+ */
+export async function fetchRobotMapPoints(): Promise<Point[]> {
+  const headers = { 'x-api-key': ROBOT_SECRET };
+
+  const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
+  const maps = mapsRes.data || [];
+  const activeMap = maps[0];
+  if (!activeMap) throw new Error('❌ No map found');
+
+  const rawName = activeMap.name || activeMap.map_name || '';
+  const floorMatch = rawName.match(/^(\d+)/);
+  const floorId = floorMatch ? floorMatch[1] : '1';
+
+  const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
+  const mapData = mapDetailRes.data;
+  if (!mapData || !mapData.overlays) throw new Error('Missing overlays');
+
+  let overlays;
+  try {
+    overlays = JSON.parse(mapData.overlays);
+  } catch (e) {
+    throw new Error('Failed to parse overlays JSON');
+  }
+
+  const features = overlays.features || [];
+
+  const points: Point[] = features
+    .filter((f: any) => f.geometry?.type === 'Point' && f.properties)
+    .map((f: any) => {
+      const { properties, geometry } = f;
+      const id = String(properties.name || properties.text || '').trim();
+      const x = typeof properties.x === 'number' ? properties.x : geometry.coordinates[0];
+      const y = typeof properties.y === 'number' ? properties.y : geometry.coordinates[1];
+      const ori = parseFloat(String(properties.yaw || properties.orientation || '0'));
+      return { id, x, y, ori, floorId, description: id };
+    });
+
+  return points;
+}
+
+/**
+ * Return shelves grouped by floor (numeric IDs only)
+ */
+export function getShelfPointsByFloor(points: Point[]): Record<string, Point[]> {
+  const grouped: Record<string, Point[]> = {};
+  for (const p of points) {
+    const isShelf = /^\d+$/.test(p.id);
+    if (!isShelf) continue;
+    if (!grouped[p.floorId]) grouped[p.floorId] = [];
+    grouped[p.floorId].push(p);
+  }
+  Object.values(grouped).forEach(list =>
+    list.sort((a, b) => parseInt(a.id) - parseInt(b.id))
+  );
+  return grouped;
+}
+
+/**
+ * Extract special labeled points
+ */
+export function getSpecialPoints(points: Point[]) {
+  const match = (label: string, target: string) => label.toLowerCase().includes(target.toLowerCase());
+  let pickup, dropoff, standby;
+  for (const p of points) {
+    const id = p.id.toLowerCase();
+    if (!pickup && match(id, 'pick')) pickup = p;
+    else if (!dropoff && match(id, 'drop')) dropoff = p;
+    else if (!standby && match(id, 'desk')) standby = p;
+  }
+  return { pickup, dropoff, standby };
+}
+
+/**
+ * Return sorted list of floor IDs
+ */
+export function getAllFloors(points: Point[]): string[] {
+  return Array.from(new Set(points.map(p => p.floorId))).sort();
+}
