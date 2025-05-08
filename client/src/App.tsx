@@ -24,6 +24,7 @@ import UnitBoxes from "@/pages/unit-boxes";
 import AIAssistantPage from "@/pages/ai-assistant";
 import RobotTasks from "@/pages/robot-tasks";
 import MapTestPage from "@/pages/map-test-page";
+import MapDataTestPage from "@/pages/map-data-test";
 import LayeredMapPage from "@/pages/layered-map-page";
 import PowerCycleTestPage from "@/pages/power-cycle-test";
 import RobotInstaller from "@/pages/robot-installer";
@@ -391,6 +392,16 @@ function Router() {
         component={() => (
           <AppLayout>
             <MapTestPage />
+          </AppLayout>
+        )} 
+      />
+      
+      {/* Map Data Test Page */}
+      <ProtectedRoute 
+        path="/map-data-test" 
+        component={() => (
+          <AppLayout>
+            <MapDataTestPage />
           </AppLayout>
         )} 
       />
