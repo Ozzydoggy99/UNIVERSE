@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 import { isRobotCharging } from './robot-api';
+import { missionQueue } from './mission-queue';
 
 function logRobotTask(message: string) {
   try {
@@ -63,60 +64,123 @@ export function registerLocalDropoffRoute(app: express.Express) {
     }
 
     try {
-      // Step 1: Go to pickup point
-      logRobotTask('🚀 Starting LOCAL DROPOFF sequence');
-      await moveTo(pickup, `pickup point ${pickup.id}`);
-
       // Check if robot is charging before attempting jack up
+      logRobotTask('🚀 Starting LOCAL DROPOFF sequence');
       const charging = await isRobotCharging();
       
+      // Create mission plan based on charging status
+      let missionSteps = [];
+      
       if (charging) {
-        logRobotTask('⚠️ Robot is currently charging. Cannot perform jack operations.');
+        logRobotTask('⚠️ Robot is currently charging. Creating simplified mission (no bin operations)');
         
-        // In charging state, we'll complete a simplified mission without bin operations
-        logRobotTask('ℹ️ Performing simplified mission path without bin operations');
+        // Simplified mission without bin operations
+        missionSteps = [
+          // Step 1: Go to pickup point
+          {
+            type: 'move' as const,
+            params: {
+              x: pickup.x,
+              y: pickup.y,
+              ori: pickup.ori ?? 0,
+              label: `pickup ${pickup.id}`
+            }
+          },
+          // Step 2: Go to shelf (without jack operations)
+          {
+            type: 'move' as const,
+            params: {
+              x: shelf.x,
+              y: shelf.y,
+              ori: shelf.ori ?? 0,
+              label: `shelf ${shelf.id}`
+            }
+          },
+          // Step 3: Return to standby
+          {
+            type: 'move' as const,
+            params: {
+              x: standby.x,
+              y: standby.y,
+              ori: standby.ori ?? 0,
+              label: 'standby'
+            }
+          }
+        ];
         
-        // Step 2: Visit shelf without bin
-        await moveTo(shelf, `shelf ${shelf.id} (no bin operation - charging)`);
+        logRobotTask(`Created simplified mission plan with ${missionSteps.length} steps (charging mode)`);
         
-        // Step 3: Return to standby
-        await moveTo(standby, 'standby');
+      } else {
+        // Full mission with bin operations
+        logRobotTask('Creating full mission plan with bin operations');
         
-        const totalDuration = Date.now() - startTime;
-        logRobotTask(`🏁 LOCAL DROPOFF simplified task complete (charging mode). Total duration: ${totalDuration}ms`);
+        missionSteps = [
+          // Step 1: Go to pickup point
+          {
+            type: 'move' as const,
+            params: {
+              x: pickup.x,
+              y: pickup.y,
+              ori: pickup.ori ?? 0,
+              label: `pickup ${pickup.id}`
+            }
+          },
+          // Step 2: Jack Up
+          {
+            type: 'jack_up' as const,
+            params: {}
+          },
+          // Step 3: Go to shelf
+          {
+            type: 'move' as const,
+            params: {
+              x: shelf.x,
+              y: shelf.y,
+              ori: shelf.ori ?? 0,
+              label: `shelf ${shelf.id}`
+            }
+          },
+          // Step 4: Jack Down
+          {
+            type: 'jack_down' as const,
+            params: {}
+          },
+          // Step 5: Return to standby
+          {
+            type: 'move' as const,
+            params: {
+              x: standby.x,
+              y: standby.y,
+              ori: standby.ori ?? 0,
+              label: 'standby'
+            }
+          }
+        ];
         
-        return res.json({ 
-          success: true, 
-          message: 'Local dropoff task completed in simplified mode (robot is charging).',
-          charging: true,
-          duration: totalDuration
-        });
+        logRobotTask(`Created full mission plan with ${missionSteps.length} steps`);
       }
       
-      // Normal operation flow when robot is not charging
-      // Step 2: Jack Up
-      logRobotTask('⬆️ Lifting bin...');
-      const jackUpResponse = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
-      logRobotTask(`✅ Jack up operation complete - Response: ${JSON.stringify(jackUpResponse.data)}`);
-
-      // Step 3: Go to shelf
-      await moveTo(shelf, `shelf ${shelf.id}`);
-
-      // Step 4: Jack Down
-      logRobotTask('⬇️ Dropping bin...');
-      const jackDownResponse = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
-      logRobotTask(`✅ Jack down operation complete - Response: ${JSON.stringify(jackDownResponse.data)}`);
-
-      // Step 5: Return to standby
-      await moveTo(standby, 'standby');
-
+      // Create the mission in the queue
+      const missionName = `Local Dropoff - Pickup ${pickup.id} to Shelf ${shelf.id}`;
+      const mission = missionQueue.createMission(missionName, missionSteps, 'L382502104987ir');
+      
+      logRobotTask(`Mission created with ID: ${mission.id}`);
+      logRobotTask(`Mission will continue executing even if the robot goes offline`);
+      
+      // Start immediate execution of the first step to provide feedback
+      // The rest will continue in the background via the queue
+      await missionQueue.processMissionQueue();
+      
       const totalDuration = Date.now() - startTime;
-      logRobotTask(`🏁 LOCAL DROPOFF task complete. Total duration: ${totalDuration}ms`);
+      logRobotTask(`🚀 LOCAL DROPOFF task initiated. Planning took: ${totalDuration}ms`);
       
       res.json({ 
         success: true, 
-        message: 'Local dropoff task complete.',
-        charging: false,
+        message: charging ? 
+          'Local dropoff task started in simplified mode (robot is charging).' : 
+          'Local dropoff task started with full bin operations.',
+        missionId: mission.id,
+        charging,
         duration: totalDuration
       });
     } catch (err: any) {

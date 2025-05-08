@@ -16,6 +16,7 @@ import { registerAssignTaskRoute } from './assign-task';
 import { registerLocalPickupRoute } from './assign-task-local';
 // Local dropoff handling with jack up/down operations (reverse of pickup)
 import { registerLocalDropoffRoute } from './assign-task-local-dropoff';
+import { missionQueue } from './mission-queue';
 import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
