@@ -1,101 +1,88 @@
-import { useState, useEffect } from "react";
+// client/src/hooks/use-simplified-robot-task.ts
+import { useState } from 'react';
+import axios from 'axios';
+import { toast } from "@/hooks/use-toast";
 
-export interface Point {
+// Define the Point interface matching server-side
+interface Point {
   id: string;
-  description?: string;
-  floorId?: string;
+  name: string;
   x: number;
   y: number;
-  ori: number;
+  z?: number;
+  ori?: number;
+  robotId?: string;
+  type?: string;
+  floor?: string;
+  floorId?: string;
 }
 
-export const useSimplifiedRobotTask = () => {
-  const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
-  const [pointsByFloor, setPointsByFloor] = useState<Record<string, Point[]>>({});
-  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
+// Task parameters interface
+interface TaskParams {
+  mode: 'pickup' | 'dropoff';
+  shelf: Point;
+  pickup: Point;
+  dropoff: Point;
+  standby: Point;
+}
+
+// Hook return interface
+interface UseRobotTaskReturn {
+  assignTask: (params: TaskParams) => Promise<void>;
+  loading: boolean;
+  error: string | null;
+  success: boolean;
+}
+
+/**
+ * Hook for working with simplified robot tasks
+ */
+export function useSimplifiedRobotTask(): UseRobotTaskReturn {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  useEffect(() => {
-    console.log("Fetching mission points data...");
-    // Use the mission-points endpoint to get points grouped by floor
-    fetch("/api/mission-points")
-      .then(res => res.json())
-      .then(data => {
-        console.log("Received map points:", data);
-        if (data.pointsByFloor) {
-          setPointsByFloor(data.pointsByFloor);
-          setError(null);
-        } else {
-          // If we just got a flat array, organize by floor
-          const points = data.points || [];
-          const byFloor: Record<string, Point[]> = {};
-          
-          points.forEach((point: Point) => {
-            const floorId = point.floorId || '1';
-            if (!byFloor[floorId]) {
-              byFloor[floorId] = [];
-            }
-            byFloor[floorId].push(point);
-          });
-          
-          setPointsByFloor(byFloor);
-          setError(null);
-        }
-      })
-      .catch(err => {
-        console.error("❌ Failed to fetch points:", err);
-        setError("Failed to fetch points");
-      });
-  }, []);
-
-  const runTask = async (taskMode: "pickup" | "dropoff" = mode, shelfId?: string) => {
-    // Use the provided shelfId or fall back to the selected point ID
-    const targetShelfId = shelfId || selectedPointId;
-    
-    if (!targetShelfId) {
-      setError("No shelf point selected");
-      return;
-    }
+  /**
+   * Assign a task to the robot
+   */
+  const assignTask = async (params: TaskParams): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
 
     try {
-      setIsRunning(true);
-      setStatus("Sending task to robot...");
-      const res = await fetch("/api/mission", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uiMode: taskMode,
-          shelfId: targetShelfId
-        }),
+      console.log('Sending task assignment:', params);
+      
+      const response = await axios.post('/api/robots/assign-task', params);
+      
+      console.log('Task assignment successful:', response.data);
+      setSuccess(true);
+      
+      toast({
+        title: "Task assigned successfully",
+        description: `The robot is now executing the ${params.mode} task`,
+        variant: "success",
       });
-
-      const result = await res.json();
-      if (res.ok) {
-        setStatus(`✅ Mission started: ${result?.message || "Success"}`);
-        setError(null);
-      } else {
-        throw new Error(result?.error || "Unknown failure");
-      }
     } catch (err: any) {
-      console.error("🚨 Mission error:", err);
-      setError(err.message || "Task failed");
-      setStatus(null);
+      console.error('Task assignment failed:', err);
+      
+      const errorMessage = err.response?.data?.error || err.message || 'Unknown error';
+      setError(errorMessage);
+      
+      toast({
+        title: "Task assignment failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
-      setIsRunning(false);
+      setLoading(false);
     }
   };
 
   return {
-    mode,
-    setMode,
-    pointsByFloor,
-    selectedPointId,
-    setSelectedPointId,
-    runTask,
-    status,
+    assignTask,
+    loading,
     error,
-    isRunning,
+    success
   };
-};
+}

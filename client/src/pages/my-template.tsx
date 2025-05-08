@@ -1,19 +1,22 @@
 // client/src/pages/my-template.tsx
 import React, { useState } from 'react';
 import { useRobotMapData } from '@/hooks/use-robot-map-data';
+import { useSimplifiedRobotTask } from '@/hooks/use-simplified-robot-task';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Point } from '@/types/robot';
+import { Loader2 } from 'lucide-react';
 
 export default function MyTemplatePage() {
   const { data, loading, error } = useRobotMapData();
+  const { assignTask, loading: taskLoading, error: taskError, success } = useSimplifiedRobotTask();
+  
   const [mode, setMode] = useState<'pickup' | 'dropoff' | null>(null);
   const [floor, setFloor] = useState<string | null>(null);
   const [selectedShelf, setSelectedShelf] = useState<Point | null>(null);
-  const [submitted, setSubmitted] = useState(false);
 
-  if (loading) return <p className="p-4">Loading...</p>;
-  if (error || !data) return <p className="p-4">Error: {error}</p>;
+  if (loading) return <p className="p-4">Loading map data...</p>;
+  if (error || !data) return <p className="p-4">Error loading map data: {error}</p>;
 
   const handleConfirm = async () => {
     if (!selectedShelf || !floor || !mode || !data.specialPoints) return;
@@ -26,14 +29,8 @@ export default function MyTemplatePage() {
       standby: data.specialPoints.standby,
     };
 
-    console.log('Sending task request:', taskRequest);
-    await fetch('/api/robots/assign-task', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(taskRequest),
-    });
-
-    setSubmitted(true);
+    console.log('Sending AutoXing task request:', taskRequest);
+    await assignTask(taskRequest);
   };
 
   return (
@@ -74,21 +71,46 @@ export default function MyTemplatePage() {
       )}
 
       {/* Step 4: Confirm Mission */}
-      {mode && floor && selectedShelf && !submitted && (
+      {mode && floor && selectedShelf && !success && (
         <Card className="p-4 flex flex-col gap-4">
           <h2 className="text-lg">Confirm Mission</h2>
           <p>Mode: <strong>{mode}</strong></p>
           <p>Floor: <strong>{floor}</strong></p>
           <p>Shelf: <strong>{selectedShelf.id}</strong></p>
-          <Button onClick={handleConfirm}>Confirm & Launch</Button>
+          
+          {taskError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-2 rounded-md mb-2">
+              {taskError}
+            </div>
+          )}
+          
+          <Button 
+            onClick={handleConfirm} 
+            disabled={taskLoading}
+          >
+            {taskLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              'Confirm & Launch'
+            )}
+          </Button>
         </Card>
       )}
 
-      {/* Task submitted */}
-      {submitted && (
+      {/* Task submitted successfully */}
+      {success && (
         <Card className="p-4 text-center">
           <h2 className="text-lg font-semibold">Task Submitted ✅</h2>
           <p>Robot is on the move...</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="mt-4"
+          >
+            Start New Task
+          </Button>
         </Card>
       )}
     </div>

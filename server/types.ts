@@ -1,21 +1,43 @@
 // server/types.ts
-/**
- * Type definitions for the server
- */
 
 export interface Point {
   id: string;
+  name: string;
   x: number;
   y: number;
-  ori: number;
-  floorId: string;  // Changed from optional to required
-  description?: string;
-  name?: string; // Added for compatibility with mission-routes.ts
+  z?: number;
+  ori?: number;
+  robotId?: string;
+  type?: string;
+  floor?: string;
+  floorId?: string;
 }
 
-export interface RobotTaskRequest {
-  uiMode: "pickup" | "dropoff";
-  shelfId: string;
-  points?: Point[]; // Points data for the mission
-  mode?: "pickup" | "dropoff"; // For backward compatibility with existing code
+export interface TaskPoint {
+  x: number;
+  y: number;
+  yaw: number;
+  areaId: number;
+  type: number;
+  ext?: {
+    name: string;
+  };
+  stepActs?: Array<{
+    type: number;
+    data: Record<string, any>;
+  }>;
+}
+
+export interface Task {
+  name: string;
+  robotId: string;
+  routeMode: number;
+  runMode: number;
+  runNum: number;
+  taskType: number;
+  runType: number;
+  ignorePublicSite: boolean;
+  speed: number;
+  pts: TaskPoint[];
+  backPt?: TaskPoint;
 }
