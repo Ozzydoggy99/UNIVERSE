@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { SimpleMapDigitalTwin } from "@/components/robot-map/SimpleMapDigitalTwin";
 import { useRobotData } from "@/hooks/use-robot-data";
-import { useRobotPoseWebSocket } from "@/hooks/use-robot-pose-websocket";
+import { useRobotPosition } from "@/hooks/use-robot-position";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -26,7 +26,7 @@ export default function RobotMapsPage() {
   const { mapData, isLoading: mapLoading, error: mapError, refetch } = useRobotData(robotSerial);
   
   // Get real-time position data from the WebSocket
-  const websocketPosition = useRobotPoseWebSocket(robotSerial);
+  const websocketPosition = useRobotPosition();
   
   // Convert websocket position to the format expected by SimpleMapDigitalTwin
   const [positionData, setPositionData] = useState<PositionData | undefined>(undefined);

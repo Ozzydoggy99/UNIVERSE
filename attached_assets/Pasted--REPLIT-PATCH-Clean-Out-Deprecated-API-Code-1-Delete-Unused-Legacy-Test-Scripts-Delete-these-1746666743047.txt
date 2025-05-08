@@ -1,0 +1,110 @@
+🧹 REPLIT PATCH: Clean Out Deprecated API Code
+🗑️ 1. Delete Unused Legacy Test Scripts
+Delete these files:
+
+bash
+Copy
+Edit
+rm scripts/test-point-fetch.js
+rm scripts/test-specific-points.js
+rm scripts/test-position-endpoints.ts
+rm scripts/test-pose-endpoint.ts
+rm scripts/test-status.ts
+Or via Replit file UI: manually delete them from the scripts/ folder.
+
+🧼 2. Purge Broken/Old API Routes
+🔧 Edit server/routes.ts
+Remove:
+
+ts
+Copy
+Edit
+router.get("/debug-points", async (req, res) => { ... })
+Also remove all /pose, /position, /points, or /locations routes from anywhere else in the file.
+
+🧹 3. Clean robot-api.ts
+File: server/robot-api.ts
+
+Replace the whole file with only this:
+
+ts
+Copy
+Edit
+import axios from "axios";
+import { ROBOT_API_URL, ROBOT_SECRET } from "./robot-constants";
+
+const headers = { "x-api-key": ROBOT_SECRET };
+
+export async function fetchMaps() {
+  return axios.get(`${ROBOT_API_URL}/maps`, { headers });
+}
+
+export async function fetchMapPoints(mapId: string) {
+  return axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, { headers });
+}
+
+export async function moveToPoint(x: number, y: number) {
+  return axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+    action: "move_to",
+    target_x: x,
+    target_y: y,
+  }, { headers });
+}
+
+export async function getLastMoveStatus() {
+  return axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
+}
+✅ No more /pose, /position, /points, /map, or debug-* logic
+
+🔥 4. Remove Deprecated Hooks and Components
+Delete Entire Files:
+
+bash
+Copy
+Edit
+rm client/src/hooks/use-robot-pose-websocket.ts
+rm client/src/hooks/use-robot-map-points.ts
+rm client/src/hooks/useRobotPoints.ts
+✅ These are no longer used or are duplicated by the new use-multi-robot-websockets.ts.
+
+🧼 5. Clean Legacy UI Components
+Purge or delete if unused:
+
+DirectionalControl.tsx
+
+Joystick.tsx
+
+SimpleJoystick.tsx
+
+MapDigitalTwin.fixed.tsx
+
+MapDigitalTwin.tsx
+
+map-fixed.tsx
+
+map.tsx
+
+map-test-page.tsx
+
+🧠 If you're not currently rendering these pages, delete them. Otherwise, remove their calls to /map/, /position, or /locations.
+
+✅ 6. Restart and Test
+bash
+Copy
+Edit
+npm run dev
+Then visit:
+
+http://localhost:3000/admin/ws-debug — Confirm real-time data streams work
+
+Run a pickup/dropoff task — Confirm logs + robot movement
+
+Backend /api/mission and /api/mission-points — Confirm responses
+
+✅ End Result
+Improvement	Delivered?
+Removed deprecated test scripts	✅
+Removed unused /pose, /points	✅
+WebSocket system is clean and active	✅
+REST API now only uses valid routes	✅
+Hooks and UI use clean data sources	✅

@@ -1,13 +1,13 @@
 // client/src/pages/robot-mission-page.tsx
 import { FC } from "react";
-import { useRobotMapPoints } from "@/hooks/use-robot-map-points";
+import { useRobotMapData } from "@/hooks/use-robot-map-data";
 import MissionControl from "@/components/robot-mission/MissionControl";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 
 const RobotMissionPage: FC = () => {
-  const { categorized, isLoading, error } = useRobotMapPoints();
+  const { allPoints, namedPoints, numericPoints, specialPoints, isLoading, error } = useRobotMapData();
 
   return (
     <div className="container mx-auto p-6">
