@@ -44,21 +44,13 @@ async function fetchRobotParams() {
     console.error('Error fetching robot parameters:', error);
     // If we have a cached version, return that on error
     if (robotParamsCache) {
+      console.log('Using cached robot parameters');
       return robotParamsCache;
     }
     
-    // Return default parameters if we can't fetch
-    return {
-      "/wheel_control/max_forward_velocity": 0.8,
-      "/wheel_control/max_backward_velocity": -0.2,
-      "/wheel_control/max_forward_acc": 0.26,
-      "/wheel_control/max_forward_decel": -2.0,
-      "/wheel_control/max_angular_velocity": 0.78,
-      "/wheel_control/acc_smoother/smooth_level": "normal",
-      "/planning/auto_hold": true,
-      "/control/bump_tolerance": 0.5,
-      "/control/bump_based_speed_limit/enable": true
-    };
+    // If we don't have cached parameters, throw an error
+    // No simulated or mock data allowed
+    throw new Error('Unable to fetch robot parameters and no cached data available');
   }
 }
 
@@ -324,21 +316,21 @@ export function registerRobotMoveApiRoutes(app: Express) {
    */
   app.post('/api/robots/move/:serialNumber/cancel', async (req: Request, res: Response) => {
     try {
-      // Get the serial number from params, with a fallback to the known robot serial
-      const serialNumber: string = req.params.serialNumber || 'L382502104987ir';
+      // Get the serial number from params - no fallbacks, require valid serial
+      const { serialNumber } = req.params;
+      
+      if (!serialNumber || serialNumber.trim() === '') {
+        return res.status(400).json({ error: 'Serial number is required for cancel operation' });
+      }
       
       // Immediately respond to client for better responsiveness
       res.status(202).json({ status: 'accepted', message: 'Cancel command sent to robot' });
       
-      if (serialNumber && serialNumber.trim() !== '') {
-        // Process the cancellation in the background - ensure we have a string
-        const robSerialNumber = serialNumber.toString();
-        processCancelRequest(robSerialNumber, ROBOT_API_BASE_URL).catch(error => {
-          console.error('Background cancel error:', error);
-        });
-      } else {
-        console.error('Invalid serial number for cancel request');
-      }
+      // Process the cancellation in the background
+      const robSerialNumber = serialNumber.toString();
+      processCancelRequest(robSerialNumber, ROBOT_API_BASE_URL).catch(error => {
+        console.error('Background cancel error:', error);
+      });
     } catch (error) {
       console.error('Error cancelling robot movement:', error);
       res.status(500).json({ error: 'Failed to cancel robot movement' });

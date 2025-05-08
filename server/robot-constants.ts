@@ -12,8 +12,12 @@ export const ROBOT_SERIAL = "L382502104987ir";
 // Export the serial number as PHYSICAL_ROBOT_SERIAL for backward compatibility
 export const PHYSICAL_ROBOT_SERIAL = ROBOT_SERIAL;
 
-// Get robot IP from environment variable or use fallback
-const ROBOT_IP = process.env.ROBOT_IP || "47.180.91.99";
+// Get robot IP from environment variable - require it to be set
+const robotIpFromEnv = process.env.ROBOT_IP;
+if (!robotIpFromEnv) {
+  throw new Error('ROBOT_IP environment variable is required but not set');
+}
+const ROBOT_IP = robotIpFromEnv;
 
 // Robot API URL - base URL for all API requests
 export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
