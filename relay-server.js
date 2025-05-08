@@ -3,8 +3,15 @@
 import WebSocket from 'ws';
 import express from 'express';
 import http from 'http';
+import dotenv from 'dotenv';
 
-const ROBOT_WS = "ws://47.180.91.99/websocket/robot/L382502104987ir/pose"; // your robot endpoint with public IP
+// Load environment variables
+dotenv.config();
+
+const ROBOT_SERIAL = "L382502104987ir";
+const ROBOT_IP = process.env.ROBOT_IP || "47.180.91.99";
+const ROBOT_SECRET = process.env.ROBOT_SECRET || process.env.ROBOT_SECRET_KEY || "";
+const ROBOT_WS = `ws://${ROBOT_IP}:8090/ws/v2/topics`; // Updated WebSocket endpoint
 
 const app = express();
 const server = http.createServer(app);
@@ -13,7 +20,12 @@ const wss = new WebSocket.Server({ server, path: "/ws/pose" });
 wss.on("connection", (clientSocket) => {
   console.log("[Relay] Client connected");
 
-  const robotSocket = new WebSocket(ROBOT_WS);
+  // Use consistent authentication method with x-api-key header
+  const robotSocket = new WebSocket(ROBOT_WS, {
+    headers: {
+      "x-api-key": ROBOT_SECRET
+    }
+  });
 
   robotSocket.on("open", () => {
     console.log("[Relay] Connected to robot WebSocket");

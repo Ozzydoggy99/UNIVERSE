@@ -14,6 +14,7 @@ import { registerRobotPointRoutes } from './robot-points-api';
 import { registerAssignTaskRoute } from './assign-task';
 import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
+import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -251,14 +252,10 @@ function setupWebSockets(httpServer: Server) {
       console.log('[Relay] Robot also supports /map, /slam/state, /wheel_state, /battery_state etc.');
       
       // Robot requires authentication headers for WebSocket connection
-      const ROBOT_AUTH_KEY = ROBOT_SERIAL; // The key is the robot serial number
-      const ROBOT_AUTH_SECRET = process.env.ROBOT_SECRET; // Secret from environment variables
-      
-      // Connection options with auth headers
+      // Use the same 'x-api-key' header format that works in all other robot API calls
       const connectionOptions = {
         headers: {
-          "x-auth-key": ROBOT_AUTH_KEY,
-          "x-auth-secret": ROBOT_AUTH_SECRET || ""
+          "x-api-key": ROBOT_SECRET
         }
       };
       
