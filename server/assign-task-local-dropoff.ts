@@ -26,41 +26,60 @@ export function registerLocalDropoffRoute(app: express.Express) {
     logRobotTask(`Full task details: ${JSON.stringify(req.body, null, 2)}`);
 
     async function moveTo(point: any, label: string, headers: any) {
-      logRobotTask(`➡️ Initiating move to ${label} (${point.x}, ${point.y}, yaw: ${point.ori ?? 0})`);
-      try {
-        // Step 1: Send move command to robot
-        await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-          action: 'move_to',
-          target_x: point.x,
-          target_y: point.y,
-          target_ori: point.ori ?? 0
-        }, { headers });
+      logRobotTask(`➡️ Sending move command to: (${point.x}, ${point.y})`);
 
-        // Step 2: Poll for move completion
-        const maxWaitMs = 30000;
-        const pollIntervalMs = 2000;
-        let waited = 0;
-
-        while (waited < maxWaitMs) {
-          await new Promise(res => setTimeout(res, pollIntervalMs));
-          waited += pollIntervalMs;
-
-          const stateRes = await axios.get(`${ROBOT_API_URL}/robot/state`, { headers });
-          const moveState = stateRes.data?.data?.moveState;
-
-          logRobotTask(`⏱️ moveState: ${moveState} after ${waited / 1000}s`);
-
-          if (moveState === 'idle') {
-            logRobotTask(`✅ Robot arrived at ${label}`);
-            return;
-          }
+      const payload = {
+        type: "standard",
+        target_x: point.x,
+        target_y: point.y,
+        target_z: 0,
+        target_ori: point.ori || 0,
+        creator: "web_interface",
+        properties: {
+          max_trans_vel: 0.5,
+          max_rot_vel: 0.5,
+          acc_lim_x: 0.5,
+          acc_lim_theta: 0.5,
+          planning_mode: "directional"
         }
+      };
 
-        throw new Error(`Timeout waiting for move to ${label} to complete`);
-      } catch (err: any) {
-        logRobotTask(`❌ Error moving to ${label}: ${err.message || err.response?.data}`);
-        throw err;
+      const moveRes = await axios.post(`${ROBOT_API_URL}/chassis/moves`, payload, { headers });
+      logRobotTask(`✅ Move command sent: ${JSON.stringify(moveRes.data)}`);
+
+      const maxWaitMs = 60000; // ⏱ extend timeout to 60s
+      const pollIntervalMs = 3000;
+      const start = Date.now();
+
+      while (Date.now() - start < maxWaitMs) {
+        await new Promise(res => setTimeout(res, pollIntervalMs));
+
+        const stateRes = await axios.get(`${ROBOT_API_URL}/robot/state`, { headers });
+        const state = stateRes.data?.data;
+
+        // 🔍 Log full diagnostic snapshot
+        logRobotTask(`📡 Robot Status [${label}]: ${JSON.stringify({
+          moveState: state.moveState,
+          x: state.x,
+          y: state.y,
+          yaw: state.yaw,
+          battery: state.battery,
+          isCharging: state.isCharging,
+          isEmergencyStop: state.isEmergencyStop,
+          locQuality: state.locQuality,
+          errors: state.errors,
+          taskObj: state.taskObj
+        }, null, 2)}`);
+
+        if (state.isEmergencyStop) throw new Error("🚨 Robot is in emergency stop!");
+        if (state.locQuality !== undefined && state.locQuality < 50) throw new Error("⚠️ Robot localization degraded.");
+        if (state.moveState === "idle") {
+          logRobotTask(`✅ Robot completed move to ${label}`);
+          return;
+        }
       }
+
+      throw new Error(`⚠️ Timed out waiting for move to ${label} to complete`);
     }
 
     try {
