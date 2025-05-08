@@ -403,10 +403,19 @@ export function attachWebSocketProxy(server: Server) {
       try {
         // Forward messages from robot to client
         if (client.readyState === WebSocket.OPEN) {
-          client.send(data);
+          const parsed = JSON.parse(data.toString());
+          
+          // Only show updates for our specific robot
+          if (!parsed.sn || parsed.sn === 'L382502104987ir') {
+            client.send(data);
+          }
         }
       } catch (err) {
         console.error('Error forwarding task status message:', err);
+        // If parsing fails, still send the original message
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
       }
     });
     

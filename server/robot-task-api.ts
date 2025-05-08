@@ -13,7 +13,7 @@ interface TaskRequest {
 }
 
 // The known robot serial number from the constants
-const ROBOT_SERIAL = "L382502104987ir";
+const sn = "L382502104987ir";
 
 /**
  * Send a move command to the robot
@@ -120,6 +120,33 @@ async function waitForMoveComplete(timeout = 60000): Promise<void> {
  * Register robot task API routes
  */
 export function registerRobotTaskRoutes(app: express.Express) {
+  /**
+   * GET /api/robots/tasks
+   * Get tasks for the robot by serial number
+   */
+  app.get('/api/robots/tasks', async (req: Request, res: Response) => {
+    try {
+      console.log('Fetching tasks for robot:', sn);
+      
+      const response = await fetch(`${ROBOT_API_URL}/tasks/queryBySn?sn=${sn}`, {
+        headers: {
+          'x-api-key': ROBOT_SECRET || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch robot tasks: ${response.status} ${response.statusText}`);
+      }
+      
+      const tasks = await response.json();
+      res.status(200).json(tasks);
+    } catch (error: any) {
+      console.error('Failed to fetch robot tasks:', error);
+      res.status(500).json({ error: error.message || 'Unknown error' });
+    }
+  });
+
   /**
    * POST /api/robots/assign-task
    * Assign a task to the robot
