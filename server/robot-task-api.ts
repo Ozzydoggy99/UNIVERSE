@@ -80,7 +80,7 @@ async function waitForMoveComplete(timeout = 60000): Promise<void> {
       // Check the current move status
       const response = await fetch(`${ROBOT_API_URL}/chassis/moves/current`, {
         headers: {
-          'Secret': ROBOT_SECRET || '',
+          'x-api-key': ROBOT_SECRET || '',
           'Content-Type': 'application/json'
         }
       });
@@ -200,7 +200,7 @@ export function registerRobotTaskRoutes(app: express.Express) {
       // Find the charging station through the robot's points API
       const pointsResponse = await fetch(`${ROBOT_API_URL}/points`, {
         headers: {
-          'Secret': ROBOT_SECRET || '',
+          'x-api-key': ROBOT_SECRET || '',
           'Content-Type': 'application/json'
         }
       });
