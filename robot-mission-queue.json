@@ -119,5 +119,79 @@
     "updatedAt": "2025-05-08T23:45:01.798Z",
     "robotSn": "L382502104987ir",
     "offline": false
+  },
+  {
+    "id": "mission_1746748113911_uzvmrbw",
+    "name": "Local Pickup - Shelf pickup-shelf to Pickup pickup-point",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 15,
+          "y": 25,
+          "ori": 0,
+          "label": "shelf pickup-shelf"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to shelf pickup-shelf sent successfully",
+          "moveId": 4186
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 35,
+          "y": 45,
+          "ori": 0,
+          "label": "pickup pickup-point"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to pickup pickup-point sent successfully",
+          "moveId": 4187
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 55,
+          "y": 65,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to standby sent successfully",
+          "moveId": 4188
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 5,
+    "createdAt": "2025-05-08T23:48:33.911Z",
+    "updatedAt": "2025-05-08T23:48:50.767Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
   }
 ]
