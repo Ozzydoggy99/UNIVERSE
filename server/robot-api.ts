@@ -139,10 +139,10 @@ export async function isRobotCharging(): Promise<boolean> {
       }
     } catch (moveError: any) {
       if (moveError.response && moveError.response.status === 404) {
-        console.log('Running in simulation mode - assuming robot is not charging');
-        return false;
+        console.error('Robot API endpoint not found - cannot check move data for charging status');
+        throw new Error('Robot API endpoint not available: cannot determine charging status');
       }
-      console.log('Error checking move data for charging status:', moveError.message);
+      console.error('Error checking move data for charging status:', moveError.message);
     }
     
     // Check if the latest chassis state indicates charging
@@ -157,10 +157,10 @@ export async function isRobotCharging(): Promise<boolean> {
       }
     } catch (chassisError: any) {
       if (chassisError.response && chassisError.response.status === 404) {
-        console.log('Running in simulation mode - assuming robot is not charging');
-        return false;
+        console.error('Robot API endpoint not found - cannot check chassis state for charging status');
+        throw new Error('Robot API endpoint not available: cannot determine charging status');
       }
-      console.log('Could not get chassis state to check charging status');
+      console.error('Could not get chassis state to check charging status:', chassisError.message);
     }
     
     // Finally, check battery state information as a fallback
@@ -177,17 +177,17 @@ export async function isRobotCharging(): Promise<boolean> {
       }
     } catch (batteryError: any) {
       if (batteryError.response && batteryError.response.status === 404) {
-        console.log('Running in simulation mode - assuming robot is not charging');
-        return false;
+        console.error('Robot API endpoint not found - cannot check battery state for charging status');
+        throw new Error('Robot API endpoint not available: cannot determine charging status');
       }
-      console.log('Could not get battery state to check charging status');
+      console.error('Could not get battery state to check charging status:', batteryError.message);
     }
     
     // If we've checked all endpoints and found no indication of charging
     return false;
   } catch (error) {
     console.error('Error checking robot charging status:', error);
-    // Default to false if we can't determine the charging status
-    return false;
+    // With real robots, we need accurate data - throw error to prevent operations
+    throw new Error('Failed to determine robot charging status - cannot proceed with operations');
   }
 }

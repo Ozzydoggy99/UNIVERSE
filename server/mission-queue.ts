@@ -243,10 +243,10 @@ class MissionQueueManager {
         } catch (error: any) {
           console.error(`Error checking move state: ${error.message}`);
           
-          // If we're in simulation mode (404 error), assume success after a delay
-          if (error.response && error.response.status === 404 && waited > 4000) {
-            console.log(`Simulation mode detected - assuming robot arrived at ${label}`);
-            return { success: true, message: `Simulated arrival at ${label}` };
+          // Real robot API must be available - no simulations allowed
+          if (error.response && error.response.status === 404) {
+            console.error(`Robot API endpoint not found - cannot proceed with move to ${label}`);
+            throw new Error(`Robot API endpoint not available: move to ${label} failed`);
           }
           // Continue trying if we get an error checking state
         }
@@ -275,33 +275,26 @@ class MissionQueueManager {
       if (error.response) {
         console.error(`Jack up response error:`, error.response.data);
         
-        // Handle simulation mode (404 Not Found)
+        // Real robot API must be available - no simulations allowed
         if (error.response.status === 404) {
-          console.log("Simulation mode detected - assuming jack up succeeded");
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate operation time
-          return { success: true, message: "Simulated jack up succeeded" };
+          console.error(`Robot API endpoint not found - cannot proceed with jack up operation`);
+          throw new Error(`Robot API endpoint not available: jack up operation failed`);
         }
         
         // Handle robot emergency stop (500 Internal Server Error)
         if (error.response.status === 500) {
           if (error.response.data && error.response.data.detail && 
               error.response.data.detail.includes("Emergency stop button is pressed")) {
-            console.log("Robot emergency stop detected, skipping jack up operation");
-            return { success: true, message: "Jack up skipped due to emergency stop" };
+            console.log("Robot emergency stop detected, cannot proceed with jack up operation");
+            throw new Error(`Emergency stop button is pressed, cannot proceed with jack up operation`);
           }
           
-          // Other 500 errors that might be temporary
-          console.log("Server error during jack up, treating as successful to continue mission");
-          return { success: true, message: "Jack up skipped due to server error" };
+          // Other 500 errors
+          throw new Error(`Server error during jack up: ${error.response.data?.detail || 'Unknown server error'}`);
         }
       }
       
-      // If we can't categorize the error, assume success in test environments
-      if (process.env.NODE_ENV !== 'production') {
-        console.log("Non-production environment - treating jack up as successful despite error");
-        return { success: true, message: "Jack up simulated (error handled)" };
-      }
-      
+      // All errors must be reported for real robot operations
       throw error;
     }
   }
@@ -322,33 +315,26 @@ class MissionQueueManager {
       if (error.response) {
         console.error(`Jack down response error:`, error.response.data);
         
-        // Handle simulation mode (404 Not Found)
+        // Real robot API must be available - no simulations allowed
         if (error.response.status === 404) {
-          console.log("Simulation mode detected - assuming jack down succeeded");
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate operation time
-          return { success: true, message: "Simulated jack down succeeded" };
+          console.error(`Robot API endpoint not found - cannot proceed with jack down operation`);
+          throw new Error(`Robot API endpoint not available: jack down operation failed`);
         }
         
         // Handle robot emergency stop (500 Internal Server Error)
         if (error.response.status === 500) {
           if (error.response.data && error.response.data.detail && 
               error.response.data.detail.includes("Emergency stop button is pressed")) {
-            console.log("Robot emergency stop detected, skipping jack down operation");
-            return { success: true, message: "Jack down skipped due to emergency stop" };
+            console.log("Robot emergency stop detected, cannot proceed with jack down operation");
+            throw new Error(`Emergency stop button is pressed, cannot proceed with jack down operation`);
           }
           
-          // Other 500 errors that might be temporary
-          console.log("Server error during jack down, treating as successful to continue mission");
-          return { success: true, message: "Jack down skipped due to server error" };
+          // Other 500 errors
+          throw new Error(`Server error during jack down: ${error.response.data?.detail || 'Unknown server error'}`);
         }
       }
       
-      // If we can't categorize the error, assume success in test environments
-      if (process.env.NODE_ENV !== 'production') {
-        console.log("Non-production environment - treating jack down as successful despite error");
-        return { success: true, message: "Jack down simulated (error handled)" };
-      }
-      
+      // All errors must be reported for real robot operations
       throw error;
     }
   }
