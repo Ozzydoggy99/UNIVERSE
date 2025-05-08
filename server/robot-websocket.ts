@@ -277,8 +277,13 @@ export function getRobotWebSocketStatus(): string {
  * Get robot status information
  */
 export function getRobotStatus(serialNumber: string) {
+  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    throw new Error('Cannot get robot status: Robot WebSocket not connected');
+  }
+  
+  // Only return minimal status when connected
   return {
-    connected: robotWs && robotWs.readyState === WebSocket.OPEN,
+    connected: true,
     reconnectAttempt,
     serialNumber,
     lastUpdated: new Date().toISOString()
@@ -289,60 +294,79 @@ export function getRobotStatus(serialNumber: string) {
  * Get robot position information
  */
 export function getRobotPosition(serialNumber: string) {
-  return {
-    x: 0,
-    y: 0,
-    theta: 0,
-    connected: robotWs && robotWs.readyState === WebSocket.OPEN,
-    lastUpdated: new Date().toISOString()
-  };
+  // We need to throw an error if we can't get real position data
+  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    throw new Error('Cannot get robot position: Robot WebSocket not connected');
+  }
+  
+  // This function should be called only when we have real data from the WebSocket
+  // The actual implementation should update this object with real position data from WebSocket messages
+  throw new Error('No position data available - this should be populated from WebSocket data');
 }
 
 /**
  * Get robot sensor data
  */
 export function getRobotSensorData(serialNumber: string) {
-  return {
-    connected: robotWs && robotWs.readyState === WebSocket.OPEN,
-    lastUpdated: new Date().toISOString()
-  };
+  // We need to throw an error if we can't get real sensor data
+  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    throw new Error('Cannot get robot sensor data: Robot WebSocket not connected');
+  }
+  
+  // This function should be called only when we have real data from the WebSocket
+  throw new Error('No sensor data available - this should be populated from WebSocket data');
 }
 
 /**
  * Get robot map data
  */
 export function getRobotMapData(serialNumber: string) {
-  return {
-    connected: robotWs && robotWs.readyState === WebSocket.OPEN,
-    lastUpdated: new Date().toISOString()
-  };
+  // We need to throw an error if we can't get real map data
+  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    throw new Error('Cannot get robot map data: Robot WebSocket not connected');
+  }
+  
+  // This function should be called only when we have real data from the WebSocket
+  throw new Error('No map data available - this should be populated from WebSocket data');
 }
 
 /**
  * Get robot camera data
  */
 export function getRobotCameraData(serialNumber: string) {
-  return {
-    connected: robotWs && robotWs.readyState === WebSocket.OPEN,
-    lastUpdated: new Date().toISOString()
-  };
+  // We need to throw an error if we can't get real camera data
+  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    throw new Error('Cannot get robot camera data: Robot WebSocket not connected');
+  }
+  
+  // This function should be called only when we have real data from the WebSocket
+  throw new Error('No camera data available - this should be populated from WebSocket data');
 }
 
 /**
  * Get robot video frame
  */
-export function getVideoFrame(serialNumber: string): Buffer | null {
-  return null; // Not implemented yet
+export function getVideoFrame(serialNumber: string): Buffer {
+  // We need to throw an error if we can't get real video data
+  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    throw new Error('Cannot get robot video frame: Robot WebSocket not connected');
+  }
+  
+  // This function should be called only when we have real data from the WebSocket
+  throw new Error('No video frame available - this should be populated from WebSocket data');
 }
 
 /**
  * Get robot lidar data
  */
 export function getRobotLidarData(serialNumber: string) {
-  return {
-    connected: robotWs && robotWs.readyState === WebSocket.OPEN,
-    lastUpdated: new Date().toISOString()
-  };
+  // We need to throw an error if we can't get real lidar data
+  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    throw new Error('Cannot get robot lidar data: Robot WebSocket not connected');
+  }
+  
+  // This function should be called only when we have real data from the WebSocket
+  throw new Error('No lidar data available - this should be populated from WebSocket data');
 }
 
 /**
@@ -356,16 +380,17 @@ export function isRobotConnected(serialNumber: string): boolean {
  * Send a command to the robot via WebSocket
  */
 export function sendRobotCommand(serialNumber: string, command: any): boolean {
-  if (robotWs && robotWs.readyState === WebSocket.OPEN) {
-    try {
-      robotWs.send(JSON.stringify(command));
-      return true;
-    } catch (e) {
-      console.error('Error sending command to robot:', e);
-      return false;
-    }
+  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    throw new Error('Cannot send robot command: Robot WebSocket not connected');
   }
-  return false;
+  
+  try {
+    robotWs.send(JSON.stringify(command));
+    return true;
+  } catch (e) {
+    console.error('Error sending command to robot:', e);
+    throw new Error(`Failed to send command to robot: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 /**
