@@ -13,7 +13,7 @@ export function registerAssignTaskRoute(app: express.Express) {
       }
 
       const headers = { 'x-api-key': ROBOT_SECRET };
-      const robotId = 'L382502104987ir'; // correct AutoXing serial number for your robot
+      const sn = 'L382502104987ir'; // correct AutoXing serial number for your robot
 
       const points: any[] = [];
 
@@ -59,7 +59,7 @@ export function registerAssignTaskRoute(app: express.Express) {
 
       const task = {
         name: `AutoTask-${mode}-${Date.now()}`,
-        robotId,
+        sn,
         routeMode: 1,
         runMode: 1,
         runNum: 1,
