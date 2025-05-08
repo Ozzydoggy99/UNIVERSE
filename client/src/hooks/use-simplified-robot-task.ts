@@ -37,6 +37,13 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isCharging, setIsCharging] = useState(false);
+  const [lastTaskResult, setLastTaskResult] = useState<{
+    success: boolean;
+    charging: boolean;
+    message: string;
+    duration?: number;
+  } | null>(null);
 
   /**
    * Assign a task to the robot
@@ -45,7 +52,7 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     setLoading(true);
     setError(null);
     setSuccess(false);
-
+    
     try {
       console.log('Sending task assignment:', params);
       
@@ -53,7 +60,7 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
       // Choose the appropriate API endpoint based on task mode
       if (params.mode === 'pickup') {
         // Use local pickup endpoint for pickup operations
-        response = await axios.post('/robots/assign-task/local/pickup', {
+        response = await axios.post('/robots/assign-task/local', {
           shelf: params.shelf,
           pickup: params.pickup,
           standby: params.standby
@@ -73,17 +80,42 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
         console.log('General task assignment successful:', response.data);
       }
       
+      // Store the task result
+      setLastTaskResult({
+        success: true,
+        charging: !!response.data.charging,
+        message: response.data.message,
+        duration: response.data.duration
+      });
+      
+      // Update charging state
+      setIsCharging(!!response.data.charging);
       setSuccess(true);
       
-      toast({
-        title: "Task assigned successfully",
-        description: `The robot is now executing the ${params.mode} task`,
-      });
+      // Show appropriate toast message based on charging status
+      if (response.data.charging) {
+        toast({
+          title: "Task completed in simplified mode",
+          description: `The robot is charging. Completed ${params.mode} task without bin operations.`,
+        });
+      } else {
+        toast({
+          title: "Task assigned successfully",
+          description: `The robot has completed the ${params.mode} task`,
+        });
+      }
     } catch (err: any) {
       console.error('Task assignment failed:', err);
       
       const errorMessage = err.response?.data?.error || err.message || 'Unknown error';
       setError(errorMessage);
+      
+      // Reset last task result with failure
+      setLastTaskResult({
+        success: false,
+        charging: false,
+        message: errorMessage
+      });
       
       toast({
         title: "Task assignment failed",
@@ -99,6 +131,8 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     assignTask,
     loading,
     error,
-    success
+    success,
+    isCharging,
+    lastTaskResult
   };
 }
