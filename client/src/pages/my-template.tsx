@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSimplifiedRobotTask } from "@/hooks/use-simplified-robot-task";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 export default function MyTemplate() {
   const { user, logoutMutation } = useAuth();
@@ -126,6 +127,21 @@ export default function MyTemplate() {
             className="bg-green-600 text-white text-2xl rounded-xl px-8 py-4 shadow">
             ✅ Confirm Selection
           </button>
+          
+          <Button
+            variant="outline"
+            onClick={async () => {
+              const res = await fetch("/api/go-home", { method: "POST" });
+              if (res.ok) {
+                alert("Robot sent to charger ✅");
+              } else {
+                alert("⚠️ Failed to send robot home");
+              }
+            }}
+            className="mt-4 w-full text-center"
+          >
+            🏠 Send Robot to Charger
+          </Button>
         </div>
       )}
 
