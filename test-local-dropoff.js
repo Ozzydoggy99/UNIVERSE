@@ -1,6 +1,9 @@
 // test-local-dropoff.js
 import axios from 'axios';
 
+// Set a longer timeout for axios requests
+axios.defaults.timeout = 10000;
+
 async function testLocalDropoff() {
   try {
     console.log('Testing LOCAL DROPOFF workflow...');
@@ -9,7 +12,7 @@ async function testLocalDropoff() {
     const testMission = {
       mode: 'dropoff',
       shelf: { id: 'dropoff-shelf', x: 15, y: 25, ori: 0 },
-      dropoff: { id: 'dropoff-point', x: 35, y: 45, ori: 0 },
+      pickup: { id: 'dropoff-point', x: 35, y: 45, ori: 0 },  // Changed from dropoff to pickup to match endpoint
       standby: { id: 'dropoff-standby', x: 55, y: 65, ori: 0 }
     };
     

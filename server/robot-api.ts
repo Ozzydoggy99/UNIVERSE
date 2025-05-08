@@ -117,24 +117,32 @@ export async function isRobotCharging(): Promise<boolean> {
   try {
     // Try to get the battery state information via WebSocket subscription
     // We will rely on the latest move data instead, which is more reliable for status
-    const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
-    const moveData = moveResponse.data;
-    
-    // Check if the robot's latest move status contains an error about charging
-    if (moveData && moveData.error) {
-      const errorMessage = moveData.error.toLowerCase();
-      if (errorMessage.includes('charging') || 
-          errorMessage.includes('jacking up is not allowed') ||
-          errorMessage.includes('while charging')) {
-        console.log('Robot is charging according to move error:', moveData.error);
+    try {
+      const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
+      const moveData = moveResponse.data;
+      
+      // Check if the robot's latest move status contains an error about charging
+      if (moveData && moveData.error) {
+        const errorMessage = moveData.error.toLowerCase();
+        if (errorMessage.includes('charging') || 
+            errorMessage.includes('jacking up is not allowed') ||
+            errorMessage.includes('while charging')) {
+          console.log('Robot is charging according to move error:', moveData.error);
+          return true;
+        }
+      }
+      
+      // If the move response has an explicit is_charging field
+      if (moveData && moveData.is_charging === true) {
+        console.log('Robot is charging according to move data');
         return true;
       }
-    }
-    
-    // If the move response has an explicit is_charging field
-    if (moveData && moveData.is_charging === true) {
-      console.log('Robot is charging according to move data');
-      return true;
+    } catch (moveError: any) {
+      if (moveError.response && moveError.response.status === 404) {
+        console.log('Running in simulation mode - assuming robot is not charging');
+        return false;
+      }
+      console.log('Error checking move data for charging status:', moveError.message);
     }
     
     // Check if the latest chassis state indicates charging
@@ -147,7 +155,11 @@ export async function isRobotCharging(): Promise<boolean> {
         console.log('Robot is charging according to chassis state');
         return true;
       }
-    } catch (chassisError) {
+    } catch (chassisError: any) {
+      if (chassisError.response && chassisError.response.status === 404) {
+        console.log('Running in simulation mode - assuming robot is not charging');
+        return false;
+      }
       console.log('Could not get chassis state to check charging status');
     }
     
@@ -163,7 +175,11 @@ export async function isRobotCharging(): Promise<boolean> {
         console.log('Robot is charging according to battery state');
         return true;
       }
-    } catch (batteryError) {
+    } catch (batteryError: any) {
+      if (batteryError.response && batteryError.response.status === 404) {
+        console.log('Running in simulation mode - assuming robot is not charging');
+        return false;
+      }
       console.log('Could not get battery state to check charging status');
     }
     

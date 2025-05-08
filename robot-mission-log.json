@@ -62,5 +62,69 @@
       "message": "Move timeout after 120000ms",
       "stack": "Error: Move timeout after 120000ms\n    at MissionQueueManager.waitForMoveCompletion (/home/runner/workspace/server/mission-queue.ts:240:15)\n    at async MissionQueueManager.executeMoveStep (/home/runner/workspace/server/mission-queue.ts:224:14)\n    at async MissionQueueManager.executeMission (/home/runner/workspace/server/mission-queue.ts:143:26)\n    at async MissionQueueManager.processMissionQueue (/home/runner/workspace/server/mission-queue.ts:107:9)"
     }
+  },
+  {
+    "id": "mission_1746736613089_d6ov1lk",
+    "name": "Local Pickup - Shelf test-shelf to Pickup test-pickup",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 10,
+          "y": 20,
+          "ori": 0,
+          "label": "shelf test-shelf"
+        },
+        "completed": false,
+        "retryCount": 0,
+        "errorMessage": "Timeout waiting for move to shelf test-shelf to complete"
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 30,
+          "y": 40,
+          "ori": 0,
+          "label": "pickup test-pickup"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 50,
+          "y": 60,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-08T20:36:53.089Z",
+    "updatedAt": "2025-05-08T20:37:26.555Z",
+    "robotSn": "L382502104987ir",
+    "offline": false,
+    "loggedAt": "2025-05-08T20:37:26.556Z",
+    "outcome": "failed",
+    "error": {
+      "message": "Timeout waiting for move to shelf test-shelf to complete",
+      "stack": "Error: Timeout waiting for move to shelf test-shelf to complete\n    at MissionQueueManager.executeMoveStep (/home/runner/workspace/server/mission-queue.ts:249:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async MissionQueueManager.executeMission (/home/runner/workspace/server/mission-queue.ts:143:26)\n    at async MissionQueueManager.processMissionQueue (/home/runner/workspace/server/mission-queue.ts:107:9)"
+    }
   }
 ]
