@@ -5,15 +5,17 @@ import { useSimplifiedRobotTask } from '@/hooks/use-simplified-robot-task';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Point } from '@/types/robot';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ListIcon, WifiOff } from 'lucide-react';
+import { MissionStatus } from '@/components/mission-status';
 
 export default function MyTemplatePage() {
   const { data, loading, error } = useRobotMapData();
-  const { assignTask, loading: taskLoading, error: taskError, success, isCharging, lastTaskResult } = useSimplifiedRobotTask();
+  const { assignTask, loading: taskLoading, error: taskError, success, isCharging, lastTaskResult, latestMissionId } = useSimplifiedRobotTask();
   
   const [mode, setMode] = useState<'pickup' | 'dropoff' | null>(null);
   const [floor, setFloor] = useState<string | null>(null);
   const [selectedShelf, setSelectedShelf] = useState<Point | null>(null);
+  const [showMissionStatus, setShowMissionStatus] = useState<boolean>(false);
   
   // Modified point type to ensure name property exists
   const ensureName = (point: Point): Point => {
@@ -144,7 +146,31 @@ export default function MyTemplatePage() {
               )}
             </div>
           ) : (
-            <p>Robot has completed the mission successfully.</p>
+            <p>Robot has started the mission.</p>
+          )}
+          
+          {latestMissionId && (
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="flex items-center justify-center gap-2 text-sm text-blue-600">
+                <WifiOff className="h-4 w-4" />
+                <span>Mission will continue even if robot leaves WiFi range</span>
+              </div>
+              
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={() => setShowMissionStatus(!showMissionStatus)}
+              >
+                <ListIcon className="h-4 w-4" />
+                {showMissionStatus ? "Hide Mission Status" : "Show Mission Status"}
+              </Button>
+              
+              {showMissionStatus && (
+                <div className="mt-2">
+                  <MissionStatus missionId={latestMissionId} />
+                </div>
+              )}
+            </div>
           )}
           
           <Button 

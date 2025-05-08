@@ -29,6 +29,7 @@ interface UseRobotTaskReturn {
     duration?: number;
     missionId?: string;
   } | null;
+  latestMissionId?: string; // The ID of the latest mission created
 }
 
 /**
@@ -123,7 +124,8 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
         success: true,
         charging: !!response.data.charging,
         message: response.data.message,
-        duration: response.data.duration
+        duration: response.data.duration,
+        missionId: response.data.missionId
       });
       
       // Update charging state
@@ -172,7 +174,6 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     success,
     isCharging,
     lastTaskResult,
-    // The latest mission ID that was created
     latestMissionId: lastTaskResult?.missionId
   };
 }
