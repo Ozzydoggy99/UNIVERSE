@@ -25,8 +25,12 @@ export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
 // Robot WebSocket URL - for real-time updates
 export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/ws`;
 
-// Robot authentication secret - from environment variables
-export const ROBOT_SECRET = process.env.ROBOT_SECRET_KEY || process.env.ROBOT_SECRET || "";
+// Robot authentication secret - from environment variables (required)
+const robotSecretFromEnv = process.env.ROBOT_SECRET_KEY || process.env.ROBOT_SECRET;
+if (!robotSecretFromEnv) {
+  throw new Error('Robot secret must be provided in environment variables');
+}
+export const ROBOT_SECRET = robotSecretFromEnv;
 
 // Function to update robot connection URLs
 export function updateRobotConnectionURLs(apiUrl: string, wsUrl: string) {
@@ -44,7 +48,4 @@ export function getRobotSecretKey(): string {
   return ROBOT_SECRET;
 }
 
-// Check if robot secret is set and log warning if not
-if (!ROBOT_SECRET) {
-  console.warn('ROBOT_SECRET_KEY environment variable is not set. Robot API requests may fail authentication.');
-}
+// No need for a warning as we throw an error above if robot secret is not set
