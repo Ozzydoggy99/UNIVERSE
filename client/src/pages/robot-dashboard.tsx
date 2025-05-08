@@ -168,10 +168,71 @@ export default function RobotDashboardPage() {
           if (message.category === 'pose' && message.topic === '/tracked_pose') {
             const positionData = message.data;
             if (positionData && Array.isArray(positionData.pos) && positionData.pos.length >= 2) {
-              setPositionState({
+              setPositionState(prev => ({
+                ...prev,
                 x: positionData.pos[0],
                 y: positionData.pos[1],
                 theta: positionData.ori || 0,
+                floorId: positionData.floor_id || prev.floorId,
+                mapName: positionData.map_name || prev.mapName,
+                lastUpdated: Date.now()
+              }));
+            }
+          }
+          
+          // Handle wheel state data
+          if (message.category === 'status' && message.topic === '/wheel_state') {
+            const wheelData = message.data;
+            if (wheelData) {
+              setWheelState({
+                angularVelocities: Array.isArray(wheelData.angular_velocities) 
+                  ? wheelData.angular_velocities 
+                  : [0, 0, 0, 0],
+                speeds: Array.isArray(wheelData.speeds) 
+                  ? wheelData.speeds 
+                  : [0, 0, 0, 0],
+                lastUpdated: Date.now()
+              });
+            }
+          }
+          
+          // Handle SLAM state data
+          if (message.category === 'status' && message.topic === '/slam/state') {
+            const slamData = message.data;
+            if (slamData) {
+              setSlamState({
+                status: slamData.status || 'unknown',
+                isLocalized: !!slamData.is_localized,
+                matchingScore: slamData.matching_score,
+                qualityScore: slamData.quality_score,
+                lastUpdated: Date.now()
+              });
+            }
+          }
+          
+          // Handle robot state changes
+          if (message.category === 'status' && (message.topic === '/status' || message.topic === '/state')) {
+            const statusData = message.data;
+            if (statusData) {
+              setStatusState(prev => ({
+                ...prev,
+                state: statusData.state || prev.state,
+                mode: statusData.mode || prev.mode,
+                lastUpdated: Date.now()
+              }));
+            }
+          }
+          
+          // Handle task status updates
+          if (message.category === 'task' || 
+             (message.category === 'status' && message.topic === '/task_status')) {
+            const taskData = message.data;
+            if (taskData) {
+              setTaskState({
+                status: taskData.status || 'idle',
+                taskId: taskData.task_id || taskData.id,
+                current: taskData.current_action || taskData.action,
+                progress: taskData.progress || 0,
                 lastUpdated: Date.now()
               });
             }
@@ -184,6 +245,18 @@ export default function RobotDashboardPage() {
             ...prev,
             connected: message.status === 'connected',
             status: message.status,
+            lastUpdated: Date.now()
+          }));
+        }
+        
+        // Handle task notification messages
+        if (message.type === 'task') {
+          setTaskState(prev => ({
+            ...prev,
+            status: message.status || prev.status,
+            taskId: message.taskId || message.id || prev.taskId,
+            current: message.action || prev.current,
+            progress: message.progress !== undefined ? message.progress : prev.progress,
             lastUpdated: Date.now()
           }));
         }
@@ -267,7 +340,7 @@ export default function RobotDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-3 gap-4 mb-2">
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">X</div>
                 <div className="text-lg font-medium">{positionState.x.toFixed(2)}</div>
@@ -281,8 +354,19 @@ export default function RobotDashboardPage() {
                 <div className="text-lg font-medium">{(positionState.theta * (180/Math.PI)).toFixed(1)}°</div>
               </div>
             </div>
-            <div className="text-sm text-right text-muted-foreground">
-              Updated: {getTimeSince(positionState.lastUpdated)}
+            
+            <div className="text-xs flex justify-between items-center mt-2 mb-1">
+              <div>
+                {positionState.floorId && (
+                  <span className="inline-flex items-center mr-2">
+                    <MapPin className="h-3 w-3 mr-1" />
+                    Floor: {positionState.floorId}
+                  </span>
+                )}
+              </div>
+              <div className="text-right text-muted-foreground">
+                Updated: {getTimeSince(positionState.lastUpdated)}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -303,11 +387,122 @@ export default function RobotDashboardPage() {
               )}
               <div>
                 <div className="font-medium">{statusState.status || (connected ? 'Connected' : 'Disconnected')}</div>
-                <div className="text-sm text-muted-foreground">State: {statusState.state || 'unknown'}</div>
+                <div className="text-sm text-muted-foreground">
+                  State: {statusState.state || 'unknown'} 
+                  {statusState.mode && ` / ${statusState.mode}`}
+                </div>
               </div>
             </div>
             <div className="text-sm text-right text-muted-foreground">
               Updated: {getTimeSince(statusState.lastUpdated)}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SLAM State Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <LocateFixed className="mr-2 h-4 w-4" /> SLAM Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center mb-3">
+              {slamState.isLocalized ? (
+                <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 mb-2">
+                  Localized
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200 mb-2">
+                  Not Localized
+                </Badge>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+              <div>Status: {slamState.status || 'Unknown'}</div>
+              <div>Match: {(slamState.matchingScore || 0).toFixed(2)}</div>
+              <div>Quality: {(slamState.qualityScore || 0).toFixed(2)}</div>
+              <div>Updated: {getTimeSince(slamState.lastUpdated)}</div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Wheel State Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <Cog className="mr-2 h-4 w-4" /> Wheel Data
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 mb-3">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Angular Velocities</div>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  {wheelState.angularVelocities.map((v, i) => (
+                    <div key={`ang-${i}`} className="flex justify-between">
+                      <span>W{i+1}:</span>
+                      <span>{v.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Wheel Speeds</div>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  {wheelState.speeds.map((s, i) => (
+                    <div key={`spd-${i}`} className="flex justify-between">
+                      <span>S{i+1}:</span> 
+                      <span>{s.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-right text-muted-foreground">
+              Updated: {getTimeSince(wheelState.lastUpdated)}
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Task Status Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <Activity className="mr-2 h-4 w-4" /> Current Task
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-2">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-medium">
+                  {taskState.status === 'idle' ? 'No Active Task' : taskState.status}
+                </span>
+                {taskState.taskId && (
+                  <Badge variant="outline" className="text-xs">
+                    ID: {taskState.taskId}
+                  </Badge>
+                )}
+              </div>
+              {taskState.current && (
+                <div className="text-sm">
+                  Action: {taskState.current}
+                </div>
+              )}
+            </div>
+            
+            {typeof taskState.progress === 'number' && taskState.progress > 0 && (
+              <div className="my-3">
+                <div className="flex justify-between text-xs mb-1">
+                  <span>Progress</span>
+                  <span>{taskState.progress}%</span>
+                </div>
+                <Progress value={typeof taskState.progress === 'number' ? taskState.progress : 0} className="h-1.5" />
+              </div>
+            )}
+            
+            <div className="text-xs text-right text-muted-foreground mt-2">
+              Updated: {getTimeSince(taskState.lastUpdated)}
             </div>
           </CardContent>
         </Card>
@@ -365,21 +560,92 @@ export default function RobotDashboardPage() {
         
         <TabsContent value="taskStatus">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="text-lg">Task Status</CardTitle>
+              <CardDescription>Current and recent robot task activities</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <Activity className="mx-auto h-8 w-8 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Robot Task Monitor</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  View real-time task execution status from the robot.
-                </p>
-                <div className="text-center">
-                  <a href="/admin-tasks" className="text-primary hover:underline">
-                    Open Task Monitor
-                  </a>
+              {/* Current Task Status */}
+              <div className="mb-6 p-4 border rounded-lg">
+                <h3 className="text-sm font-semibold mb-2 flex items-center">
+                  <Activity className="h-4 w-4 mr-2" /> Current Task Status
+                </h3>
+                
+                {taskState.status === 'idle' || !taskState.taskId ? (
+                  <div className="flex items-center justify-center py-4 text-muted-foreground">
+                    <div className="text-center">
+                      <div className="mb-2">No Active Task</div>
+                      <div className="text-xs">Robot is waiting for new assignments</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <div>
+                        <div className="font-medium">{taskState.status}</div>
+                        {taskState.current && (
+                          <div className="text-sm text-muted-foreground">
+                            {taskState.current}
+                          </div>
+                        )}
+                      </div>
+                      <Badge variant="outline">
+                        ID: {taskState.taskId}
+                      </Badge>
+                    </div>
+                    
+                    {typeof taskState.progress === 'number' && taskState.progress > 0 && (
+                      <div className="mb-3">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span>Progress</span>
+                          <span>{taskState.progress}%</span>
+                        </div>
+                        <Progress value={typeof taskState.progress === 'number' ? taskState.progress : 0} className="h-2" />
+                      </div>
+                    )}
+                    
+                    <div className="text-right text-xs text-muted-foreground">
+                      Last Updated: {getTimeSince(taskState.lastUpdated)}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Task Info */}
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold mb-2">Task Monitoring Options</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="border rounded-lg p-3 hover:bg-accent transition-colors">
+                    <div className="font-medium mb-1 flex items-center">
+                      <Truck className="h-4 w-4 mr-2" /> Pickup/Dropoff Tasks
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Monitor and manage shelf service tasks
+                    </p>
+                    <a href="/admin-tasks" className="text-xs text-primary hover:underline">
+                      Open Task Monitor →
+                    </a>
+                  </div>
+                  
+                  <div className="border rounded-lg p-3 hover:bg-accent transition-colors">
+                    <div className="font-medium mb-1 flex items-center">
+                      <Navigation className="h-4 w-4 mr-2" /> Map-Based Control
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      View map points and send the robot to specific locations
+                    </p>
+                    <a href="/map-data-test" className="text-xs text-primary hover:underline">
+                      Open Map Interface →
+                    </a>
+                  </div>
                 </div>
+              </div>
+              
+              <div className="mt-4 text-xs text-center text-muted-foreground">
+                <p>
+                  The robot is actively subscribing to topics including position, battery, 
+                  wheel state, SLAM state, and tasks.
+                </p>
               </div>
             </CardContent>
           </Card>
