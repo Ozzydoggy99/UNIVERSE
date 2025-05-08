@@ -1,5 +1,5 @@
 // client/src/hooks/use-simplified-robot-task.ts
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from "@/hooks/use-toast";
 
@@ -44,6 +44,30 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     message: string;
     duration?: number;
   } | null>(null);
+  
+  // Check robot charging status when the hook loads
+  useEffect(() => {
+    const checkChargingStatus = async () => {
+      try {
+        const response = await axios.get('/api/robot/charging-status');
+        if (response.data && typeof response.data.charging === 'boolean') {
+          setIsCharging(response.data.charging);
+          console.log('Robot charging status:', response.data.charging ? 'Charging' : 'Not charging');
+        }
+      } catch (error) {
+        console.error('Failed to check robot charging status:', error);
+      }
+    };
+    
+    // Check immediately on load
+    checkChargingStatus();
+    
+    // Then check every 30 seconds
+    const interval = setInterval(checkChargingStatus, 30000);
+    
+    // Cleanup on unmount
+    return () => clearInterval(interval);
+  }, []);
 
   /**
    * Assign a task to the robot
@@ -54,6 +78,18 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     setSuccess(false);
     
     try {
+      // Check charging status before starting the task
+      try {
+        const chargingResponse = await axios.get('/api/robot/charging-status');
+        if (chargingResponse.data && typeof chargingResponse.data.charging === 'boolean') {
+          setIsCharging(chargingResponse.data.charging);
+          console.log('Pre-task robot charging status:', chargingResponse.data.charging ? 'Charging' : 'Not charging');
+        }
+      } catch (chargingError) {
+        // Continue with the task even if we can't get charging status
+        console.warn('Could not check charging status before task:', chargingError);
+      }
+      
       console.log('Sending task assignment:', params);
       
       let response;

@@ -35,13 +35,21 @@ export default function MyTemplatePage() {
       return;
     }
 
+    // Create fallback points in case some are missing (this should never happen, but prevents TypeScript errors)
+    const defaultPoint: Point = { id: 'default', x: 0, y: 0, ori: 0 };
+    
+    // Use the actual points or fallbacks if somehow missing
+    const pickupPoint = data.specialPoints.pickup || defaultPoint;
+    const dropoffPoint = data.specialPoints.dropoff || defaultPoint;
+    const standbyPoint = data.specialPoints.standby || defaultPoint;
+
     // Ensure all points have the required name property
     const taskRequest = {
       mode,
       shelf: ensureName(selectedShelf),
-      pickup: ensureName(data.specialPoints.pickup),
-      dropoff: ensureName(data.specialPoints.dropoff),
-      standby: ensureName(data.specialPoints.standby),
+      pickup: ensureName(pickupPoint),
+      dropoff: ensureName(dropoffPoint),
+      standby: ensureName(standbyPoint),
     };
 
     console.log('Sending AutoXing task request:', taskRequest);

@@ -9,6 +9,23 @@ const headers = { "x-api-key": ROBOT_SECRET };
  * @param app Express application
  */
 export function registerRobotApiRoutes(app: Express) {
+  // Check if the robot is currently charging
+  app.get('/api/robot/charging-status', async (req: Request, res: Response) => {
+    try {
+      const isCharging = await isRobotCharging();
+      res.json({ 
+        charging: isCharging,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('Error checking robot charging status:', error);
+      res.status(500).json({ 
+        error: 'Failed to check robot charging status', 
+        message: error.message 
+      });
+    }
+  });
+
   // Get a list of all available maps
   app.get('/api/robot/maps', async (req: Request, res: Response) => {
     try {
