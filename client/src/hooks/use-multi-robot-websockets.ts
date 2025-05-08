@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 
 // Define the main WebSocket channels to monitor
+const baseUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+
 const channels = [
-  { label: "Robot API", url: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/robot-ws` },
-  { label: "Position Relay", url: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/pose` },
-  { label: "Camera Feed", url: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/camera` },
+  { label: "Main Robot WS", url: `${baseUrl}/api/robot-ws` },
+  { label: "Status Channel", url: `${baseUrl}/ws/status` },
+  { label: "Pose Channel", url: `${baseUrl}/ws/pose` },
+  { label: "Task Channel", url: `${baseUrl}/ws/task` },
+  { label: "Log Channel", url: `${baseUrl}/ws/log` },
+  { label: "Video Channel", url: `${baseUrl}/ws/video` },
 ];
 
 // Type for the state of each WebSocket channel
@@ -61,11 +66,21 @@ export function useMultiRobotWebSockets() {
             },
           }));
           
-          // Send initial subscription command for position relay
-          if (label === "Position Relay") {
+          // Send initial subscription commands based on channel
+          if (label === "Pose Channel") {
             ws.send(JSON.stringify({ 
               type: "subscribe", 
-              topics: ["position", "status"]
+              topics: ["position", "pose"]
+            }));
+          } else if (label === "Status Channel") {
+            ws.send(JSON.stringify({ 
+              type: "subscribe", 
+              topics: ["status", "battery", "robot"]
+            }));
+          } else if (label === "Task Channel") {
+            ws.send(JSON.stringify({ 
+              type: "subscribe", 
+              topics: ["task", "mission", "command"]
             }));
           }
         };

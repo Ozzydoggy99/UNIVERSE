@@ -1,0 +1,109 @@
+📁 1. Create Central Robot API Module
+File: server/robot-api.ts
+
+ts
+Copy
+Edit
+import axios from "axios";
+import { ROBOT_API_URL, ROBOT_SECRET } from "./robot-constants";
+
+const headers = { "x-api-key": ROBOT_SECRET };
+
+export async function fetchMaps() {
+  return axios.get(`${ROBOT_API_URL}/maps`, { headers });
+}
+
+export async function fetchActiveMap(mapId: string) {
+  return axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers });
+}
+
+export async function fetchMapPoints(mapId: string) {
+  return axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, { headers });
+}
+
+export async function moveToPoint(x: number, y: number) {
+  return axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+    action: "move_to",
+    target_x: x,
+    target_y: y,
+  }, { headers });
+}
+
+export async function getLastMoveStatus() {
+  return axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
+}
+
+export async function getChassisStatus() {
+  return axios.get(`${ROBOT_API_URL}/chassis/status`, { headers });
+}
+🧹 2. Update Imports in Files Like robot-points-api.ts
+(Patch any of your fetch calls)
+Replace direct axios.get(...) usage with:
+
+ts
+Copy
+Edit
+import { fetchMapPoints, fetchMaps } from "./robot-api";
+
+// Instead of:
+const res = await axios.get(`${ROBOT_API_URL}/maps/...`);
+
+// Use:
+const res = await fetchMapPoints(mapId);
+Apply similarly in:
+
+mission-runner.ts
+
+robot-points-api.ts
+
+test scripts
+
+🛰️ 3. WebSocket Proxy Update
+File: server/robot-websocket.ts
+
+Ensure you're subscribing to all valid robot channels:
+
+ts
+Copy
+Edit
+const knownChannels = [
+  "status", "pose", "log", "task", "video" // optional: video stream
+];
+
+export function attachRobotWebSocketProxy(server: WebSocketServer) {
+  knownChannels.forEach((channel) => {
+    const ws = new WebSocket(`ws://${ROBOT_API_IP}/ws/${channel}`, {
+      headers: { "x-api-key": ROBOT_SECRET }
+    });
+
+    ws.on("message", (msg) => {
+      server.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ channel, data: msg.toString() }));
+        }
+      });
+    });
+
+    ws.on("error", (err) => {
+      console.error(`WebSocket error on channel ${channel}:`, err.message);
+    });
+
+    ws.on("close", () => {
+      console.warn(`Robot WebSocket for ${channel} closed.`);
+    });
+  });
+}
+Then call attachRobotWebSocketProxy(wsServer) in your routes.ts.
+
+🧪 4. Add Test Output in /admin/ws-debug
+If not already done, display each WebSocket channel as a separate section in the UI:
+
+tsx
+Copy
+Edit
+{Object.entries(data).map(([label, { status, lastMessage }]) => (
+  <div key={label}>
+    <h2>{label} ({status})</h2>
+    <pre>{lastMessage}</pre>
+  </div>
+))}

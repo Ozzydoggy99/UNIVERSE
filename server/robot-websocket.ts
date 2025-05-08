@@ -14,6 +14,15 @@ let connectionTimeout: NodeJS.Timeout | null = null;
 // Client tracking
 const clients: Set<WebSocket> = new Set();
 
+// Define topic categories for the single WebSocket
+const topicCategories = {
+  'status': ['/battery_state', '/detailed_battery_state', '/wheel_state', '/ws_connections'],
+  'pose': ['/tracked_pose', '/robot/footprint'],
+  'map': ['/map', '/map_v2', '/slam/state'],
+  'video': ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video'],
+  'lidar': ['/scan', '/scan_matched_points2', '/lidar/scan', '/lidar/pointcloud', '/lidar/points'],
+};
+
 // Topic subscriptions
 const activeTopics: string[] = [
   '/wheel_state',
@@ -315,12 +324,85 @@ export function sendRobotCommand(serialNumber: string, command: any) {
   return false;
 }
 
+// Attach channel-based robot WebSocket proxy with topic categorization
+export function attachRobotWebSocketProxy(wss: WebSocketServer) {
+  // The logs show that the robot doesn't support custom WebSocket paths like /ws/status
+  // Instead, it has a single WebSocket endpoint at /ws and uses topics
+  
+  // Define which topics belong to which logical "channels"
+  const channelTopicMap = {
+    'status': ['/battery_state', '/detailed_battery_state', '/wheel_state', '/ws_connections'],
+    'pose': ['/tracked_pose', '/robot/footprint'],
+    'map': ['/map', '/map_v2', '/slam/state'],
+    'video': ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video'],
+    'lidar': ['/scan', '/scan_matched_points2', '/lidar/scan', '/lidar/pointcloud', '/lidar/points'],
+  };
+  
+  // Since we already have a main WebSocket connection in connectRobotWebSocket(),
+  // we'll use that for all communication and distribute messages by topic
+  
+  // When we receive a message from the robot, check which channel it belongs to
+  // and forward it to the clients with the appropriate channel label
+  robotWs?.on("message", (msg) => {
+    try {
+      const message = JSON.parse(msg.toString());
+      
+      // If the message has a topic field, categorize it
+      if (message.topic) {
+        const topic = message.topic;
+        let channel = 'unknown';
+        
+        // Find which channel this topic belongs to
+        for (const [chan, topics] of Object.entries(channelTopicMap)) {
+          if (topics.includes(topic)) {
+            channel = chan;
+            break;
+          }
+        }
+        
+        // Broadcast message with its channel
+        clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            try {
+              client.send(JSON.stringify({
+                channel,
+                topic,
+                timestamp: Date.now(),
+                data: message
+              }));
+            } catch (e) {
+              console.error(`Error sending ${channel} message to client:`, e);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      // Not JSON or other error, just log it
+      console.log("Non-JSON message from robot:", msg.toString().substring(0, 100));
+    }
+  });
+  
+  // The existing connectRobotWebSocket already handles connection,
+  // reconnection, and subscribing to topics
+}
+
 // Setup WebSocket server for clients
 export function setupRobotWebSocketServer(server: Server) {
   const wss = new WebSocketServer({ 
     server,
     path: '/api/robot-ws' 
   });
+  
+  // Initialize the primary WebSocket connection
+  connectRobotWebSocket();
+  
+  // Wait for the primary WebSocket connection to be established before attaching proxy
+  setTimeout(() => {
+    if (robotWs && robotWs.readyState === WebSocket.OPEN) {
+      // Attach proxy only if we have a connection
+      attachRobotWebSocketProxy(wss);
+    }
+  }, 2000);
   
   wss.on('connection', (ws: WebSocket, req: Request) => {
     console.log(`New client WebSocket connection established from ${req.socket.remoteAddress}`);
