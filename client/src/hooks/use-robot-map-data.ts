@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Point } from '../types/robot';
 
 // Type definitions for map points
 export interface MapPoint {
@@ -34,7 +33,7 @@ export interface CategorizedMapPoints {
  * This simplifies access to just the shelf points for simpler UIs
  */
 export function useRobotShelfPoints() {
-  const [shelfPoints, setShelfPoints] = useState<Point[]>([]);
+  const [shelfPoints, setShelfPoints] = useState<MapPoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 

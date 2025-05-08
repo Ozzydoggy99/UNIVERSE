@@ -1,4 +1,15 @@
 // Define types for robot status data
+
+// Point type matching the server-side Point interface
+export interface Point {
+  id: string;
+  x: number;
+  y: number;
+  ori: number;
+  floorId?: string;
+  description?: string;
+  name?: string;
+}
 export interface RobotStatus {
   model?: string;
   serialNumber?: string;
