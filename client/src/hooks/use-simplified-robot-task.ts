@@ -3,19 +3,8 @@ import { useState } from 'react';
 import axios from 'axios';
 import { toast } from "@/hooks/use-toast";
 
-// Define the Point interface matching server-side
-interface Point {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  z?: number;
-  ori?: number;
-  robotId?: string;
-  type?: string;
-  floor?: string;
-  floorId?: string;
-}
+// Use the Point interface from our types
+import { Point } from '@/types/robot';
 
 // Task parameters interface
 interface TaskParams {
@@ -53,7 +42,7 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
     try {
       console.log('Sending task assignment:', params);
       
-      const response = await axios.post('/api/robots/assign-task', params);
+      const response = await axios.post('/robots/assign-task', params);
       
       console.log('Task assignment successful:', response.data);
       setSuccess(true);
