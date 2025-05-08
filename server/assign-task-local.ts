@@ -37,9 +37,9 @@ export function registerLocalPickupRoute(app: express.Express) {
       
       return axios.post(`${ROBOT_API_URL}/chassis/moves`, {
         action: 'move_to',
-        x: point.x,
-        y: point.y,
-        yaw: point.ori ?? 0
+        target_x: point.x,
+        target_y: point.y,
+        target_ori: point.ori ?? 0
       }, { headers })
       .then(response => {
         const duration = Date.now() - moveStartTime;
