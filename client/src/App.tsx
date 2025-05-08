@@ -374,6 +374,16 @@ function Router() {
           </AppLayout>
         )} 
       />
+      
+      {/* WebSocket Debug Page */}
+      <ProtectedRoute 
+        path="/ws-debug" 
+        component={() => (
+          <AppLayout>
+            <WsDebugPage />
+          </AppLayout>
+        )} 
+      />
 
       {/* Map Test Page */}
       <ProtectedRoute 
@@ -455,15 +465,6 @@ function Router() {
         )} 
       />
       
-      {/* WebSocket Debug Page */}
-      <ProtectedRoute 
-        path="/ws-debug" 
-        component={() => (
-          <AppLayout>
-            <WsDebugPage />
-          </AppLayout>
-        )} 
-      />
       
       <Route component={NotFound} />
     </Switch>

@@ -98,8 +98,10 @@ export default function WsDebugPage() {
           <li>• WebSocket connections will automatically reconnect with exponential backoff</li>
           <li>• Messages are displayed as they are received (newest at bottom)</li>
           <li>• JSON messages are automatically formatted for better readability</li>
-          <li>• The Robot WebSocket connects directly to the robot at 47.180.91.99:8090</li>
-          <li>• The other connections go through our server proxy for data normalization</li>
+          <li>• All connections go through our secure server proxy with authentication</li>
+          <li>• The robot API WebSocket provides direct control and command responses</li>
+          <li>• The position relay WebSocket provides real-time position updates</li>
+          <li>• The camera feed WebSocket provides video streaming data</li>
         </ul>
       </div>
     </div>

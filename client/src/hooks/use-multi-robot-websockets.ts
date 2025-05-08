@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 
 // Define the main WebSocket channels to monitor
 const channels = [
-  { label: "Robot Status", url: "ws://47.180.91.99:8090/ws" },
-  { label: "Chassis Status", url: "ws://localhost/api/robot-ws/status" },
-  { label: "Position Stream", url: "ws://localhost/api/robot-ws/position" },
-  { label: "System Logs", url: "ws://localhost/api/robot-ws/logs" },
+  { label: "Robot API", url: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/robot-ws` },
+  { label: "Position Relay", url: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/pose` },
+  { label: "Camera Feed", url: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/camera` },
 ];
 
 // Type for the state of each WebSocket channel
@@ -62,11 +61,11 @@ export function useMultiRobotWebSockets() {
             },
           }));
           
-          // Add authentication headers if connecting to robot directly
-          if (url.includes("47.180.91.99")) {
+          // Send initial subscription command for position relay
+          if (label === "Position Relay") {
             ws.send(JSON.stringify({ 
-              type: "authenticate", 
-              token: "{{ROBOT_SECRET}}" // This will be replaced by server middleware
+              type: "subscribe", 
+              topics: ["position", "status"]
             }));
           }
         };
