@@ -61,7 +61,6 @@ export function useSimplifiedRobotTask(): UseRobotTaskReturn {
       toast({
         title: "Task assigned successfully",
         description: `The robot is now executing the ${params.mode} task`,
-        variant: "success",
       });
     } catch (err: any) {
       console.error('Task assignment failed:', err);

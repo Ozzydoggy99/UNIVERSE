@@ -14,6 +14,14 @@ export default function MyTemplatePage() {
   const [mode, setMode] = useState<'pickup' | 'dropoff' | null>(null);
   const [floor, setFloor] = useState<string | null>(null);
   const [selectedShelf, setSelectedShelf] = useState<Point | null>(null);
+  
+  // Modified point type to ensure name property exists
+  const ensureName = (point: Point): Point => {
+    return {
+      ...point,
+      name: point.name || `Point ${point.id}`
+    };
+  };
 
   if (loading) return <p className="p-4">Loading map data...</p>;
   if (error || !data) return <p className="p-4">Error loading map data: {error}</p>;
@@ -21,12 +29,13 @@ export default function MyTemplatePage() {
   const handleConfirm = async () => {
     if (!selectedShelf || !floor || !mode || !data.specialPoints) return;
 
+    // Ensure all points have the required name property
     const taskRequest = {
       mode,
-      shelf: selectedShelf,
-      pickup: data.specialPoints.pickup,
-      dropoff: data.specialPoints.dropoff,
-      standby: data.specialPoints.standby,
+      shelf: ensureName(selectedShelf),
+      pickup: ensureName(data.specialPoints.pickup),
+      dropoff: ensureName(data.specialPoints.dropoff),
+      standby: ensureName(data.specialPoints.standby),
     };
 
     console.log('Sending AutoXing task request:', taskRequest);
