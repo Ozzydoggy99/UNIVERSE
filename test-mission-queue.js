@@ -14,7 +14,7 @@ async function testMissionQueue() {
     };
     
     console.log('Creating a test mission...');
-    const response = await axios.post('http://localhost:5000/robots/assign-task/local', testMission);
+    const response = await axios.post('http://localhost:5000/api/robots/assign-task/local', testMission);
     
     console.log('Response:', response.data);
     

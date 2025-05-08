@@ -14,7 +14,7 @@ async function testLocalDropoff() {
     };
     
     console.log('Creating a LOCAL DROPOFF mission...');
-    const response = await axios.post('http://localhost:5000/robots/assign-task/local-dropoff', testMission);
+    const response = await axios.post('http://localhost:5000/api/robots/assign-task/local-dropoff', testMission);
     
     console.log('Response:', response.data);
     
