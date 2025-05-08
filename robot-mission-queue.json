@@ -56,5 +56,68 @@
     "updatedAt": "2025-05-08T23:43:33.698Z",
     "robotSn": "L382502104987ir",
     "offline": false
+  },
+  {
+    "id": "mission_1746747896302_hpyigs9",
+    "name": "Local Pickup - Shelf pickup-shelf to Pickup pickup-point",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 15,
+          "y": 25,
+          "ori": 0,
+          "label": "shelf pickup-shelf"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to shelf pickup-shelf sent successfully",
+          "moveId": 4185
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": false,
+        "retryCount": 0,
+        "errorMessage": "Emergency stop button is pressed, cannot proceed with jack up operation"
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 35,
+          "y": 45,
+          "ori": 0,
+          "label": "pickup pickup-point"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 55,
+          "y": 65,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-08T23:44:56.302Z",
+    "updatedAt": "2025-05-08T23:45:01.798Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
   }
 ]

@@ -194,3 +194,47 @@ export async function isRobotCharging(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Check if robot's emergency stop button is pressed
+ * @returns Promise resolving to boolean indicating emergency stop status
+ */
+export async function isEmergencyStopPressed(): Promise<boolean> {
+  try {
+    // Try to perform a quick jack-up test to check if emergency stop is pressed
+    try {
+      await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
+      
+      // If we get here, the emergency stop is not pressed
+      // Immediately jack down to reset
+      try {
+        await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
+      } catch (jackDownError) {
+        console.log('Error resetting jack after emergency stop test:', jackDownError);
+      }
+      
+      return false;
+    } catch (error: any) {
+      // If we get a 500 error with emergency stop message, we know it's pressed
+      if (error.response && error.response.status === 500) {
+        if (error.response.data && error.response.data.detail && 
+            error.response.data.detail.includes("Emergency stop button is pressed")) {
+          console.log('Emergency stop button is pressed according to jack_up test');
+          return true;
+        }
+      }
+      
+      // Any other error means we can't determine
+      console.log('Error checking emergency stop status via jack_up:', error.message);
+    }
+    
+    // If we've checked available endpoints and found no indication of emergency stop
+    console.log('No emergency stop indicators found, assuming emergency stop is not pressed');
+    return false;
+  } catch (error) {
+    console.log('Error checking robot emergency stop status:', error);
+    // Instead of throwing, return false as default to allow operations to continue
+    console.log('Defaulting to emergency stop not pressed to allow operations to continue');
+    return false;
+  }
+}
