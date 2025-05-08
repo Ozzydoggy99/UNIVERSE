@@ -1,3 +1,8 @@
+🧩 REPLIT PATCH PROMPT — Final mission-runner.ts (no timers, real API)
+bash
+Copy
+Edit
+cat <<'EOF' > server/backend/mission-runner.ts
 // FINAL PATCH: Clean mission-runner.ts using real robot task polling (no timers)
 
 import axios from "axios";
@@ -76,10 +81,12 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   }
 
   appendLog("[MISSION COMPLETE]\n");
-  
-  return {
-    mission: `Auto-${uiMode}-${shelfId}-${Date.now()}`,
-    status: "completed",
-    sequence: sequence.map(p => p.id)
-  };
 }
+EOF
+✅ Paste this into your Replit terminal, hit enter, and you're live with:
+
+Real polling
+
+No guesswork
+
+Full logging and proper sequencing
