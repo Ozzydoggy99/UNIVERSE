@@ -1,3 +1,8 @@
+🧩 REPLIT PATCH PROMPT — Cleaned and Functional mission-runner.ts
+bash
+Copy
+Edit
+cat <<'EOF' > server/backend/mission-runner.ts
 // PATCH: mission-runner.ts - Comprehensive version using verified endpoints and structured logging
 
 import axios from "axios";
@@ -44,16 +49,16 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   for (const point of sequence) {
     try {
       appendLog(`➡️ Sending robot to: ${point.id} (${point.x}, ${point.y})`);
-      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+      const response = await axios.post(\`\${ROBOT_API_URL}/chassis/moves\`, {
         action: "move_to",
         target_x: point.x,
         target_y: point.y
       }, { headers });
 
-      appendLog(`✅ Move acknowledged: ${point.id} — MoveID: ${response.data?.id}`);
+      appendLog(\`✅ Move acknowledged: \${point.id} — MoveID: \${response.data?.id}\`);
     } catch (err: any) {
-      appendLog(`❌ Failed to move to ${point.id}: ${err.message}`);
-      throw new Error(`Movement failed for ${point.id}`);
+      appendLog(\`❌ Failed to move to \${point.id}: \${err.message}\`);
+      throw new Error(\`Movement failed for \${point.id}\`);
     }
 
     // TEMP: wait buffer until real status endpoint is used
@@ -61,10 +66,5 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   }
 
   appendLog("[MISSION COMPLETE]\n");
-  
-  return {
-    mission: `Auto-${uiMode}-${shelfId}-${Date.now()}`,
-    status: "completed",
-    sequence: sequence.map(p => p.id)
-  };
 }
+EOF
