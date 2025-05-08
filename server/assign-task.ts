@@ -4,7 +4,7 @@ import axios from 'axios';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 
 export function registerAssignTaskRoute(app: express.Express) {
-  app.post('/api/robots/assign-task', async (req: Request, res: Response) => {
+  app.post('/robots/assign-task', async (req: Request, res: Response) => {
     try {
       const { mode, shelf, pickup, dropoff, standby } = req.body;
 
