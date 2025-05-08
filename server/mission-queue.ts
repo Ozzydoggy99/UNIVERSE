@@ -213,31 +213,56 @@ class MissionQueueManager {
     console.log(`Executing move to ${label}`);
     
     try {
-      // Step 1: Send move command to robot
-      await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-        action: 'move_to',
+      // Step 1: Send move command to robot with enhanced params
+      const payload = {
+        type: "standard",
         target_x: params.x,
         target_y: params.y,
-        target_ori: params.ori || 0
-      }, { headers });
+        target_z: 0,
+        target_ori: params.ori || 0,
+        creator: "web_interface",
+        properties: {
+          max_trans_vel: 0.5,
+          max_rot_vel: 0.5,
+          acc_lim_x: 0.5,
+          acc_lim_theta: 0.5,
+          planning_mode: "directional"
+        }
+      };
 
-      // Step 2: Poll for move completion
-      const maxWaitMs = 30000;
-      const pollIntervalMs = 2000;
-      let waited = 0;
+      const moveRes = await axios.post(`${ROBOT_API_URL}/chassis/moves`, payload, { headers });
+      console.log(`Move command sent: ${JSON.stringify(moveRes.data)}`);
 
-      while (waited < maxWaitMs) {
+      // Step 2: Poll for move completion with enhanced diagnostics
+      const maxWaitMs = 60000; // ⏱ extend timeout to 60s
+      const pollIntervalMs = 3000;
+      const start = Date.now();
+
+      while (Date.now() - start < maxWaitMs) {
         await new Promise(res => setTimeout(res, pollIntervalMs));
-        waited += pollIntervalMs;
 
         try {
           const stateRes = await axios.get(`${ROBOT_API_URL}/robot/state`, { headers });
-          const moveState = stateRes.data?.data?.moveState;
+          const state = stateRes.data?.data;
 
-          console.log(`Move to ${label} - moveState: ${moveState} after ${waited / 1000}s`);
+          // 🔍 Log full diagnostic snapshot
+          console.log(`Robot Status [${label}]: ${JSON.stringify({
+            moveState: state.moveState,
+            x: state.x,
+            y: state.y,
+            yaw: state.yaw,
+            battery: state.battery,
+            isCharging: state.isCharging,
+            isEmergencyStop: state.isEmergencyStop,
+            locQuality: state.locQuality,
+            errors: state.errors,
+            taskObj: state.taskObj
+          }, null, 2)}`);
 
-          if (moveState === 'idle') {
-            console.log(`Robot arrived at ${label}`);
+          if (state.isEmergencyStop) throw new Error("🚨 Robot is in emergency stop!");
+          if (state.locQuality !== undefined && state.locQuality < 50) throw new Error("⚠️ Robot localization degraded.");
+          if (state.moveState === "idle") {
+            console.log(`Robot completed move to ${label}`);
             return { success: true, message: `Arrived at ${label}` };
           }
         } catch (error: any) {
@@ -252,7 +277,7 @@ class MissionQueueManager {
         }
       }
 
-      throw new Error(`Timeout waiting for move to ${label} to complete`);
+      throw new Error(`⚠️ Timed out waiting for move to ${label} to complete`);
     } catch (err: any) {
       console.error(`Error moving to ${label}: ${err.message}`);
       throw err;
