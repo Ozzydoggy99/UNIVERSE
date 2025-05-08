@@ -1,6 +1,6 @@
 // client/src/components/robot-mission/RobotBinTaskPanel.tsx
-import { useState } from "react";
-import { useRobotPoints } from "@/hooks/useRobotPoints";
+import { useState, useMemo } from "react";
+import { useRobotMapData } from "@/hooks/use-robot-map-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -16,7 +16,15 @@ interface RobotBinTaskPanelProps {
 }
 
 export default function RobotBinTaskPanel({ robotId }: RobotBinTaskPanelProps) {
-  const { shelfPoints, loading, error } = useRobotPoints(robotId);
+  const { numericPoints, isLoading, error } = useRobotMapData();
+  
+  // Create list of shelf points from numericPoints
+  const shelfPoints = useMemo(() => {
+    return numericPoints.map(point => point.id);
+  }, [numericPoints]);
+
+  // For compatibility with previous implementation
+  const loading = isLoading;
   const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
   const [selectedShelf, setSelectedShelf] = useState<string>("");
   const [status, setStatus] = useState<string | null>(null);

@@ -9,6 +9,9 @@ import { Card } from "@/components/ui/card";
 const RobotMissionPage: FC = () => {
   const { allPoints, namedPoints, numericPoints, specialPoints, isLoading, error } = useRobotMapData();
 
+  // Create a shelf points array from numeric points for the mission control component
+  const shelfPoints = numericPoints.map(point => point.id);
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
@@ -32,7 +35,7 @@ const RobotMissionPage: FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
-            <MissionControl shelfPoints={categorized.shelves} />
+            <MissionControl shelfPoints={shelfPoints} />
           </div>
           <div>
             <Card className="p-6">
@@ -41,9 +44,9 @@ const RobotMissionPage: FC = () => {
                 <div>
                   <h3 className="font-medium">Pickup Point</h3>
                   <p>
-                    {categorized.pickup ? (
+                    {specialPoints.pickup ? (
                       <>
-                        {categorized.pickup.id} ({categorized.pickup.x.toFixed(2)}, {categorized.pickup.y.toFixed(2)})
+                        {specialPoints.pickup.id} ({specialPoints.pickup.x.toFixed(2)}, {specialPoints.pickup.y.toFixed(2)})
                       </>
                     ) : (
                       <span className="text-muted-foreground italic">No pickup point defined</span>
@@ -54,9 +57,9 @@ const RobotMissionPage: FC = () => {
                 <div>
                   <h3 className="font-medium">Dropoff Point</h3>
                   <p>
-                    {categorized.dropoff ? (
+                    {specialPoints.dropoff ? (
                       <>
-                        {categorized.dropoff.id} ({categorized.dropoff.x.toFixed(2)}, {categorized.dropoff.y.toFixed(2)})
+                        {specialPoints.dropoff.id} ({specialPoints.dropoff.x.toFixed(2)}, {specialPoints.dropoff.y.toFixed(2)})
                       </>
                     ) : (
                       <span className="text-muted-foreground italic">No dropoff point defined</span>
@@ -65,25 +68,25 @@ const RobotMissionPage: FC = () => {
                 </div>
                 
                 <div>
-                  <h3 className="font-medium">Standby Point</h3>
+                  <h3 className="font-medium">Desk Point</h3>
                   <p>
-                    {categorized.standby ? (
+                    {specialPoints.desk ? (
                       <>
-                        {categorized.standby.id} ({categorized.standby.x.toFixed(2)}, {categorized.standby.y.toFixed(2)})
+                        {specialPoints.desk.id} ({specialPoints.desk.x.toFixed(2)}, {specialPoints.desk.y.toFixed(2)})
                       </>
                     ) : (
-                      <span className="text-muted-foreground italic">No standby point defined</span>
+                      <span className="text-muted-foreground italic">No desk point defined</span>
                     )}
                   </p>
                 </div>
                 
                 <div>
-                  <h3 className="font-medium">Available Shelf Points</h3>
-                  {categorized.shelves.length > 0 ? (
+                  <h3 className="font-medium">Available Numeric Points</h3>
+                  {numericPoints.length > 0 ? (
                     <ul className="list-disc list-inside space-y-1">
-                      {categorized.shelves.map((shelf) => (
-                        <li key={shelf.id}>
-                          {shelf.id} ({shelf.x.toFixed(2)}, {shelf.y.toFixed(2)})
+                      {numericPoints.map((point) => (
+                        <li key={point.id}>
+                          {point.id} ({point.x.toFixed(2)}, {point.y.toFixed(2)})
                         </li>
                       ))}
                     </ul>
