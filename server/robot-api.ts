@@ -91,3 +91,45 @@ export async function moveToPoint(x: number, y: number) {
 export async function getLastMoveStatus() {
   return axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
 }
+
+/**
+ * Check if robot is currently charging
+ * @returns Promise resolving to boolean indicating charging status
+ */
+export async function isRobotCharging(): Promise<boolean> {
+  try {
+    // First get the latest move information
+    const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
+    const moveData = moveResponse.data;
+    
+    // If is_charging is explicitly set to true, the robot is charging
+    if (moveData.is_charging === true) {
+      console.log('Robot is charging according to move data');
+      return true;
+    }
+    
+    // Check if the latest system diagnostic or status indicates charging
+    try {
+      const statusResponse = await axios.get(`${ROBOT_API_URL}/device/info`, { headers });
+      const statusData = statusResponse.data;
+      
+      // Check any available charging status in device info
+      // This can vary depending on the robot model and API version
+      if (statusData.power && 
+          (statusData.power.charging === true || 
+           statusData.power.status === 'charging' || 
+           statusData.battery_status === 'charging')) {
+        console.log('Robot is charging according to device info');
+        return true;
+      }
+    } catch (error) {
+      console.log('Could not get device info to check charging status, using move data only');
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking robot charging status:', error);
+    // Default to false if we can't determine the charging status
+    return false;
+  }
+}

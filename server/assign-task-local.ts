@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { isRobotCharging } from './robot-api';
 
 // Configure debug log file - consistent with assign-task.ts
 const debugLogFile = path.join(process.cwd(), 'robot-debug.log');
@@ -74,6 +75,33 @@ export function registerLocalPickupRoute(app: express.Express) {
       logRobotTask('🚀 Starting LOCAL PICKUP sequence');
       await moveTo(shelf, `shelf ${shelf.id}`);
 
+      // Check if robot is charging before attempting jack up
+      const charging = await isRobotCharging();
+      
+      if (charging) {
+        logRobotTask('⚠️ Robot is currently charging. Cannot perform jack operations.');
+        
+        // In charging state, we'll complete a simplified mission without bin operations
+        logRobotTask('ℹ️ Performing simplified mission path without bin operations');
+        
+        // Step 2: Visit pickup point without bin
+        await moveTo(pickup, 'pickup point (no bin operation - charging)');
+        
+        // Step 3: Return to standby
+        await moveTo(standby, 'standby');
+        
+        const totalDuration = Date.now() - startTime;
+        logRobotTask(`🏁 LOCAL PICKUP simplified task complete (charging mode). Total duration: ${totalDuration}ms`);
+        
+        return res.json({ 
+          success: true, 
+          message: 'Local pickup task completed in simplified mode (robot is charging).',
+          charging: true,
+          duration: totalDuration
+        });
+      }
+      
+      // Normal operation flow when robot is not charging
       // Step 2: Jack Up
       logRobotTask('⬆️ Lifting bin...');
       const jackUpResponse = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
@@ -96,6 +124,7 @@ export function registerLocalPickupRoute(app: express.Express) {
       res.json({ 
         success: true, 
         message: 'Local pickup task complete.',
+        charging: false,
         duration: totalDuration
       });
     } catch (err: any) {

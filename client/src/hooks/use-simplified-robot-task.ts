@@ -21,6 +21,13 @@ interface UseRobotTaskReturn {
   loading: boolean;
   error: string | null;
   success: boolean;
+  isCharging: boolean; // Indicates if the robot is charging (affects bin operations)
+  lastTaskResult: {
+    success: boolean;
+    charging: boolean;
+    message: string;
+    duration?: number;
+  } | null;
 }
 
 /**
