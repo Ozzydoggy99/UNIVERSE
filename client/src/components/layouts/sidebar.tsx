@@ -101,6 +101,7 @@ export default function Sidebar() {
       items: [
         { href: "/robot-assignments", label: "Robot Assignments" },
         { href: "/robot-hub", label: "Robot Monitoring Hub" },
+        { href: "/robot-dashboard", label: "Real-time Dashboard" },
         { href: "/robot-maps", label: "Maps For Robots" },
         { href: "/robot-tasks", label: "Task Queue" },
         { href: "/admin-tasks", label: "Task Status Monitor" },

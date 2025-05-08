@@ -34,6 +34,7 @@ import MyTemplate from "@/pages/my-template";
 import RemoteExecutor from "@/pages/remote-executor";
 import RobotMapsPage from "@/pages/robot-maps-page";
 import RobotMissionPage from "@/pages/robot-mission-page";
+import RobotDashboardPage from "@/pages/robot-dashboard";
 import WsDebugPage from "@/pages/ws-debug";
 import Sidebar, { SidebarProvider, useSidebar } from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
@@ -486,6 +487,15 @@ function Router() {
         )} 
       />
       
+      {/* Robot Real-time Dashboard */}
+      <ProtectedRoute 
+        path="/robot-dashboard" 
+        component={() => (
+          <AppLayout>
+            <RobotDashboardPage />
+          </AppLayout>
+        )} 
+      />
       
       <Route component={NotFound} />
     </Switch>
