@@ -10,6 +10,8 @@ import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
 // New optimized points API for shelf filtering
 import { registerRobotPointRoutes } from './robot-points-api';
+// Task assignment API for simplified mission execution
+import { registerRobotTaskRoutes } from './robot-task-api';
 import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
 function formatError(error: unknown): string {
@@ -36,7 +38,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register the new shelf points API
   registerRobotPointRoutes(app);
   
-
+  // Register task assignment API
+  registerRobotTaskRoutes(app);
   
   // Register mission router for robot task execution
   app.use('/api', missionRouter);

@@ -1,3 +1,9 @@
+🔧 File: client/src/pages/my-template.tsx
+Replace (or create) this file — it will be your full user UI flow:
+
+tsx
+Copy
+Edit
 // client/src/pages/my-template.tsx
 import React, { useState } from 'react';
 import { useRobotMapData } from '@/hooks/use-robot-map-data';
