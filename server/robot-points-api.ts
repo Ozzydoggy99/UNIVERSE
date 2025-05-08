@@ -4,7 +4,14 @@ import express, { Request, Response } from 'express';
 import axios from 'axios';
 import { Point } from './types';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
-import { ROBOT_MAP_POINTS, getShelfPoints, fetchRobotMapPoints as fetchLiveMapPoints } from './robot-map-data';
+import { 
+  ROBOT_MAP_POINTS, 
+  getShelfPoints, 
+  fetchRobotMapPoints as fetchLiveMapPoints,
+  getShelfPointsByFloor,
+  getSpecialPoints,
+  getAllFloors
+} from './robot-map-data';
 
 /**
  * Retrieve map points from robot API or fallback to hardcoded points
@@ -99,6 +106,28 @@ export function registerRobotPointRoutes(app: express.Express) {
       res.json(shelfPoints);
     } catch (error: any) {
       console.error('❌ Failed to load shelf points:', error);
+      res.status(500).json({ error: error.message || 'Unknown error' });
+    }
+  });
+
+  /**
+   * GET /api/robots/points/full
+   * Returns shelves grouped by floor, special points, and floor list
+   */
+  app.get('/api/robots/points/full', async (req: Request, res: Response) => {
+    try {
+      const points = await fetchRobotMapPoints();
+      const shelvesByFloor = getShelfPointsByFloor(points);
+      const specialPoints = getSpecialPoints(points);
+      const allFloors = getAllFloors(points);
+
+      res.json({
+        shelvesByFloor,
+        specialPoints,
+        allFloors
+      });
+    } catch (error: any) {
+      console.error('❌ Failed to load full robot point data:', error);
       res.status(500).json({ error: error.message || 'Unknown error' });
     }
   });
