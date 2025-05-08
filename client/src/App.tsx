@@ -11,6 +11,7 @@ import History from "@/pages/history";
 import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
 import AdminTemplates from "@/pages/admin-templates";
+import AdminTasks from "@/pages/admin-tasks";
 import RobotAssignments from "@/pages/robot-assignments";
 import RobotHub from "@/pages/robot-hub";
 import FixedRobotDetails from "@/pages/fixed-robot-details";
@@ -174,6 +175,15 @@ function Router() {
       <ProtectedRoute 
         path="/admin-templates" 
         component={AdminTemplates} 
+      />
+      
+      <ProtectedRoute 
+        path="/admin-tasks" 
+        component={() => (
+          <AppLayout>
+            <AdminTasks />
+          </AppLayout>
+        )} 
       />
       
       <ProtectedRoute 

@@ -103,6 +103,7 @@ export default function Sidebar() {
         { href: "/robot-hub", label: "Robot Monitoring Hub" },
         { href: "/robot-maps", label: "Maps For Robots" },
         { href: "/robot-tasks", label: "Task Queue" },
+        { href: "/admin-tasks", label: "Task Status Monitor" },
         { href: "/remote-executor", label: "Remote Executor" }
       ]
     }

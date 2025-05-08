@@ -1,0 +1,93 @@
+✅ STEP 6 — Real-Time Task Status via WebSocket + Admin Dashboard
+You’ll be able to:
+
+See active task IDs
+
+Monitor real-time task status (running, success, failed)
+
+Expand this for logs/debug/tracking per robot
+
+🔧 File: client/src/pages/admin-tasks.tsx
+tsx
+Copy
+Edit
+// client/src/pages/admin-tasks.tsx
+import React, { useEffect, useState } from 'react';
+import { Card } from '@/components/ui/card';
+
+interface TaskStatus {
+  taskId: string;
+  status: string;
+  timestamp: number;
+}
+
+export default function AdminTasksPage() {
+  const [messages, setMessages] = useState<TaskStatus[]>([]);
+
+  useEffect(() => {
+    const socket = new WebSocket(`ws://${location.hostname}:9090/ws/status`);
+    socket.onmessage = (event) => {
+      const parsed = JSON.parse(event.data);
+      const newStatus: TaskStatus = {
+        taskId: parsed?.taskId || parsed?.id || 'unknown',
+        status: parsed?.status || parsed?.state || 'unknown',
+        timestamp: Date.now()
+      };
+      setMessages(prev => [newStatus, ...prev.slice(0, 20)]);
+    };
+    socket.onerror = (err) => console.error('❌ WS Error:', err);
+    return () => socket.close();
+  }, []);
+
+  return (
+    <div className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-xl font-semibold mb-4">📡 Task Status Stream</h1>
+      {messages.map((msg, i) => (
+        <Card key={i} className="mb-2 p-4">
+          <div><strong>Task ID:</strong> {msg.taskId}</div>
+          <div><strong>Status:</strong> {msg.status}</div>
+          <div className="text-xs text-gray-500">
+            {new Date(msg.timestamp).toLocaleTimeString()}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+🔌 BACKEND — Add WebSocket Forwarder
+AutoXing sends live updates over ws://<robot_ip>:9090/ws/status. Your backend needs to act as a WebSocket proxy so your frontend can connect securely (especially on Replit or web deployments).
+
+🔧 Add to server/robot-websocket.ts
+ts
+Copy
+Edit
+// server/robot-websocket.ts
+import { WebSocketServer } from 'ws';
+import WebSocket from 'ws';
+import http from 'http';
+import { ROBOT_API_URL } from './robot-constants';
+
+export function attachWebSocketProxy(server: http.Server) {
+  const wss = new WebSocketServer({ server, path: '/ws/status' });
+
+  wss.on('connection', (client) => {
+    console.log('🔌 Admin client connected to WS proxy');
+    const upstream = new WebSocket(`${ROBOT_API_URL.replace(/^http/, 'ws')}/ws/status`);
+
+    upstream.on('open', () => console.log('➡️ Connected to robot WebSocket'));
+    upstream.on('message', (data) => client.send(data));
+    upstream.on('error', (err) => console.error('❌ Upstream error:', err));
+    upstream.on('close', () => client.close());
+
+    client.on('close', () => {
+      console.log('❌ Admin WS disconnected');
+      upstream.close();
+    });
+  });
+}
+🧩 In your server.ts (after const server = app.listen(...)):
+ts
+Copy
+Edit
+import { attachWebSocketProxy } from './robot-websocket';
+attachWebSocketProxy(server);

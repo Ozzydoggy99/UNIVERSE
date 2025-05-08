@@ -369,6 +369,99 @@ export function sendRobotCommand(serialNumber: string, command: any): boolean {
 }
 
 /**
+ * Setup WebSocket proxy for robot task status updates
+ */
+export function attachWebSocketProxy(server: Server) {
+  const wss = new WebSocketServer({ server, path: '/ws/status' });
+
+  wss.on('connection', (client) => {
+    console.log('🔌 Admin client connected to task status WS proxy');
+    
+    // Connect to the robot's task status WebSocket
+    const robotBaseUrl = ROBOT_API_URL.replace(/^http/, 'ws');
+    const upstream = new WebSocket(`${robotBaseUrl}/ws/status`, {
+      headers: {
+        'x-api-key': ROBOT_SECRET
+      }
+    });
+
+    upstream.on('open', () => {
+      console.log('➡️ Connected to robot task status WebSocket');
+      
+      try {
+        client.send(JSON.stringify({
+          taskId: 'system',
+          status: 'connected',
+          message: 'Task status stream connected'
+        }));
+      } catch (err) {
+        console.error('Error sending connected message to client:', err);
+      }
+    });
+    
+    upstream.on('message', (data) => {
+      try {
+        // Forward messages from robot to client
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
+      } catch (err) {
+        console.error('Error forwarding task status message:', err);
+      }
+    });
+    
+    upstream.on('error', (err) => {
+      console.error('❌ Upstream task status WS error:', err);
+      
+      try {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            taskId: 'system',
+            status: 'error',
+            message: 'Connection error with robot WebSocket'
+          }));
+        }
+      } catch (sendErr) {
+        console.error('Error sending error message to client:', sendErr);
+      }
+    });
+    
+    upstream.on('close', () => {
+      console.log('Upstream task status WebSocket closed');
+      
+      try {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            taskId: 'system',
+            status: 'disconnected', 
+            message: 'Task status stream disconnected'
+          }));
+          client.close();
+        }
+      } catch (err) {
+        console.error('Error sending close message to client:', err);
+      }
+    });
+
+    // Handle client disconnect
+    client.on('close', () => {
+      console.log('❌ Admin task status WS client disconnected');
+      if (upstream.readyState === WebSocket.OPEN) {
+        upstream.close();
+      }
+    });
+
+    // Handle client errors
+    client.on('error', (err) => {
+      console.error('❌ Admin task status WS client error:', err);
+      if (upstream.readyState === WebSocket.OPEN) {
+        upstream.close();
+      }
+    });
+  });
+}
+
+/**
  * Setup WebSocket server for clients
  */
 export function setupRobotWebSocketServer(server: Server) {
@@ -380,6 +473,9 @@ export function setupRobotWebSocketServer(server: Server) {
 
   // Connect to robot WebSocket
   connectRobotWebSocket();
+  
+  // Also set up the task status WebSocket proxy
+  attachWebSocketProxy(server);
 
   // Handle client connections
   wss.on('connection', (ws: WebSocket, req: Request) => {
