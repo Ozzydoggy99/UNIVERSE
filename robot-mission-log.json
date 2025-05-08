@@ -126,5 +126,73 @@
       "message": "Timeout waiting for move to shelf test-shelf to complete",
       "stack": "Error: Timeout waiting for move to shelf test-shelf to complete\n    at MissionQueueManager.executeMoveStep (/home/runner/workspace/server/mission-queue.ts:249:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async MissionQueueManager.executeMission (/home/runner/workspace/server/mission-queue.ts:143:26)\n    at async MissionQueueManager.processMissionQueue (/home/runner/workspace/server/mission-queue.ts:107:9)"
     }
+  },
+  {
+    "id": "mission_1746736744076_xzxi62o",
+    "name": "Local Dropoff - Pickup dropoff-point to Shelf dropoff-shelf",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 35,
+          "y": 45,
+          "ori": 0,
+          "label": "pickup dropoff-point"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Simulated arrival at pickup dropoff-point"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": false,
+        "retryCount": 0,
+        "errorMessage": "Request failed with status code 500"
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 15,
+          "y": 25,
+          "ori": 0,
+          "label": "shelf dropoff-shelf"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 55,
+          "y": 65,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-08T20:39:04.076Z",
+    "updatedAt": "2025-05-08T20:39:18.116Z",
+    "robotSn": "L382502104987ir",
+    "offline": false,
+    "loggedAt": "2025-05-08T20:39:18.155Z",
+    "outcome": "failed",
+    "error": {
+      "message": "Request failed with status code 500",
+      "stack": "AxiosError: Request failed with status code 500\n    at settle (file:///home/runner/workspace/node_modules/axios/lib/core/settle.js:19:12)\n    at IncomingMessage.handleStreamEnd (file:///home/runner/workspace/node_modules/axios/lib/adapters/http.js:599:11)\n    at IncomingMessage.emit (node:events:530:35)\n    at endReadableNT (node:internal/streams/readable:1698:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)\n    at Axios.request (file:///home/runner/workspace/node_modules/axios/lib/core/Axios.js:45:41)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async MissionQueueManager.executeJackUpStep (/home/runner/workspace/server/mission-queue.ts:268:24)\n    at async MissionQueueManager.executeMission (/home/runner/workspace/server/mission-queue.ts:145:26)\n    at async MissionQueueManager.processMissionQueue (/home/runner/workspace/server/mission-queue.ts:107:9)"
+    }
   }
 ]

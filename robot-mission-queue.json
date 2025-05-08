@@ -114,5 +114,67 @@
     "updatedAt": "2025-05-08T20:37:26.555Z",
     "robotSn": "L382502104987ir",
     "offline": false
+  },
+  {
+    "id": "mission_1746736744076_xzxi62o",
+    "name": "Local Dropoff - Pickup dropoff-point to Shelf dropoff-shelf",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 35,
+          "y": 45,
+          "ori": 0,
+          "label": "pickup dropoff-point"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Simulated arrival at pickup dropoff-point"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": false,
+        "retryCount": 0,
+        "errorMessage": "Request failed with status code 500"
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 15,
+          "y": 25,
+          "ori": 0,
+          "label": "shelf dropoff-shelf"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 55,
+          "y": 65,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-08T20:39:04.076Z",
+    "updatedAt": "2025-05-08T20:39:18.116Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
   }
 ]

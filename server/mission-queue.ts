@@ -244,7 +244,7 @@ class MissionQueueManager {
           console.error(`Error checking move state: ${error.message}`);
           
           // If we're in simulation mode (404 error), assume success after a delay
-          if (error.response && error.response.status === 404 && waited > 10000) {
+          if (error.response && error.response.status === 404 && waited > 4000) {
             console.log(`Simulation mode detected - assuming robot arrived at ${label}`);
             return { success: true, message: `Simulated arrival at ${label}` };
           }
