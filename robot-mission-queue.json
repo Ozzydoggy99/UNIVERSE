@@ -176,5 +176,82 @@
     "updatedAt": "2025-05-08T20:39:18.116Z",
     "robotSn": "L382502104987ir",
     "offline": false
+  },
+  {
+    "id": "mission_1746736836458_y921dpn",
+    "name": "Local Dropoff - Pickup dropoff-point to Shelf dropoff-shelf",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 35,
+          "y": 45,
+          "ori": 0,
+          "label": "pickup dropoff-point"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Simulated arrival at pickup dropoff-point"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Jack up skipped due to emergency stop"
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 15,
+          "y": 25,
+          "ori": 0,
+          "label": "shelf dropoff-shelf"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Simulated arrival at shelf dropoff-shelf"
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Jack down skipped due to emergency stop"
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 55,
+          "y": 65,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Simulated arrival at standby"
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 5,
+    "createdAt": "2025-05-08T20:40:36.459Z",
+    "updatedAt": "2025-05-08T20:40:57.802Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
   }
 ]
