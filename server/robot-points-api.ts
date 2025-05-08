@@ -13,7 +13,45 @@ import { ROBOT_MAP_POINTS, getShelfPoints, fetchRobotMapPoints as fetchLiveMapPo
 export async function fetchRobotMapPoints(): Promise<Point[]> {
   try {
     // First try to fetch points from the live API implementation
-    console.log('Fetching live map points from robot API...');
+    console.log(`Fetching live map points from robot API at ${ROBOT_API_URL}...`);
+    console.log(`Using auth secret starting with: ${ROBOT_SECRET.substring(0, 4)}...`);
+    
+    // First test if the robot API is accessible - try different endpoints
+    try {
+      // Try different endpoints to find one that works
+      const testEndpoints = [
+        '/status', 
+        '/device/info', 
+        '/state',
+        '/maps',
+        '/chassis/moves/latest'
+      ];
+      
+      let connected = false;
+      for (const endpoint of testEndpoints) {
+        try {
+          console.log(`Trying endpoint: ${ROBOT_API_URL}${endpoint}`);
+          const testResponse = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
+            headers: { 'x-api-key': ROBOT_SECRET }
+          });
+          console.log(`✅ Robot API connection test successful with endpoint ${endpoint}: ${JSON.stringify(testResponse.data).substring(0, 100)}...`);
+          connected = true;
+          break;
+        } catch (err) {
+          const endpointError = err as Error;
+          console.log(`Endpoint ${endpoint} failed: ${endpointError.message}`);
+        }
+      }
+      
+      if (!connected) {
+        throw new Error('All connection test endpoints failed');
+      }
+    } catch (err) {
+      const testError = err as Error;
+      console.error(`❌ Robot API connection test failed:`, testError.message);
+      throw new Error(`Robot API connection failed: ${testError.message}`);
+    }
+    
     const livePoints = await fetchLiveMapPoints();
     
     if (livePoints && livePoints.length > 0) {
