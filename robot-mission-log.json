@@ -207,5 +207,81 @@
     "offline": false,
     "loggedAt": "2025-05-08T23:48:50.768Z",
     "outcome": "completed"
+  },
+  {
+    "id": "mission_1746748164866_uehfymh",
+    "name": "Local Dropoff - Pickup dropoff-point to Shelf dropoff-shelf",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 35,
+          "y": 45,
+          "ori": 0,
+          "label": "pickup dropoff-point"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to pickup dropoff-point sent successfully",
+          "moveId": 4189
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 15,
+          "y": 25,
+          "ori": 0,
+          "label": "shelf dropoff-shelf"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to shelf dropoff-shelf sent successfully",
+          "moveId": 4190
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 55,
+          "y": 65,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to standby sent successfully",
+          "moveId": 4191
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 5,
+    "createdAt": "2025-05-08T23:49:24.866Z",
+    "updatedAt": "2025-05-08T23:49:41.533Z",
+    "robotSn": "L382502104987ir",
+    "offline": false,
+    "loggedAt": "2025-05-08T23:49:41.534Z",
+    "outcome": "completed"
   }
 ]
