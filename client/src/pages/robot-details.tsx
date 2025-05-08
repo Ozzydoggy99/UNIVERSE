@@ -52,8 +52,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRobot } from '@/providers/robot-provider';
 import { Map as MapComponent } from '@/components/ui/map';
 import { LiveMjpegStream } from '@/components/LiveMjpegStream';
-import { RobotH264Stream } from '@/components/RobotH264Stream';
-import { DirectionalControl } from '@/components/robot/DirectionalControl';
 import { LidarVisualization } from '@/components/robot/LidarVisualization';
 import { PowerCycleButton } from '@/components/robot/PowerCycleButton';
 import InstallerButton from '@/components/robot/installer-button';
@@ -781,10 +779,7 @@ export default function RobotDetails() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <DirectionalControl 
-                serialNumber={serialNumber || ''} 
-                disabled={connectionState !== 'connected'} 
-              />
+              <p>Manual control has been replaced with direct movement commands</p>
             </CardContent>
           </Card>
         </div>
@@ -1001,11 +996,10 @@ export default function RobotDetails() {
                           <div className="border rounded-md overflow-hidden aspect-video bg-gray-900 relative">
                             {finalCameraData?.streamUrl ? (
                               <div className="w-full h-full flex items-center justify-center">
-                                {/* Use H264 streaming for better performance and reliability */}
-                                <RobotH264Stream 
-                                  serialNumber={serialNumber}
-                                  className="w-full h-full"
-                                />
+                                {/* Camera stream placeholder */}
+                                <div className="bg-gray-800 w-full h-full flex items-center justify-center">
+                                  <p className="text-white">Camera stream available</p>
+                                </div>
                               </div>
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center text-white p-4">
