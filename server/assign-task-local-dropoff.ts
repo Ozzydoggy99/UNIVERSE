@@ -17,7 +17,7 @@ function logRobotTask(message: string) {
 }
 
 export function registerLocalDropoffRoute(app: express.Express) {
-  app.post('/robots/assign-task/local/dropoff', express.json(), async (req: Request, res: Response) => {
+  app.post('/api/robots/assign-task/local-dropoff', express.json(), async (req: Request, res: Response) => {
     const { shelf, pickup, standby } = req.body;
     const headers = { 'x-api-key': ROBOT_SECRET };
     const startTime = Date.now();
@@ -25,41 +25,41 @@ export function registerLocalDropoffRoute(app: express.Express) {
     logRobotTask(`New LOCAL DROPOFF task received - Shelf: ${shelf.id}, Pickup: ${pickup.id}`);
     logRobotTask(`Full task details: ${JSON.stringify(req.body, null, 2)}`);
 
-    async function moveTo(point: any, label: string) {
-      const moveStartTime = Date.now();
-      logRobotTask(`➡️ Moving to ${label} (${point.x}, ${point.y}, ori: ${point.ori ?? 0})`);
-      
+    async function moveTo(point: any, label: string, headers: any) {
+      logRobotTask(`➡️ Initiating move to ${label} (${point.x}, ${point.y}, yaw: ${point.ori ?? 0})`);
       try {
-        // Start the move
-        const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+        // Step 1: Send move command to robot
+        await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
           action: 'move_to',
           target_x: point.x,
           target_y: point.y,
           target_ori: point.ori ?? 0
         }, { headers });
-        
-        const moveId = moveResponse.data.id;
-        logRobotTask(`🔄 Move to ${label} started with ID: ${moveId}`);
-        
-        // Poll until move completes
-        let moveStatus = 'moving';
-        while (moveStatus === 'moving') {
-          await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between checks
-          
-          const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
-          moveStatus = statusResponse.data.state;
-          logRobotTask(`🔄 Move to ${label} status: ${moveStatus}`);
+
+        // Step 2: Poll for move completion
+        const maxWaitMs = 30000;
+        const pollIntervalMs = 2000;
+        let waited = 0;
+
+        while (waited < maxWaitMs) {
+          await new Promise(res => setTimeout(res, pollIntervalMs));
+          waited += pollIntervalMs;
+
+          const stateRes = await axios.get(`${ROBOT_API_URL}/robot/state`, { headers });
+          const moveState = stateRes.data?.data?.moveState;
+
+          logRobotTask(`⏱️ moveState: ${moveState} after ${waited / 1000}s`);
+
+          if (moveState === 'idle') {
+            logRobotTask(`✅ Robot arrived at ${label}`);
+            return;
+          }
         }
-        
-        const duration = Date.now() - moveStartTime;
-        logRobotTask(`✅ Move to ${label} complete in ${duration}ms - Final status: ${moveStatus}`);
-        return moveResponse;
-      } catch (error: any) {
-        logRobotTask(`❌ Move to ${label} failed: ${error.message}`);
-        if (error.response) {
-          logRobotTask(`Error response: ${JSON.stringify(error.response.data)}`);
-        }
-        throw error;
+
+        throw new Error(`Timeout waiting for move to ${label} to complete`);
+      } catch (err: any) {
+        logRobotTask(`❌ Error moving to ${label}: ${err.message || err.response?.data}`);
+        throw err;
       }
     }
 

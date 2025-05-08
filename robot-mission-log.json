@@ -55,6 +55,12 @@
     "createdAt": "2025-05-08T19:51:30.197Z",
     "updatedAt": "2025-05-08T20:00:03.184Z",
     "robotSn": "L382502104987ir",
-    "offline": true
+    "offline": true,
+    "loggedAt": "2025-05-08T20:00:03.184Z",
+    "outcome": "failed",
+    "error": {
+      "message": "Move timeout after 120000ms",
+      "stack": "Error: Move timeout after 120000ms\n    at MissionQueueManager.waitForMoveCompletion (/home/runner/workspace/server/mission-queue.ts:240:15)\n    at async MissionQueueManager.executeMoveStep (/home/runner/workspace/server/mission-queue.ts:224:14)\n    at async MissionQueueManager.executeMission (/home/runner/workspace/server/mission-queue.ts:143:26)\n    at async MissionQueueManager.processMissionQueue (/home/runner/workspace/server/mission-queue.ts:107:9)"
+    }
   }
 ]

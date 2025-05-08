@@ -1,6 +1,9 @@
 // test-mission-queue.js
 import axios from 'axios';
 
+// Set a longer timeout for axios requests
+axios.defaults.timeout = 10000;
+
 async function testMissionQueue() {
   try {
     console.log('Testing mission queue system...');

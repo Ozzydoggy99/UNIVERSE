@@ -209,54 +209,47 @@ class MissionQueueManager {
    * Execute a move step
    */
   private async executeMoveStep(params: any): Promise<any> {
-    const moveParams = {
-      action: 'move_to',
-      target_x: params.x,
-      target_y: params.y,
-      target_ori: params.ori || 0
-    };
+    const label = params.label || `point (${params.x}, ${params.y})`;
+    console.log(`Executing move to ${label}`);
     
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveParams, { headers });
-    
-    // If move started successfully, poll until complete or timeout
-    if (response.data && response.data.id) {
-      const moveId = response.data.id;
-      return await this.waitForMoveCompletion(moveId);
-    }
-    
-    return response.data;
-  }
-  
-  /**
-   * Wait for move to complete
-   */
-  private async waitForMoveCompletion(moveId: string, timeoutMs: number = 120000): Promise<any> {
-    const startTime = Date.now();
-    
-    // Poll until move is complete
-    while (true) {
-      // Check for timeout
-      if (Date.now() - startTime > timeoutMs) {
-        throw new Error(`Move timeout after ${timeoutMs}ms`);
-      }
-      
-      // Get move status
-      const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
-      const moveStatus = response.data;
-      
-      // If move is complete (not in 'moving' state)
-      if (moveStatus.state !== 'moving') {
-        // If move failed, throw error
-        if (moveStatus.state === 'failed') {
-          throw new Error(`Move failed: ${moveStatus.fail_reason_str || 'Unknown reason'}`);
+    try {
+      // Step 1: Send move command to robot
+      await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+        action: 'move_to',
+        target_x: params.x,
+        target_y: params.y,
+        target_ori: params.ori || 0
+      }, { headers });
+
+      // Step 2: Poll for move completion
+      const maxWaitMs = 30000;
+      const pollIntervalMs = 2000;
+      let waited = 0;
+
+      while (waited < maxWaitMs) {
+        await new Promise(res => setTimeout(res, pollIntervalMs));
+        waited += pollIntervalMs;
+
+        try {
+          const stateRes = await axios.get(`${ROBOT_API_URL}/robot/state`, { headers });
+          const moveState = stateRes.data?.data?.moveState;
+
+          console.log(`Move to ${label} - moveState: ${moveState} after ${waited / 1000}s`);
+
+          if (moveState === 'idle') {
+            console.log(`Robot arrived at ${label}`);
+            return { success: true, message: `Arrived at ${label}` };
+          }
+        } catch (error: any) {
+          console.error(`Error checking move state: ${error.message}`);
+          // Continue trying if we get an error checking state
         }
-        
-        // Move succeeded, return data
-        return moveStatus;
       }
-      
-      // Wait before polling again
-      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      throw new Error(`Timeout waiting for move to ${label} to complete`);
+    } catch (err: any) {
+      console.error(`Error moving to ${label}: ${err.message}`);
+      throw err;
     }
   }
   
