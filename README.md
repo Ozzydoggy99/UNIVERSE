@@ -1,6 +1,6 @@
-# Zombie-Themed Robot Management Platform
+# Universal Robot Management Interface
 
-A cutting-edge zombie-themed robotic management platform that combines advanced AI technologies with immersive user interaction for intelligent robot control and survival scenarios.
+An advanced robot management platform designed for real-time control, monitoring, and task assignment of autonomous housekeeping robots using live local APIs.
 
 ## Features
 
