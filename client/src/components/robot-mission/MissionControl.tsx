@@ -12,10 +12,17 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export interface MissionControlProps {
-  shelfPoints: Array<{ id: string; name?: string; description?: string }>;
+  shelfPoints: Array<string> | Array<{ id: string; name?: string; description?: string }>;
 }
 
 export function MissionControl({ shelfPoints }: MissionControlProps) {
+  // Convert shelf points to a consistent format
+  const formattedShelfPoints: Array<{ id: string; name?: string; description?: string }> = 
+    Array.isArray(shelfPoints) 
+      ? (typeof shelfPoints[0] === 'string' 
+          ? shelfPoints.map(id => ({ id: id as string })) 
+          : shelfPoints as Array<{ id: string; name?: string; description?: string }>)
+      : [];
   const [mode, setMode] = useState<"pickup" | "dropoff">("pickup");
   const [selectedShelf, setSelectedShelf] = useState<string>("");
   const { toast } = useToast();
@@ -102,8 +109,8 @@ export function MissionControl({ shelfPoints }: MissionControlProps) {
                 <SelectValue placeholder="Select a shelf" />
               </SelectTrigger>
               <SelectContent>
-                {shelfPoints.length > 0 ? (
-                  shelfPoints.map((point) => (
+                {formattedShelfPoints.length > 0 ? (
+                  formattedShelfPoints.map((point) => (
                     <SelectItem key={point.id} value={point.id}>
                       {point.name || point.description || point.id}
                     </SelectItem>

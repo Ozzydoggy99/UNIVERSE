@@ -1,0 +1,117 @@
+🧩 REPLIT PATCH: Use Proper AutoXing Task API for Pickup/Dropoff
+This patch replaces runMission logic with structured tasks, allowing the robot to:
+
+Go to a point
+
+Perform an action (e.g. load/unload)
+
+Continue to the next step
+
+All managed natively by the robot
+
+📁 1. Replace runMission() in server/backend/mission-runner.ts
+ts
+Copy
+Edit
+import axios from "axios";
+import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
+import { Point } from "../types";
+import { appendLog } from "../debug-log";
+
+const headers = { "x-api-key": ROBOT_SECRET };
+
+export async function runMission({
+  shelfId,
+  uiMode,
+  points
+}: {
+  shelfId: string;
+  uiMode: "pickup" | "dropoff";
+  points: Point[];
+}) {
+  appendLog(`=== New Mission Start ===`);
+  appendLog(`uiMode: ${uiMode}`);
+  appendLog(`Shelf: ${shelfId}`);
+
+  const normalize = (val: string) => String(val).trim().toLowerCase();
+  const find = (id: string) => points.find(p => normalize(p.id) === normalize(id));
+
+  const pickup = find("pick-up");
+  const dropoff = find("drop-off");
+  const standby = find("desk");
+  const shelf = find(shelfId);
+
+  if (!pickup || !dropoff || !standby || !shelf) {
+    throw new Error("❌ Missing one or more required points (pickup, dropoff, shelf, desk)");
+  }
+
+  // Define steps per mode
+  const steps =
+    uiMode === "pickup"
+      ? [
+          { point_id: shelf.id, actions: ["move_to", "load_cargo"] },
+          { point_id: dropoff.id, actions: ["move_to", "unload_cargo"] },
+          { point_id: standby.id, actions: ["move_to"] }
+        ]
+      : [
+          { point_id: standby.id, actions: ["move_to"] },
+          { point_id: pickup.id, actions: ["move_to", "load_cargo"] },
+          { point_id: shelf.id, actions: ["move_to", "unload_cargo"] },
+          { point_id: standby.id, actions: ["move_to"] }
+        ];
+
+  const taskPayload = {
+    name: `Auto-${uiMode}-${shelfId}-${Date.now()}`,
+    steps
+  };
+
+  appendLog(`📦 Sending structured task: ${taskPayload.name}`);
+
+  const createRes = await axios.post(`${ROBOT_API_URL}/tasks`, taskPayload, { headers });
+  const taskId = createRes.data?.id;
+  if (!taskId) throw new Error("❌ Failed to create task");
+
+  const startRes = await axios.post(`${ROBOT_API_URL}/tasks/${taskId}/execute`, null, { headers });
+  appendLog(`🚀 Task ${taskId} started`);
+  return startRes.data;
+}
+📦 2. Confirm Points Exist in /api/mission-points or Hardcoded Source
+Make sure you’re including:
+
+Pick-up
+
+Drop-off
+
+Desk
+
+At least one numeric shelf point like 104, 105, etc.
+
+They must match robot-side point IDs exactly.
+
+🧪 3. Test Mission Flow
+In Replit:
+
+bash
+Copy
+Edit
+curl -X POST http://localhost:5000/api/mission \
+  -H "Content-Type: application/json" \
+  -d '{"uiMode":"pickup", "shelfId":"104"}'
+Check the response and your robot-debug.log.
+
+You should see:
+
+📦 Structured task creation
+
+✅ Acknowledged task ID
+
+🚀 Execution started
+
+✅ Benefits of This Approach
+Feature	Previous	Now (Task API)
+Move Between Points	Manual	Structured
+Pickup/Dropoff Actions	❌ N/A	✅ Defined Steps
+Execution Flow Management	Manual	Native Tasking
+Monitoring Robot Tasks	Indirect	Task-level IDs
+Failure/Error Feedback	None	✅ Structured
+

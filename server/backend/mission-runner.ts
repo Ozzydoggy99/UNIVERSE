@@ -45,77 +45,92 @@ async function waitForArrival(targetX: number, targetY: number) {
 }
 
 export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) {
-  const normalize = (val: string) => String(val).trim().toLowerCase();
+  appendLog(`=== New Mission Start ===`);
+  appendLog(`uiMode: ${uiMode}`);
+  appendLog(`Shelf: ${shelfId}`);
 
   if (!points || points.length === 0) {
     console.log("No points provided, fetching from robot...");
     points = await fetchPoints();
   }
 
-  const pickup = points.find(p => normalize(p.id) === "pick-up");
-  const dropoff = points.find(p => normalize(p.id) === "drop-off");
-  const standby = points.find(p => normalize(p.id) === "desk");
-  const shelf = points.find(p => normalize(p.id) === normalize(shelfId));
+  const normalize = (val: string) => String(val).trim().toLowerCase();
+  const find = (id: string) => points.find(p => normalize(p.id) === normalize(id));
 
+  const pickup = find("pick-up");
+  const dropoff = find("drop-off");
+  const standby = find("desk");
+  const shelf = find(shelfId);
+
+  if (!pickup || !dropoff || !standby || !shelf) {
+    throw new Error("❌ Missing one or more required points (pickup, dropoff, shelf, desk)");
+  }
+
+  // Debug logging
   console.log("MATCHED POINTS:");
   console.log("Shelf: ", shelf?.id, shelf?.x, shelf?.y);
   console.log("Drop-off: ", dropoff?.id, dropoff?.x, dropoff?.y);
   console.log("Pickup: ", pickup?.id, pickup?.x, pickup?.y);
   console.log("Desk: ", standby?.id, standby?.x, standby?.y);
 
-  if (!pickup || !dropoff || !standby || !shelf) {
-    throw new Error("❌ One or more required points (pickup/dropoff/desk/shelf) not found.");
-  }
-
-  appendLog("=== New Mission Start ===");
-  appendLog(`uiMode: ${uiMode}`);
   appendLog(`Shelf: ${shelf?.id} (${shelf?.x}, ${shelf?.y})`);
   appendLog(`Drop-off: ${dropoff?.id} (${dropoff?.x}, ${dropoff?.y})`);
   appendLog(`Pickup: ${pickup?.id} (${pickup?.x}, ${pickup?.y})`);
   appendLog(`Desk: ${standby?.id} (${standby?.x}, ${standby?.y})`);
 
-  const steps: Point[] = [];
+  // Define steps per mode - now using structured task API with actions
+  const steps =
+    uiMode === "pickup"
+      ? [
+          { point_id: shelf.id, actions: ["move_to", "load_cargo"] },
+          { point_id: dropoff.id, actions: ["move_to", "unload_cargo"] },
+          { point_id: standby.id, actions: ["move_to"] }
+        ]
+      : [
+          { point_id: standby.id, actions: ["move_to"] },
+          { point_id: pickup.id, actions: ["move_to", "load_cargo"] },
+          { point_id: shelf.id, actions: ["move_to", "unload_cargo"] },
+          { point_id: standby.id, actions: ["move_to"] }
+        ];
 
-  if (uiMode === "pickup") {
-    steps.push(shelf);
-    steps.push(dropoff);
-  } else {
-    steps.push(standby);
-    steps.push(pickup);
-    steps.push(shelf);
-  }
-
-  steps.push(standby);
-  
-  const executed = [];
-
-  for (const point of steps) {
-    appendLog(`➡️ Sending robot to: ${point.id} (${point.x}, ${point.y})`);
-    
-    try {
-      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-        action: "move_to",
-        target_x: point.x,
-        target_y: point.y,
-      }, {
-        headers: { "x-api-key": ROBOT_SECRET },
-      });
-
-      appendLog(`✅ Move to ${point.id} acknowledged with: ${JSON.stringify(response.data)}`);
-      console.log(`✅ Move to ${point.id} succeeded:`, response.data);
-      executed.push({ to: point.id, result: response.data });
-      
-      await waitForArrival(point.x, point.y);
-      
-    } catch (err: any) {
-      appendLog(`❌ Move failed to ${point.id}: ${err.message}`);
-      throw err;
-    }
-  }
-
-  return {
-    mission: `${uiMode}-${shelfId}-${Date.now()}`,
-    status: "complete",
-    executed,
+  const taskPayload = {
+    name: `Auto-${uiMode}-${shelfId}-${Date.now()}`,
+    steps
   };
+
+  appendLog(`📦 Sending structured task: ${taskPayload.name}`);
+  appendLog(`Steps: ${JSON.stringify(steps)}`);
+
+  try {
+    // Create the task
+    const createRes = await axios.post(
+      `${ROBOT_API_URL}/tasks`, 
+      taskPayload, 
+      { headers: { "x-api-key": ROBOT_SECRET } }
+    );
+    
+    const taskId = createRes.data?.id;
+    if (!taskId) throw new Error("❌ Failed to create task");
+    
+    appendLog(`✅ Task created with ID: ${taskId}`);
+
+    // Execute the task
+    const startRes = await axios.post(
+      `${ROBOT_API_URL}/tasks/${taskId}/execute`,
+      null,
+      { headers: { "x-api-key": ROBOT_SECRET } }
+    );
+    
+    appendLog(`🚀 Task ${taskId} started`);
+
+    return {
+      mission: taskPayload.name,
+      taskId: taskId,
+      status: "started",
+      steps: steps
+    };
+  } catch (err: any) {
+    appendLog(`❌ Task creation/execution failed: ${err.message}`);
+    throw err;
+  }
 }

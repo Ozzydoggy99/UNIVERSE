@@ -35,7 +35,7 @@ const RobotMissionPage: FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
-            <MissionControl shelfPoints={shelfPoints} />
+            <MissionControl shelfPoints={shelfPoints.map(id => ({ id }))} />
           </div>
           <div>
             <Card className="p-6">
