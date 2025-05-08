@@ -47,7 +47,7 @@ async function sendMoveCommand(x: number, y: number): Promise<any> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Secret': ROBOT_SECRET || ''
+        'x-api-key': ROBOT_SECRET || ''
       },
       body: JSON.stringify(moveData),
     });
