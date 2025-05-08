@@ -1,67 +1,40 @@
-// test-local-dropoff.js - Test script for the local dropoff endpoint
+// test-local-dropoff.js
 import axios from 'axios';
 
 async function testLocalDropoff() {
   try {
-    console.log('🤖 Testing local dropoff functionality...');
+    console.log('Testing LOCAL DROPOFF workflow...');
     
-    // Sample data points for testing
-    // In a real scenario, these would be fetched from the robot map or database
-    const testData = {
-      shelf: {
-        id: 'SHELF-101',
-        name: 'Storage Shelf 101',
-        x: 10.5,
-        y: 15.2,
-        ori: 1.57, // ~90 degrees
-        floorId: 'F1'
-      },
-      pickup: {
-        id: 'PICKUP-A',
-        name: 'Pickup Station A',
-        x: 5.8,
-        y: 20.3,
-        ori: 0, 
-        floorId: 'F1'
-      },
-      standby: {
-        id: 'STANDBY-1',
-        name: 'Standby Position 1',
-        x: 3.0,
-        y: 3.0,
-        ori: 0,
-        floorId: 'F1'
-      }
+    // Create a test dropoff mission
+    const testMission = {
+      mode: 'dropoff',
+      shelf: { id: 'dropoff-shelf', x: 15, y: 25, ori: 0 },
+      dropoff: { id: 'dropoff-point', x: 35, y: 45, ori: 0 },
+      standby: { id: 'dropoff-standby', x: 55, y: 65, ori: 0 }
     };
     
-    // Make request to the local dropoff endpoint
-    console.log(`📤 Sending test data: ${JSON.stringify(testData, null, 2)}`);
-    const response = await axios.post('http://localhost:3000/robots/assign-task/local/dropoff', testData, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    console.log('Creating a LOCAL DROPOFF mission...');
+    const response = await axios.post('http://localhost:5000/robots/assign-task/local-dropoff', testMission);
     
-    console.log('✅ Local dropoff test successful!');
-    console.log(`📊 Response: ${JSON.stringify(response.data, null, 2)}`);
-    console.log(`⏱️ Task completed in ${response.data.duration}ms`);
+    console.log('Response:', response.data);
     
+    if (response.data.missionId) {
+      console.log(`Mission created with ID: ${response.data.missionId}`);
+      
+      // Wait a bit and then check mission status
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const missionResponse = await axios.get(`http://localhost:5000/api/missions/${response.data.missionId}`);
+      console.log('Mission status:', JSON.stringify(missionResponse.data, null, 2));
+    }
+    
+    console.log('LOCAL DROPOFF test completed successfully');
   } catch (error) {
-    console.error('❌ Local dropoff test failed:');
+    console.error('Test failed:', error.message);
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error(`📄 Response data: ${JSON.stringify(error.response.data, null, 2)}`);
-      console.error(`🔢 Status code: ${error.response.status}`);
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error('❓ No response received from server');
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error(`🐛 Error: ${error.message}`);
+      console.error('Response data:', error.response.data);
     }
   }
 }
 
-// Execute the test
 testLocalDropoff();
