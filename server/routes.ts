@@ -11,6 +11,7 @@ import { registerRobotMoveApiRoutes } from './robot-move-api';
 import { registerRobotJoystickApiRoutes } from './robot-joystick-api';
 import { registerRobotPointsApiRoutes, debugRobotMapList } from './robot-points-api';
 import { missionRouter } from './mission-routes';
+import { setupRobotWebSocketServer } from './robot-websocket';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -233,6 +234,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Set up WebSocket server for camera control
   setupWebSockets(httpServer);
+  
+  // Set up WebSocket server for robot data
+  setupRobotWebSocketServer(httpServer);
   
   // Create a direct route to serve our static HTML page without relying on Vite
   app.get('/static-map', (req: Request, res: Response) => {

@@ -1,0 +1,110 @@
+🧩 REPLIT PATCH: WebSocket Listener + Admin Debug UI
+📁 1. Create a new client hook
+File: client/src/hooks/use-multi-robot-websockets.ts
+
+ts
+Copy
+Edit
+import { useEffect, useState } from "react";
+
+const channels = [
+  { label: "Pose", url: "ws://localhost:8090/pose" },
+  { label: "Status", url: "ws://localhost:8090/status" },
+  { label: "Log", url: "ws://localhost:8090/log" },
+  { label: "Chassis", url: "ws://localhost:8090/chassis" },
+];
+
+type ChannelState = {
+  status: string;
+  lastMessage: string;
+};
+
+export function useMultiRobotWebSockets() {
+  const [state, setState] = useState<Record<string, ChannelState>>({});
+
+  useEffect(() => {
+    const sockets: Record<string, WebSocket> = {};
+
+    channels.forEach(({ label, url }) => {
+      const ws = new WebSocket(url);
+      sockets[label] = ws;
+
+      setState((prev) => ({
+        ...prev,
+        [label]: { status: "connecting", lastMessage: "" },
+      }));
+
+      ws.onopen = () =>
+        setState((prev) => ({
+          ...prev,
+          [label]: { ...prev[label], status: "connected" },
+        }));
+
+      ws.onclose = () =>
+        setState((prev) => ({
+          ...prev,
+          [label]: { ...prev[label], status: "disconnected" },
+        }));
+
+      ws.onerror = () =>
+        setState((prev) => ({
+          ...prev,
+          [label]: { ...prev[label], status: "error" },
+        }));
+
+      ws.onmessage = (msg) =>
+        setState((prev) => ({
+          ...prev,
+          [label]: { ...prev[label], lastMessage: msg.data },
+        }));
+    });
+
+    return () => {
+      Object.values(sockets).forEach((ws) => ws.close());
+    };
+  }, []);
+
+  return state;
+}
+📄 2. Create Debug UI Page
+File: client/src/pages/ws-debug.tsx
+
+tsx
+Copy
+Edit
+import { useMultiRobotWebSockets } from "@/hooks/use-multi-robot-websockets";
+
+export default function WsDebugPage() {
+  const data = useMultiRobotWebSockets();
+
+  return (
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold">🧠 Robot WebSocket Debug Monitor</h1>
+      {Object.entries(data).map(([label, { status, lastMessage }]) => (
+        <div key={label} className="border p-4 rounded bg-white shadow-md">
+          <div className="text-xl font-semibold">{label}</div>
+          <div className="text-sm">Status: <span className="font-mono">{status}</span></div>
+          <div className="mt-2 p-2 text-sm bg-gray-100 rounded overflow-auto max-h-40 whitespace-pre-wrap">
+            {lastMessage || "Waiting for message..."}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+🔧 3. Add Route to client/src/App.tsx (or wherever routing is defined)
+tsx
+Copy
+Edit
+import WsDebugPage from "@/pages/ws-debug";
+
+// Add this to your router
+<Route path="/admin/ws-debug" element={<WsDebugPage />} />
+✅ What This Gives You
+Live connection status for each robot WebSocket channel
+
+Last message received from each stream
+
+Auto-reconnect logic
+
+Full foundation for building real-time admin tools

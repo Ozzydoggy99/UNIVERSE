@@ -32,6 +32,7 @@ import MyTemplate from "@/pages/my-template";
 import RemoteExecutor from "@/pages/remote-executor";
 import RobotMapsPage from "@/pages/robot-maps-page";
 import RobotMissionPage from "@/pages/robot-mission-page";
+import WsDebugPage from "@/pages/ws-debug";
 import Sidebar, { SidebarProvider, useSidebar } from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -450,6 +451,16 @@ function Router() {
         component={() => (
           <AppLayout>
             <RobotMissionPage />
+          </AppLayout>
+        )} 
+      />
+      
+      {/* WebSocket Debug Page */}
+      <ProtectedRoute 
+        path="/ws-debug" 
+        component={() => (
+          <AppLayout>
+            <WsDebugPage />
           </AppLayout>
         )} 
       />
