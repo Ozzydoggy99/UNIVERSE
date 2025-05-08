@@ -86,12 +86,28 @@ export function validateShelfId(shelfId: string): boolean {
  * Get a list of all available shelf points (excludes special points like pickup/dropoff)
  * @returns Array of shelf points
  */
-export function getShelfPoints(): Point[] {
-  return ROBOT_MAP_POINTS.filter(point => {
-    const id = String(point.id).toLowerCase();
-    return !id.includes("pick") && 
-           !id.includes("drop") && 
-           !id.includes("desk") &&
-           !id.includes("charging");
+export function getShelfPoints(points?: Point[]): Point[] {
+  const pointsToFilter = points || ROBOT_MAP_POINTS;
+  
+  // First implementation: filters out special points by name
+  if (!points) {
+    return pointsToFilter.filter(point => {
+      const id = String(point.id).toLowerCase();
+      return !id.includes("pick") && 
+             !id.includes("drop") && 
+             !id.includes("desk") &&
+             !id.includes("charging");
+    });
+  }
+  
+  // Second implementation (used when points are provided):
+  // Filters and sorts shelf points: any point whose ID is a numeric string
+  const numericPoints = pointsToFilter.filter(point => {
+    const id = String(point.id || "").trim();
+    return /^\d+$/.test(id);
   });
+  
+  // Sort numeric points by their numeric ID
+  numericPoints.sort((a, b) => parseInt(String(a.id)) - parseInt(String(b.id)));
+  return numericPoints;
 }

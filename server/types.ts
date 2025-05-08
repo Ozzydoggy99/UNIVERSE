@@ -10,6 +10,7 @@ export interface Point {
   ori: number;
   floorId?: string;
   description?: string;
+  name?: string; // Added for compatibility with mission-routes.ts
 }
 
 export interface RobotTaskRequest {

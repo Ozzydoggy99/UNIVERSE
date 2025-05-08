@@ -8,7 +8,8 @@ import { setupVite } from './vite';
 import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
-// Deprecated joystick and points APIs have been removed
+// New optimized points API for shelf filtering
+import { registerRobotPointRoutes } from './robot-points-api';
 import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
 function formatError(error: unknown): string {
@@ -32,7 +33,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerRobotMoveApiRoutes(app);
   
   
-  // Deprecated API routes have been removed
+  // Register the new shelf points API
+  registerRobotPointRoutes(app);
   
 
   
