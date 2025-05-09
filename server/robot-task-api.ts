@@ -814,11 +814,15 @@ export function cancelTask(taskId: string): boolean {
     return false;
   }
   
+  // Store original status to check if it was running
+  const wasRunning = (task.status === TaskStatus.RUNNING);
+  
+  // Update task status to cancelled
   task.status = TaskStatus.CANCELLED;
   task.endTime = Date.now();
   
-  // For running tasks, try to stop the robot
-  if (task.status === TaskStatus.RUNNING) {
+  // For tasks that were running, try to stop the robot
+  if (wasRunning) {
     axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() })
       .then(() => {
         logTask(taskId, 'Robot stopped due to task cancellation');
@@ -978,6 +982,29 @@ export function registerTaskApiRoutes(app: express.Express): void {
         success: true,
         taskId,
         message: 'Return to charger task created successfully'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+  
+  // Create a demo move task with coordinates for testing in simulation
+  app.post('/api/robot/tasks/test-move', async (req, res) => {
+    try {
+      // Create a simple move task with specific coordinates for testing
+      const taskId = await createTask(
+        TaskType.MOVE, 
+        'Current Position', 
+        'Test Point (0, 0, 0)'
+      );
+      
+      res.status(201).json({
+        success: true,
+        taskId,
+        message: 'Test move task created successfully'
       });
     } catch (error: any) {
       res.status(500).json({

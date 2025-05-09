@@ -1,0 +1,38 @@
+[
+  {
+    "id": "141bbdb1-362a-4677-a4a6-dc1676e39804",
+    "type": "pickup",
+    "status": "failed",
+    "startPoint": "104_Load",
+    "endPoint": "Drop-off_Load",
+    "startTime": 1746777329586,
+    "currentStep": 1,
+    "totalSteps": 8,
+    "endTime": 1746777335889,
+    "error": "Failed to move to 104_Load_docking"
+  },
+  {
+    "id": "db0c4663-27b9-4753-aa7b-423280f834fd",
+    "type": "move",
+    "status": "failed",
+    "startPoint": "Current Position",
+    "endPoint": "Test Point (0, 0, 0)",
+    "startTime": 1746777382958,
+    "currentStep": 1,
+    "totalSteps": 1,
+    "endTime": 1746777383394,
+    "error": "Failed to move to Test Point"
+  },
+  {
+    "id": "88ee36ad-1ee2-40e9-b3be-6a7870d7a8fb",
+    "type": "pickup",
+    "status": "failed",
+    "startPoint": "104_Load",
+    "endPoint": "Drop-off_Load",
+    "startTime": 1746777552136,
+    "currentStep": 1,
+    "totalSteps": 8,
+    "endTime": 1746777556925,
+    "error": "Failed to move to 104_Load_docking"
+  }
+]
