@@ -3,7 +3,7 @@
 import express, { Request, Response } from 'express';
 import axios from 'axios';
 import { Point } from './types';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 import { 
   getShelfPoints, 
   fetchRobotMapPoints as fetchLiveMapPoints,
@@ -37,7 +37,7 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
       try {
         console.log(`Trying endpoint: ${ROBOT_API_URL}${endpoint}`);
         const testResponse = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
-          headers: { 'x-api-key': ROBOT_SECRET }
+          headers: getAuthHeaders()
         });
         console.log(`✅ Robot API connection test successful with endpoint ${endpoint}: ${JSON.stringify(testResponse.data).substring(0, 100)}...`);
         connected = true;

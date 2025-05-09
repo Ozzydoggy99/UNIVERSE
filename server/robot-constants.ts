@@ -32,6 +32,14 @@ if (!robotSecretFromEnv) {
 }
 export const ROBOT_SECRET = robotSecretFromEnv;
 
+// Get the correct header format for AutoXing API (from documentation)
+export function getAuthHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Secret': ROBOT_SECRET
+  };
+}
+
 // Function to update robot connection URLs
 export function updateRobotConnectionURLs(apiUrl: string, wsUrl: string) {
   ROBOT_API_URL = apiUrl;

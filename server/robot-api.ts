@@ -1,8 +1,9 @@
 import axios from "axios";
-import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL } from "./robot-constants";
+import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from "./robot-constants";
 import { Express, Request, Response } from 'express';
 
-const headers = { "x-api-key": ROBOT_SECRET };
+// Using the correct AutoXing API header format
+const headers = getAuthHeaders();
 
 /**
  * Register all robot-related API routes
@@ -281,10 +282,7 @@ export async function returnToCharger(): Promise<any> {
       };
       
       const taskResponse = await axios.post(`${ROBOT_API_URL}/api/v2/task`, chargingTask, {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ROBOT_SECRET
-        }
+        headers: getAuthHeaders()
       });
       
       console.log('Return to charger command sent successfully via task API');
