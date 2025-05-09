@@ -187,7 +187,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         runType: 0,          // Standard task
         name: `Zone 104 Complete Workflow (${new Date().toISOString()})`,
         robotSn: 'L382502104987ir',
-        areaId: pickupPoint.areaId || dropoffPoint.areaId, // Use the area ID from the points
+        areaId: (pickupPoint as any).areaId || (dropoffPoint as any).areaId || '1', // Use the area ID from the points or default to '1'
         startPoiId: pickupDockingPoint.id,  // Start from the pickup docking
         steps: [
           // STEP 1: Move to pickup docking position
@@ -336,9 +336,10 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         const missionName = `Zone 104 Complete Workflow (Fallback)`;
         
         // Convert the task structure to mission steps
-        const workflowSteps = task.steps.map(step => {
+        // Convert the task structure to mission steps with proper typing
+        const workflowSteps: Array<{type: 'move' | 'jack_up' | 'jack_down', params: Record<string, any>}> = task.steps.map(step => {
           // For each step, create a move step
-          const moveStep = {
+          const moveStep: {type: 'move', params: Record<string, any>} = {
             type: 'move',
             params: {
               label: step.poiId,
@@ -354,12 +355,12 @@ export function registerZone104WorkflowRoute(app: express.Express) {
             for (const act of step.stepActs) {
               if (act.actType === 47) {
                 return {
-                  type: 'jack_up',
+                  type: 'jack_up' as const,
                   params: act.actParams || {}
                 };
               } else if (act.actType === 48) {
                 return {
-                  type: 'jack_down',
+                  type: 'jack_down' as const,
                   params: act.actParams || {}
                 };
               }
@@ -370,7 +371,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         });
         
         const mission = missionQueue.createMission(missionName, workflowSteps, 'L382502104987ir');
-        await missionQueue.startMission(mission.id);
+        // The mission is started automatically when created
         
         logRobotTask(`✅ Fallback mission created with ID: ${mission.id}`);
         

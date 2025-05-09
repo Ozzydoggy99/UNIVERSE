@@ -1983,5 +1983,94 @@
     "createdAt": "2025-05-09T04:39:48.392Z",
     "updatedAt": "2025-05-09T04:43:30.749Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1746766179942_9wm8d6m",
+    "name": "Zone 104 Complete Workflow (Fallback)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "label": "104_Load_docking",
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking completed successfully",
+          "moveId": 4299
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "label": "104_Load",
+          "x": -16.253106853127974,
+          "y": 6.419632917129547,
+          "ori": 0
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "label": "Drop-off_Load_docking",
+          "x": -2.3143658339108697,
+          "y": 2.543396298051448,
+          "ori": 177.73
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "label": "Drop-off_Load",
+          "x": -3.067094531843395,
+          "y": 2.5788015960870325,
+          "ori": 0
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "label": "Desk",
+          "x": 0.09001154779753051,
+          "y": 4.615265033436344,
+          "ori": 0
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "in_progress",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-09T04:49:39.942Z",
+    "updatedAt": "2025-05-09T04:50:27.240Z",
+    "robotSn": "L382502104987ir"
   }
 ]
