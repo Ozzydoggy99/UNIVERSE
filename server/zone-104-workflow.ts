@@ -235,6 +235,10 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           logRobotTask(`- Step ${i+1}: JACK DOWN with safety wait: ${step.params.waitComplete}`);
         } else if (step.type === 'manual_joystick') {
           logRobotTask(`- Step ${i+1}: ${step.params.label} (${step.params.linear.x}, ${step.params.linear.y}) for ${step.params.duration}ms`);
+        } else if (step.type === 'align_with_rack') {
+          logRobotTask(`- Step ${i+1}: ALIGN WITH RACK at ${step.params.label} (${step.params.x}, ${step.params.y})`);
+        } else if (step.type === 'to_unload_point') {
+          logRobotTask(`- Step ${i+1}: TO UNLOAD POINT at ${step.params.label} (${step.params.x}, ${step.params.y})`);
         }
       }
       

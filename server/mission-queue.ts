@@ -229,6 +229,20 @@ export class MissionQueueManager {
             await this.verifyRobotStopped('manual_joystick');
             // Execute the joystick command
             stepResult = await this.executeManualJoystickStep(step.params);
+          } else if (step.type === 'align_with_rack') {
+            console.log(`⚠️ RACK OPERATION: Aligning with rack at ${step.params.label || `(${step.params.x}, ${step.params.y})`}`);
+            // Execute the align with rack move - this is a special move type for shelf/rack pickup
+            stepResult = await this.executeAlignWithRackStep(step.params);
+            console.log(`Rack alignment operation complete with result: ${JSON.stringify(stepResult)}`);
+            
+            // Verify alignment is complete
+            const isAlignComplete = await this.checkMoveStatus();
+            console.log(`Final alignment status check: ${isAlignComplete ? 'COMPLETE' : 'STILL MOVING'}`);
+          } else if (step.type === 'to_unload_point') {
+            console.log(`⚠️ RACK OPERATION: Moving to unload point at ${step.params.label || `(${step.params.x}, ${step.params.y})`}`);
+            // Execute the unload point move
+            stepResult = await this.executeToUnloadPointStep(step.params);
+            console.log(`Move to unload point complete with result: ${JSON.stringify(stepResult)}`);
           }
           
           // Successfully completed step
@@ -959,6 +973,241 @@ export class MissionQueueManager {
       m.status === 'pending' || m.status === 'in_progress'
     );
     this.saveMissionsToDisk();
+  }
+  
+  /**
+   * Execute an align_with_rack move step - special move type for picking up a rack/shelf
+   * This follows the documented AutoXing API for proper rack pickup sequence
+   */
+  private async executeAlignWithRackStep(params: any): Promise<any> {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [ALIGN-RACK] ⚠️ Executing align with rack operation`);
+    
+    try {
+      // Stop robot first for safety
+      try {
+        await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers });
+        console.log(`[${timestamp}] [ALIGN-RACK] ✅ Stopped robot before align with rack`);
+      } catch (error: any) {
+        console.log(`[${timestamp}] [ALIGN-RACK] Warning: Failed to stop robot: ${error.message}`);
+      }
+      
+      // Wait for stabilization
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Create a move with type=align_with_rack
+      const moveCommand = {
+        creator: 'robot-api',
+        type: 'align_with_rack', // Special move type for rack pickup
+        target_x: params.x,
+        target_y: params.y,
+        target_ori: params.ori
+      };
+      
+      console.log(`[${timestamp}] [ALIGN-RACK] Creating align_with_rack move: ${JSON.stringify(moveCommand)}`);
+      
+      // Send the move command to align with rack
+      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, { headers });
+      
+      if (!response.data || !response.data.id) {
+        throw new Error('Failed to create align_with_rack move - invalid response');
+      }
+      
+      const moveId = response.data.id;
+      console.log(`[${timestamp}] [ALIGN-RACK] Robot align_with_rack command sent - move ID: ${moveId}`);
+      
+      // Wait for movement to complete (with timeout)
+      await this.waitForMoveComplete(moveId, 120000); // Longer timeout for rack alignment (2 minutes)
+      
+      // Add final safety check
+      const isMoveComplete = await this.checkMoveStatus();
+      if (!isMoveComplete) {
+        console.log(`[${timestamp}] [ALIGN-RACK] ⚠️ WARNING: Robot might still be moving after align_with_rack operation`);
+        // Add additional wait time
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      
+      console.log(`[${timestamp}] [ALIGN-RACK] ✅ Align with rack completed successfully`);
+      return { success: true, moveId, message: 'Align with rack completed successfully' };
+      
+    } catch (error: any) {
+      console.error(`[${timestamp}] [ALIGN-RACK] ❌ ERROR during align_with_rack operation: ${error.message}`);
+      
+      // Handle specific error cases
+      if (error.response) {
+        console.error(`[${timestamp}] [ALIGN-RACK] Response error details:`, error.response.data);
+        
+        if (error.response.status === 404) {
+          throw new Error('Robot API align_with_rack endpoint not available');
+        }
+        
+        // Handle failure reasons like rack detection issues
+        if (error.response.status === 500) {
+          const errorMsg = error.response.data?.message || error.response.data?.error || 'Internal Server Error';
+          if (errorMsg.includes('RackDetectionError') || errorMsg.includes('rack')) {
+            throw new Error(`Rack detection failed: ${errorMsg}`);
+          }
+          if (errorMsg.includes('emergency') || errorMsg.includes('e-stop')) {
+            throw new Error('Emergency stop detected during rack alignment');
+          }
+        }
+      }
+      
+      throw new Error(`Failed to align with rack: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Execute a to_unload_point move step
+   * Used after jack_up to move a rack to the unload destination
+   */
+  private async executeToUnloadPointStep(params: any): Promise<any> {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ Executing move to unload point`);
+    
+    try {
+      // Create a move with type=to_unload_point
+      const moveCommand = {
+        creator: 'robot-api',
+        type: 'to_unload_point', // Special move type for rack unloading
+        target_x: params.x,
+        target_y: params.y,
+        target_ori: params.ori
+      };
+      
+      console.log(`[${timestamp}] [TO-UNLOAD] Creating to_unload_point move: ${JSON.stringify(moveCommand)}`);
+      
+      // Send the move command to go to unload point
+      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, { headers });
+      
+      if (!response.data || !response.data.id) {
+        throw new Error('Failed to create to_unload_point move - invalid response');
+      }
+      
+      const moveId = response.data.id;
+      console.log(`[${timestamp}] [TO-UNLOAD] Robot to_unload_point command sent - move ID: ${moveId}`);
+      
+      // Wait for movement to complete
+      await this.waitForMoveComplete(moveId, 120000); // 2 minute timeout
+      
+      // Verify movement is complete
+      const isMoveComplete = await this.checkMoveStatus();
+      if (!isMoveComplete) {
+        console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ WARNING: Robot might still be moving after to_unload_point operation`);
+        // Add additional wait time
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      
+      console.log(`[${timestamp}] [TO-UNLOAD] ✅ Move to unload point completed successfully`);
+      return { success: true, moveId, message: 'Move to unload point completed successfully' };
+      
+    } catch (error: any) {
+      console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR during to_unload_point operation: ${error.message}`);
+      
+      if (error.response) {
+        console.error(`[${timestamp}] [TO-UNLOAD] Response error details:`, error.response.data);
+        
+        if (error.response.status === 404) {
+          throw new Error('Robot API to_unload_point endpoint not available');
+        }
+        
+        // Handle specific unload errors
+        if (error.response.status === 500) {
+          const errorMsg = error.response.data?.message || error.response.data?.error || 'Internal Server Error';
+          if (errorMsg.includes('UnloadPointOccupied')) {
+            throw new Error('Unload point is occupied, cannot complete operation');
+          }
+          if (errorMsg.includes('emergency')) {
+            throw new Error('Emergency stop detected during unload point movement');
+          }
+        }
+      }
+      
+      throw new Error(`Failed to move to unload point: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Execute a manual joystick command
+   * Used for precise movements like backing up slightly
+   */
+  private async executeManualJoystickStep(params: any): Promise<any> {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [JOYSTICK] ⚠️ Executing manual joystick movement: ${params.label || 'Unlabeled movement'}`);
+    
+    try {
+      // Ensure robot is stopped first
+      try {
+        await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers });
+        console.log(`[${timestamp}] [JOYSTICK] ✅ Robot stopped before joystick command`);
+      } catch (stopError: any) {
+        console.log(`[${timestamp}] [JOYSTICK] Warning: Failed to send stop command: ${stopError.message}`);
+      }
+      
+      // Allow stabilization time
+      const stabilizationTime = params.stabilizationTime || 2000;
+      console.log(`[${timestamp}] [JOYSTICK] Waiting ${stabilizationTime}ms for stabilization...`);
+      await new Promise(resolve => setTimeout(resolve, stabilizationTime));
+      
+      // Construct joystick command
+      const joystickCommand = {
+        action: params.action || "joystick",
+        linear: params.linear || { x: 0.0, y: 0.0, z: 0.0 },
+        angular: params.angular || { x: 0.0, y: 0.0, z: 0.0 }
+      };
+      
+      console.log(`[${timestamp}] [JOYSTICK] Sending joystick command: ${JSON.stringify(joystickCommand)}`);
+      
+      // Send the joystick command to the robot
+      const response = await axios.post(`${ROBOT_API_URL}/chassis/joystick`, joystickCommand, { headers });
+      console.log(`[${timestamp}] [JOYSTICK] Joystick command sent successfully`);
+      
+      // Wait for the specified duration
+      const duration = params.duration || 1000;
+      console.log(`[${timestamp}] [JOYSTICK] Waiting ${duration}ms for movement to complete...`);
+      await new Promise(resolve => setTimeout(resolve, duration));
+      
+      // Send stop command to halt movement
+      try {
+        await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers });
+        console.log(`[${timestamp}] [JOYSTICK] ✅ Stop command sent after joystick movement`);
+      } catch (stopError: any) {
+        console.log(`[${timestamp}] [JOYSTICK] Warning: Failed to send stop command: ${stopError.message}`);
+      }
+      
+      // Wait for final stabilization
+      const finalStabilizationTime = params.finalStabilizationTime || stabilizationTime;
+      console.log(`[${timestamp}] [JOYSTICK] Waiting ${finalStabilizationTime}ms for final stabilization...`);
+      await new Promise(resolve => setTimeout(resolve, finalStabilizationTime));
+      
+      console.log(`[${timestamp}] [JOYSTICK] ✅ Manual joystick movement completed successfully`);
+      return { success: true, message: `Manual joystick ${params.label} completed successfully` };
+      
+    } catch (error: any) {
+      console.error(`[${timestamp}] [JOYSTICK] ❌ ERROR during joystick operation: ${error.message}`);
+      
+      // Check for specific API errors
+      if (error.response) {
+        console.error(`[${timestamp}] [JOYSTICK] Response error details:`, error.response.data);
+        
+        // Check for 404 errors (endpoint not found)
+        if (error.response.status === 404) {
+          console.error(`[${timestamp}] [JOYSTICK] ❌ Joystick command failed: Endpoint not found`);
+          throw new Error(`Failed to send joystick command: Not Found`);
+        }
+        
+        // Handle emergency stop or other robot errors
+        if (error.response.status === 500) {
+          const errorMsg = error.response.data?.message || error.response.data?.error || 'Internal Server Error';
+          if (errorMsg.includes('emergency') || errorMsg.includes('e-stop')) {
+            console.error(`[${timestamp}] [JOYSTICK] ❌ EMERGENCY STOP DETECTED: Robot in emergency stop state`);
+            throw new Error(`Emergency stop detected: Cannot perform joystick operation`);
+          }
+        }
+      }
+      
+      throw new Error(`Failed to execute joystick command: ${error.message}`);
+    }
   }
 }
 
