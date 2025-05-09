@@ -25,6 +25,8 @@ import { registerZone104WorkflowRoute } from './zone-104-workflow';
 import { registerZone104WorkflowHandler } from './zone-104-workflow-new-complete';
 // Fixed implementation with proper error handling
 import { registerZone104WorkflowHandler as registerFixedWorkflowHandler } from './zone-104-workflow-fixed';
+// Specific workflow for picking up at pickup point and dropping at 104
+import { registerPickupTo104WorkflowRoute } from './pickup-to-104-workflow';
 // Direct charger docking implementation for testing
 import { registerChargerDockingRoutes } from './charger-docking';
 import { registerBinStatusRoutes } from './bin-status-routes';
