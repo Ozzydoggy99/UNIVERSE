@@ -209,53 +209,21 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         logRobotTask(`- Standby: ${standbyPoint.id} at (${standbyPoint.x}, ${standbyPoint.y}), orientation: ${standbyPoint.ori}`);
       }
       
-      // Check for bin presence first to determine if workflow should continue
-      let skipToStandby = false;
+      // NO PRE-CHECKING OF BIN STATUS
+      // We will follow the exact sequence and check bin status during execution
+      
+      logRobotTask(`✨ IMPORTANT: Using the correct sequential workflow with sequential checking`);
+      logRobotTask(`✨ Following exact sequence with no pre-checks:`);
+      logRobotTask(`  1. Go to ${pickupPoint.id}_docking first`);
+      logRobotTask(`  2. Once there, check for bin at ${pickupPoint.id}`);
+      logRobotTask(`  3. If bin present, go to ${pickupPoint.id} and jack up`);
+      logRobotTask(`  4. Go to ${dropoffPoint.id}_docking position`);
+      logRobotTask(`  5. Once there, check for bin at ${dropoffPoint.id}`);
+      logRobotTask(`  6. If clear, go to ${dropoffPoint.id} and jack down`);
+      logRobotTask(`  7. Return to standby position: ${standbyPoint?.id || 'Default'}`);
+      
+      // No pre-detection of bins or pre-planning of workflow cancellation
       let cancelWorkflow = false;
-      let reasonMessage = '';
-      
-      try {
-        const binAtPickup = await checkForBin(pickupPoint.x, pickupPoint.y, pickupPoint.id);
-        logRobotTask(`Bin detection at pickup point ${pickupPoint.id}: ${binAtPickup ? '✅ BIN PRESENT' : '❌ NO BIN'}`);
-        
-        if (!binAtPickup) {
-          skipToStandby = true;
-          reasonMessage = 'No bin detected at pickup location';
-          logRobotTask(`⚠️ WARNING: No bin detected at pickup location (${pickupPoint.id}). Will skip pickup and go to standby.`);
-        }
-        
-        const binAtDropoff = await checkForBin(dropoffPoint.x, dropoffPoint.y, dropoffPoint.id);
-        logRobotTask(`Bin detection at dropoff point ${dropoffPoint.id}: ${binAtDropoff ? '⚠️ BIN PRESENT (OCCUPIED)' : '✅ NO BIN (CLEAR)'}`);
-        
-        if (binAtDropoff) {
-          logRobotTask(`⚠️ WARNING: Dropoff location (${dropoffPoint.id}) is already occupied. Cannot deliver bin here.`);
-          reasonMessage = 'Dropoff location already occupied';
-          
-          // If we have a bin to pickup but nowhere to put it, cancel the workflow
-          if (binAtPickup) {
-            cancelWorkflow = true;
-            logRobotTask(`❌ WORKFLOW ABORTED: Pickup has bin but dropoff is occupied. Cannot complete workflow.`);
-          } else {
-            skipToStandby = true;
-            logRobotTask(`ℹ️ No action needed: No bin at pickup and dropoff is occupied. Going to standby.`);
-          }
-        }
-      } catch (error: any) {
-        logRobotTask(`⚠️ Error during bin detection: ${error.message}. Will continue with planned workflow.`);
-      }
-      
-      // If workflow should be canceled based on bin detection
-      if (cancelWorkflow) {
-        return res.status(409).json({
-          success: false,
-          message: 'Workflow cannot be completed',
-          reason: reasonMessage,
-          details: {
-            binAtPickup: true,
-            binAtDropoff: true
-          }
-        });
-      }
       
       // After bin detection is complete, create the mission steps based on detection results
       // For type safety with MissionStep
@@ -291,7 +259,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       const workflowSteps: MissionStep[] = [];
       
       // STEP 1: ALWAYS go to pickup docking position first
-      logRobotTask(`🔄 WORKFLOW STEP 1: Go to docking position at ${pickupPoint.id}_docking`);
+      logRobotTask(`🔄 [${new Date().toISOString()}] STEP 1/7: FIRST going to docking position at ${pickupPoint.id}_docking`);
       workflowSteps.push({
         type: 'move',
         params: {
@@ -304,14 +272,14 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       
       // STEP 2: Check for bin at pickup location
       // This is only a detection step, we'll check later in the workflow execution
-      logRobotTask(`🔍 WORKFLOW STEP 2: At docking position, checking for bin at ${pickupPoint.id}`);
+      logRobotTask(`🔍 [${new Date().toISOString()}] STEP 2/7: After arrival, checking for bin at ${pickupPoint.id}`);
       const binAtPickup = await checkForBin(pickupPoint.x, pickupPoint.y, pickupPoint.id);
       
       if (binAtPickup) {
-        logRobotTask(`✅ Bin detected at ${pickupPoint.id} - will proceed with pickup sequence`);
+        logRobotTask(`✅ [${new Date().toISOString()}] VERIFICATION: Bin detected at ${pickupPoint.id} - proceeding with pickup`);
         
         // STEP 3: Go under bin for pickup
-        logRobotTask(`🔄 WORKFLOW STEP 3: Moving under bin at ${pickupPoint.id} for pickup`);
+        logRobotTask(`🔄 [${new Date().toISOString()}] STEP 3/7: Moving under bin at ${pickupPoint.id} for pickup`);
         workflowSteps.push({
           type: 'move',
           params: {
@@ -323,14 +291,14 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         });
         
         // STEP 4: Jack up to grab bin
-        logRobotTask(`⬆️ WORKFLOW STEP 4: Jacking up to grab bin at ${pickupPoint.id}`);
+        logRobotTask(`⬆️ [${new Date().toISOString()}] STEP 4/7: Jacking up to grab bin at ${pickupPoint.id}`);
         workflowSteps.push({
           type: 'jack_up',
           params: {}
         } as JackStep);
         
-        // STEP 5: ALWAYS go to dropoff docking position next
-        logRobotTask(`🔄 WORKFLOW STEP 5: Moving to ${dropoffPoint.id}_docking`);
+        // STEP 5: ALWAYS go to dropoff docking position next - THIS IS THE CRITICAL SEQUENCE POINT
+        logRobotTask(`🔄 [${new Date().toISOString()}] STEP 5/7: IMPORTANT - FIRST going to ${dropoffPoint.id}_docking position`);
         workflowSteps.push({
           type: 'move',
           params: {
@@ -342,14 +310,14 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         });
         
         // STEP 6: Check for bin at dropoff location
-        logRobotTask(`🔍 WORKFLOW STEP 6: At docking position, checking for bin at ${dropoffPoint.id}`);
+        logRobotTask(`🔍 [${new Date().toISOString()}] STEP 6/7: After arrival at docking, checking for bin at ${dropoffPoint.id}`);
         const binAtDropoff = await checkForBin(dropoffPoint.x, dropoffPoint.y, dropoffPoint.id);
         
         if (!binAtDropoff) {
-          logRobotTask(`✅ Dropoff at ${dropoffPoint.id} is clear - will proceed with dropoff sequence`);
+          logRobotTask(`✅ [${new Date().toISOString()}] VERIFICATION: Dropoff at ${dropoffPoint.id} is clear - proceeding with dropoff`);
           
-          // STEP 7: Move to dropoff position
-          logRobotTask(`🔄 WORKFLOW STEP 7: Moving to exact position at ${dropoffPoint.id} for dropoff`);
+          // STEP 7: ONLY AFTER CHECKING - Move to dropoff position
+          logRobotTask(`🔄 [${new Date().toISOString()}] STEP 7/7: AFTER checking and confirming clear, moving to exact position at ${dropoffPoint.id}`);
           workflowSteps.push({
             type: 'move',
             params: {
@@ -361,20 +329,20 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           });
           
           // STEP 8: Jack down to release bin
-          logRobotTask(`⬇️ WORKFLOW STEP 8: Jacking down to release bin at ${dropoffPoint.id}`);
+          logRobotTask(`⬇️ [${new Date().toISOString()}] FINAL ACTION: Jacking down to release bin at ${dropoffPoint.id}`);
           workflowSteps.push({
             type: 'jack_down',
             params: {}
           } as JackStep);
         } else {
-          logRobotTask(`⚠️ Dropoff at ${dropoffPoint.id} is occupied - skipping dropoff sequence`);
+          logRobotTask(`⚠️ [${new Date().toISOString()}] WARNING: Dropoff at ${dropoffPoint.id} is occupied - skipping dropoff sequence`);
         }
       } else {
-        logRobotTask(`⚠️ No bin detected at ${pickupPoint.id} - skipping pickup sequence`);
+        logRobotTask(`⚠️ [${new Date().toISOString()}] WARNING: No bin detected at ${pickupPoint.id} - skipping pickup sequence`);
       }
       
       // Final step: Return to standby position
-      logRobotTask(`🔄 WORKFLOW FINAL STEP: Returning to standby position`);
+      logRobotTask(`🔄 [${new Date().toISOString()}] CLEANUP: Returning to standby position`);
       workflowSteps.push({
         type: 'move',
         params: {
