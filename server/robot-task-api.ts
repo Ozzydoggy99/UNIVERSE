@@ -1,7 +1,7 @@
 // server/robot-task-api.ts
 import express, { Request, Response } from 'express';
 import fetch from 'node-fetch';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 import { Point } from './types';
 
 interface TaskRequest {
@@ -46,8 +46,8 @@ async function sendMoveCommand(x: number, y: number): Promise<any> {
     const response = await fetch(`${ROBOT_API_URL}/chassis/moves`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ROBOT_SECRET || ''
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json' 
       },
       body: JSON.stringify(moveData),
     });
@@ -80,7 +80,7 @@ async function waitForMoveComplete(timeout = 60000): Promise<void> {
       // Check the current move status
       const response = await fetch(`${ROBOT_API_URL}/chassis/moves/current`, {
         headers: {
-          'x-api-key': ROBOT_SECRET || '',
+          ...getAuthHeaders(),
           'Content-Type': 'application/json'
         }
       });
@@ -130,7 +130,7 @@ export function registerRobotTaskRoutes(app: express.Express) {
       
       const response = await fetch(`${ROBOT_API_URL}/tasks/queryBySn?sn=${sn}`, {
         headers: {
-          'x-api-key': ROBOT_SECRET || '',
+          ...getAuthHeaders(),
           'Content-Type': 'application/json'
         }
       });
@@ -227,7 +227,7 @@ export function registerRobotTaskRoutes(app: express.Express) {
       // Find the charging station through the robot's points API
       const pointsResponse = await fetch(`${ROBOT_API_URL}/points`, {
         headers: {
-          'x-api-key': ROBOT_SECRET || '',
+          ...getAuthHeaders(),
           'Content-Type': 'application/json'
         }
       });

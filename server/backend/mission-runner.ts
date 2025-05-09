@@ -1,11 +1,12 @@
 // FINAL PATCH: Clean mission-runner.ts using real robot task polling (no timers)
 
 import axios from "axios";
-import { ROBOT_API_URL, ROBOT_SECRET } from "../robot-constants";
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from "../robot-constants";
 import { Point } from "../types";
 import { appendLog } from "../debug-log";
 
-const headers = { "x-api-key": ROBOT_SECRET };
+// Using correct AutoXing API authentication format
+const headers = getAuthHeaders();
 
 interface RobotTaskRequest {
   shelfId: string;
