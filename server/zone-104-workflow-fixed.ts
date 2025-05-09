@@ -967,19 +967,22 @@ async function executeZone104Workflow(): Promise<any> {
               logWorkflow(`⚠️ FULL ERROR DETAILS: ${fullResponse}`);
               
               // Log additional status checks to identify any issues with robot state
+              // Get diagnostic information about jack state
               try {
                 axios.get(`${ROBOT_API_URL}/jack_state`, { headers: getHeaders() })
                   .then(jackRes => {
                     logWorkflow(`⚠️ DIAGNOSTIC: Jack state during failure: ${JSON.stringify(jackRes.data)}`);
                   })
-                  .catch(jackErr => {
+                  .catch((jackErr: Error) => {
                     logWorkflow(`⚠️ DIAGNOSTIC: Could not check jack state: ${jackErr.message}`);
                   });
-              } catch (diagErr) {
+              } catch (error) {
+                const diagErr = error as Error;
                 logWorkflow(`⚠️ DIAGNOSTIC: Error checking diagnostics: ${diagErr.message}`);
               }
             }
-            throw new Error(`Align with rack for dropoff failed or was cancelled. Status: ${moveStatus} Reason: ${failReason}`);
+            const errorReason = statusResponse.data.fail_reason_str || 'Unknown failure';
+            throw new Error(`Align with rack for dropoff failed or was cancelled. Status: ${moveStatus} Reason: ${errorReason}`);
           } else {
             logWorkflow(`Still aligning for dropoff (move ID: ${moveId}), waiting...`);
           }
