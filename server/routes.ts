@@ -29,6 +29,7 @@ import { registerZone104WorkflowHandler as registerFixedWorkflowHandler } from '
 import { registerChargerDockingRoutes } from './charger-docking';
 import { registerBinStatusRoutes } from './bin-status-routes';
 import { registerTaskApiRoutes } from './robot-task-api';
+import { registerDynamicWorkflowRoutes } from './dynamic-workflow';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -83,6 +84,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register the new Task API for unified robot task management
   registerTaskApiRoutes(app);
+  
+  // Register the dynamic workflow system for multi-floor robot operations
+  registerDynamicWorkflowRoutes(app);
   
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
