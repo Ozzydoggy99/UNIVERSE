@@ -571,9 +571,9 @@ export class MissionQueueManager {
       // Send the jack up command
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
       
-      // IMPORTANT: Wait for the jack operation to complete (takes ~7 seconds)
-      console.log("Jack up operation started, waiting 7 seconds for completion...");
-      await new Promise(resolve => setTimeout(resolve, 7000));
+      // IMPORTANT: Wait longer for the jack operation to complete (takes ~10 seconds to be safe)
+      console.log("Jack up operation started, waiting 10 seconds for complete stability...");
+      await new Promise(resolve => setTimeout(resolve, 10000));
       
       // Verify the operation completed successfully
       try {
@@ -661,9 +661,9 @@ export class MissionQueueManager {
       // Send the jack down command
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
       
-      // IMPORTANT: Wait for the jack operation to complete (takes ~7 seconds)
-      console.log("Jack down operation started, waiting 7 seconds for completion...");
-      await new Promise(resolve => setTimeout(resolve, 7000));
+      // IMPORTANT: Wait longer for the jack operation to complete (takes ~10 seconds to be safe)
+      console.log("Jack down operation started, waiting 10 seconds for complete stability...");
+      await new Promise(resolve => setTimeout(resolve, 10000));
       
       // Verify the operation completed successfully
       try {
