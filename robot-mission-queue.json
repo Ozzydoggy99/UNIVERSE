@@ -3288,5 +3288,40 @@
     "createdAt": "2025-05-09T07:14:09.058Z",
     "updatedAt": "2025-05-09T07:16:52.236Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1746776482067_yhmy8ua",
+    "name": "Return to Charger - HIGH PRIORITY",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 0.10227969754721469,
+          "y": 1.4958278044241498,
+          "ori": 266.11,
+          "label": "docking point for charger"
+        },
+        "completed": false,
+        "retryCount": 0,
+        "errorMessage": "Robot failed to complete movement - still moving after operation should be complete"
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 0.03443853667262486,
+          "y": 0.4981316698765672,
+          "ori": 266.11,
+          "label": "charger point",
+          "isCharger": true
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-09T07:41:22.068Z",
+    "updatedAt": "2025-05-09T07:42:36.197Z",
+    "robotSn": "L382502104987ir"
   }
 ]
