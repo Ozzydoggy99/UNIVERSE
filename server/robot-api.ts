@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ROBOT_API_URL, ROBOT_SECRET } from "./robot-constants";
+import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL } from "./robot-constants";
 import { Express, Request, Response } from 'express';
 
 const headers = { "x-api-key": ROBOT_SECRET };
@@ -236,5 +236,116 @@ export async function isEmergencyStopPressed(): Promise<boolean> {
     // Instead of throwing, return false as default to allow operations to continue
     console.log('Defaulting to emergency stop not pressed to allow operations to continue');
     return false;
+  }
+}
+
+/**
+ * Send the robot back to its charging station
+ * @returns Promise resolving to operation result
+ */
+export async function returnToCharger(): Promise<any> {
+  try {
+    console.log(`Sending robot ${ROBOT_SERIAL} back to charging station...`);
+    
+    // First try the dedicated return to charger endpoint if available
+    try {
+      const response = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { headers });
+      console.log('Return to charger command sent successfully via services endpoint');
+      return {
+        success: true,
+        message: 'Return to charger command sent successfully',
+        response: response.data
+      };
+    } catch (serviceError: any) {
+      // If service endpoint fails, log the error but continue with fallback methods
+      console.log('Error using services/return_to_charger endpoint:', serviceError.message);
+      console.log('Trying alternative method...');
+      
+      if (serviceError.response && serviceError.response.status === 404) {
+        // If endpoint doesn't exist, this is expected - try next method
+      } else {
+        // For unexpected errors, still try the next method but log the detailed error
+        console.log('Unexpected error from return_to_charger service:', serviceError);
+      }
+    }
+    
+    // Try the task API method to create a charging task
+    try {
+      // Create a task with runType 25 (charging) as per documentation
+      const chargingTask = {
+        runType: 25, // Charging task type
+        name: `Return to Charger (${new Date().toISOString()})`,
+        robotSn: ROBOT_SERIAL,
+        taskPriority: 10, // High priority for charging
+        isLoop: false
+      };
+      
+      const taskResponse = await axios.post(`${ROBOT_API_URL}/api/v2/task`, chargingTask, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ROBOT_SECRET
+        }
+      });
+      
+      console.log('Return to charger command sent successfully via task API');
+      return {
+        success: true,
+        message: 'Created charging task via task API',
+        taskId: taskResponse.data.id || taskResponse.data.taskId,
+        response: taskResponse.data
+      };
+    } catch (taskError: any) {
+      // If task API fails, log the error and try the last fallback method
+      console.log('Error creating charging task:', taskError.message);
+      
+      if (taskError.response && taskError.response.data) {
+        console.log('Task API error response:', taskError.response.data);
+      }
+      
+      // Fall back to just finding the charger point and moving there
+      try {
+        const mapsResponse = await fetchMaps();
+        const maps = mapsResponse.data;
+        
+        if (maps && maps.length > 0) {
+          // Use the first map by default
+          const mapId = maps[0].id || maps[0].uid;
+          
+          const pointsResponse = await fetchMapPoints(mapId);
+          const points = pointsResponse.data;
+          
+          // Find the charger point
+          const chargerPoint = points.find((p: any) => 
+            p.id === 'charger' || 
+            p.id === 'Charger' || 
+            (p.id && p.id.toLowerCase().includes('charg'))
+          );
+          
+          if (chargerPoint) {
+            console.log(`Found charger point at (${chargerPoint.x}, ${chargerPoint.y})`);
+            
+            // Move to the charger point
+            const moveResponse = await moveToPoint(chargerPoint.x, chargerPoint.y);
+            
+            return {
+              success: true,
+              message: 'Moving to charger point via move command (fallback method)',
+              moveId: moveResponse.data.id,
+              response: moveResponse.data
+            };
+          } else {
+            throw new Error('Could not find charger point in map data');
+          }
+        } else {
+          throw new Error('No maps found');
+        }
+      } catch (moveError: any) {
+        console.log('All return to charger methods failed:', moveError.message);
+        throw new Error(`Failed to return robot to charger: ${moveError.message}`);
+      }
+    }
+  } catch (error: any) {
+    console.error('Error in returnToCharger function:', error);
+    throw error;
   }
 }
