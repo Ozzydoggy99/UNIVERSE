@@ -298,3 +298,31 @@
 [2025-05-09T00:05:15.161Z] Starting mission monitoring for ID: mission_1746749115141_g7a3ln0
 [2025-05-09T00:05:15.166Z] Mission progress: 0/5 steps completed
 [2025-05-09T00:05:20.172Z] Mission progress: 0/5 steps completed
+[2025-05-09T00:14:33.058Z] 🤖 Sending robot to pick up bin from zone 104 and deliver to Drop-off point...
+[2025-05-09T00:14:33.061Z] Attempting to use endpoint with /api prefix...
+[2025-05-09T00:14:34.474Z] ✅ Task sent successfully!
+[2025-05-09T00:14:34.474Z] {
+  "success": true,
+  "message": "Local pickup task started with full bin operations.",
+  "missionId": "mission_1746749674461_sxblc6u",
+  "charging": false,
+  "duration": 1366
+}
+[2025-05-09T00:14:34.475Z] 📊 Tracking mission ID: mission_1746749674461_sxblc6u...
+[2025-05-09T00:14:34.476Z] Starting mission monitoring for ID: mission_1746749674461_sxblc6u
+[2025-05-09T00:14:34.482Z] Mission progress: 0/5 steps completed
+[2025-05-09T00:14:39.490Z] Mission progress: 0/5 steps completed
+[2025-05-09T00:16:09.060Z] 🤖 Sending robot to pick up bin from zone 104 and deliver to Drop-off point...
+[2025-05-09T00:16:09.064Z] Attempting to use endpoint with /api prefix...
+[2025-05-09T00:16:10.533Z] ✅ Task sent successfully!
+[2025-05-09T00:16:10.533Z] {
+  "success": true,
+  "message": "Local pickup task started with full bin operations.",
+  "missionId": "mission_1746749770520_01ohdmf",
+  "charging": false,
+  "duration": 1392
+}
+[2025-05-09T00:16:10.534Z] 📊 Tracking mission ID: mission_1746749770520_01ohdmf...
+[2025-05-09T00:16:10.534Z] Starting mission monitoring for ID: mission_1746749770520_01ohdmf
+[2025-05-09T00:16:10.544Z] Mission progress: 0/5 steps completed
+[2025-05-09T00:16:15.552Z] Mission progress: 0/5 steps completed

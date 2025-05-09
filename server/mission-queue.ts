@@ -206,6 +206,58 @@ class MissionQueueManager {
   }
   
   /**
+   * Check if the robot is currently moving
+   */
+  private async checkMoveStatus(): Promise<boolean> {
+    try {
+      const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
+        headers
+      });
+      
+      if (response.data && response.data.state) {
+        console.log(`Current move status: ${response.data.state}`);
+        
+        // Check if the move is complete (succeeded, cancelled, or failed are terminal states)
+        return ['succeeded', 'cancelled', 'failed'].includes(response.data.state);
+      }
+      
+      // If no clear state, assume complete
+      return true;
+    } catch (error) {
+      // If error (like 404 - no current move), consider it complete
+      console.log(`No active movement or error checking status`);
+      return true;
+    }
+  }
+  
+  /**
+   * Wait for the robot to complete its current movement
+   */
+  private async waitForMoveComplete(moveId: number, timeout = 120000): Promise<void> {
+    const startTime = Date.now();
+    let isMoving = true;
+    
+    console.log(`Waiting for robot to complete movement (ID: ${moveId})...`);
+    
+    while (isMoving && (Date.now() - startTime < timeout)) {
+      isMoving = !(await this.checkMoveStatus());
+      
+      if (isMoving) {
+        // Wait 5 seconds before checking again to reduce API load
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log(`Still moving (move ID: ${moveId}), waiting...`);
+      }
+    }
+    
+    if (isMoving) {
+      console.log(`⚠️ Timed out waiting for robot to complete movement (ID: ${moveId})`);
+      throw new Error(`Movement timeout exceeded (${timeout}ms)`);
+    } else {
+      console.log(`✅ Robot has completed movement (ID: ${moveId})`);
+    }
+  }
+
+  /**
    * Execute a move step
    */
   private async executeMoveStep(params: any): Promise<any> {
@@ -213,6 +265,9 @@ class MissionQueueManager {
     console.log(`Executing move to ${label}`);
     
     try {
+      // First make sure any existing move is complete before sending a new one
+      await this.checkMoveStatus();
+      
       // Step 1: Send move command to robot with enhanced params
       const payload = {
         type: "standard",
@@ -233,16 +288,15 @@ class MissionQueueManager {
       const moveRes = await axios.post(`${ROBOT_API_URL}/chassis/moves`, payload, { headers });
       console.log(`Move command sent: ${JSON.stringify(moveRes.data)}`);
 
-      // Robot specific API doesn't have /robot/state endpoint
-      // We'll assume move commands complete immediately
-      console.log(`Robot move command sent for ${label} - move ID: ${moveRes.data.id}`);
+      // Get move ID for tracking
+      const moveId = moveRes.data.id;
+      console.log(`Robot move command sent for ${label} - move ID: ${moveId}`);
       
-      // Instead of waiting for completion, we'll wait a fixed time to let the robot start moving
-      await new Promise(res => setTimeout(res, 5000));
+      // Wait for this move to complete before proceeding (2 minute timeout)
+      await this.waitForMoveComplete(moveId, 120000);
       
-      // For now, we'll consider the move command successful if it was accepted by the robot
-      console.log(`Robot move command to ${label} considered complete`);
-      return { success: true, message: `Move command to ${label} sent successfully`, moveId: moveRes.data.id };
+      console.log(`Robot move command to ${label} confirmed complete`);
+      return { success: true, message: `Move command to ${label} completed successfully`, moveId };
 
     } catch (err: any) {
       console.error(`Error moving to ${label}: ${err.message}`);

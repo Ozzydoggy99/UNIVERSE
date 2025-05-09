@@ -68,8 +68,8 @@ export function registerLocalPickupRoute(app: express.Express) {
         isMoving = !(await checkMoveStatus());
         
         if (isMoving) {
-          // Wait a bit before checking again
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Wait 5 seconds before checking again to reduce API load
+          await new Promise(resolve => setTimeout(resolve, 5000));
           logRobotTask(`Still moving (move ID: ${moveId}), waiting...`);
         }
       }
