@@ -503,8 +503,7 @@ function Router() {
         )} 
       />
 
-      {/* New Dynamic Workflow UI Routes */}
-      <Route path="/workflow" component={WorkflowPage} />
+      {/* Dynamic Workflow UI Routes */}
       <Route path="/workflow/:serviceType" component={OperationPage} />
       <Route path="/workflow/:serviceType/:operationType" component={FloorSelectionPage} />
       <Route path="/workflow/:serviceType/:operationType/:floorId" component={ShelfSelectionPage} />

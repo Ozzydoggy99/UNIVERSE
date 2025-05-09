@@ -96,7 +96,7 @@ export default function MyTemplatePage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-green-100 bg-green-50" 
-                onClick={() => navigate('/workflow')}>
+                onClick={() => navigate('/workflow/laundry')}>
             <div className="flex flex-col items-center">
               <div className="bg-green-100 p-4 rounded-full mb-3">
                 <ShowerHead className="h-8 w-8 text-green-600" />
@@ -112,7 +112,7 @@ export default function MyTemplatePage() {
           </Card>
           
           <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-blue-100 bg-blue-50"
-                onClick={() => navigate('/workflow')}>
+                onClick={() => navigate('/workflow/trash')}>
             <div className="flex flex-col items-center">
               <div className="bg-blue-100 p-4 rounded-full mb-3">
                 <Trash2 className="h-8 w-8 text-blue-600" />
