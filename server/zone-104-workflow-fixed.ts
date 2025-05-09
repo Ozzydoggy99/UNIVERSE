@@ -136,7 +136,12 @@ async function moveToPoint(x: number, y: number, ori: number, label: string): Pr
     
     // Final check to ensure we didn't just time out
     if (!moveComplete) {
-      throw new Error(`Move to ${label} timed out after ${maxRetries} attempts`);
+      logWorkflow(`⚠️ WARNING: Move to ${label} timed out after ${maxRetries} attempts, but will continue workflow`);
+      return {
+        success: false,
+        warning: `Move to ${label} timed out after ${maxRetries} attempts`,
+        moveId: moveId
+      };
     }
 
     // Do one final status check to be absolutely certain
@@ -790,7 +795,12 @@ async function executeZone104Workflow(): Promise<any> {
         
         // Final check to ensure we didn't just time out
         if (!moveComplete) {
-          throw new Error(`Align with rack timed out after ${maxRetries} attempts`);
+          logWorkflow(`⚠️ WARNING: Align with rack timed out after ${maxRetries} attempts, but will continue workflow`);
+          return {
+            success: false,
+            warning: `Align with rack timed out after ${maxRetries} attempts`,
+            moveId: moveId
+          };
         }
         
         // Add safety wait after alignment
@@ -961,7 +971,12 @@ async function executeZone104Workflow(): Promise<any> {
     
     // Final check to ensure we didn't just time out
     if (!moveComplete) {
-      throw new Error(`Align with rack for dropoff timed out after ${maxRetries} attempts`);
+      logWorkflow(`⚠️ WARNING: Align with rack for dropoff timed out after ${maxRetries} attempts, but will continue workflow`);
+      return {
+        success: false,
+        warning: `Align with rack for dropoff timed out after ${maxRetries} attempts`,
+        moveId: moveId
+      };
     }
     
     // Add safety wait after alignment
