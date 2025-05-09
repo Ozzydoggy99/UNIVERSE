@@ -1223,10 +1223,14 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
       // Get real map points from robot API - no fallback data
       const mapPoints = await getMapPoints();
       
-      // Transform into a more user-friendly format and order maps with priority to map "1"
+      // Transform into a more user-friendly format and prioritize the current active map
+      // In this case, map "3" is the active map which should be treated as the primary floor
       const mapData = Object.keys(mapPoints)
         .sort((a, b) => {
-          // Always put map "1" first
+          // Always put map "3" first (this is the current active map on the robot)
+          if (a === "3") return -1;
+          if (b === "3") return 1;
+          // Fallback to prioritize map "1" if available
           if (a === "1") return -1;
           if (b === "1") return 1;
           // Otherwise sort numerically
@@ -1263,7 +1267,9 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
               }
               // Case A: MongoDB ObjectId format (24 chars, hexadecimal)
               else if (p.id.length === 24 && /^[0-9a-f]{24}$/i.test(p.id)) {
-                displayName = `Point ${index + 1}`;
+                // For map ID 3, make a specific displayName as this is the only floor/shelf
+                const mapIsFloor3 = floorId === "3";
+                displayName = mapIsFloor3 ? "Shelf 1" : `Point ${index + 1}`;
               }
               // Case B: UUID format (with or without hyphens)
               else if ((p.id.length === 36 && p.id.includes('-')) || 
