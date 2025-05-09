@@ -925,9 +925,9 @@ async function executePickupWorkflow(
       throw new Error(`Dropoff docking point not found on floor "${floorId}"`);
     }
     
-    // Always require a charger point
+    // Check for charger point - but make it optional
     if (!floorPoints.chargerPoint) {
-      throw new Error(`Charger point not found on floor "${floorId}"`);
+      logWorkflow(workflowId, `⚠️ Warning: No charger point found on floor "${floorId}". Will skip return to charger step.`);
     }
     
     // Start pickup workflow
@@ -1002,15 +1002,20 @@ async function executePickupWorkflow(
       'Drop-off_Load_docking (safe position)'
     );
     
-    // STEP 8: Return to charger
-    logWorkflow(workflowId, `📍 STEP 8/8: Returning to charging station`);
+    // STEP 8: Return to charger (if available)
     workflow.currentStep = 8;
-    await returnToCharger(
-      workflowId,
-      floorPoints.chargerPoint.x,
-      floorPoints.chargerPoint.y,
-      floorPoints.chargerPoint.ori
-    );
+    if (floorPoints.chargerPoint) {
+      logWorkflow(workflowId, `📍 STEP 8/8: Returning to charging station`);
+      await returnToCharger(
+        workflowId,
+        floorPoints.chargerPoint.x,
+        floorPoints.chargerPoint.y,
+        floorPoints.chargerPoint.ori
+      );
+    } else {
+      logWorkflow(workflowId, `📍 STEP 8/8: Skipping return to charger as no charger point is available on this floor`);
+      // Stay at the last safe position
+    }
     
     // Workflow complete
     workflow.endTime = new Date();
@@ -1117,9 +1122,9 @@ async function executeDropoffWorkflow(
       throw new Error(`Pickup docking point not found on floor "${floorId}"`);
     }
     
-    // Always require a charger point
+    // Check for charger point - but make it optional
     if (!floorPoints.chargerPoint) {
-      throw new Error(`Charger point not found on floor "${floorId}"`);
+      logWorkflow(workflowId, `⚠️ Warning: No charger point found on floor "${floorId}". Will skip return to charger step.`);
     }
     
     // Start dropoff workflow
@@ -1194,15 +1199,20 @@ async function executeDropoffWorkflow(
       `${shelfDockingPoint.id} (safe position)`
     );
     
-    // STEP 8: Return to charger
-    logWorkflow(workflowId, `📍 STEP 8/8: Returning to charging station`);
+    // STEP 8: Return to charger (if available)
     workflow.currentStep = 8;
-    await returnToCharger(
-      workflowId,
-      floorPoints.chargerPoint.x,
-      floorPoints.chargerPoint.y,
-      floorPoints.chargerPoint.ori
-    );
+    if (floorPoints.chargerPoint) {
+      logWorkflow(workflowId, `📍 STEP 8/8: Returning to charging station`);
+      await returnToCharger(
+        workflowId,
+        floorPoints.chargerPoint.x,
+        floorPoints.chargerPoint.y,
+        floorPoints.chargerPoint.ori
+      );
+    } else {
+      logWorkflow(workflowId, `📍 STEP 8/8: Skipping return to charger as no charger point is available on this floor`);
+      // Stay at the last safe position
+    }
     
     // Workflow complete
     workflow.endTime = new Date();
