@@ -2,6 +2,9 @@
 // This ensures we're always using the same robot for all operations
 export const ROBOT_SERIAL = "L382502104987ir";
 
+// Also export as PHYSICAL_ROBOT_SERIAL for compatibility with existing code
+export const PHYSICAL_ROBOT_SERIAL = ROBOT_SERIAL;
+
 // Define the standard shelf/bin identifiers for simple display
 export const SHELF_DISPLAY_NAMES = {
   // Map complex API point IDs to simplified human-readable names
