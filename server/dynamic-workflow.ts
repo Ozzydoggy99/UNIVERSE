@@ -280,11 +280,36 @@ async function getMapPoints(): Promise<MapPoints> {
           const basePoint = shelfPoints[0];
           chargerPoint = {
             id: `virtual_charger_${basePoint.id}`,
-            x: basePoint.x,
+            x: basePoint.x - 0.5, // Position it to the left of the shelf
             y: basePoint.y,
             ori: (basePoint.ori + 180) % 360  // Opposite direction
           };
           console.log(`Created virtual charger point: ${JSON.stringify(chargerPoint)}`);
+        }
+        
+        // If we don't have a pickup point, create one based on the shelf point
+        if (!pickupPoint && shelfPoints.length > 0) {
+          console.log(`⚠️ No explicit pickup point found on Map 3 - creating one based on shelf point`);
+          const basePoint = shelfPoints[0];
+          pickupPoint = {
+            id: `virtual_pickup_${basePoint.id}`,
+            x: basePoint.x,
+            y: basePoint.y + 0.7, // Position above the shelf
+            ori: basePoint.ori
+          };
+          console.log(`Created virtual pickup point: ${JSON.stringify(pickupPoint)}`);
+        }
+        
+        // If we don't have a pickup docking point, create one based on the pickup point
+        if (!pickupDockingPoint && pickupPoint) {
+          console.log(`⚠️ No explicit pickup docking point found on Map 3 - creating one based on pickup point`);
+          pickupDockingPoint = {
+            id: `virtual_pickup_docking_${pickupPoint.id}`,
+            x: pickupPoint.x,
+            y: pickupPoint.y - 0.5, // Position it below the pickup point
+            ori: pickupPoint.ori
+          };
+          console.log(`Created virtual pickup docking point: ${JSON.stringify(pickupDockingPoint)}`);
         }
         
         // If we don't have a dropoff point, use the first shelf point
@@ -294,7 +319,7 @@ async function getMapPoints(): Promise<MapPoints> {
           dropoffPoint = {
             id: `virtual_dropoff_${basePoint.id}`,
             x: basePoint.x,
-            y: basePoint.y,
+            y: basePoint.y + 0.3, // Position slightly above the shelf
             ori: basePoint.ori
           };
           console.log(`Created virtual dropoff point: ${JSON.stringify(dropoffPoint)}`);
