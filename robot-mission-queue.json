@@ -685,8 +685,13 @@
           "ori": 178.97,
           "label": "docking for 104_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking for 104_Load completed successfully",
+          "moveId": 4233
+        }
       },
       {
         "type": "move",
@@ -696,14 +701,20 @@
           "ori": 0,
           "label": "104_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load completed successfully",
+          "moveId": 4234
+        }
       },
       {
         "type": "jack_up",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -713,8 +724,13 @@
           "ori": 0,
           "label": "docking for Drop-off_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking for Drop-off_Load completed successfully",
+          "moveId": 4235
+        }
       },
       {
         "type": "move",
@@ -724,14 +740,20 @@
           "ori": 0,
           "label": "Drop-off_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Drop-off_Load completed successfully",
+          "moveId": 4236
+        }
       },
       {
         "type": "jack_down",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -741,14 +763,20 @@
           "ori": 0,
           "label": "Desk"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Desk completed successfully",
+          "moveId": 4237
+        }
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 0,
+    "status": "completed",
+    "currentStepIndex": 7,
     "createdAt": "2025-05-09T01:27:15.769Z",
-    "updatedAt": "2025-05-09T01:27:15.783Z",
-    "robotSn": "L382502104987ir"
+    "updatedAt": "2025-05-09T01:30:40.835Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
   }
 ]
