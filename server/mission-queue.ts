@@ -675,15 +675,16 @@ export class MissionQueueManager {
       console.log(`[${timestamp}] [JACK-UP] ✅ Jack up completed successfully and verified`);
       return response.data;
     } catch (error: any) {
-      console.error(`ERROR during jack up operation: ${error.message}`);
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] [JACK-UP] ❌ ERROR during jack up operation: ${error.message}`);
       
       // Check response data for better error handling
       if (error.response) {
-        console.error(`Jack up response error:`, error.response.data);
+        console.error(`[${timestamp}] [JACK-UP] Response error details:`, error.response.data);
         
         // Real robot API must be available - no simulations allowed
         if (error.response.status === 404) {
-          console.error(`Robot API endpoint not found - cannot proceed with jack up operation`);
+          console.error(`[${timestamp}] [JACK-UP] ❌ Robot API endpoint not found - cannot proceed with jack up operation`);
           throw new Error(`Robot API endpoint not available: jack up operation failed`);
         }
         
@@ -691,7 +692,7 @@ export class MissionQueueManager {
         if (error.response.status === 500) {
           if (error.response.data && error.response.data.detail && 
               error.response.data.detail.includes("Emergency stop button is pressed")) {
-            console.log("Robot emergency stop detected, cannot proceed with jack up operation");
+            console.log(`[${timestamp}] [JACK-UP] 🚨 Robot emergency stop detected, cannot proceed with jack up operation`);
             throw new Error(`Emergency stop button is pressed, cannot proceed with jack up operation`);
           }
           
@@ -787,15 +788,16 @@ export class MissionQueueManager {
       console.log(`[${timestamp}] [JACK-DOWN] ✅ Jack down completed successfully and verified`);
       return response.data;
     } catch (error: any) {
-      console.error(`ERROR during jack down operation: ${error.message}`);
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] [JACK-DOWN] ❌ ERROR during jack down operation: ${error.message}`);
       
       // Check response data for better error handling
       if (error.response) {
-        console.error(`Jack down response error:`, error.response.data);
+        console.error(`[${timestamp}] [JACK-DOWN] Response error details:`, error.response.data);
         
         // Real robot API must be available - no simulations allowed
         if (error.response.status === 404) {
-          console.error(`Robot API endpoint not found - cannot proceed with jack down operation`);
+          console.error(`[${timestamp}] [JACK-DOWN] ❌ Robot API endpoint not found - cannot proceed with jack down operation`);
           throw new Error(`Robot API endpoint not available: jack down operation failed`);
         }
         
@@ -803,7 +805,7 @@ export class MissionQueueManager {
         if (error.response.status === 500) {
           if (error.response.data && error.response.data.detail && 
               error.response.data.detail.includes("Emergency stop button is pressed")) {
-            console.log("Robot emergency stop detected, cannot proceed with jack down operation");
+            console.log(`[${timestamp}] [JACK-DOWN] 🚨 Robot emergency stop detected, cannot proceed with jack down operation`);
             throw new Error(`Emergency stop button is pressed, cannot proceed with jack down operation`);
           }
           
