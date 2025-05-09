@@ -62,7 +62,8 @@ export function registerRobotApiRoutes(app: Express) {
           battery: batteryLevel,
           timestamp: new Date().toISOString()
         });
-      } catch (batteryError) {
+      } catch (error: any) {
+        const batteryError = error as Error;
         console.log(`Unable to get battery status from robot: ${batteryError.message}`);
         
         // Try getting status from charging-status endpoint as fallback

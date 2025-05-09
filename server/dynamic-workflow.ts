@@ -166,25 +166,47 @@ async function getMapPoints(): Promise<MapPoints> {
       let pickupDockingPoint: Point | undefined;
       let chargerPoint: Point | undefined;
       
+      console.log(`Processing ${points.length} points for map ${mapId}`);
       for (const point of points) {
-        // Process based on naming convention
-        if (point.id.includes('_Load') && !point.id.includes('_docking')) {
+        console.log(`Examining point: ${point.id}`);
+        
+        // Process based on naming convention with more flexible detection
+        if ((point.id.includes('_Load') || point.id.includes('_load')) && !point.id.includes('_docking')) {
+          console.log(`✅ Found shelf point: ${point.id}`);
           shelfPoints.push(point);
-        } else if (point.id.includes('_docking')) {
+        } else if (point.id.includes('_docking') || point.id.includes('_Docking')) {
+          console.log(`✅ Found docking point: ${point.id}`);
           dockingPoints.push(point);
           
-          // Special docking points
-          if (point.id.toLowerCase().includes('drop-off_load_docking')) {
+          // Special docking points - use case insensitive comparison
+          const lowerCaseId = point.id.toLowerCase();
+          if (lowerCaseId.includes('drop-off_load_docking') || lowerCaseId.includes('dropoff_load_docking')) {
+            console.log(`✅ Found dropoff docking point: ${point.id}`);
             dropoffDockingPoint = point;
-          } else if (point.id.toLowerCase().includes('pickup_load_docking')) {
+          } else if (lowerCaseId.includes('pickup_load_docking')) {
+            console.log(`✅ Found pickup docking point: ${point.id}`);
             pickupDockingPoint = point;
           }
-        } else if (point.id.toLowerCase().includes('drop-off_load')) {
+        } else if (point.id.toLowerCase().includes('drop-off_load') || point.id.toLowerCase().includes('dropoff_load')) {
+          console.log(`✅ Found dropoff point: ${point.id}`);
           dropoffPoint = point;
         } else if (point.id.toLowerCase().includes('pickup_load')) {
+          console.log(`✅ Found pickup point: ${point.id}`);
           pickupPoint = point;
         } else if (point.id.toLowerCase().includes('charger')) {
+          console.log(`✅ Found charger point: ${point.id}`);
           chargerPoint = point;
+        }
+        
+        // Also check for shelf points that don't follow the exact naming convention
+        // but have numeric identifiers that might represent shelf numbers
+        if (shelfPoints.length === 0) {
+          // Look for points that have numeric identifiers as potential shelf points
+          const numericMatch = point.id.match(/^(\d+)/);
+          if (numericMatch && !point.id.includes('_docking') && !point.id.toLowerCase().includes('charger')) {
+            console.log(`✅ Found potential shelf point by numeric ID: ${point.id}`);
+            shelfPoints.push(point);
+          }
         }
       }
       
@@ -1201,22 +1223,36 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
       // Get real map points from robot API - no fallback data
       const mapPoints = await getMapPoints();
       
-      // Transform into a more user-friendly format
-      const mapData = Object.keys(mapPoints).map(floorId => {
-        const floorData = mapPoints[floorId];
-        
-        return {
-          id: floorId,
-          name: floorId.includes('_') ? floorId.split('_')[1] : floorId,
-          hasCharger: !!floorData.chargerPoint,
-          hasDropoff: !!floorData.dropoffPoint,
-          hasPickup: !!floorData.pickupPoint,
-          shelfPoints: floorData.shelfPoints.map(p => ({
-            id: p.id,
-            displayName: p.id.includes('_Load') ? p.id.split('_')[0] : p.id
-          }))
-        };
-      });
+      // Transform into a more user-friendly format and order maps with priority to map "1"
+      const mapData = Object.keys(mapPoints)
+        .sort((a, b) => {
+          // Always put map "1" first
+          if (a === "1") return -1;
+          if (b === "1") return 1;
+          // Otherwise sort numerically
+          return parseInt(a) - parseInt(b);
+        })
+        .map(floorId => {
+          const floorData = mapPoints[floorId];
+          
+          // Log what we found for debugging
+          console.log(`Map ${floorId} has ${floorData.shelfPoints.length} shelf points`);
+          if (floorData.shelfPoints.length > 0) {
+            console.log(`First shelf point: ${JSON.stringify(floorData.shelfPoints[0])}`);
+          }
+          
+          return {
+            id: floorId,
+            name: floorId.includes('_') ? floorId.split('_')[1] : floorId,
+            hasCharger: !!floorData.chargerPoint,
+            hasDropoff: !!floorData.dropoffPoint,
+            hasPickup: !!floorData.pickupPoint,
+            shelfPoints: floorData.shelfPoints.map(p => ({
+              id: p.id,
+              displayName: p.id.includes('_Load') ? p.id.split('_')[0] : p.id
+            }))
+          };
+        });
       
       // Return real map data from the robot
       return res.status(200).json({
