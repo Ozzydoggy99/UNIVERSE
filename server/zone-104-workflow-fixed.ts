@@ -874,7 +874,8 @@ async function executeZone104Workflow(): Promise<any> {
     // STEP 5: Move to docking position for dropoff (Drop-off_Load_docking)
     // Using the CORRECT coordinates from the physical robot map, converted to match scale
     logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking (with correct coordinates from physical map)`);
-    await moveToPoint(-2.314, 2.543, 0, 'Drop-off_Load_docking');
+    // Use 180 degree orientation to be consistent with the alignment orientation
+    await moveToPoint(-2.314, 2.543, 180, 'Drop-off_Load_docking');
     
     // STEP 6: Use align_with_rack move type for proper bin dropoff with retry mechanism
     logWorkflow(`📍 STEP 6/8: Aligning with rack at Drop-off_Load using align_with_rack special move type`);
@@ -921,7 +922,7 @@ async function executeZone104Workflow(): Promise<any> {
           type: 'align_with_rack', // Special move type for rack dropoff
           target_x: -3.067, // These are the dropoff coordinates (Drop-off_Load)
           target_y: 2.579,
-          target_ori: 0
+          target_ori: 180 // Use 180 degrees to face the rack properly similar to pickup
         };
         
         logWorkflow(`⚠️ RACK OPERATION: Creating align_with_rack move for dropoff at Drop-off_Load: ${JSON.stringify(alignCommand)}`);
