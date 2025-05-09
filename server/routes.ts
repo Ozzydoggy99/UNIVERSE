@@ -23,6 +23,8 @@ import { registerReturnToChargerHandler } from './return-to-charger';
 import { registerZone104WorkflowRoute } from './zone-104-workflow';
 // Completely new implementation of Zone 104 workflow with proper documentation
 import { registerZone104WorkflowHandler } from './zone-104-workflow-new-complete';
+// Fixed implementation with proper error handling
+import { registerZone104WorkflowHandler as registerFixedWorkflowHandler } from './zone-104-workflow-fixed';
 import { registerBinStatusRoutes } from './bin-status-routes';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 function formatError(error: unknown): string {
@@ -66,6 +68,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register our completely new implementation of Zone 104 workflow
   registerZone104WorkflowHandler(app);
+  
+  // Register our fixed implementation with improved error handling
+  registerFixedWorkflowHandler(app);
   
   // Register bin status routes for testing
   registerBinStatusRoutes(app);
