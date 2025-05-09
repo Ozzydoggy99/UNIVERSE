@@ -36,7 +36,7 @@ const headers = { 'x-api-key': ROBOT_SECRET };
  * Mission Queue Manager
  * Handles mission persistence, execution, and recovery
  */
-class MissionQueueManager {
+export class MissionQueueManager {
   private missions: Mission[] = [];
   private isProcessing: boolean = false;
   private maxRetries: number = 3;

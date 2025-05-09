@@ -106,18 +106,63 @@ export function getShelfPointsByFloor(points: Point[]): Record<string, Point[]> 
 }
 
 /**
- * Extract special labeled points
+ * Extract special labeled points using the new naming convention
+ * Special points now use the format:
+ * - Load points: "number_Load" (the actual shelf points where bins will be picked up)
+ * - Load docking points: "number_Load_docking" (positions before the actual shelf)
+ * - Dropoff: "Dropoff" (where bins are dropped off)
+ * - Dropoff docking: "Dropoff_docking" (position before the dropoff)
+ * - Charger: "Charging Station" (robot charging station)
  */
 export function getSpecialPoints(points: Point[]) {
   const match = (label: string, target: string) => label.toLowerCase().includes(target.toLowerCase());
-  let pickup, dropoff, standby;
+  
+  // Find main points
+  let pickup, dropoff, standby, charger;
+  
+  // Find docking points
+  let pickupDocking, dropoffDocking;
+  
   for (const p of points) {
     const id = p.id.toLowerCase();
-    if (!pickup && match(id, 'pick')) pickup = p;
-    else if (!dropoff && match(id, 'drop')) dropoff = p;
-    else if (!standby && match(id, 'desk')) standby = p;
+    
+    // Main points
+    if (!pickup && (match(id, 'pick') || match(id, 'load'))) {
+      // Filter out docking points from being the main pickup
+      if (!id.includes('docking')) {
+        pickup = p;
+      }
+    }
+    else if (!dropoff && match(id, 'drop')) {
+      // Filter out docking points from being the main dropoff
+      if (!id.includes('docking')) {
+        dropoff = p;
+      }
+    }
+    else if (!standby && (match(id, 'desk') || match(id, 'standby'))) {
+      standby = p;
+    }
+    else if (!charger && (match(id, 'charge') || match(id, 'charger'))) {
+      charger = p;
+    }
+    
+    // Docking points
+    if (!pickupDocking && match(id, 'pick') && match(id, 'docking')) {
+      pickupDocking = p;
+    }
+    else if (!dropoffDocking && match(id, 'drop') && match(id, 'docking')) {
+      dropoffDocking = p;
+    }
   }
-  return { pickup, dropoff, standby };
+  
+  return { 
+    pickup, 
+    pickupDocking,
+    dropoff, 
+    dropoffDocking,
+    standby,
+    charger
+  };
 }
 
 /**

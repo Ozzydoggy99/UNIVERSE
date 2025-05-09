@@ -3,7 +3,7 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
-import { missionQueue } from './mission-queue';
+import { missionQueue, MissionQueueManager } from './mission-queue';
 
 // Function to log robot task messages with timestamps
 function logRobotTask(message: string) {
@@ -127,11 +127,7 @@ export function registerReturnToChargerHandler(app: Express) {
             label: 'charger point'
           }
         },
-        // Step 3: Jack down after arriving at charger
-        {
-          type: 'jack_down' as const,
-          params: {}
-        }
+        // We do not want to jack_down at the charger - removed this step
       ];
       
       // Cancel all other pending or in-progress missions first

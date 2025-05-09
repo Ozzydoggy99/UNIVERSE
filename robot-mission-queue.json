@@ -452,14 +452,20 @@
           "ori": 0,
           "label": "pickup zone-104-bin"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to pickup zone-104-bin completed successfully",
+          "moveId": 4218
+        }
       },
       {
         "type": "jack_down",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -470,15 +476,16 @@
           "label": "standby"
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 1,
+        "errorMessage": "Connection error: Movement timeout exceeded (120000ms)"
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 2,
+    "status": "failed",
+    "currentStepIndex": 4,
     "createdAt": "2025-05-09T00:16:10.520Z",
-    "updatedAt": "2025-05-09T00:36:46.146Z",
+    "updatedAt": "2025-05-09T00:41:29.966Z",
     "robotSn": "L382502104987ir",
-    "offline": false
+    "offline": true
   },
   {
     "id": "mission_1746750949825_s32gib1",
@@ -492,8 +499,13 @@
           "ori": 86,
           "label": "docking point for charger"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking point for charger completed successfully",
+          "moveId": 4220
+        }
       },
       {
         "type": "move",
@@ -504,13 +516,55 @@
           "label": "charger point"
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 1,
+        "errorMessage": "Connection error: Movement timeout exceeded (120000ms)"
       }
     ],
-    "status": "pending",
-    "currentStepIndex": 0,
+    "status": "failed",
+    "currentStepIndex": 1,
     "createdAt": "2025-05-09T00:35:49.825Z",
-    "updatedAt": "2025-05-09T00:35:49.825Z",
-    "robotSn": "L382502104987ir"
+    "updatedAt": "2025-05-09T00:43:33.867Z",
+    "robotSn": "L382502104987ir",
+    "offline": true
+  },
+  {
+    "id": "mission_1746751255203_u90f61p",
+    "name": "Return to Charger - HIGH PRIORITY",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -0.09805135441120662,
+          "y": -1.396562044901446,
+          "ori": 86,
+          "label": "docking point for charger"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking point for charger completed successfully",
+          "moveId": 4222
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -0.028294880667081166,
+          "y": -0.39899799464162183,
+          "ori": 86,
+          "label": "charger point"
+        },
+        "completed": false,
+        "retryCount": 3,
+        "errorMessage": "Movement timeout exceeded (120000ms)"
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-09T00:40:55.203Z",
+    "updatedAt": "2025-05-09T00:51:50.085Z",
+    "robotSn": "L382502104987ir",
+    "offline": true
   }
 ]

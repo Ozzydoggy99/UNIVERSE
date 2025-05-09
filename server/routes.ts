@@ -20,6 +20,7 @@ import { missionQueue } from './mission-queue';
 import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
 import { registerReturnToChargerHandler } from './return-to-charger';
+import { registerZone104WorkflowRoute } from './zone-104-workflow';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 function formatError(error: unknown): string {
   if (error instanceof Error) {

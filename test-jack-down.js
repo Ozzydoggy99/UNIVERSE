@@ -1,5 +1,16 @@
 /**
  * Test script to call jack_down and return-to-charger endpoints
+ * 
+ * This script provides a simple way to test the robot's jack_down operation
+ * and the functionality to return the robot to its charging station.
+ * 
+ * Usage:
+ *   - node test-jack-down.js jack-down     (to lower the robot's jack)
+ *   - node test-jack-down.js return-charger (to return robot to charging station)
+ * 
+ * Notes:
+ *   - The jack_down operation is typically used after arriving at a dropoff point, not at the charger
+ *   - Return-to-charger will cancel any currently running missions for safety
  */
 import axios from 'axios';
 
