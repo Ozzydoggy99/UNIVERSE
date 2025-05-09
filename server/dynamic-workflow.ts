@@ -112,9 +112,50 @@ async function getMapPoints(): Promise<MapPoints> {
     
     // Process each map
     for (const map of maps) {
-      const mapId = map.name;
-      const pointsResponse = await axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, { headers: getHeaders() });
-      const points = pointsResponse.data;
+      const mapId = map.id;
+      
+      // Get detailed map data including overlays
+      const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers: getHeaders() });
+      const mapData = mapDetailRes.data;
+      
+      if (!mapData || !mapData.overlays) {
+        console.log(`Map ${mapId} does not have overlays data`);
+        continue;
+      }
+      
+      // Parse the overlay JSON
+      let overlays;
+      try {
+        overlays = JSON.parse(mapData.overlays);
+      } catch (e) {
+        const parseError = e as Error;
+        console.error(`Failed to parse overlays JSON for map ${mapId}: ${parseError.message}`);
+        continue;
+      }
+      
+      // Extract point features from the overlays
+      const features = overlays.features || [];
+      console.log(`Found ${features.length} features in map ${mapId} overlays`);
+      
+      // Filter to only point features and extract data
+      const points = features
+        .filter((f: any) => f.geometry?.type === 'Point' && f.properties)
+        .map((f: any) => {
+          const { id, properties, geometry } = f;
+          const pointId = String(id || properties.name || properties.text || '').trim();
+          const x = typeof properties.x === 'number' ? properties.x : geometry.coordinates[0];
+          const y = typeof properties.y === 'number' ? properties.y : geometry.coordinates[1];
+          const ori = parseFloat(String(properties.yaw || properties.orientation || '0'));
+          
+          return {
+            id: pointId,
+            x,
+            y,
+            ori
+          };
+        });
+      
+      console.log(`Extracted ${points.length} point features from map ${mapId}`);
       
       // Categorize points based on naming convention
       const shelfPoints: Point[] = [];
