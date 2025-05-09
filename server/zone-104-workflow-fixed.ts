@@ -868,9 +868,9 @@ async function executeZone104Workflow(): Promise<any> {
     await executeJackUp();
     
     // STEP 5: Move to docking position for dropoff (Drop-off_Load_docking)
-    // Using the CORRECT coordinates from the physical robot map
+    // Using the CORRECT coordinates from the physical robot map, converted to match scale
     logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking (with correct coordinates from physical map)`);
-    await moveToPoint(-0.0002314, 0.0002543, 0, 'Drop-off_Load_docking');
+    await moveToPoint(-2.314, 2.543, 0, 'Drop-off_Load_docking');
     
     // STEP 5.5: Align with rack for proper dropoff
     logWorkflow(`📍 STEP 5.5/8: Aligning with rack at Drop-off_Load using align_with_rack special move type`);
@@ -928,8 +928,8 @@ async function executeZone104Workflow(): Promise<any> {
     const alignCommand = {
       creator: 'robot-api',
       type: 'align_with_rack', // Special move type for rack dropoff
-      target_x: -0.0003067,
-      target_y: 0.0002579,
+      target_x: -3.067,
+      target_y: 2.579,
       target_ori: 0
     };
     
@@ -989,7 +989,7 @@ async function executeZone104Workflow(): Promise<any> {
     
     // STEP 6: Move to actual dropoff point (Drop-off_Load)
     logWorkflow(`📍 STEP 6/8: Moving to Drop-off_Load`);
-    await moveToPoint(-0.0003067, 0.0002579, 0, 'Drop-off_Load');
+    await moveToPoint(-3.067, 2.579, 0, 'Drop-off_Load');
     
     // STEP 7: Execute jack_down to lower bin
     logWorkflow(`📍 STEP 7/8: Executing jack_down operation to lower bin`);
