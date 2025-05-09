@@ -7,6 +7,8 @@
  * 
  * The system is designed to work with multiple maps/floors with the
  * proper naming conventions for points.
+ * 
+ * It uses the physical robot (L382502104987ir) for all operations.
  */
 
 import axios from 'axios';
@@ -14,10 +16,14 @@ import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
+import { 
+  ROBOT_API_URL, 
+  ROBOT_SECRET, 
+  ROBOT_SERIAL, 
+  getAuthHeaders 
+} from './robot-constants';
 
 // Configuration
-const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
-const ROBOT_SECRET = process.env.ROBOT_SECRET || 'rosverse';
 const LOG_PATH = 'robot-dynamic-workflow.log';
 
 // Types for workflows
@@ -79,12 +85,10 @@ function logWorkflow(workflowId: string, message: string): void {
 
 /**
  * Get HTTP headers for robot API
+ * Using the standardized authentication headers from robot-constants.ts
  */
 function getHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${ROBOT_SECRET}`
-  };
+  return getAuthHeaders();
 }
 
 /**
