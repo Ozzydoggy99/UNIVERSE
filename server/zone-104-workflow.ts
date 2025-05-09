@@ -202,10 +202,7 @@ async function createDirectShelfTask(
     
     // Call the robot API to create and start the task
     const response = await axios.post(`${ROBOT_API_URL}/api/v2/task`, task, {
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json'
-      }
+      headers: getAuthHeaders()
     });
     
     logRobotTask(`✅ Successfully created direct task - Response: ${JSON.stringify(response.data)}`);
