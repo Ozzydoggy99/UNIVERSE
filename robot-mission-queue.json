@@ -401,14 +401,19 @@
           "ori": 0,
           "label": "standby"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to standby completed successfully",
+          "moveId": 4212
+        }
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 4,
+    "status": "completed",
+    "currentStepIndex": 5,
     "createdAt": "2025-05-09T00:14:34.461Z",
-    "updatedAt": "2025-05-09T00:34:56.710Z",
+    "updatedAt": "2025-05-09T00:35:40.328Z",
     "robotSn": "L382502104987ir",
     "offline": false
   },
@@ -424,14 +429,20 @@
           "ori": 0,
           "label": "shelf zone-104"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to shelf zone-104 completed successfully",
+          "moveId": 4214
+        }
       },
       {
         "type": "jack_up",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -463,9 +474,43 @@
       }
     ],
     "status": "in_progress",
-    "currentStepIndex": 0,
+    "currentStepIndex": 2,
     "createdAt": "2025-05-09T00:16:10.520Z",
-    "updatedAt": "2025-05-09T00:19:21.649Z",
+    "updatedAt": "2025-05-09T00:36:46.146Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
+  },
+  {
+    "id": "mission_1746750949825_s32gib1",
+    "name": "Return to Charger",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -0.09805135441120662,
+          "y": -1.396562044901446,
+          "ori": 86,
+          "label": "docking point for charger"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -0.028294880667081166,
+          "y": -0.39899799464162183,
+          "ori": 86,
+          "label": "charger point"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "pending",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-09T00:35:49.825Z",
+    "updatedAt": "2025-05-09T00:35:49.825Z",
     "robotSn": "L382502104987ir"
   }
 ]

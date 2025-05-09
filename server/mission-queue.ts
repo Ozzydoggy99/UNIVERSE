@@ -208,6 +208,28 @@ class MissionQueueManager {
   /**
    * Check if the robot is currently moving
    */
+  /**
+   * Cancel all active missions in the queue
+   * This will mark all pending and in-progress missions as canceled
+   */
+  async cancelAllActiveMissions() {
+    console.log('Cancelling all active missions in the queue');
+    
+    const activeMissions = this.missions.filter(m => 
+      m.status === 'pending' || m.status === 'in_progress'
+    );
+    
+    for (const mission of activeMissions) {
+      console.log(`Cancelling mission ${mission.id} (${mission.name})`);
+      mission.status = 'failed';
+      mission.updatedAt = new Date().toISOString();
+      this.logFailedMission(mission, new Error('Mission cancelled by system for return-to-charger'));
+    }
+    
+    this.saveMissionsToDisk();
+    console.log(`Cancelled ${activeMissions.length} active missions`);
+  }
+  
   private async checkMoveStatus(): Promise<boolean> {
     try {
       const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
