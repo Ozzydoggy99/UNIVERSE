@@ -100,10 +100,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
         console.log('No active move found, trying to cancel current move');
         const robotResponse = await fetch(`${apiBaseUrl}/chassis/moves/current`, {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Secret': ROBOT_SECRET || ''
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ state: "cancelled" }),
         });
 
@@ -258,10 +255,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
         // Now send the actual command to the robot in the background
         const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/chassis/moves`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Secret': ROBOT_SECRET || ''
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify(moveData),
         });
   

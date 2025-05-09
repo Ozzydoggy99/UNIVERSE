@@ -45,10 +45,7 @@ async function sendMoveCommand(x: number, y: number): Promise<any> {
     // Send the move command to the robot API
     const response = await fetch(`${ROBOT_API_URL}/chassis/moves`, {
       method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json' 
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(moveData),
     });
     
@@ -79,10 +76,7 @@ async function waitForMoveComplete(timeout = 60000): Promise<void> {
     try {
       // Check the current move status
       const response = await fetch(`${ROBOT_API_URL}/chassis/moves/current`, {
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders()
       });
       
       if (!response.ok) {
@@ -129,10 +123,7 @@ export function registerRobotTaskRoutes(app: express.Express) {
       console.log('Fetching tasks for robot:', sn);
       
       const response = await fetch(`${ROBOT_API_URL}/tasks/queryBySn?sn=${sn}`, {
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders()
       });
       
       if (!response.ok) {
@@ -226,10 +217,7 @@ export function registerRobotTaskRoutes(app: express.Express) {
       
       // Find the charging station through the robot's points API
       const pointsResponse = await fetch(`${ROBOT_API_URL}/points`, {
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders()
       });
       
       if (!pointsResponse.ok) {
