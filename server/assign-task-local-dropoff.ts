@@ -17,7 +17,8 @@ function logRobotTask(message: string) {
 }
 
 export function registerLocalDropoffRoute(app: express.Express) {
-  app.post('/api/robots/assign-task/local-dropoff', express.json(), async (req: Request, res: Response) => {
+  // Handler function for local dropoff requests
+  const handleLocalDropoffRequest = async (req: Request, res: Response) => {
     const { shelf, pickup, standby } = req.body;
     const headers = { 'x-api-key': ROBOT_SECRET };
     const startTime = Date.now();
@@ -198,5 +199,14 @@ export function registerLocalDropoffRoute(app: express.Express) {
       logRobotTask(`❌ LOCAL DROPOFF task error: ${errorMessage}`);
       res.status(500).json({ error: err.message, response: err.response?.data });
     }
-  });
+  };
+  
+  // Register the handler for both paths:
+  // 1. With /api prefix (our intended API design)
+  app.post('/api/robots/assign-task/local-dropoff', express.json(), handleLocalDropoffRequest);
+  
+  // 2. Without /api prefix (matches how some test scripts may be written)
+  app.post('/robots/assign-task/local-dropoff', express.json(), handleLocalDropoffRequest);
+  
+  logRobotTask('Registered local dropoff handler for both path variants');
 }

@@ -21,7 +21,8 @@ function logRobotTask(message: string) {
 }
 
 export function registerLocalPickupRoute(app: express.Express) {
-  app.post('/api/robots/assign-task/local', async (req, res) => {
+  // Handle both versions of the endpoint URL for backward compatibility
+  const handleLocalPickupRequest = async (req: express.Request, res: express.Response) => {
     const startTime = Date.now();
     const { shelf, pickup, standby } = req.body;
     const headers = { 'x-api-key': ROBOT_SECRET };
@@ -206,5 +207,14 @@ export function registerLocalPickupRoute(app: express.Express) {
       logRobotTask(`❌ LOCAL PICKUP task error: ${errorMessage}`);
       res.status(500).json({ error: err.message, response: err.response?.data });
     }
-  });
+  };
+  
+  // Register the handler for both paths:
+  // 1. With /api prefix (our intended API design)
+  app.post('/api/robots/assign-task/local', handleLocalPickupRequest);
+  
+  // 2. Without /api prefix (matches the test script)
+  app.post('/robots/assign-task/local', handleLocalPickupRequest);
+  
+  logRobotTask('Registered local pickup handler for both path variants');
 }
