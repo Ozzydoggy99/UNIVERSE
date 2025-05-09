@@ -284,16 +284,17 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         binAtDropoff: await checkForBin(dropoffPoint.x, dropoffPoint.y, dropoffPoint.id)
       };
       
-      // Create mission steps based on the exact sequence specified:
-      // 1. Go to 104_load_docking
-      // 2. Check for bin at 104_load (already done above)
-      // 3. Go under bin and jack up
-      // 4. Go to drop-off_load_docking
-      // 5. Check for bin at drop-off_load (already done above)
-      // 6. If no bin at dropoff, complete delivery
-      // 7. Return to standby
+      // Create mission steps based on the CORRECTED sequence specified:
+      // 1. Go to 104_Load_docking first
+      // 2. Check for bin at 104_Load (already done above)
+      // 3. If bin present, back up to 104_Load
+      // 4. Position under bin and jack up
+      // 5. Go to Drop-off_Load_docking first
+      // 6. Check for bin at drop-off_load (already done above)
+      // 7. If clear, back up to Drop-off_Load and jack down
+      // 8. Return to standby
       const workflowSteps: MissionStep[] = [
-        // Step 1: Go to docking position near pickup point
+        // Step 1: Go to docking position near pickup point FIRST
         {
           type: 'move',
           params: {
@@ -307,7 +308,10 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       
       // Only add pickup steps if there's a bin to pick up
       if (binDetectionResults.binAtPickup) {
-        // Step 2: Move UNDER the bin for pickup
+        // Log the crucial step for debugging
+        logRobotTask(`✅ Bin detected at ${pickupPoint.id} - will proceed with pickup sequence`);
+        
+        // Step 2: Move UNDER the bin for pickup (backing up to exact position)
         workflowSteps.push({
           type: 'move',
           params: {
@@ -318,13 +322,13 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           }
         });
         
-        // Step 3: Jack Up to grab bin
+        // Step 3: Jack Up to grab bin - added extra safety check
         workflowSteps.push({
           type: 'jack_up',
           params: {}
         } as JackStep);
         
-        // Step 4: Go to docking position near dropoff
+        // Step 4: IMPORTANT - Go to DOCKING position for dropoff FIRST (not directly to dropoff)
         workflowSteps.push({
           type: 'move',
           params: {
@@ -337,7 +341,10 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         
         // Only complete dropoff if there's no bin already at dropoff
         if (!binDetectionResults.binAtDropoff) {
-          // Step 5: Move TO the dropoff position
+          // Log the crucial step for debugging
+          logRobotTask(`✅ Dropoff at ${dropoffPoint.id} is clear - will proceed with dropoff sequence`);
+          
+          // Step 5: Move TO the dropoff position (backing up to exact dropoff point)
           workflowSteps.push({
             type: 'move',
             params: {
@@ -348,12 +355,16 @@ export function registerZone104WorkflowRoute(app: express.Express) {
             }
           });
           
-          // Step 6: Jack Down to release bin
+          // Step 6: Jack Down to release bin with enhanced safety
           workflowSteps.push({
             type: 'jack_down',
             params: {}
           } as JackStep);
+        } else {
+          logRobotTask(`⚠️ Dropoff at ${dropoffPoint.id} is occupied - skipping dropoff sequence`);
         }
+      } else {
+        logRobotTask(`⚠️ No bin detected at ${pickupPoint.id} - skipping pickup sequence`);
       }
       
       // Step 7: Return to standby position

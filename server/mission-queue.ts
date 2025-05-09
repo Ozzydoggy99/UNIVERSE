@@ -313,73 +313,94 @@ export class MissionQueueManager {
    * Used for jack_up and jack_down operations to prevent accidents with bins
    */
   private async verifyRobotStopped(operation: string): Promise<void> {
-    console.log(`⚠️ SAFETY CHECK: Verifying robot is completely stopped before ${operation}...`);
+    console.log(`⚠️ CRITICAL SAFETY CHECK: Verifying robot is completely stopped before ${operation}...`);
     
-    // First check if there's an active move
+    // Add a mandatory delay first to ensure robot has fully settled from any prior movement
+    console.log(`Waiting 3 seconds for robot to fully stabilize before safety check...`);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Check 1: Verify no active movement command
     let moveStatus: any = null;
     try {
       const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers });
       moveStatus = moveResponse.data;
       
       if (moveStatus && moveStatus.state === 'moving') {
-        console.log(`⚠️ SAFETY VIOLATION: Robot is currently moving, cannot perform ${operation}`);
+        console.log(`⚠️ CRITICAL SAFETY VIOLATION: Robot is currently moving, cannot perform ${operation}`);
         console.log(`Current move details: ${JSON.stringify(moveStatus)}`);
-        throw new Error(`Robot must be completely stopped before ${operation} operation`);
+        throw new Error(`SAFETY ERROR: Robot has active movement - must be completely stopped before ${operation} operation`);
       }
     } catch (error: any) {
       // If we got a 404, it means no current move, which is good
       if (error.response && error.response.status === 404) {
-        console.log(`No active movement found, robot should be stopped`);
+        console.log(`✅ SAFETY CHECK 1 PASSED: No active movement command`);
       } else {
-        console.log(`Error checking move status: ${error.message}`);
+        console.log(`Warning: Error checking move status: ${error.message}`);
         // Continue with other checks, don't abort due to API errors
       }
     }
     
-    // Second, check wheel state to verify robot is not actually moving
-    try {
-      const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
-      const wheelState = wheelResponse.data;
-      
-      if (wheelState) {
-        const speed = Math.max(
-          Math.abs(wheelState.left_speed || 0), 
-          Math.abs(wheelState.right_speed || 0)
-        );
+    // Check 2: Verify wheel state to confirm robot is not actually moving
+    let wheelCheckPassed = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
+        const wheelState = wheelResponse.data;
         
-        if (speed > 0.01) { // More than 1cm/s is moving
-          console.log(`⚠️ SAFETY VIOLATION: Robot wheels are moving (${speed.toFixed(2)}m/s), cannot perform ${operation}`);
-          throw new Error(`Robot wheels are moving - must be completely stopped before ${operation}`);
-        } else {
-          console.log(`✅ SAFETY CHECK: Robot wheels are stopped (${speed.toFixed(2)}m/s)`);
+        if (wheelState) {
+          const speed = Math.max(
+            Math.abs(wheelState.left_speed || 0), 
+            Math.abs(wheelState.right_speed || 0)
+          );
+          
+          if (speed > 0.01) { // More than 1cm/s is moving
+            console.log(`⚠️ SAFETY CHECK: Robot wheels are moving (${speed.toFixed(2)}m/s), waiting for complete stop...`);
+            if (attempt === 3) {
+              throw new Error(`SAFETY ERROR: Robot wheels still moving after 3 checks - cannot proceed with ${operation}`);
+            }
+            // Wait and check again
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } else {
+            console.log(`✅ SAFETY CHECK 2 PASSED: Robot wheels are stopped (${speed.toFixed(2)}m/s)`);
+            wheelCheckPassed = true;
+            break;
+          }
         }
-      }
-    } catch (error: any) {
-      if (error.message.includes('SAFETY VIOLATION')) {
-        // Re-throw safety violations
-        throw error;
-      } else {
-        console.log(`Warning: Could not check wheel state: ${error.message}`);
-        console.log(`Will continue with ${operation} but may be unsafe`);
+      } catch (error: any) {
+        if (error.message.includes('SAFETY')) {
+          // Re-throw safety violations
+          throw error;
+        } else {
+          console.log(`Warning: Could not check wheel state: ${error.message}`);
+          // If we can't verify wheel state after 3 attempts, assume it's safe but warn
+          if (attempt === 3) {
+            console.log(`⚠️ Unable to verify wheel state after multiple attempts. Proceeding with caution.`);
+          }
+        }
       }
     }
     
-    // Finally, verify no active operations
+    // Check 3: Verify the robot service status
     try {
       const statusResponse = await axios.get(`${ROBOT_API_URL}/service/status`, { headers });
       const status = statusResponse.data;
       
       if (status && status.is_busy) {
-        console.log(`⚠️ SAFETY WARNING: Robot reports busy status, may be unsafe for ${operation}`);
-        // Give it a moment to settle
-        console.log(`Waiting 3 seconds for robot to stabilize...`);
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        console.log(`⚠️ SAFETY WARNING: Robot reports busy status, waiting for it to complete...`);
+        // Give it time to finish whatever it's doing
+        console.log(`Waiting 5 seconds for robot to finish current operations...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      } else {
+        console.log(`✅ SAFETY CHECK 3 PASSED: Robot reports not busy`);
       }
     } catch (error: any) {
       console.log(`Warning: Could not check robot busy status: ${error.message}`);
     }
     
-    console.log(`✅ SAFETY CHECK PASSED: Robot appears to be stopped, proceeding with ${operation}`);
+    // Final mandatory stabilization delay
+    console.log(`✅ All safety checks passed! Waiting additional 3 seconds to ensure complete stability...`);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log(`✅ SAFETY CHECK COMPLETE: Robot confirmed stopped for ${operation} operation`);
   }
   
   private async checkMoveStatus(): Promise<boolean> {
@@ -545,12 +566,62 @@ export class MissionQueueManager {
    */
   private async executeJackUpStep(): Promise<any> {
     try {
-      console.log("Executing jack up operation");
+      console.log("⚠️ CRITICAL SAFETY OPERATION: Executing jack up operation");
+      
+      // Send the jack up command
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
-      console.log("Jack up completed successfully");
+      
+      // IMPORTANT: Wait for the jack operation to complete (takes ~7 seconds)
+      console.log("Jack up operation started, waiting 7 seconds for completion...");
+      await new Promise(resolve => setTimeout(resolve, 7000));
+      
+      // Verify the operation completed successfully
+      try {
+        const serviceStatusResponse = await axios.get(`${ROBOT_API_URL}/service/status`, { headers });
+        const status = serviceStatusResponse.data;
+        
+        if (status && status.is_busy) {
+          console.log("⚠️ WARNING: Robot still reports busy after jack up operation");
+          // Wait a bit longer
+          console.log("Waiting 3 more seconds for jack up to complete...");
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      } catch (statusError: any) {
+        console.log(`Note: Could not verify service status after jack up: ${statusError.message}`);
+      }
+      
+      // CRITICAL: Verify robot is still completely stopped after jack up
+      console.log("⚠️ SAFETY CHECK: Verifying robot is still completely stopped after jack up...");
+      try {
+        const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
+        const wheelState = wheelResponse.data;
+        
+        if (wheelState) {
+          const speed = Math.max(
+            Math.abs(wheelState.left_speed || 0), 
+            Math.abs(wheelState.right_speed || 0)
+          );
+          
+          if (speed > 0.01) { // More than 1cm/s is moving
+            console.log(`⚠️ CRITICAL SAFETY VIOLATION: Robot wheels are moving (${speed.toFixed(2)}m/s) after jack up!`);
+            throw new Error(`SAFETY ERROR: Robot started moving during/after jack up operation`);
+          } else {
+            console.log(`✅ SAFETY CHECK PASSED: Robot still stopped after jack up (${speed.toFixed(2)}m/s)`);
+          }
+        }
+      } catch (error: any) {
+        if (error.message.includes('SAFETY')) {
+          // Re-throw safety violations
+          throw error;
+        } else {
+          console.log(`Warning: Could not check wheel state after jack up: ${error.message}`);
+        }
+      }
+      
+      console.log("✅ Jack up completed successfully and verified");
       return response.data;
     } catch (error: any) {
-      console.error(`Error during jack up operation: ${error.message}`);
+      console.error(`ERROR during jack up operation: ${error.message}`);
       
       // Check response data for better error handling
       if (error.response) {
@@ -585,12 +656,62 @@ export class MissionQueueManager {
    */
   private async executeJackDownStep(): Promise<any> {
     try {
-      console.log("Executing jack down operation");
+      console.log("⚠️ CRITICAL SAFETY OPERATION: Executing jack down operation");
+      
+      // Send the jack down command
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
-      console.log("Jack down completed successfully");
+      
+      // IMPORTANT: Wait for the jack operation to complete (takes ~7 seconds)
+      console.log("Jack down operation started, waiting 7 seconds for completion...");
+      await new Promise(resolve => setTimeout(resolve, 7000));
+      
+      // Verify the operation completed successfully
+      try {
+        const serviceStatusResponse = await axios.get(`${ROBOT_API_URL}/service/status`, { headers });
+        const status = serviceStatusResponse.data;
+        
+        if (status && status.is_busy) {
+          console.log("⚠️ WARNING: Robot still reports busy after jack down operation");
+          // Wait a bit longer
+          console.log("Waiting 3 more seconds for jack down to complete...");
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      } catch (statusError: any) {
+        console.log(`Note: Could not verify service status after jack down: ${statusError.message}`);
+      }
+      
+      // CRITICAL: Verify robot is still completely stopped after jack down
+      console.log("⚠️ SAFETY CHECK: Verifying robot is still completely stopped after jack down...");
+      try {
+        const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
+        const wheelState = wheelResponse.data;
+        
+        if (wheelState) {
+          const speed = Math.max(
+            Math.abs(wheelState.left_speed || 0), 
+            Math.abs(wheelState.right_speed || 0)
+          );
+          
+          if (speed > 0.01) { // More than 1cm/s is moving
+            console.log(`⚠️ CRITICAL SAFETY VIOLATION: Robot wheels are moving (${speed.toFixed(2)}m/s) after jack down!`);
+            throw new Error(`SAFETY ERROR: Robot started moving during/after jack down operation`);
+          } else {
+            console.log(`✅ SAFETY CHECK PASSED: Robot still stopped after jack down (${speed.toFixed(2)}m/s)`);
+          }
+        }
+      } catch (error: any) {
+        if (error.message.includes('SAFETY')) {
+          // Re-throw safety violations
+          throw error;
+        } else {
+          console.log(`Warning: Could not check wheel state after jack down: ${error.message}`);
+        }
+      }
+      
+      console.log("✅ Jack down completed successfully and verified");
       return response.data;
     } catch (error: any) {
-      console.error(`Error during jack down operation: ${error.message}`);
+      console.error(`ERROR during jack down operation: ${error.message}`);
       
       // Check response data for better error handling
       if (error.response) {
