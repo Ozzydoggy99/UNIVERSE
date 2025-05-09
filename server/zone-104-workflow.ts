@@ -76,11 +76,28 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       }
       logRobotTask(`Found ${points.length} map points`);
       
+      // First, log all available point IDs to help debug which points are present
+      logRobotTask(`Available point IDs: ${points.map(p => p.id).join(', ')}`);
+      
       // Find our specific points using the new naming convention
       const pickupPoint = points.find(p => p.id === '104_Load') as Point;
       let pickupDockingPoint = points.find(p => p.id === '104_Load_docking') as WorkflowPoint | undefined;
-      const dropoffPoint = points.find(p => p.id === 'Dropoff') as Point;
-      let dropoffDockingPoint = points.find(p => p.id === 'Dropoff_docking') as WorkflowPoint | undefined;
+      
+      // Try multiple names for dropoff point since naming may vary
+      const dropoffPoint = points.find(p => 
+        p.id === 'Dropoff' || 
+        p.id === 'dropoff' || 
+        p.id === 'Drop-off' || 
+        p.id === 'drop-off' ||
+        p.id.toLowerCase().includes('drop')
+      ) as Point;
+      
+      let dropoffDockingPoint = points.find(p => 
+        p.id === 'Dropoff_docking' || 
+        p.id === 'dropoff_docking' ||
+        p.id === 'Drop-off_docking' ||
+        p.id === 'drop-off_docking'
+      ) as WorkflowPoint | undefined;
       const standbyPoint = points.find(p => 
         p.id.toLowerCase().includes('desk') || 
         p.id.toLowerCase().includes('standby')
@@ -153,9 +170,9 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         {
           type: 'move' as const,
           params: {
-            x: pickupDockingPoint.x,
-            y: pickupDockingPoint.y,
-            ori: pickupDockingPoint.ori || 0,
+            x: pickupDockingPoint!.x,
+            y: pickupDockingPoint!.y,
+            ori: pickupDockingPoint!.ori || 0,
             label: `docking for ${pickupPoint.id}`
           }
         },
@@ -178,9 +195,9 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         {
           type: 'move' as const,
           params: {
-            x: dropoffDockingPoint.x,
-            y: dropoffDockingPoint.y,
-            ori: dropoffDockingPoint.ori || 0,
+            x: dropoffDockingPoint!.x,
+            y: dropoffDockingPoint!.y,
+            ori: dropoffDockingPoint!.ori || 0,
             label: `docking for ${dropoffPoint.id}`
           }
         },
@@ -203,9 +220,9 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         {
           type: 'move' as const,
           params: {
-            x: standbyPoint ? standbyPoint.x : dropoffDockingPoint.x,
-            y: standbyPoint ? standbyPoint.y : dropoffDockingPoint.y,
-            ori: standbyPoint ? standbyPoint.ori || 0 : dropoffDockingPoint.ori || 0,
+            x: standbyPoint ? standbyPoint.x : dropoffDockingPoint!.x,
+            y: standbyPoint ? standbyPoint.y : dropoffDockingPoint!.y,
+            ori: standbyPoint ? standbyPoint.ori || 0 : dropoffDockingPoint!.ori || 0,
             label: standbyPoint ? standbyPoint.id : 'final position'
           }
         }
@@ -220,6 +237,14 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       const mission = missionQueue.createMission(missionName, pickupMissionSteps, 'L382502104987ir');
       
       logRobotTask(`✅ Mission created with ID: ${mission.id}`);
+      logRobotTask('Mission details:');
+      logRobotTask(`- Step 1: Move to pickup docking point (${pickupDockingPoint!.id}) at (${pickupDockingPoint!.x.toFixed(2)}, ${pickupDockingPoint!.y.toFixed(2)})`);
+      logRobotTask(`- Step 2: Move to pickup point (${pickupPoint.id}) at (${pickupPoint.x.toFixed(2)}, ${pickupPoint.y.toFixed(2)})`);
+      logRobotTask(`- Step 3: Jack up to grab bin`);
+      logRobotTask(`- Step 4: Move to dropoff docking point (${dropoffDockingPoint!.id}) at (${dropoffDockingPoint!.x.toFixed(2)}, ${dropoffDockingPoint!.y.toFixed(2)})`);
+      logRobotTask(`- Step 5: Move to dropoff point (${dropoffPoint.id}) at (${dropoffPoint.x.toFixed(2)}, ${dropoffPoint.y.toFixed(2)})`);
+      logRobotTask(`- Step 6: Jack down to release bin`);
+      logRobotTask(`- Step 7: Return to ${standbyPoint ? standbyPoint.id : 'dropoff docking'} position`);
       logRobotTask(`Mission will continue executing even if the robot goes offline`);
       
       // Start immediate execution
