@@ -209,10 +209,22 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           logRobotTask(`⚠️ WARNING: No bin detected at pickup location (${pickupPoint.id}). Will skip pickup and go to standby.`);
         }
         
-        // FOR TESTING: Assume dropoff is clear to see the full workflow
-        const binAtDropoff = false; // Force this to false for testing
-        logRobotTask(`Bin detection at dropoff point ${dropoffPoint.id}: ✅ NO BIN (CLEAR) - TESTING MODE`);
-        logRobotTask(`⚠️ TEST MODE: Assuming dropoff location is clear for testing the complete workflow`);
+        const binAtDropoff = await checkForBin(dropoffPoint.x, dropoffPoint.y, dropoffPoint.id);
+        logRobotTask(`Bin detection at dropoff point ${dropoffPoint.id}: ${binAtDropoff ? '⚠️ BIN PRESENT (OCCUPIED)' : '✅ NO BIN (CLEAR)'}`);
+        
+        if (binAtDropoff) {
+          logRobotTask(`⚠️ WARNING: Dropoff location (${dropoffPoint.id}) is already occupied. Cannot deliver bin here.`);
+          reasonMessage = 'Dropoff location already occupied';
+          
+          // If we have a bin to pickup but nowhere to put it, cancel the workflow
+          if (binAtPickup) {
+            cancelWorkflow = true;
+            logRobotTask(`❌ WORKFLOW ABORTED: Pickup has bin but dropoff is occupied. Cannot complete workflow.`);
+          } else {
+            skipToStandby = true;
+            logRobotTask(`ℹ️ No action needed: No bin at pickup and dropoff is occupied. Going to standby.`);
+          }
+        }
       } catch (error: any) {
         logRobotTask(`⚠️ Error during bin detection: ${error.message}. Will continue with planned workflow.`);
       }
