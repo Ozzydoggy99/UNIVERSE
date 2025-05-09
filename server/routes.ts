@@ -64,6 +64,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register Zone-104 workflow with new point naming convention
   registerZone104WorkflowRoute(app);
   
+  // Register our completely new implementation of Zone 104 workflow
+  registerZone104WorkflowHandler(app);
+  
   // Register bin status routes for testing
   registerBinStatusRoutes(app);
   

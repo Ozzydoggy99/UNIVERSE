@@ -512,7 +512,7 @@ async function returnToCharger(): Promise<any> {
       charge_retry_count: 3,  // Number of retries before failing
       properties: {
         max_trans_vel: 0.5,
-        max_rot_vel: A0.5,
+        max_rot_vel: 0.5,
         acc_lim_x: 0.5,
         acc_lim_theta: 0.5
       }
@@ -655,7 +655,7 @@ async function executeZone104Workflow(): Promise<any> {
  * Register the Zone 104 workflow handler
  */
 export function registerZone104WorkflowHandler(app: express.Express): void {
-  app.post('/api/zone-104/workflow', async (req, res) => {
+  app.post('/api/zone-104/workflow-new', async (req, res) => {
     const startTime = Date.now();
     
     try {
