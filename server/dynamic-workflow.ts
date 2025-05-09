@@ -22,6 +22,7 @@ import {
   ROBOT_SERIAL, 
   getAuthHeaders 
 } from './robot-constants';
+import { getRackSpecifications } from './robot-settings-api';
 
 // Configuration
 const LOG_PATH = 'robot-dynamic-workflow.log';
@@ -465,14 +466,30 @@ async function alignWithRackForPickup(workflowId: string, x: number, y: number, 
       }
     }
     
-    // Create align_with_rack move command
-    const alignCommand = {
+    // Get rack specifications from the robot system settings
+    let rackSpecs = null;
+    try {
+      logWorkflow(workflowId, `Getting rack specifications for proper rack alignment...`);
+      rackSpecs = await getRackSpecifications();
+      logWorkflow(workflowId, `✅ Successfully retrieved rack specifications: width=${rackSpecs.width}, depth=${rackSpecs.depth}, leg_shape=${rackSpecs.leg_shape}`);
+    } catch (rackSpecsError: any) {
+      logWorkflow(workflowId, `⚠️ Warning: Could not get rack specifications: ${rackSpecsError.message}`);
+      // Will continue without rack specs, but expect the operation may fail
+    }
+    
+    // Create align_with_rack move command with rack specs if available
+    const alignCommand: any = {
       creator: 'workflow-service',
       type: 'align_with_rack', // Special move type for rack alignment
       target_x: x,
       target_y: y,
       target_ori: ori
     };
+    
+    // Add rack_specs if we have them - required parameter according to documentation
+    if (rackSpecs) {
+      alignCommand.rack_specs = rackSpecs;
+    }
     
     logWorkflow(workflowId, `⚠️ RACK OPERATION: Creating align_with_rack move: ${JSON.stringify(alignCommand)}`);
     
