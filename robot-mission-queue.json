@@ -3437,5 +3437,102 @@
     "createdAt": "2025-05-09T19:00:03.396Z",
     "updatedAt": "2025-05-09T19:02:57.876Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1746832521346_m1jbcwc",
+    "name": "Pickup to 104 Workflow",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -2.3143658339108697,
+          "y": 2.543396298051448,
+          "ori": 177.73,
+          "label": "Drop-off_Load_docking"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Drop-off_Load_docking completed successfully",
+          "moveId": 4492
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -3.067094531843395,
+          "y": 2.5788015960870325,
+          "ori": 0,
+          "label": "Align with rack at Drop-off_Load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4493,
+          "message": "Align with rack completed successfully"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0,
+        "errorMessage": "Jack up operation failed: Request failed with status code 500"
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -16.253106853127974,
+          "y": 6.419632917129547,
+          "ori": 0,
+          "label": "104_Load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking (safe position)"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 2,
+    "createdAt": "2025-05-09T23:15:21.346Z",
+    "updatedAt": "2025-05-09T23:16:07.707Z",
+    "robotSn": "L382502104987ir"
   }
 ]

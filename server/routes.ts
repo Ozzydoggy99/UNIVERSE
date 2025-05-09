@@ -74,6 +74,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register the zone-104 workflow implementation - keeping this active since it has the working flow
   registerZone104WorkflowRoute(app);
+  // Register our new pickup-to-104 workflow specifically for testing
+  registerPickupTo104WorkflowRoute(app);
   // Comment out other workflow implementations
   // registerZone104WorkflowHandler(app);
   // registerFixedWorkflowHandler(app);

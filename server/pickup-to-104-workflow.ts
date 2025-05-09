@@ -76,9 +76,9 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
       logRobotTask(`Available point IDs: ${allPoints.map(p => p.id).join(', ')}`);
       
       // Find specifically needed points using exact IDs (case-sensitive)
-      // This is the main pickup point in the facility
-      const pickupPoint = allPoints.find(p => p.id === 'Drop-off_Load');
-      const pickupDockingPoint = allPoints.find(p => p.id === 'Drop-off_Load_docking');
+      // This is the main pickup point in the facility - Using Pick-up_Load
+      const pickupPoint = allPoints.find(p => p.id === 'Pick-up_Load');
+      const pickupDockingPoint = allPoints.find(p => p.id === 'Pick-up_Load_docking');
       
       // This is the shelf point 104 where we'll drop off the bin
       const dropoffPoint = allPoints.find(p => p.id === '104_Load');
@@ -112,11 +112,11 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
       
       // Validate required points exist
       if (!pickupPoint) {
-        throw new Error('Could not find pickup point "Drop-off_Load" in map data');
+        throw new Error('Could not find pickup point "Pick-up_Load" in map data');
       }
       
       if (!pickupDockingPoint) {
-        throw new Error('Could not find pickup docking point "Drop-off_Load_docking" in map data');
+        throw new Error('Could not find pickup docking point "Pick-up_Load_docking" in map data');
       }
       
       if (!dropoffPoint) {
