@@ -346,6 +346,10 @@ function setupWebSockets(httpServer: Server) {
                     timestamp: Date.now()
                   };
                   
+                  // Update our position tracker singleton
+                  const { robotPositionTracker } = require('./robot-position-tracker');
+                  robotPositionTracker.updatePosition(positionData);
+                  
                   console.log('[Relay] Extracted tracked_pose data:', positionData);
                   clientSocket.send(JSON.stringify(positionData));
                   return;
@@ -398,11 +402,17 @@ function setupWebSockets(httpServer: Server) {
           // AxBot specific format found in logs:
           // topic: "/tracked_pose", pos: [-0.435, 3.265], ori: 4.34
           if (data.topic === '/tracked_pose' && Array.isArray(data.pos) && data.pos.length >= 2) {
-            return {
+            const positionData = {
               x: data.pos[0],
               y: data.pos[1],
               theta: typeof data.ori === 'number' ? data.ori : 0
             };
+            
+            // Update our position tracker singleton
+            const { robotPositionTracker } = require('./robot-position-tracker');
+            robotPositionTracker.updatePosition({...positionData, timestamp: Date.now()});
+            
+            return positionData;
           }
           
           // Check if data has pos as array (as seen in the robot logs)
