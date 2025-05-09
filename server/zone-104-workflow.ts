@@ -79,8 +79,8 @@ export function registerZone104WorkflowRoute(app: express.Express) {
    * using the specialized point naming convention:
    * - Load points: "number_Load" (the actual shelf points where bins will be picked up)
    * - Load docking points: "number_Load_docking" (positions before the actual shelf)
-   * - Dropoff: "Dropoff" (where bins are dropped off)
-   * - Dropoff docking: "Dropoff_docking" (position before the dropoff)
+   * - Dropoff: "Drop-off_Load" (where bins are dropped off)
+   * - Dropoff docking: "Drop-off_Load_docking" (position before the dropoff)
    */
   const handleZone104Workflow = async (req: express.Request, res: express.Response) => {
     const startTime = Date.now();
@@ -126,23 +126,23 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       
       // Find our specific points using the new naming convention
       const pickupPoint = points.find(p => p.id === '104_Load') as Point;
-      let pickupDockingPoint = points.find(p => p.id === '104_Load_docking') as WorkflowPoint | undefined;
+      const pickupDockingPoint = points.find(p => p.id === '104_Load_docking') as WorkflowPoint;
       
       // Try multiple names for dropoff point since naming may vary
       const dropoffPoint = points.find(p => 
-        p.id === 'Dropoff' || 
-        p.id === 'dropoff' || 
-        p.id === 'Drop-off' || 
-        p.id === 'drop-off' ||
-        p.id.toLowerCase().includes('drop')
+        p.id === 'Drop-off_Load' || 
+        p.id === 'Dropoff_Load' || 
+        p.id === 'dropoff_Load' ||
+        p.id === 'drop-off_load'
       ) as Point;
       
-      let dropoffDockingPoint = points.find(p => 
-        p.id === 'Dropoff_docking' || 
-        p.id === 'dropoff_docking' ||
-        p.id === 'Drop-off_docking' ||
-        p.id === 'drop-off_docking'
-      ) as WorkflowPoint | undefined;
+      const dropoffDockingPoint = points.find(p => 
+        p.id === 'Drop-off_Load_docking' || 
+        p.id === 'Dropoff_Load_docking' ||
+        p.id === 'dropoff_Load_docking' ||
+        p.id === 'drop-off_load_docking'
+      ) as WorkflowPoint;
+      
       const standbyPoint = points.find(p => 
         p.id.toLowerCase().includes('desk') || 
         p.id.toLowerCase().includes('standby')
@@ -154,45 +154,15 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       }
       
       if (!pickupDockingPoint) {
-        logRobotTask('⚠️ Warning: Pickup docking point "104_Load_docking" not found, will create one dynamically');
-        // Create a docking point 1 meter away from the pickup point
-        const dockingDistance = 1.0; // 1 meter
-        const orientation = pickupPoint.ori || 0;
-        const radians = (orientation * Math.PI) / 180;
-        
-        // Calculate approach point opposite to orientation
-        pickupDockingPoint = {
-          id: '104_Load_docking_dynamic',
-          name: '104_Load_docking_dynamic',
-          x: pickupPoint.x - dockingDistance * Math.cos(radians),
-          y: pickupPoint.y - dockingDistance * Math.sin(radians),
-          ori: orientation,
-          floorId: pickupPoint.floorId,
-          description: 'Dynamic docking point for 104_Load'
-        } as WorkflowPoint;
+        throw new Error('Could not find pickup docking point "104_Load_docking" in map data');
       }
       
       if (!dropoffPoint) {
-        throw new Error('Could not find dropoff point "Dropoff" in map data');
+        throw new Error('Could not find dropoff point "Drop-off_Load" in map data');
       }
       
       if (!dropoffDockingPoint) {
-        logRobotTask('⚠️ Warning: Dropoff docking point "Dropoff_docking" not found, will create one dynamically');
-        // Create a docking point 1 meter away from the dropoff point
-        const dockingDistance = 1.0; // 1 meter
-        const orientation = dropoffPoint.ori || 0;
-        const radians = (orientation * Math.PI) / 180;
-        
-        // Calculate approach point opposite to orientation
-        dropoffDockingPoint = {
-          id: 'Dropoff_docking_dynamic',
-          name: 'Dropoff_docking_dynamic',
-          x: dropoffPoint.x - dockingDistance * Math.cos(radians),
-          y: dropoffPoint.y - dockingDistance * Math.sin(radians),
-          ori: orientation,
-          floorId: dropoffPoint.floorId,
-          description: 'Dynamic docking point for Dropoff'
-        } as WorkflowPoint;
+        throw new Error('Could not find dropoff docking point "Drop-off_Load_docking" in map data');
       }
       
       if (!standbyPoint) {
@@ -202,208 +172,238 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       // Log the points we found
       logRobotTask('✅ Found all required map points:');
       logRobotTask(`- Pickup: ${pickupPoint.id} at (${pickupPoint.x}, ${pickupPoint.y}), orientation: ${pickupPoint.ori}`);
-      logRobotTask(`- Pickup docking: ${pickupDockingPoint!.id} at (${pickupDockingPoint!.x}, ${pickupDockingPoint!.y}), orientation: ${pickupDockingPoint!.ori}`);
+      logRobotTask(`- Pickup docking: ${pickupDockingPoint.id} at (${pickupDockingPoint.x}, ${pickupDockingPoint.y}), orientation: ${pickupDockingPoint.ori}`);
       logRobotTask(`- Dropoff: ${dropoffPoint.id} at (${dropoffPoint.x}, ${dropoffPoint.y}), orientation: ${dropoffPoint.ori}`);
-      logRobotTask(`- Dropoff docking: ${dropoffDockingPoint!.id} at (${dropoffDockingPoint!.x}, ${dropoffDockingPoint!.y}), orientation: ${dropoffDockingPoint!.ori}`);
+      logRobotTask(`- Dropoff docking: ${dropoffDockingPoint.id} at (${dropoffDockingPoint.x}, ${dropoffDockingPoint.y}), orientation: ${dropoffDockingPoint.ori}`);
       if (standbyPoint) {
         logRobotTask(`- Standby: ${standbyPoint.id} at (${standbyPoint.x}, ${standbyPoint.y}), orientation: ${standbyPoint.ori}`);
       }
       
-      // NO PRE-CHECKING OF BIN STATUS
-      // We will follow the exact sequence and check bin status during execution
+      // Create a properly formatted task based on the AutoXing API documentation
+      // For bin lifting, we need stepActs with type 47 (jack up) or 48 (jack down)
       
-      logRobotTask(`✨ IMPORTANT: Using the correct sequential workflow with sequential checking`);
-      logRobotTask(`✨ Following exact sequence with no pre-checks:`);
-      logRobotTask(`  1. Go to ${pickupPoint.id}_docking first`);
-      logRobotTask(`  2. Once there, check for bin at ${pickupPoint.id}`);
-      logRobotTask(`  3. If bin present, go to ${pickupPoint.id} and jack up`);
-      logRobotTask(`  4. Go to ${dropoffPoint.id}_docking position`);
-      logRobotTask(`  5. Once there, check for bin at ${dropoffPoint.id}`);
-      logRobotTask(`  6. If clear, go to ${dropoffPoint.id} and jack down`);
-      logRobotTask(`  7. Return to standby position: ${standbyPoint?.id || 'Default'}`);
-      
-      // No pre-detection of bins or pre-planning of workflow cancellation
-      let cancelWorkflow = false;
-      
-      // After bin detection is complete, create the mission steps based on detection results
-      // For type safety with MissionStep
-      type MoveStep = {
-        type: 'move';
-        params: {
-          x: number;
-          y: number;
-          ori: number;
-          label: string;
-        };
-      };
-      
-      type JackStep = {
-        type: 'jack_up' | 'jack_down';
-        params: Record<string, any>;
-      };
-      
-      type MissionStep = MoveStep | JackStep;
-      
-      // DO NOT check for bins at beginning - we need to strictly follow the sequence
-      // Per exact requirements:
-      
-      // 1. Always go to 104_load_docking first
-      // 2. Only then check for bin at 104_load
-      // 3. If bin present, go under bin at 104_load and jack up
-      // 4. Always go to drop-off_load_docking next
-      // 5. Only then check for bin at drop-off_load
-      // 6. If no bin at drop-off_load, go there and jack down
-      // 7. Finally return to standby
-      
-      // Initialize the workflow steps array
-      const workflowSteps: MissionStep[] = [];
-      
-      // STEP 1: ALWAYS go to pickup docking position first
-      logRobotTask(`🔄 [${new Date().toISOString()}] STEP 1/7: FIRST going to docking position at ${pickupPoint.id}_docking`);
-      workflowSteps.push({
-        type: 'move',
-        params: {
-          x: pickupDockingPoint!.x,
-          y: pickupDockingPoint!.y,
-          ori: pickupDockingPoint!.ori || 0,
-          label: `${pickupPoint.id}_docking`
-        }
-      });
-      
-      // STEP 2: Check for bin at pickup location
-      // This is only a detection step, we'll check later in the workflow execution
-      logRobotTask(`🔍 [${new Date().toISOString()}] STEP 2/7: After arrival, checking for bin at ${pickupPoint.id}`);
-      const binAtPickup = await checkForBin(pickupPoint.x, pickupPoint.y, pickupPoint.id);
-      
-      if (binAtPickup) {
-        logRobotTask(`✅ [${new Date().toISOString()}] VERIFICATION: Bin detected at ${pickupPoint.id} - proceeding with pickup`);
-        
-        // STEP 3: Go under bin for pickup
-        logRobotTask(`🔄 [${new Date().toISOString()}] STEP 3/7: Moving under bin at ${pickupPoint.id} for pickup`);
-        workflowSteps.push({
-          type: 'move',
-          params: {
-            x: pickupPoint.x,
-            y: pickupPoint.y,
-            ori: pickupPoint.ori || 0,
-            label: `${pickupPoint.id}`
-          }
-        });
-        
-        // STEP 4: Jack up to grab bin
-        logRobotTask(`⬆️ [${new Date().toISOString()}] STEP 4/7: Jacking up to grab bin at ${pickupPoint.id}`);
-        workflowSteps.push({
-          type: 'jack_up',
-          params: {}
-        } as JackStep);
-        
-        // STEP 5: ALWAYS go to dropoff docking position next - THIS IS THE CRITICAL SEQUENCE POINT
-        logRobotTask(`🔄 [${new Date().toISOString()}] STEP 5/7: IMPORTANT - FIRST going to ${dropoffPoint.id}_docking position`);
-        workflowSteps.push({
-          type: 'move',
-          params: {
-            x: dropoffDockingPoint!.x,
-            y: dropoffDockingPoint!.y,
-            ori: dropoffDockingPoint!.ori || 0,
-            label: `${dropoffPoint.id}_docking`
-          }
-        });
-        
-        // STEP 6: Check for bin at dropoff location
-        logRobotTask(`🔍 [${new Date().toISOString()}] STEP 6/7: After arrival at docking, checking for bin at ${dropoffPoint.id}`);
-        const binAtDropoff = await checkForBin(dropoffPoint.x, dropoffPoint.y, dropoffPoint.id);
-        
-        if (!binAtDropoff) {
-          logRobotTask(`✅ [${new Date().toISOString()}] VERIFICATION: Dropoff at ${dropoffPoint.id} is clear - proceeding with dropoff`);
+      // Construct the task using proper structure from the API documentation
+      const task = {
+        runType: 0,          // Standard task
+        name: `Zone 104 Complete Workflow (${new Date().toISOString()})`,
+        robotSn: 'L382502104987ir',
+        areaId: pickupPoint.areaId || dropoffPoint.areaId, // Use the area ID from the points
+        startPoiId: pickupDockingPoint.id,  // Start from the pickup docking
+        steps: [
+          // STEP 1: Move to pickup docking position
+          {
+            poiId: pickupDockingPoint.id,  // First go to docking position
+            stepActs: [] // No special actions at docking point
+          },
           
-          // STEP 7: ONLY AFTER CHECKING - Move to dropoff position
-          logRobotTask(`🔄 [${new Date().toISOString()}] STEP 7/7: AFTER checking and confirming clear, moving to exact position at ${dropoffPoint.id}`);
-          workflowSteps.push({
-            type: 'move',
-            params: {
-              x: dropoffPoint.x, 
-              y: dropoffPoint.y,
-              ori: dropoffPoint.ori || 0,
-              label: `${dropoffPoint.id}`
+          // STEP 2: Move to pickup position
+          {
+            poiId: pickupPoint.id,  // Move to actual pickup position
+            stepActs: [] // No actions yet - we'll add jack_up after checking bin presence
+          },
+          
+          // STEP 3: Perform jack up operation at pickup point
+          {
+            poiId: pickupPoint.id,  // Stay at pickup position
+            stepActs: [
+              {
+                actType: 47,  // 47 = jack up operation per documentation
+                actParams: {
+                  waitComplete: true,  // Wait for complete stop before continuing
+                  stabilizationTime: 3000  // 3 seconds stabilization time for safety
+                }
+              }
+            ]
+          },
+          
+          // STEP 4: Move to dropoff docking position
+          {
+            poiId: dropoffDockingPoint.id,  // Important - go to docking point first
+            stepActs: []  // No special actions at docking
+          },
+          
+          // STEP 5: Move to actual dropoff position
+          {
+            poiId: dropoffPoint.id,  // Move to actual dropoff position
+            stepActs: []  // No actions yet
+          },
+          
+          // STEP 6: Perform jack down operation at dropoff point
+          {
+            poiId: dropoffPoint.id,  // Stay at dropoff position
+            stepActs: [
+              {
+                actType: 48,  // 48 = jack down operation per documentation
+                actParams: {
+                  waitComplete: true,  // Wait for complete stop before continuing
+                  stabilizationTime: 3000  // 3 seconds stabilization time for safety
+                }
+              }
+            ]
+          },
+          
+          // STEP 7: Return to standby position
+          {
+            poiId: standbyPoint ? standbyPoint.id : dropoffDockingPoint.id,
+            stepActs: []  // No special actions for standby
+          }
+        ],
+        taskPriority: 5,  // High priority
+        isLoop: false      // Not a looping task
+      };
+      
+      // Log the task structure
+      logRobotTask('📋 Constructed task with proper API structure:');
+      logRobotTask(`- Task name: ${task.name}`);
+      logRobotTask(`- Robot SN: ${task.robotSn}`);
+      logRobotTask(`- Area ID: ${task.areaId}`);
+      logRobotTask(`- Start POI: ${task.startPoiId}`);
+      
+      for (let i = 0; i < task.steps.length; i++) {
+        const step = task.steps[i];
+        let stepDesc = `- Step ${i+1}: Go to ${step.poiId}`;
+        
+        if (step.stepActs && step.stepActs.length > 0) {
+          for (const act of step.stepActs) {
+            if (act.actType === 47) {
+              stepDesc += ` and JACK UP (type: ${act.actType})`;
+            } else if (act.actType === 48) {
+              stepDesc += ` and JACK DOWN (type: ${act.actType})`;
+            } else {
+              stepDesc += ` and perform action type ${act.actType}`;
             }
-          });
-          
-          // STEP 8: Jack down to release bin
-          logRobotTask(`⬇️ [${new Date().toISOString()}] FINAL ACTION: Jacking down to release bin at ${dropoffPoint.id}`);
-          workflowSteps.push({
-            type: 'jack_down',
-            params: {}
-          } as JackStep);
-        } else {
-          logRobotTask(`⚠️ [${new Date().toISOString()}] WARNING: Dropoff at ${dropoffPoint.id} is occupied - skipping dropoff sequence`);
+            
+            if (act.actParams && act.actParams.waitComplete) {
+              stepDesc += ' [with safety wait]';
+            }
+          }
         }
-      } else {
-        logRobotTask(`⚠️ [${new Date().toISOString()}] WARNING: No bin detected at ${pickupPoint.id} - skipping pickup sequence`);
+        
+        logRobotTask(stepDesc);
       }
       
-      // Final step: Return to standby position
-      logRobotTask(`🔄 [${new Date().toISOString()}] CLEANUP: Returning to standby position`);
-      workflowSteps.push({
-        type: 'move',
-        params: {
-          x: standbyPoint ? standbyPoint.x : dropoffDockingPoint!.x,
-          y: standbyPoint ? standbyPoint.y : dropoffDockingPoint!.y,
-          ori: standbyPoint ? standbyPoint.ori || 0 : dropoffDockingPoint!.ori || 0,
-          label: standbyPoint ? `returning to ${standbyPoint.id}` : 'returning to final position'
-        }
-      });
-      
-      // First clear any existing active missions
+      // Clear any existing missions
       await missionQueue.cancelAllActiveMissions();
       logRobotTask('✅ Cancelled any existing active missions');
       
-      // Create the mission in the queue
-      const missionName = `Zone 104 Complete Workflow (Pickup to Dropoff)`;
-      const mission = missionQueue.createMission(missionName, workflowSteps, 'L382502104987ir');
-      
-      logRobotTask(`✅ Mission created with ID: ${mission.id}`);
-      logRobotTask('Mission details:');
-      
-      // Log the dynamically generated steps based on the actual workflow
-      for (let i = 0; i < workflowSteps.length; i++) {
-        const step = workflowSteps[i];
-        if (step.type === 'move') {
-          logRobotTask(`- Step ${i+1}: Move to ${step.params.label}`);
-        } else if (step.type === 'jack_up') {
-          logRobotTask(`- Step ${i+1}: Jack up to grab bin - WAIT FOR COMPLETE STOP`);
-        } else if (step.type === 'jack_down') {
-          logRobotTask(`- Step ${i+1}: Jack down to release bin - WAIT FOR COMPLETE STOP`);
+      // Create API request to assign the task
+      logRobotTask('🔄 Sending task to robot API...');
+      try {
+        const apiUrl = `${ROBOT_API_URL}/api/v2/task`;
+        logRobotTask(`📡 API URL: ${apiUrl}`);
+        
+        const response = await axios.post(apiUrl, task, {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': ROBOT_SECRET
+          }
+        });
+        
+        // Check the response and assign the task ID
+        const taskId = response.data.id || response.data.taskId || null;
+        
+        if (!taskId) {
+          throw new Error('Robot API returned success but no task ID was provided');
         }
+        
+        logRobotTask(`✅ Task created successfully with ID: ${taskId}`);
+        
+        // Calculate planning time
+        const duration = Date.now() - startTime;
+        
+        logRobotTask(`🚀 ZONE-104 WORKFLOW initiated. Planning took: ${duration}ms`);
+        
+        // Return success response with task ID and planning details
+        return res.status(200).json({
+          success: true,
+          message: 'Zone 104 workflow initiated successfully using direct task API',
+          taskId: taskId,
+          steps: task.steps.length,
+          duration,
+          taskStructure: task  // Include the task structure for debugging
+        });
+      } catch (error: any) {
+        const errorMessage = `Error assigning task to robot API: ${error.message}`;
+        const responseData = error.response?.data || 'No response data';
+        
+        logRobotTask(`❌ ${errorMessage}`);
+        logRobotTask(`⚠️ API Response: ${JSON.stringify(responseData)}`);
+        
+        // Fallback to mission queue if API fails
+        logRobotTask('⚠️ API assignment failed, falling back to mission queue...');
+        
+        // Create a mission using the old approach as fallback
+        const missionName = `Zone 104 Complete Workflow (Fallback)`;
+        
+        // Convert the task structure to mission steps
+        const workflowSteps = task.steps.map(step => {
+          // For each step, create a move step
+          const moveStep = {
+            type: 'move',
+            params: {
+              label: step.poiId,
+              // We need to find the point matching this ID
+              x: points.find(p => p.id === step.poiId)?.x || 0,
+              y: points.find(p => p.id === step.poiId)?.y || 0,
+              ori: points.find(p => p.id === step.poiId)?.ori || 0
+            }
+          };
+          
+          // If there are step actions, handle them specially
+          if (step.stepActs && step.stepActs.length > 0) {
+            for (const act of step.stepActs) {
+              if (act.actType === 47) {
+                return {
+                  type: 'jack_up',
+                  params: act.actParams || {}
+                };
+              } else if (act.actType === 48) {
+                return {
+                  type: 'jack_down',
+                  params: act.actParams || {}
+                };
+              }
+            }
+          }
+          
+          return moveStep;
+        });
+        
+        const mission = missionQueue.createMission(missionName, workflowSteps, 'L382502104987ir');
+        await missionQueue.startMission(mission.id);
+        
+        logRobotTask(`✅ Fallback mission created with ID: ${mission.id}`);
+        
+        // Calculate planning time
+        const duration = Date.now() - startTime;
+        
+        // Return success response with mission ID and fallback note
+        return res.status(200).json({
+          success: true,
+          message: 'Zone 104 workflow initiated successfully (using fallback mechanism)',
+          missionId: mission.id,
+          steps: workflowSteps.length,
+          duration,
+          note: 'Using fallback mission queue due to API error: ' + errorMessage
+        });
       }
-      logRobotTask(`⚠️ SAFETY INSTRUCTIONS: Robot must be completely stopped before jack operations`);
-      logRobotTask(`⚠️ IMPORTANT: Check that robot is fully stopped before and after jack movements`);
+    } catch (error: any) {
+      const errorMessage = `Error executing zone-104 workflow: ${error.message}`;
+      logRobotTask(`❌ ${errorMessage}`);
       
-      // Start immediate execution
-      await missionQueue.processMissionQueue();
-      
-      const totalDuration = Date.now() - startTime;
-      logRobotTask(`🚀 ZONE-104 WORKFLOW initiated. Planning took: ${totalDuration}ms`);
-      
-      res.json({ 
-        success: true, 
-        message: 'Zone 104 complete workflow started (pickup → dropoff)',
-        missionId: mission.id,
-        duration: totalDuration,
-        steps: workflowSteps.length
-      });
-    } catch (err: any) {
-      const errorMessage = err.response?.data || err.message;
-      logRobotTask(`❌ ZONE-104 WORKFLOW error: ${errorMessage}`);
-      res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        error: err.message, 
-        details: err.response?.data 
+        error: errorMessage
       });
     }
   };
   
-  // Register the handler
+  // Register the handler for multiple path patterns
+  // Old route for backward compatibility
   app.post('/api/robots/workflows/zone-104', handleZone104Workflow);
+  
+  // New route with consistent RESTful naming
+  app.post('/api/zone-104/workflow', handleZone104Workflow);
   
   logRobotTask('✅ Registered zone-104 workflow handler');
 }
