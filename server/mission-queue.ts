@@ -568,77 +568,78 @@ export class MissionQueueManager {
     try {
       console.log("⚠️ CRITICAL SAFETY OPERATION: Executing jack up operation");
       
-      // Send the jack up command - this is the correct endpoint from our earlier API check
-      const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] [JACK-UP] ⚠️ CRITICAL SAFETY OPERATION START: Jack operation requires complete stability`);
       
-      // IMPORTANT: Add a backing-up step before the actual jack_up command
-      // This is critical for proper bin alignment
-      console.log("⚠️ CRITICAL: Backing up slightly for proper bin alignment...");
+      // STEP 1: CRITICAL - Make sure robot is completely stopped first
+      console.log(`[${timestamp}] [JACK-UP] Ensuring robot is completely stopped before jack operation`);
       try {
-        // Use manual joystick command to back up slightly
+        const stopResponse = await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
+          action: "joystick",
+          linear: { x: 0.0, y: 0.0, z: 0.0 },
+          angular: { x: 0.0, y: 0.0, z: 0.0 }
+        }, { headers });
+        
+        // Initial stabilization wait - ensure robot is completely still
+        console.log(`[${timestamp}] [JACK-UP] Waiting 3 seconds for initial stabilization before any movement...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      } catch (stopError: any) {
+        console.error(`[${timestamp}] [JACK-UP] Failed to stop robot: ${stopError.message}`);
+        throw new Error(`Critical safety failure: Unable to ensure robot is stopped before jack operation: ${stopError.message}`);
+      }
+      
+      // STEP 2: Perform slight backup for better bin alignment
+      console.log(`[${timestamp}] [JACK-UP] ⚠️ CRITICAL: Backing up slightly (5cm) for proper bin alignment...`);
+      try {
+        // Use manual joystick command to back up slightly - negative x means backward
         const backupResponse = await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
           action: "joystick",
-          linear: {
-            x: -0.05, // Negative x means backward movement
-            y: 0.0,
-            z: 0.0
-          },
-          angular: {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0
-          }
+          linear: { x: -0.05, y: 0.0, z: 0.0 },
+          angular: { x: 0.0, y: 0.0, z: 0.0 }
         }, { headers });
         
         // Wait for the backup movement to complete (1.5 seconds)
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Stop the robot after backing up
+        // Stop the robot again after backing up
         const stopResponse = await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
           action: "joystick",
-          linear: {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0
-          },
-          angular: {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0
-          }
+          linear: { x: 0.0, y: 0.0, z: 0.0 },
+          angular: { x: 0.0, y: 0.0, z: 0.0 }
         }, { headers });
         
-        // Wait for stop to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Final stabilization wait after backup
+        console.log(`[${timestamp}] [JACK-UP] Waiting 2 seconds for post-backup stabilization...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        console.log("✅ Backup movement completed for better bin alignment");
+        console.log(`[${timestamp}] [JACK-UP] ✅ Backup movement and stabilization completed successfully`);
       } catch (backupError: any) {
-        console.log(`Warning: Could not perform backup movement: ${backupError.message}`);
-        // Continue with jack_up even if backup fails
+        console.error(`[${timestamp}] [JACK-UP] Failed to perform backup movement: ${backupError.message}`);
+        throw new Error(`Critical safety failure: Backup movement for bin alignment failed: ${backupError.message}`);
       }
       
-      // Now send the actual jack_up command again
-      const jackUpResponse = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
+      // STEP 3: Send the actual jack_up command through the services endpoint
+      console.log(`[${timestamp}] [JACK-UP] ⚠️ EXECUTING JACK UP OPERATION NOW...`);
+      const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
       
-      // IMPORTANT: Wait longer for the jack operation to complete (takes ~10 seconds to be safe)
-      console.log("Jack up operation started, waiting 10 seconds for complete stability...");
+      // STEP 4: Wait for the operation to complete
+      console.log(`[${timestamp}] [JACK-UP] Jack up operation started, waiting 10 seconds for complete stability...`);
       await new Promise(resolve => setTimeout(resolve, 10000));
       
-      // Trying to check if robot is busy - the endpoint doesn't exist in this robot version,
-      // so we'll just add extra wait time
+      // STEP 5: Verify robot state
       try {
         // Instead of using service/status which doesn't exist, let's try chassis/state
         const chassisResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
-        console.log("✅ Chassis state checked after jack up");
+        console.log(`[${timestamp}] [JACK-UP] ✅ Chassis state checked after jack up`);
       } catch (statusError: any) {
-        console.log(`Note: Could not verify chassis state after jack up: ${statusError.message}`);
+        console.log(`[${timestamp}] [JACK-UP] Note: Could not verify chassis state after jack up: ${statusError.message}`);
       }
       
-      // CRITICAL: Verify robot is still completely stopped after jack up
-      console.log("⚠️ SAFETY CHECK: Verifying robot is still completely stopped after jack up...");
+      // STEP 6: Verify robot is still completely stopped after jack operation
+      console.log(`[${timestamp}] [JACK-UP] ⚠️ SAFETY CHECK: Verifying robot is still completely stopped...`);
       
       // Double check with an additional stabilization period to be certain
-      console.log("Adding additional 3-second final stabilization period...");
+      console.log(`[${timestamp}] [JACK-UP] Adding additional 3-second final stabilization period...`);
       await new Promise(resolve => setTimeout(resolve, 3000));
       
       try {
@@ -652,10 +653,10 @@ export class MissionQueueManager {
           );
           
           if (speed > 0.01) { // More than 1cm/s is moving
-            console.log(`⚠️ CRITICAL SAFETY VIOLATION: Robot wheels are moving (${speed.toFixed(2)}m/s) after jack up!`);
+            console.log(`[${timestamp}] [JACK-UP] ⚠️ CRITICAL SAFETY VIOLATION: Robot wheels are moving (${speed.toFixed(2)}m/s) after jack up!`);
             throw new Error(`SAFETY ERROR: Robot started moving during/after jack up operation`);
           } else {
-            console.log(`✅ SAFETY CHECK PASSED: Robot still stopped after jack up (${speed.toFixed(2)}m/s)`);
+            console.log(`[${timestamp}] [JACK-UP] ✅ SAFETY CHECK PASSED: Robot still stopped after jack up (${speed.toFixed(2)}m/s)`);
           }
         }
       } catch (error: any) {
@@ -663,15 +664,15 @@ export class MissionQueueManager {
           // Re-throw safety violations
           throw error;
         } else {
-          console.log(`Warning: Could not check wheel state after jack up: ${error.message}`);
+          console.log(`[${timestamp}] [JACK-UP] Warning: Could not check wheel state after jack up: ${error.message}`);
         }
       }
       
-      // Final absolute safety wait - this ensures robot has fully completed all internal processes
-      console.log("⚠️ Adding FINAL safety waiting period of 2 seconds...");
+      // STEP 7: Final absolute safety wait 
+      console.log(`[${timestamp}] [JACK-UP] ⚠️ Adding FINAL safety waiting period of 2 seconds...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      console.log("✅ Jack up completed successfully and verified");
+      console.log(`[${timestamp}] [JACK-UP] ✅ Jack up completed successfully and verified`);
       return response.data;
     } catch (error: any) {
       console.error(`ERROR during jack up operation: ${error.message}`);
@@ -709,29 +710,48 @@ export class MissionQueueManager {
    */
   private async executeJackDownStep(): Promise<any> {
     try {
-      console.log("⚠️ CRITICAL SAFETY OPERATION: Executing jack down operation");
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] [JACK-DOWN] ⚠️ CRITICAL SAFETY OPERATION START: Jack down requires complete stability`);
       
-      // Send the jack down command - using the correct API endpoint
+      // STEP 1: CRITICAL - Make sure robot is completely stopped first
+      console.log(`[${timestamp}] [JACK-DOWN] Ensuring robot is completely stopped before jack operation`);
+      try {
+        const stopResponse = await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
+          action: "joystick",
+          linear: { x: 0.0, y: 0.0, z: 0.0 },
+          angular: { x: 0.0, y: 0.0, z: 0.0 }
+        }, { headers });
+        
+        // Initial stabilization wait - ensure robot is completely still
+        console.log(`[${timestamp}] [JACK-DOWN] Waiting 3 seconds for initial stabilization...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      } catch (stopError: any) {
+        console.error(`[${timestamp}] [JACK-DOWN] Failed to stop robot: ${stopError.message}`);
+        throw new Error(`Critical safety failure: Unable to ensure robot is stopped before jack down operation: ${stopError.message}`);
+      }
+      
+      // STEP 2: Send the actual jack_down command through the services endpoint
+      console.log(`[${timestamp}] [JACK-DOWN] ⚠️ EXECUTING JACK DOWN OPERATION NOW...`);
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
       
-      // IMPORTANT: Wait longer for the jack operation to complete (takes ~10 seconds to be safe)
-      console.log("Jack down operation started, waiting 10 seconds for complete stability...");
+      // STEP 3: Wait for the operation to complete
+      console.log(`[${timestamp}] [JACK-DOWN] Jack down operation started, waiting 10 seconds for complete stability...`);
       await new Promise(resolve => setTimeout(resolve, 10000));
       
-      // Trying to check if robot is busy - using proper API endpoint for this robot
+      // STEP 4: Verify robot state
       try {
         // Try checking chassis state instead of service status
         const chassisResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
-        console.log("✅ Chassis state checked after jack down");
+        console.log(`[${timestamp}] [JACK-DOWN] ✅ Chassis state checked after jack down`);
       } catch (statusError: any) {
-        console.log(`Note: Could not verify chassis state after jack down: ${statusError.message}`);
+        console.log(`[${timestamp}] [JACK-DOWN] Note: Could not verify chassis state after jack down: ${statusError.message}`);
       }
       
-      // CRITICAL: Verify robot is still completely stopped after jack down
-      console.log("⚠️ SAFETY CHECK: Verifying robot is still completely stopped after jack down...");
+      // STEP 5: Verify robot is still completely stopped after jack operation
+      console.log(`[${timestamp}] [JACK-DOWN] ⚠️ SAFETY CHECK: Verifying robot is still completely stopped...`);
       
       // Double check with an additional stabilization period to be certain
-      console.log("Adding additional 3-second final stabilization period...");
+      console.log(`[${timestamp}] [JACK-DOWN] Adding additional 3-second final stabilization period...`);
       await new Promise(resolve => setTimeout(resolve, 3000));
       
       try {
@@ -745,10 +765,10 @@ export class MissionQueueManager {
           );
           
           if (speed > 0.01) { // More than 1cm/s is moving
-            console.log(`⚠️ CRITICAL SAFETY VIOLATION: Robot wheels are moving (${speed.toFixed(2)}m/s) after jack down!`);
+            console.log(`[${timestamp}] [JACK-DOWN] ⚠️ CRITICAL SAFETY VIOLATION: Robot wheels are moving (${speed.toFixed(2)}m/s) after jack down!`);
             throw new Error(`SAFETY ERROR: Robot started moving during/after jack down operation`);
           } else {
-            console.log(`✅ SAFETY CHECK PASSED: Robot still stopped after jack down (${speed.toFixed(2)}m/s)`);
+            console.log(`[${timestamp}] [JACK-DOWN] ✅ SAFETY CHECK PASSED: Robot still stopped after jack down (${speed.toFixed(2)}m/s)`);
           }
         }
       } catch (error: any) {
@@ -756,15 +776,15 @@ export class MissionQueueManager {
           // Re-throw safety violations
           throw error;
         } else {
-          console.log(`Warning: Could not check wheel state after jack down: ${error.message}`);
+          console.log(`[${timestamp}] [JACK-DOWN] Warning: Could not check wheel state after jack down: ${error.message}`);
         }
       }
       
-      // Final absolute safety wait - this ensures robot has fully completed all internal processes
-      console.log("⚠️ Adding FINAL safety waiting period of 2 seconds...");
+      // STEP 6: Final absolute safety wait
+      console.log(`[${timestamp}] [JACK-DOWN] ⚠️ Adding FINAL safety waiting period of 2 seconds...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      console.log("✅ Jack down completed successfully and verified");
+      console.log(`[${timestamp}] [JACK-DOWN] ✅ Jack down completed successfully and verified`);
       return response.data;
     } catch (error: any) {
       console.error(`ERROR during jack down operation: ${error.message}`);
