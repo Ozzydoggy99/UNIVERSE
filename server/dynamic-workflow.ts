@@ -919,11 +919,16 @@ async function executePickupWorkflow(
       throw new Error(`Shelf point "${shelfId}" not found on floor "${floorId}"`);
     }
     
-    // Find the corresponding docking point for this shelf
-    const shelfDockingId = `${shelfId}_docking`;
-    const shelfDockingPoint = floorPoints.dockingPoints.find(p => p.id === shelfDockingId);
+    // For Map ID "3" (Phil's Map), add special handling for MongoDB ObjectIds
+    const isMap3 = floorId === "3";
+    if (isMap3) {
+      logWorkflow(workflowId, `📝 Using special handling for Map 3 (Phil's Map) with MongoDB ObjectId points`);
+    }
+    
+    // Find the corresponding docking point for this shelf using our enhanced function
+    let shelfDockingPoint = getDockingPointForShelf(shelfId, floorPoints, floorId);
     if (!shelfDockingPoint) {
-      throw new Error(`Docking point "${shelfDockingId}" for shelf "${shelfId}" not found`);
+      throw new Error(`Docking point for shelf "${shelfId}" not found and could not be created`);
     }
     
     // Ensure we have required dropoff points
@@ -1105,11 +1110,16 @@ async function executeDropoffWorkflow(
       throw new Error(`Shelf point "${shelfId}" not found on floor "${floorId}"`);
     }
     
-    // Find the corresponding docking point for this shelf
-    const shelfDockingId = `${shelfId}_docking`;
-    const shelfDockingPoint = floorPoints.dockingPoints.find(p => p.id === shelfDockingId);
+    // For Map ID "3" (Phil's Map), add special handling for MongoDB ObjectIds
+    const isMap3 = floorId === "3";
+    if (isMap3) {
+      logWorkflow(workflowId, `📝 Using special handling for Map 3 (Phil's Map) with MongoDB ObjectId points`);
+    }
+    
+    // Find the corresponding docking point for this shelf using our enhanced function
+    let shelfDockingPoint = getDockingPointForShelf(shelfId, floorPoints, floorId);
     if (!shelfDockingPoint) {
-      throw new Error(`Docking point "${shelfDockingId}" for shelf "${shelfId}" not found`);
+      throw new Error(`Docking point for shelf "${shelfId}" not found and could not be created`);
     }
     
     // Ensure we have required pickup points

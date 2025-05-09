@@ -1,0 +1,11 @@
+    // For Map ID "3" (Phil's Map), add special handling for MongoDB ObjectIds
+    const isMap3 = floorId === "3";
+    if (isMap3) {
+      logWorkflow(workflowId, `📝 Using special handling for Map 3 (Phil's Map) with MongoDB ObjectId points`);
+    }
+    
+    // Find the corresponding docking point for this shelf using our enhanced function
+    let shelfDockingPoint = getDockingPointForShelf(shelfId, floorPoints, floorId);
+    if (!shelfDockingPoint) {
+      throw new Error(`Docking point for shelf "${shelfId}" not found and could not be created`);
+    }
