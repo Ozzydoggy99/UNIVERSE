@@ -1,6 +1,6 @@
 import { Request, Response, Express } from 'express';
 import fetch from 'node-fetch';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 import { getRobotCalibrator } from './robot-position-calibration';
 
 // Cache for robot parameters
@@ -22,10 +22,7 @@ async function fetchRobotParams() {
 
     console.log('Fetching robot parameters...');
     const response = await fetch(`${ROBOT_API_URL}/robot-params`, {
-      headers: {
-        'Secret': ROBOT_SECRET || '',
-        'Content-Type': 'application/json'
-      }
+      headers: getAuthHeaders()
     });
     
     if (!response.ok) {
@@ -73,10 +70,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
 
       // First check if there are any active moves
       const movesResponse = await fetch(`${apiBaseUrl}/chassis/moves`, {
-        headers: {
-          'Secret': ROBOT_SECRET || '',
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders()
       });
       const moves = await movesResponse.json();
       
@@ -89,10 +83,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
         // Cancel the specific move by ID
         const robotResponse = await fetch(`${apiBaseUrl}/chassis/moves/${activeMove.id}`, {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Secret': ROBOT_SECRET || ''
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ state: "cancelled" }),
         });
 

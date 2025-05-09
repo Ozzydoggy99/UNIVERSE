@@ -101,7 +101,7 @@ async function createDirectShelfTask(
           x: pickupDockingPoint.x,
           y: pickupDockingPoint.y,
           yaw: pickupDockingPoint.ori,
-          areaId: pickupDockingPoint.areaId || "",
+          areaId: "",
           type: -1, // Regular point
           ext: {
             id: pickupDockingPoint.id,
@@ -116,7 +116,7 @@ async function createDirectShelfTask(
           x: pickupPoint.x,
           y: pickupPoint.y,
           yaw: pickupPoint.ori,
-          areaId: pickupPoint.areaId || "",
+          areaId: "",
           type: 3, // IMPORTANT: Mark as shelf point (type 3)
           ext: {
             id: pickupPoint.id,
@@ -143,7 +143,7 @@ async function createDirectShelfTask(
           x: dropoffDockingPoint.x,
           y: dropoffDockingPoint.y,
           yaw: dropoffDockingPoint.ori,
-          areaId: dropoffDockingPoint.areaId || "",
+          areaId: "",
           type: -1, // Regular point
           ext: {
             id: dropoffDockingPoint.id,
@@ -158,7 +158,7 @@ async function createDirectShelfTask(
           x: dropoffPoint.x,
           y: dropoffPoint.y,
           yaw: dropoffPoint.ori,
-          areaId: dropoffPoint.areaId || "",
+          areaId: "",
           type: 3, // IMPORTANT: Mark as shelf point (type 3)
           ext: {
             id: dropoffPoint.id,
@@ -185,7 +185,7 @@ async function createDirectShelfTask(
           x: chargerPoint.x,
           y: chargerPoint.y,
           yaw: chargerPoint.ori,
-          areaId: chargerPoint.areaId || "",
+          areaId: "",
           type: 1, // IMPORTANT: Mark as charging point (type 1)
           ext: {
             id: chargerPoint.id,

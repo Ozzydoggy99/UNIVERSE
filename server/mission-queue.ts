@@ -2,7 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
 // Queue file location
 const QUEUE_FILE = path.join(process.cwd(), 'robot-mission-queue.json');
@@ -29,8 +29,8 @@ export interface Mission {
   robotSn: string;
 }
 
-// Headers for robot API
-const headers = { 'x-api-key': ROBOT_SECRET };
+// Headers for robot API - using correct AutoXing format
+const headers = getAuthHeaders();
 
 /**
  * Mission Queue Manager
