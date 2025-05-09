@@ -924,6 +924,37 @@ function WorkflowStatus({
     }
   };
   
+  const getStepDescription = () => {
+    if (!status.currentStep || !status.totalSteps) return "Initializing...";
+    
+    // Based on the current step and operation type, return a human-readable description
+    if (operationType === "Pickup") {
+      switch (status.currentStep) {
+        case 1: return `Moving to shelf position at unit ${shelfName}`;
+        case 2: return "Positioning to pick up bin";
+        case 3: return "Raising jack to lift bin";
+        case 4: return `Moving to dropoff location with ${serviceType.toLowerCase()} bin`;
+        case 5: return "Positioning at dropoff location";
+        case 6: return "Lowering jack to release bin";
+        case 7: return "Returning to charging station";
+        case 8: return "Mission complete";
+        default: return `Step ${status.currentStep} of ${status.totalSteps}`;
+      }
+    } else {
+      switch (status.currentStep) {
+        case 1: return "Moving to pickup location";
+        case 2: return "Positioning to pick up bin";
+        case 3: return "Raising jack to lift bin";
+        case 4: return `Moving to unit ${shelfName} with ${serviceType.toLowerCase()} bin`;
+        case 5: return "Positioning to drop off bin";
+        case 6: return "Lowering jack to release bin";
+        case 7: return "Returning to charging station";
+        case 8: return "Mission complete";
+        default: return `Step ${status.currentStep} of ${status.totalSteps}`;
+      }
+    }
+  };
+  
   const getProgress = () => {
     if (!status.currentStep || !status.totalSteps) return 0;
     return (status.currentStep / status.totalSteps) * 100;
@@ -954,12 +985,21 @@ function WorkflowStatus({
                 <span>Step {status.currentStep} of {status.totalSteps}</span>
               </div>
               
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3">
                 <div 
                   className="bg-green-600 h-2.5 rounded-full" 
                   style={{ width: `${getProgress()}%` }}
                 />
               </div>
+              
+              {status.status === 'in-progress' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <div className="flex items-center">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600 mr-2" />
+                    <span className="text-blue-700">{getStepDescription()}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           

@@ -1251,17 +1251,34 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
               // Try to make a user-friendly display name
               let displayName = p.id;
               
+              // Check for different ID patterns:
+              
               // Case 1: If ID contains '_Load', extract the number before it (e.g. "104_Load" -> "104")
               if (p.id.includes('_Load')) {
                 displayName = p.id.split('_')[0];
               } 
-              // Case 2: If it's a numeric ID, use it directly
-              else if (!isNaN(parseInt(p.id))) {
+              // Case 2: If it's a simple numeric ID, use it directly
+              else if (/^\d+$/.test(p.id)) {
                 displayName = p.id;
               }
-              // Case 3: If it's a long hex ID (like MongoDB ObjectId), use a simple numbering scheme
-              else if (p.id.length > 10) {
+              // Case A: MongoDB ObjectId format (24 chars, hexadecimal)
+              else if (p.id.length === 24 && /^[0-9a-f]{24}$/i.test(p.id)) {
                 displayName = `Point ${index + 1}`;
+              }
+              // Case B: UUID format (with or without hyphens)
+              else if ((p.id.length === 36 && p.id.includes('-')) || 
+                      (p.id.length === 32 && /^[0-9a-f]{32}$/i.test(p.id))) {
+                displayName = `Point ${index + 1}`;
+              }
+              // Case C: Any other long ID (over 10 chars)
+              else if (p.id.length > 10) {
+                // Try to extract any numeric parts for a more meaningful name
+                const numericPart = p.id.match(/\d+/);
+                if (numericPart) {
+                  displayName = `Point ${numericPart[0]}`;
+                } else {
+                  displayName = `Point ${index + 1}`;
+                }
               }
               
               return {
