@@ -112,16 +112,19 @@ async function getMapPoints(): Promise<MapPoints> {
     
     const mapPoints: MapPoints = {};
     
-    // Process each map - with special handling for map "3" which is the active map
+    // Process each map from the robot API
     for (const map of maps) {
       const mapId = map.id;
-      console.log(`Processing map with ID: ${mapId}`);
+      const mapUid = map.uid || ''; // Maps have unique uid string identifiers
+      const mapName = map.name || 'unnamed';
+      console.log(`Processing map: "${mapName}" (ID: ${mapId}, UID: ${mapUid})`);
       
-      // Special handling for map "3" which is our target map
-      const isTargetMap = mapId === "3";
-      if (isTargetMap) {
-        console.log("Found target map ID 3 - prioritizing this map");
-      }
+      // Log all maps for proper understanding - don't assume any specific map ID
+      console.log(`Map details: ${JSON.stringify({
+        id: mapId,
+        uid: mapUid,
+        name: mapName
+      })}`);
       
       // Get detailed map data including overlays
       const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers: getHeaders() });
@@ -184,8 +187,8 @@ async function getMapPoints(): Promise<MapPoints> {
       for (const point of points) {
         console.log(`Examining point: ${point.id}`);
         
-        // Special handling for map ID "3" which has different point naming
-        const isMap3 = mapId === "3";
+        // Look for special point ID formats like MongoDB ObjectIds
+        const hasSpecialObjectIdFormat = point.id.length === 24 && /^[0-9a-f]{24}$/i.test(point.id);
         
         // Process based on naming convention with more flexible detection
         if ((point.id.includes('_Load') || point.id.includes('_load')) && !point.id.includes('_docking')) {
@@ -215,37 +218,37 @@ async function getMapPoints(): Promise<MapPoints> {
           chargerPoint = point;
         }
         
-        // Special handling for Map 3: If we have MongoDB ObjectId format points
-        if (isMap3 && point.id.length === 24 && /^[0-9a-f]{24}$/i.test(point.id)) {
-          console.log(`✅ Map 3: Found MongoDB ObjectId point: ${point.id}`);
+        // Special handling for points with MongoDB ObjectId format
+        if (hasSpecialObjectIdFormat) {
+          console.log(`✅ Found MongoDB ObjectId formatted point: ${point.id}`);
           
           // If no shelf points yet, treat this as a shelf point
           if (shelfPoints.length === 0) {
-            console.log(`✅ Map 3: Using ObjectId point as shelf point: ${point.id}`);
+            console.log(`✅ Using ObjectId point as shelf point: ${point.id}`);
             shelfPoints.push(point);
           } 
           // If we already have one shelf point, consider this as a possible dropoff point
           else if (!dropoffPoint && shelfPoints.length === 1) {
-            console.log(`✅ Map 3: Using second ObjectId point as dropoff point: ${point.id}`);
+            console.log(`✅ Using second ObjectId point as dropoff point: ${point.id}`);
             dropoffPoint = point;
           }
           // If we already have one shelf point and one dropoff point, consider this as a possible pickup point
           else if (!pickupPoint && shelfPoints.length === 1 && dropoffPoint) {
-            console.log(`✅ Map 3: Using third ObjectId point as pickup point: ${point.id}`);
+            console.log(`✅ Using third ObjectId point as pickup point: ${point.id}`);
             pickupPoint = point;
           }
           // Any additional points can be docking points
           else if (dockingPoints.length < 3) {
-            console.log(`✅ Map 3: Using ObjectId point as docking point: ${point.id}`);
+            console.log(`✅ Using ObjectId point as docking point: ${point.id}`);
             dockingPoints.push(point);
             
             // If we don't have specific docking points yet, assign them based on order
             if (!dropoffDockingPoint && dropoffPoint) {
-              console.log(`✅ Map 3: Assigning docking point to dropoff: ${point.id}`);
+              console.log(`✅ Assigning docking point to dropoff: ${point.id}`);
               dropoffDockingPoint = point;
             } 
             else if (!pickupDockingPoint && pickupPoint) {
-              console.log(`✅ Map 3: Assigning docking point to pickup: ${point.id}`);
+              console.log(`✅ Assigning docking point to pickup: ${point.id}`);
               pickupDockingPoint = point;
             }
           }
@@ -263,32 +266,32 @@ async function getMapPoints(): Promise<MapPoints> {
         }
       }
       
-      // Only log what we found for map 3 - no virtual points
-      if (mapId === "3" && shelfPoints.length > 0) {
-        console.log(`Map 3 has ${shelfPoints.length} shelf points`);
+      // Log summary of points found for this map
+      if (shelfPoints.length > 0) {
+        console.log(`Map ${mapId} has ${shelfPoints.length} shelf points`);
         if (shelfPoints.length > 0) {
           console.log(`First shelf point: ${JSON.stringify(shelfPoints[0])}`);
         }
         
         // Report on missing points for debugging but don't create virtual ones
         if (!chargerPoint) {
-          console.log(`⚠️ Warning: No charger point found on Map 3`);
+          console.log(`⚠️ Warning: No charger point found on Map ${mapId}`);
         }
         
         if (!pickupPoint) {
-          console.log(`⚠️ Warning: No pickup point found on Map 3`);
+          console.log(`⚠️ Warning: No pickup point found on Map ${mapId}`);
         }
         
         if (!pickupDockingPoint) {
-          console.log(`⚠️ Warning: No pickup docking point found on Map 3`);
+          console.log(`⚠️ Warning: No pickup docking point found on Map ${mapId}`);
         }
         
         if (!dropoffPoint) {
-          console.log(`⚠️ Warning: No dropoff point found on Map 3`);
+          console.log(`⚠️ Warning: No dropoff point found on Map ${mapId}`);
         }
         
         if (!dropoffDockingPoint) {
-          console.log(`⚠️ Warning: No dropoff docking point found on Map 3`);
+          console.log(`⚠️ Warning: No dropoff docking point found on Map ${mapId}`);
         }
       }
       
