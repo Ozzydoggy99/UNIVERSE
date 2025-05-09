@@ -1303,8 +1303,9 @@
       {
         "type": "jack_up",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -1315,7 +1316,8 @@
           "label": "moving to Drop-off_Load docking position"
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 0,
+        "errorMessage": "Robot failed to complete movement - still moving after operation should be complete"
       },
       {
         "type": "move",
@@ -1347,9 +1349,9 @@
       }
     ],
     "status": "failed",
-    "currentStepIndex": 2,
+    "currentStepIndex": 3,
     "createdAt": "2025-05-09T02:51:36.056Z",
-    "updatedAt": "2025-05-09T02:52:38.050Z",
+    "updatedAt": "2025-05-09T02:54:07.420Z",
     "robotSn": "L382502104987ir"
   },
   {
@@ -1364,8 +1366,13 @@
           "ori": 178.97,
           "label": "docking for 104_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking for 104_Load completed successfully",
+          "moveId": 4267
+        }
       },
       {
         "type": "move",
@@ -1375,14 +1382,20 @@
           "ori": 0,
           "label": "under 104_Load for pickup"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to under 104_Load for pickup completed successfully",
+          "moveId": 4268
+        }
       },
       {
         "type": "jack_up",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -1392,8 +1405,13 @@
           "ori": 0,
           "label": "moving to Drop-off_Load docking position"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to moving to Drop-off_Load docking position completed successfully",
+          "moveId": 4269
+        }
       },
       {
         "type": "move",
@@ -1403,14 +1421,20 @@
           "ori": 0,
           "label": "approaching Drop-off_Load for dropoff"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to approaching Drop-off_Load for dropoff completed successfully",
+          "moveId": 4270
+        }
       },
       {
         "type": "jack_down",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -1420,14 +1444,19 @@
           "ori": 0,
           "label": "returning to Desk"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to returning to Desk completed successfully",
+          "moveId": 4271
+        }
       }
     ],
-    "status": "pending",
-    "currentStepIndex": 0,
+    "status": "completed",
+    "currentStepIndex": 7,
     "createdAt": "2025-05-09T02:52:30.052Z",
-    "updatedAt": "2025-05-09T02:52:30.052Z",
+    "updatedAt": "2025-05-09T02:57:47.953Z",
     "robotSn": "L382502104987ir"
   }
 ]
