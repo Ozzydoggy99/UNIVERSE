@@ -25,6 +25,8 @@ import { registerZone104WorkflowRoute } from './zone-104-workflow';
 import { registerZone104WorkflowHandler } from './zone-104-workflow-new-complete';
 // Fixed implementation with proper error handling
 import { registerZone104WorkflowHandler as registerFixedWorkflowHandler } from './zone-104-workflow-fixed';
+// Direct charger docking implementation for testing
+import { registerChargerDockingRoutes } from './charger-docking';
 import { registerBinStatusRoutes } from './bin-status-routes';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 function formatError(error: unknown): string {
@@ -62,6 +64,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register return to charger and jack down operations
   registerReturnToChargerHandler(app);
+  
+  // Register direct charger docking route for testing
+  registerChargerDockingRoutes(app);
   
   // Register Zone-104 workflow with new point naming convention
   registerZone104WorkflowRoute(app);
