@@ -163,7 +163,9 @@ export async function fetchMaps() {
 }
 
 export async function fetchMapPoints(mapId: string) {
-  return axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, { headers });
+  // The points are actually stored in the overlay data of the map
+  // We need to fetch the map details and extract the points from the overlay
+  return axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers });
 }
 
 export async function moveToPoint(x: number, y: number) {
