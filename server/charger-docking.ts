@@ -54,12 +54,13 @@ export function registerChargerDockingRoutes(app: express.Express) {
         target_y: chargerPosition.y,
         target_z: 0,
         target_ori: chargerPosition.ori,
-        charge_retry_count: 3,
+        target_accuracy: 0.05,  // 5cm accuracy required for docking
+        charge_retry_count: 5,   // Increased from 3 to 5 retries
         properties: {
-          max_trans_vel: 0.3,  // Slower speed for more accurate docking
-          max_rot_vel: 0.3,
-          acc_lim_x: 0.3,
-          acc_lim_theta: 0.3,
+          max_trans_vel: 0.2,  // Slower speed for more accurate docking
+          max_rot_vel: 0.2,
+          acc_lim_x: 0.2,
+          acc_lim_theta: 0.2,
           planning_mode: "directional"
         }
       };
@@ -76,23 +77,80 @@ export function registerChargerDockingRoutes(app: express.Express) {
       // Wait a moment and then check charging status
       setTimeout(async () => {
         try {
-          // Wait a bit for charging to potentially start
+          // Check multiple times to see if the robot has docked properly
+          const checkChargingStatus = async (attempt: number = 1, maxAttempts: number = 5) => {
+            const currentTime = new Date().toISOString();
+            console.log(`[${currentTime}] [CHARGER-DIRECT] Checking charging status (attempt ${attempt}/${maxAttempts})...`);
+            
+            try {
+              // Check move status first
+              const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
+              const moveState = moveResponse.data;
+              
+              console.log(`[${currentTime}] [CHARGER-DIRECT] Move (ID: ${moveId}) status: ${moveState.state}`);
+              
+              // If the move failed, check the reason
+              if (moveState.state === 'failed') {
+                console.log(`[${currentTime}] [CHARGER-DIRECT] ❌ Charge move FAILED. Reason: ${moveState.fail_reason_str}`);
+                console.log(`[${currentTime}] [CHARGER-DIRECT] Failure details: ${moveState.fail_message}`);
+              }
+              
+              // Check if charging regardless of move status (could be charging even if move "failed")
+              try {
+                const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers });
+                const batteryState = batteryResponse.data;
+                
+                console.log(`[${currentTime}] [CHARGER-DIRECT] Battery state: ${JSON.stringify(batteryState)}`);
+                
+                if (batteryState && batteryState.is_charging) {
+                  console.log(`[${currentTime}] [CHARGER-DIRECT] ✅ SUCCESS! Robot is now CHARGING. Battery level: ${batteryState.percentage}%`);
+                  return true; // Successfully charging
+                } else {
+                  console.log(`[${currentTime}] [CHARGER-DIRECT] ⚠️ Robot is NOT charging`);
+                  
+                  // If we've reached max attempts, give up
+                  if (attempt >= maxAttempts) {
+                    console.log(`[${currentTime}] [CHARGER-DIRECT] ❌ Failed to dock with charger after ${maxAttempts} attempts`);
+                    return false;
+                  }
+                  
+                  // Try again after a delay if we haven't reached max attempts
+                  console.log(`[${currentTime}] [CHARGER-DIRECT] Will check again in 10 seconds...`);
+                  setTimeout(() => checkChargingStatus(attempt + 1, maxAttempts), 10000);
+                }
+              } catch (batteryError: any) {
+                console.log(`[${currentTime}] [CHARGER-DIRECT] Error checking battery state: ${batteryError.message}`);
+                
+                // If we've reached max attempts, give up
+                if (attempt >= maxAttempts) {
+                  console.log(`[${currentTime}] [CHARGER-DIRECT] ❌ Failed to verify charging status after ${maxAttempts} attempts`);
+                  return false;
+                }
+                
+                // Try again after a delay
+                console.log(`[${currentTime}] [CHARGER-DIRECT] Will check again in 10 seconds...`);
+                setTimeout(() => checkChargingStatus(attempt + 1, maxAttempts), 10000);
+              }
+            } catch (moveError: any) {
+              console.log(`[${currentTime}] [CHARGER-DIRECT] Error checking move status: ${moveError.message}`);
+              
+              // If we've reached max attempts, give up
+              if (attempt >= maxAttempts) {
+                console.log(`[${currentTime}] [CHARGER-DIRECT] ❌ Failed to verify move status after ${maxAttempts} attempts`);
+                return false;
+              }
+              
+              // Try again after a delay
+              console.log(`[${currentTime}] [CHARGER-DIRECT] Will check again in 10 seconds...`);
+              setTimeout(() => checkChargingStatus(attempt + 1, maxAttempts), 10000);
+            }
+          };
+          
+          // Wait 10 seconds first for the robot to have a chance to start moving
           await new Promise(resolve => setTimeout(resolve, 10000));
           
-          // Check move status first
-          const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
-          console.log(`[${timestamp}] [CHARGER-DIRECT] Move status: ${moveResponse.data.state}`);
-          
-          // Check if charging
-          const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers });
-          const batteryState = batteryResponse.data;
-          
-          if (batteryState && batteryState.is_charging) {
-            console.log(`[${timestamp}] [CHARGER-DIRECT] ✅ SUCCESS! Robot is now CHARGING`);
-          } else {
-            console.log(`[${timestamp}] [CHARGER-DIRECT] ⚠️ WARNING: Robot may not be charging properly`);
-            console.log(`[${timestamp}] [CHARGER-DIRECT] Battery state: ${JSON.stringify(batteryState)}`);
-          }
+          // Start checking the charging status
+          checkChargingStatus();
         } catch (error: any) {
           console.log(`[${timestamp}] [CHARGER-DIRECT] Could not verify charging status: ${error.message}`);
         }
