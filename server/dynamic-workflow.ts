@@ -105,18 +105,32 @@ async function getMapPoints(): Promise<MapPoints> {
   
   try {
     // Fetch all maps
+    console.log("Fetching maps from robot API...");
     const mapsResponse = await axios.get(`${ROBOT_API_URL}/maps`, { headers: getHeaders() });
     const maps = mapsResponse.data;
+    console.log(`Found ${maps.length} maps from robot API: ${JSON.stringify(maps.map((m: any) => ({ id: m.id, name: m.name || 'unnamed' })))}`);
     
     const mapPoints: MapPoints = {};
     
-    // Process each map
+    // Process each map - with special handling for map "3" which is the active map
     for (const map of maps) {
       const mapId = map.id;
+      console.log(`Processing map with ID: ${mapId}`);
+      
+      // Special handling for map "3" which is our target map
+      const isTargetMap = mapId === "3";
+      if (isTargetMap) {
+        console.log("Found target map ID 3 - prioritizing this map");
+      }
       
       // Get detailed map data including overlays
       const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers: getHeaders() });
       const mapData = mapDetailRes.data;
+      console.log(`Map ${mapId} details: ${JSON.stringify({
+        name: mapData.name || 'unnamed',
+        description: mapData.description || 'no description',
+        hasOverlays: !!mapData.overlays
+      })}`);
       
       if (!mapData || !mapData.overlays) {
         console.log(`Map ${mapId} does not have overlays data`);
@@ -170,6 +184,9 @@ async function getMapPoints(): Promise<MapPoints> {
       for (const point of points) {
         console.log(`Examining point: ${point.id}`);
         
+        // Special handling for map ID "3" which has different point naming
+        const isMap3 = mapId === "3";
+        
         // Process based on naming convention with more flexible detection
         if ((point.id.includes('_Load') || point.id.includes('_load')) && !point.id.includes('_docking')) {
           console.log(`✅ Found shelf point: ${point.id}`);
@@ -196,6 +213,24 @@ async function getMapPoints(): Promise<MapPoints> {
         } else if (point.id.toLowerCase().includes('charger')) {
           console.log(`✅ Found charger point: ${point.id}`);
           chargerPoint = point;
+        }
+        
+        // Special handling for Map 3: If we have MongoDB ObjectId format points
+        if (isMap3 && point.id.length === 24 && /^[0-9a-f]{24}$/i.test(point.id)) {
+          console.log(`✅ Map 3: Found MongoDB ObjectId point: ${point.id}`);
+          
+          // If no shelf points yet, treat this as a shelf point
+          if (shelfPoints.length === 0) {
+            console.log(`✅ Map 3: Using ObjectId point as shelf point: ${point.id}`);
+            shelfPoints.push(point);
+          }
+          
+          // If there are multiple of these points, try to identify docking points
+          // based on their proximity to other points
+          if (!dropoffDockingPoint && dockingPoints.length === 0) {
+            console.log(`✅ Map 3: Using first ObjectId point as docking point: ${point.id}`);
+            dockingPoints.push(point);
+          }
         }
         
         // Also check for shelf points that don't follow the exact naming convention
