@@ -70,14 +70,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register direct charger docking route for testing
   registerChargerDockingRoutes(app);
   
-  // Register Zone-104 workflow with new point naming convention
-  registerZone104WorkflowRoute(app);
-  
-  // Register our completely new implementation of Zone 104 workflow
-  registerZone104WorkflowHandler(app);
-  
-  // Register our fixed implementation with improved error handling
-  registerFixedWorkflowHandler(app);
+  // Comment out older workflow implementations as we're now using dynamic workflow exclusively
+  // registerZone104WorkflowRoute(app);
+  // registerZone104WorkflowHandler(app);
+  // registerFixedWorkflowHandler(app);
   
   // Register bin status routes for testing
   registerBinStatusRoutes(app);
