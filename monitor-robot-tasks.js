@@ -81,7 +81,7 @@ async function monitorLoop() {
   while (true) {
     try {
       // Clear screen for better visibility
-      process.stdout.write('\033c');
+      process.stdout.write('\x1bc');
       
       await showTaskStatus();
       console.log(`\n${colors.fg.gray}Refreshing in 5 seconds...${colors.reset}`);

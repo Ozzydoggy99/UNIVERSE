@@ -948,5 +948,99 @@
     "updatedAt": "2025-05-09T02:08:58.949Z",
     "robotSn": "L382502104987ir",
     "offline": true
+  },
+  {
+    "id": "mission_1746756771663_g9sapn7",
+    "name": "Zone 104 Complete Workflow (Pickup to Dropoff)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "docking for 104_Load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking for 104_Load completed successfully",
+          "moveId": 4246
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -16.253106853127974,
+          "y": 6.419632917129547,
+          "ori": 0,
+          "label": "under 104_Load for pickup"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to under 104_Load for pickup completed successfully",
+          "moveId": 4247
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -4.067094531843395,
+          "y": 2.5788015960870325,
+          "ori": 0,
+          "label": "moving to Drop-off_Load docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to moving to Drop-off_Load docking position completed successfully",
+          "moveId": 4250
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -3.067094531843395,
+          "y": 2.5788015960870325,
+          "ori": 0,
+          "label": "approaching Drop-off_Load for dropoff"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 0.09001154779753051,
+          "y": 4.615265033436344,
+          "ori": 0,
+          "label": "returning to Desk"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "in_progress",
+    "currentStepIndex": 4,
+    "createdAt": "2025-05-09T02:12:51.663Z",
+    "updatedAt": "2025-05-09T02:14:02.898Z",
+    "robotSn": "L382502104987ir"
   }
 ]

@@ -125,9 +125,9 @@ export class MissionQueueManager {
     
     // Add debug log for robot position at start
     try {
-      const positionRes = await axios.get(`${ROBOT_API_URL}/pose/`, { headers });
+      const positionRes = await axios.get(`${ROBOT_API_URL}/tracked_pose`, { headers });
       if (positionRes.data) {
-        console.log(`Robot starting position: (${positionRes.data.x.toFixed(2)}, ${positionRes.data.y.toFixed(2)}, orientation: ${positionRes.data.ori.toFixed(2)}°)`);
+        console.log(`Robot starting position: (${positionRes.data.position_x.toFixed(2)}, ${positionRes.data.position_y.toFixed(2)}, orientation: ${positionRes.data.orientation.toFixed(2)}°)`);
       }
     } catch (error: any) {
       console.log(`Unable to get robot starting position: ${error.message}`);
@@ -432,11 +432,12 @@ export class MissionQueueManager {
       
       // Get current position to verify actual movement
       try {
-        const positionRes = await axios.get(`${ROBOT_API_URL}/pose/`, { headers });
+        // The correct API endpoint is /tracked_pose not /pose/
+        const positionRes = await axios.get(`${ROBOT_API_URL}/tracked_pose`, { headers });
         if (positionRes.data) {
           const currentPosition = {
-            x: positionRes.data.x || 0,
-            y: positionRes.data.y || 0
+            x: positionRes.data.position_x || 0,
+            y: positionRes.data.position_y || 0
           };
           
           // Check if position has changed
