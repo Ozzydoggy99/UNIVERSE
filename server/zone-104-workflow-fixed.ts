@@ -502,6 +502,53 @@ async function returnToCharger(): Promise<any> {
     logWorkflow(`Waiting for move cancellation to take effect...`);
     await new Promise(resolve => setTimeout(resolve, 3000));
     
+    // CRITICAL SAFETY CHECK: Verify jack is down before proceeding
+    logWorkflow(`🔋 SAFETY CHECK: Verifying jack is in down state before returning to charger...`);
+    
+    try {
+      // Check if we can detect the jack state
+      const jackStateResponse = await axios.get(`${ROBOT_API_URL}/jack_state`, { headers: getHeaders() });
+      const jackState = jackStateResponse.data;
+      
+      if (jackState && jackState.is_up === true) {
+        // Jack is up - need to lower it first
+        logWorkflow(`⚠️ SAFETY ALERT: Jack is currently UP. Executing jack_down operation first...`);
+        
+        try {
+          // Execute jack_down operation
+          await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+          
+          // Wait for the jack operation to complete (~10 seconds)
+          logWorkflow(`Jack down operation started, waiting 10 seconds for completion...`);
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          
+          logWorkflow(`✅ Successfully lowered jack before returning to charger`);
+        } catch (jackDownError: any) {
+          throw new Error(`Failed to lower jack before returning to charger: ${jackDownError.message}`);
+        }
+      } else {
+        logWorkflow(`✅ Jack already in down state - safe to proceed with return to charger`);
+      }
+    } catch (jackCheckError: any) {
+      // If we can't check jack state, log warning and continue with caution
+      logWorkflow(`⚠️ Warning: Unable to verify jack state: ${jackCheckError.message}`);
+      logWorkflow(`⚠️ Will attempt explicit jack_down operation for safety...`);
+      
+      try {
+        // Execute jack_down operation as a precaution
+        await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+        
+        // Wait for the jack operation to complete (~10 seconds)
+        logWorkflow(`Precautionary jack down operation started, waiting 10 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
+        logWorkflow(`✅ Completed precautionary jack down operation`);
+      } catch (precautionaryJackError: any) {
+        logWorkflow(`⚠️ Warning: Precautionary jack_down failed: ${precautionaryJackError.message}`);
+        // Continue anyway - the error might be because the jack is already down
+      }
+    }
+    
     // Use the known charger location from the map
     // This is the location reported in the logs: Charging Station_docking (0.03443853667262486, 0.4981316698765672) with orientation 266.11
     const chargerPosition = {
@@ -625,6 +672,46 @@ async function executeZone104Workflow(): Promise<any> {
     
     // STEP 2: Use align_with_rack move type for proper bin pickup with retry mechanism
     logWorkflow(`📍 STEP 2/8: Aligning with rack at 104_Load using align_with_rack special move type`);
+    
+    // CRITICAL: First check if jack is already up, and if so, lower it before attempting align_with_rack
+    // The error "jack_in_up_state" indicates the jack needs to be down before alignment
+    logWorkflow(`⚠️ SAFETY CHECK: Verifying jack state before alignment...`);
+    try {
+      // Check jack state
+      const jackStateResponse = await axios.get(`${ROBOT_API_URL}/jack_state`, { headers: getHeaders() });
+      const jackState = jackStateResponse.data;
+      
+      if (jackState && jackState.is_up === true) {
+        logWorkflow(`⚠️ Jack is currently UP. Must lower it before alignment.`);
+        
+        try {
+          // Execute jack_down operation
+          await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+          
+          // Wait for jack operation to complete
+          logWorkflow(`Lowering jack before alignment, waiting 10 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          
+          logWorkflow(`✅ Successfully lowered jack before alignment`);
+        } catch (jackDownError: any) {
+          logWorkflow(`⚠️ Warning: Failed to lower jack: ${jackDownError.message}`);
+          logWorkflow(`Continuing with alignment attempts anyway...`);
+        }
+      } else {
+        logWorkflow(`✅ Jack is already in down state - safe to proceed with alignment`);
+      }
+    } catch (jackCheckError: any) {
+      logWorkflow(`⚠️ Warning: Could not check jack state: ${jackCheckError.message}`);
+      
+      // As a precaution, try lowering the jack anyway
+      try {
+        await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+        logWorkflow(`Precautionary jack_down executed, waiting 10 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      } catch (precautionJackError: any) {
+        logWorkflow(`⚠️ Warning: Precautionary jack_down failed: ${precautionJackError.message}`);
+      }
+    }
     
     let alignSuccess = false;
     let alignAttempts = 0;
@@ -767,12 +854,13 @@ async function executeZone104Workflow(): Promise<any> {
     
     // STEP 5: Move to docking position for dropoff (Drop-off_Load_docking)
     // Using adjusted coordinates to ensure they are within the navigable area
+    // Previous coordinates (-17.5, 0.05) were outside navigable area causing "ending_point_not_in_ground" error
     logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking (with adjusted coordinates)`);
-    await moveToPoint(-17.5, 0.05, 269.73, 'Drop-off_Load_docking');
+    await moveToPoint(-4.067, 2.579, 269.73, 'Drop-off_Load_docking');
     
     // STEP 6: Move to actual dropoff point (Drop-off_Load)
     logWorkflow(`📍 STEP 6/8: Moving to Drop-off_Load`);
-    await moveToPoint(-17.882, 0.037, 269.73, 'Drop-off_Load');
+    await moveToPoint(-3.067, 2.579, 269.73, 'Drop-off_Load');
     
     // STEP 7: Execute jack_down to lower bin
     logWorkflow(`📍 STEP 7/8: Executing jack_down operation to lower bin`);
