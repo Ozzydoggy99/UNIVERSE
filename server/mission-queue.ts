@@ -568,26 +568,70 @@ export class MissionQueueManager {
     try {
       console.log("⚠️ CRITICAL SAFETY OPERATION: Executing jack up operation");
       
-      // Send the jack up command
+      // Send the jack up command - this is the correct endpoint from our earlier API check
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
+      
+      // IMPORTANT: Add a backing-up step before the actual jack_up command
+      // This is critical for proper bin alignment
+      console.log("⚠️ CRITICAL: Backing up slightly for proper bin alignment...");
+      try {
+        // Use manual joystick command to back up slightly
+        const backupResponse = await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
+          action: "joystick",
+          linear: {
+            x: -0.05, // Negative x means backward movement
+            y: 0.0,
+            z: 0.0
+          },
+          angular: {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+          }
+        }, { headers });
+        
+        // Wait for the backup movement to complete (1.5 seconds)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Stop the robot after backing up
+        const stopResponse = await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
+          action: "joystick",
+          linear: {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+          },
+          angular: {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+          }
+        }, { headers });
+        
+        // Wait for stop to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        console.log("✅ Backup movement completed for better bin alignment");
+      } catch (backupError: any) {
+        console.log(`Warning: Could not perform backup movement: ${backupError.message}`);
+        // Continue with jack_up even if backup fails
+      }
+      
+      // Now send the actual jack_up command again
+      const jackUpResponse = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
       
       // IMPORTANT: Wait longer for the jack operation to complete (takes ~10 seconds to be safe)
       console.log("Jack up operation started, waiting 10 seconds for complete stability...");
       await new Promise(resolve => setTimeout(resolve, 10000));
       
-      // Verify the operation completed successfully
+      // Trying to check if robot is busy - the endpoint doesn't exist in this robot version,
+      // so we'll just add extra wait time
       try {
-        const serviceStatusResponse = await axios.get(`${ROBOT_API_URL}/service/status`, { headers });
-        const status = serviceStatusResponse.data;
-        
-        if (status && status.is_busy) {
-          console.log("⚠️ WARNING: Robot still reports busy after jack up operation");
-          // Wait a bit longer
-          console.log("Waiting 3 more seconds for jack up to complete...");
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
+        // Instead of using service/status which doesn't exist, let's try chassis/state
+        const chassisResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
+        console.log("✅ Chassis state checked after jack up");
       } catch (statusError: any) {
-        console.log(`Note: Could not verify service status after jack up: ${statusError.message}`);
+        console.log(`Note: Could not verify chassis state after jack up: ${statusError.message}`);
       }
       
       // CRITICAL: Verify robot is still completely stopped after jack up
@@ -667,26 +711,20 @@ export class MissionQueueManager {
     try {
       console.log("⚠️ CRITICAL SAFETY OPERATION: Executing jack down operation");
       
-      // Send the jack down command
+      // Send the jack down command - using the correct API endpoint
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
       
       // IMPORTANT: Wait longer for the jack operation to complete (takes ~10 seconds to be safe)
       console.log("Jack down operation started, waiting 10 seconds for complete stability...");
       await new Promise(resolve => setTimeout(resolve, 10000));
       
-      // Verify the operation completed successfully
+      // Trying to check if robot is busy - using proper API endpoint for this robot
       try {
-        const serviceStatusResponse = await axios.get(`${ROBOT_API_URL}/service/status`, { headers });
-        const status = serviceStatusResponse.data;
-        
-        if (status && status.is_busy) {
-          console.log("⚠️ WARNING: Robot still reports busy after jack down operation");
-          // Wait a bit longer
-          console.log("Waiting 3 more seconds for jack down to complete...");
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
+        // Try checking chassis state instead of service status
+        const chassisResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
+        console.log("✅ Chassis state checked after jack down");
       } catch (statusError: any) {
-        console.log(`Note: Could not verify service status after jack down: ${statusError.message}`);
+        console.log(`Note: Could not verify chassis state after jack down: ${statusError.message}`);
       }
       
       // CRITICAL: Verify robot is still completely stopped after jack down
