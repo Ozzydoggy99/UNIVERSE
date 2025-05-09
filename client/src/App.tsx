@@ -36,6 +36,12 @@ import RobotMapsPage from "@/pages/robot-maps-page";
 import RobotMissionPage from "@/pages/robot-mission-page";
 import RobotDashboardPage from "@/pages/robot-dashboard";
 import WsDebugPage from "@/pages/ws-debug";
+import WorkflowPage, { 
+  OperationPage,
+  FloorSelectionPage, 
+  ShelfSelectionPage, 
+  WorkflowConfirmationPage 
+} from "@/pages/workflow-page";
 import Sidebar, { SidebarProvider, useSidebar } from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -496,6 +502,13 @@ function Router() {
           </AppLayout>
         )} 
       />
+
+      {/* New Dynamic Workflow UI Routes */}
+      <Route path="/workflow" component={WorkflowPage} />
+      <Route path="/workflow/:serviceType" component={OperationPage} />
+      <Route path="/workflow/:serviceType/:operationType" component={FloorSelectionPage} />
+      <Route path="/workflow/:serviceType/:operationType/:floorId" component={ShelfSelectionPage} />
+      <Route path="/workflow/confirm/:serviceType/:operationType/:floorId/:shelfId" component={WorkflowConfirmationPage} />
       
       <Route component={NotFound} />
     </Switch>
