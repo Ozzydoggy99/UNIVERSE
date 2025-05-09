@@ -22,16 +22,10 @@
 import express from 'express';
 import axios from 'axios';
 import { robotPositionTracker } from './robot-position-tracker';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
-// Configuration - make sure these match our actual robot configuration
-const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
-const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
-
-// API headers for authentication
-const headers = {
-  'Content-Type': 'application/json',
-  'x-api-key': ROBOT_SECRET
-};
+// API headers for authentication - using the proper format from AutoXing API docs
+const headers = getAuthHeaders();
 
 /**
  * Helper function to log workflow steps with timestamps

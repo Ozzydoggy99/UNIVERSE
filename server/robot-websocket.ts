@@ -2,11 +2,12 @@
 /**
  * Robot WebSocket interface for real-time communication
  * Simplified single-connection approach
+ * Uses proper AutoXing API authentication format
  */
 import WebSocket, { WebSocketServer } from 'ws';
 import { Request } from 'express';
 import { Server } from 'http';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
 // Initialize connection states
 let robotWs: WebSocket | null = null;
@@ -74,11 +75,9 @@ function connectRobotWebSocket() {
       scheduleReconnect();
     }, 10000);
 
-    // Create connection with auth headers
+    // Create connection with proper auth headers according to AutoXing API docs
     robotWs = new WebSocket(wsUrl, {
-      headers: {
-        'x-api-key': ROBOT_SECRET
-      }
+      headers: getAuthHeaders()
     });
 
     robotWs.on('open', () => {
@@ -408,9 +407,7 @@ export function attachWebSocketProxy(server: Server) {
     // Connect to the robot's task status WebSocket
     const robotBaseUrl = ROBOT_API_URL.replace(/^http/, 'ws');
     const upstream = new WebSocket(`${robotBaseUrl}/ws/status`, {
-      headers: {
-        'x-api-key': ROBOT_SECRET
-      }
+      headers: getAuthHeaders()
     });
 
     upstream.on('open', () => {
