@@ -29,7 +29,7 @@ export function registerReturnToChargerHandler(app: Express) {
     try {
       // Execute the jack_down command
       const response = await axios.post(
-        `${ROBOT_API_URL}/chassis/jack_down`,
+        `${ROBOT_API_URL}/services/jack_down`,
         {},
         { headers: { 'x-api-key': ROBOT_SECRET } }
       );

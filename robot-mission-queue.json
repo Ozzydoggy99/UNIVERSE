@@ -377,15 +377,21 @@
           "ori": 0,
           "label": "pickup zone-104-bin"
         },
-        "completed": false,
+        "completed": true,
         "retryCount": 1,
-        "errorMessage": "Connection error: Movement timeout exceeded (120000ms)"
+        "errorMessage": "Connection error: Movement timeout exceeded (120000ms)",
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to pickup zone-104-bin completed successfully",
+          "moveId": 4211
+        }
       },
       {
         "type": "jack_down",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -400,11 +406,11 @@
       }
     ],
     "status": "in_progress",
-    "currentStepIndex": 2,
+    "currentStepIndex": 4,
     "createdAt": "2025-05-09T00:14:34.461Z",
-    "updatedAt": "2025-05-09T00:17:04.289Z",
+    "updatedAt": "2025-05-09T00:34:56.710Z",
     "robotSn": "L382502104987ir",
-    "offline": true
+    "offline": false
   },
   {
     "id": "mission_1746749770520_01ohdmf",
