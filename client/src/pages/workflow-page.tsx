@@ -270,17 +270,8 @@ export function FloorSelectionPage() {
     fetchFloors();
   }, [toast]);
   
-  // For demo, show 4 floors if API fails
-  useEffect(() => {
-    if (!loading && floors.length === 0) {
-      setFloors([
-        { id: "floor_1", name: "1" },
-        { id: "floor_2", name: "2" },
-        { id: "floor_3", name: "3" },
-        { id: "floor_4", name: "4" }
-      ]);
-    }
-  }, [loading, floors]);
+  // If we have no floors after loading, show an error state instead of using hardcoded floors
+  const hasNoFloors = !loading && floors.length === 0;
   
   if (loading) {
     return (
