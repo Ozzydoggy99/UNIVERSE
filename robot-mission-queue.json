@@ -3676,8 +3676,13 @@
           "ori": 0,
           "label": "Align with rack at Pick-up_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4501,
+          "message": "Align with rack completed successfully"
+        }
       },
       {
         "type": "joystick",
@@ -3696,7 +3701,7 @@
           "duration": 1500,
           "stabilizationTime": 1000
         },
-        "completed": false,
+        "completed": true,
         "retryCount": 0
       },
       {
@@ -3706,8 +3711,9 @@
           "stabilizationTime": 3000,
           "safetyWait": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -3717,8 +3723,13 @@
           "ori": 178.97,
           "label": "104_Load_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking completed successfully",
+          "moveId": 4502
+        }
       },
       {
         "type": "to_unload_point",
@@ -3754,9 +3765,9 @@
       }
     ],
     "status": "in_progress",
-    "currentStepIndex": 1,
+    "currentStepIndex": 5,
     "createdAt": "2025-05-09T23:56:48.659Z",
-    "updatedAt": "2025-05-09T23:57:31.924Z",
+    "updatedAt": "2025-05-09T23:58:58.592Z",
     "robotSn": "L382502104987ir"
   }
 ]
