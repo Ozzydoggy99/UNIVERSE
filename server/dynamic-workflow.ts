@@ -1348,9 +1348,8 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
           
           // Make a more descriptive name based on the map ID
           let mapName = "Map " + mapId;
-          if (mapId === "3") {
-            mapName = "Phil's Map";
-          }
+          // Use a generic but user-friendly map name
+          // Note: If we had access to the map metadata we could use the actual map name
           
           return {
             id: mapId, // Use actual map ID for all operations 
@@ -1374,9 +1373,8 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
               }
               // Case A: MongoDB ObjectId format (24 chars, hexadecimal)
               else if (p.id.length === 24 && /^[0-9a-f]{24}$/i.test(p.id)) {
-                // For map ID 3, make a specific displayName as this is the only floor/shelf
-                const isMap3 = mapId === "3";
-                displayName = isMap3 ? "Shelf 1" : `Point ${index + 1}`;
+                // For MongoDB ObjectId formatted points, give a simple numerical identifier
+                displayName = (index === 0) ? "Shelf 1" : `Point ${index + 1}`;
               }
               // Case B: UUID format (with or without hyphens)
               else if ((p.id.length === 36 && p.id.includes('-')) || 
