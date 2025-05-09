@@ -198,10 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Run an immediate auth refresh when the component mounts
-  useEffect(() => {
-    refreshAuth();
-  }, []);
+  // Disable auto-login on auth provider mount
+  // We'll only check auth status when user explicitly logs in
   
   return (
     <AuthContext.Provider

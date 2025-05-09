@@ -66,6 +66,11 @@ export default function AuthPage() {
           </CardTitle>
           <CardDescription className="text-center">
             Enter your credentials to access the control panel
+            <div className="mt-2 text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
+              <p>Try sample accounts:</p>
+              <p><strong>User:</strong> Phil / Password: Phil</p>
+              <p><strong>Admin:</strong> admin / Password: admin</p>
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent>
