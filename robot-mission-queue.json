@@ -2430,8 +2430,13 @@
           "ori": 178.97,
           "label": "104_Load_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking completed successfully",
+          "moveId": 4323
+        }
       },
       {
         "type": "move",
@@ -2441,8 +2446,13 @@
           "ori": 0,
           "label": "104_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load completed successfully",
+          "moveId": 4324
+        }
       },
       {
         "type": "jack_up",
@@ -2451,8 +2461,9 @@
           "stabilizationTime": 3000,
           "safetyWait": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -2462,8 +2473,13 @@
           "ori": 177.73,
           "label": "Drop-off_Load_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Drop-off_Load_docking completed successfully",
+          "moveId": 4325
+        }
       },
       {
         "type": "move",
@@ -2473,8 +2489,13 @@
           "ori": 0,
           "label": "Drop-off_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Drop-off_Load completed successfully",
+          "moveId": 4326
+        }
       },
       {
         "type": "jack_down",
@@ -2483,8 +2504,9 @@
           "stabilizationTime": 3000,
           "safetyWait": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -2494,14 +2516,19 @@
           "ori": 266.11,
           "label": "Charging Station_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Charging Station_docking completed successfully",
+          "moveId": 4327
+        }
       }
     ],
-    "status": "failed",
-    "currentStepIndex": 0,
+    "status": "completed",
+    "currentStepIndex": 7,
     "createdAt": "2025-05-09T06:07:03.416Z",
-    "updatedAt": "2025-05-09T06:07:28.909Z",
+    "updatedAt": "2025-05-09T06:10:12.273Z",
     "robotSn": "L382502104987ir"
   },
   {
@@ -2584,10 +2611,10 @@
         "retryCount": 0
       }
     ],
-    "status": "pending",
+    "status": "in_progress",
     "currentStepIndex": 0,
     "createdAt": "2025-05-09T06:07:28.916Z",
-    "updatedAt": "2025-05-09T06:07:28.916Z",
+    "updatedAt": "2025-05-09T06:10:16.417Z",
     "robotSn": "L382502104987ir"
   }
 ]
