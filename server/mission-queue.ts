@@ -216,7 +216,11 @@ export class MissionQueueManager {
             // Execute jack up operation
             stepResult = await this.executeJackUpStep();
           } else if (step.type === 'jack_down') {
-            console.log(`⚠️ CRITICAL OPERATION: Jack down - checking robot status`);
+            console.log(`⚠️ CRITICAL SAFETY OPERATION: Jack down - robot must be COMPLETELY STOPPED`);
+            await this.verifyRobotStopped('jack_down');
+            
+            // Execute jack down operation - wait for verification first
+            console.log(`⚠️ CRITICAL OPERATION: Jack down - robot confirmed stopped, proceeding with operation`);
             stepResult = await this.executeJackDownStep();
             // Jack down operation sends feedback through the API response
           }
