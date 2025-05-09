@@ -245,6 +245,56 @@ async function getMapPoints(): Promise<MapPoints> {
         }
       }
       
+      // Special handling for map 3 - if we don't have all required points
+      // but we have shelf points, attempt to set up a working configuration
+      if (mapId === "3" && shelfPoints.length > 0) {
+        console.log(`Map 3 has ${shelfPoints.length} shelf points`);
+        if (shelfPoints.length > 0) {
+          console.log(`First shelf point: ${JSON.stringify(shelfPoints[0])}`);
+        }
+        
+        // If we don't have a charger point, use the first shelf point with a modified orientation
+        if (!chargerPoint && shelfPoints.length > 0) {
+          console.log(`⚠️ No explicit charger point found on Map 3 - creating one based on shelf point`);
+          
+          // Create a virtual charger point based on the shelf point
+          // but with a different orientation to avoid collisions
+          const basePoint = shelfPoints[0];
+          chargerPoint = {
+            id: `virtual_charger_${basePoint.id}`,
+            x: basePoint.x,
+            y: basePoint.y,
+            ori: (basePoint.ori + 180) % 360  // Opposite direction
+          };
+          console.log(`Created virtual charger point: ${JSON.stringify(chargerPoint)}`);
+        }
+        
+        // If we don't have a dropoff point, use the first shelf point
+        if (!dropoffPoint && shelfPoints.length > 0) {
+          console.log(`⚠️ No explicit dropoff point found on Map 3 - using first shelf point as dropoff`);
+          const basePoint = shelfPoints[0];
+          dropoffPoint = {
+            id: `virtual_dropoff_${basePoint.id}`,
+            x: basePoint.x,
+            y: basePoint.y,
+            ori: basePoint.ori
+          };
+          console.log(`Created virtual dropoff point: ${JSON.stringify(dropoffPoint)}`);
+        }
+        
+        // If we don't have a dropoff docking point, create one based on the dropoff point
+        if (!dropoffDockingPoint && dropoffPoint) {
+          console.log(`⚠️ No explicit dropoff docking point found on Map 3 - creating one based on dropoff point`);
+          dropoffDockingPoint = {
+            id: `virtual_dropoff_docking_${dropoffPoint.id}`,
+            x: dropoffPoint.x,
+            y: dropoffPoint.y - 0.5,  // Offset slightly to avoid collision
+            ori: dropoffPoint.ori
+          };
+          console.log(`Created virtual dropoff docking point: ${JSON.stringify(dropoffDockingPoint)}`);
+        }
+      }
+      
       mapPoints[mapId] = {
         shelfPoints,
         dockingPoints,
