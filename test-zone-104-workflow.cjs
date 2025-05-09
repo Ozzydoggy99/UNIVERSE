@@ -12,12 +12,35 @@ async function testZone104Workflow() {
   try {
     console.log('🚀 Starting Zone 104 complete workflow (pickup and dropoff)...');
     
-    // Make the API call to start the workflow using the new dynamic workflow system
+    // First get the available maps and shelf points
+    console.log('Fetching available maps and points...');
+    const mapsResponse = await axios.get(`${API_BASE_URL}/workflow/maps`);
+    
+    if (!mapsResponse.data.success || !mapsResponse.data.maps.length) {
+      throw new Error('No maps or points available from robot API');
+    }
+    
+    // Find Map 3 and get the first shelf point ID
+    const map3 = mapsResponse.data.maps.find(map => map.id === '3');
+    
+    if (!map3) {
+      throw new Error('Map 3 not available from robot API');
+    }
+    
+    if (!map3.shelfPoints || !map3.shelfPoints.length) {
+      throw new Error('No shelf points available on Map 3');
+    }
+    
+    // Use the first shelf point
+    const shelfPoint = map3.shelfPoints[0];
+    console.log(`Using shelf point: ${shelfPoint.id} (${shelfPoint.displayName})`);
+    
+    // Make the API call to start the workflow using the dynamic workflow system
     const response = await axios.post(`${API_BASE_URL}/workflow/pickup`, {
       serviceType: 'laundry',
       operationType: 'pickup',
-      floorId: '3',  // Using Map 3 by default
-      shelfId: '104_Load'  // Using the standard naming convention
+      floorId: '3',
+      shelfId: shelfPoint.id // Use the actual shelf point ID from the API
     });
     
     if (response.data && response.data.success) {

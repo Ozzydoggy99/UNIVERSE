@@ -320,8 +320,21 @@ async function getMapPoints(): Promise<MapPoints> {
  * Only uses actual data from the robot API, no virtual points
  */
 function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string], floorId?: string): Point | null {
+  // First try the standard naming convention
   const dockingId = `${shelfId}_docking`;
-  const dockingPoint = floorPoints.dockingPoints.find(p => p.id === dockingId);
+  let dockingPoint = floorPoints.dockingPoints.find(p => p.id === dockingId);
+  
+  // If no point is found with standard naming convention and the shelf ID is a MongoDB ObjectId
+  if (!dockingPoint && shelfId.length === 24 && /^[0-9a-f]{24}$/i.test(shelfId)) {
+    console.log(`📝 Processing MongoDB ObjectId shelf point: ${shelfId}`);
+    
+    // For MongoDB ObjectId points, just get the first available docking point
+    // Since we've already assigned docking points during map processing
+    if (floorPoints.dockingPoints.length > 0) {
+      dockingPoint = floorPoints.dockingPoints[0];
+      console.log(`✅ Using first available docking point for ObjectId shelf: ${dockingPoint.id}`);
+    }
+  }
   
   // Only return actual docking points from the API, no fallbacks
   return dockingPoint || null;
@@ -1330,12 +1343,18 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
       
       // Transform into a more user-friendly format and prioritize the active map (Map 3)
       const mapData = Object.keys(mapPoints)
+        // Sort maps numerically to ensure consistent ordering
         .sort((a, b) => {
-          // Always put map "3" first (this is the active map on the robot)
-          if (a === "3") return -1;
-          if (b === "3") return 1;
-          // Otherwise sort numerically
-          return parseInt(a) - parseInt(b);
+          // If both are numeric, sort numerically
+          if (!isNaN(parseInt(a)) && !isNaN(parseInt(b))) {
+            return parseInt(a) - parseInt(b);
+          }
+          // If only a is numeric, put it first
+          if (!isNaN(parseInt(a))) return -1;
+          // If only b is numeric, put it first
+          if (!isNaN(parseInt(b))) return 1;
+          // Otherwise sort alphabetically
+          return a.localeCompare(b);
         })
         .map(mapId => {
           const mapData = mapPoints[mapId];
