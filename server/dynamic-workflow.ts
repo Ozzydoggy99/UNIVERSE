@@ -892,9 +892,9 @@ async function executePickupWorkflow(
     }
     
     // For Map ID "3" (Phil's Map), add special handling for MongoDB ObjectIds
-    const isMap3 = floorId === "3";
-    if (isMap3) {
-      logWorkflow(workflowId, `📝 Using special handling for Map 3 (Phil's Map) with MongoDB ObjectId points`);
+    // Process points for this map
+    if (floorId) {
+      logWorkflow(workflowId, `📝 Processing points for map ${floorId}`);
     }
     
     // Find the corresponding docking point for this shelf using our enhanced function
@@ -1084,9 +1084,9 @@ async function executeDropoffWorkflow(
     }
     
     // For Map ID "3" (Phil's Map), add special handling for MongoDB ObjectIds
-    const isMap3 = floorId === "3";
-    if (isMap3) {
-      logWorkflow(workflowId, `📝 Using special handling for Map 3 (Phil's Map) with MongoDB ObjectId points`);
+    // Process points for this map
+    if (floorId) {
+      logWorkflow(workflowId, `📝 Processing points for map ${floorId}`);
     }
     
     // Find the corresponding docking point for this shelf using our enhanced function
