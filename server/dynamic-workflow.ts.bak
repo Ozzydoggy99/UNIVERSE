@@ -275,8 +275,7 @@ async function moveToPoint(workflowId: string, x: number, y: number, ori: number
         try {
           const posResponse = await axios.get(`${ROBOT_API_URL}/tracked_pose`, { headers: getHeaders() });
           logWorkflow(workflowId, `Current position: ${JSON.stringify(posResponse.data)}`);
-        } catch (error) {
-          const posError = error as any;
+        } catch (posError) {
           logWorkflow(workflowId, `Position data incomplete or invalid: ${JSON.stringify(posError.response?.data || {})}`);
         }
         
@@ -695,8 +694,7 @@ async function returnToCharger(workflowId: string, chargerX: number, chargerY: n
         try {
           const posResponse = await axios.get(`${ROBOT_API_URL}/tracked_pose`, { headers: getHeaders() });
           logWorkflow(workflowId, `Current position: ${JSON.stringify(posResponse.data)}`);
-        } catch (error) {
-          const posError = error as any;
+        } catch (posError) {
           logWorkflow(workflowId, `Position data incomplete or invalid: ${JSON.stringify(posError.response?.data || {})}`);
         }
         
