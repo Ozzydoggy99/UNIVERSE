@@ -480,22 +480,55 @@ async function executeJackDown(): Promise<any> {
 /**
  * Send robot to charging station using the proper charge move type
  * This uses the correct 'charge' move type from the API documentation
+ * with proper charger coordinates and retry parameters
  */
 async function returnToCharger(): Promise<any> {
   logWorkflow(`🔋 Starting return to charger operation...`);
   
   try {
-    // Create a charge-type move command to return to charger
+    // Cancel any current moves first for safety
+    logWorkflow(`Cancelling any current moves first`);
+    try {
+      await axios.patch(`${ROBOT_API_URL}/chassis/moves/current`, { 
+        state: 'cancelled' 
+      }, { headers: getHeaders() });
+      logWorkflow(`Successfully cancelled any current moves`);
+    } catch (error: any) {
+      logWorkflow(`Warning: Couldn't cancel current move: ${error.message}`);
+      // Continue anyway - the error might just be that there's no current move
+    }
+    
+    // Wait for any cancellation to complete
+    logWorkflow(`Waiting for move cancellation to take effect...`);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Use the known charger location from the map
+    // This is the location reported in the logs: Charging Station_docking (0.03443853667262486, 0.4981316698765672) with orientation 266.11
+    const chargerPosition = {
+      x: 0.03443853667262486,
+      y: 0.4981316698765672,
+      ori: 266.11
+    };
+    
+    // Create a charge-type move command to return to charger with proper coordinates
     const chargeCommand = {
       creator: 'web_interface',
-      type: 'charge',       // Special move type for charger return
+      type: 'charge',            // Special move type for charger return
+      target_x: chargerPosition.x,
+      target_y: chargerPosition.y,
+      target_z: 0,
+      target_ori: chargerPosition.ori,
+      target_accuracy: 0.05,     // 5cm accuracy required for docking
+      charge_retry_count: 5,     // Increased from 3 to 5 retries
       properties: {
-        max_trans_vel: 0.5, // Maximum translational velocity (m/s)
-        max_rot_vel: 0.5,   // Maximum rotational velocity (rad/s)
-        acc_lim_x: 0.5,     // Acceleration limit in x
-        acc_lim_theta: 0.5  // Angular acceleration limit
+        max_trans_vel: 0.2,      // Slower speed for more accurate docking
+        max_rot_vel: 0.3,        // Maximum rotational velocity (rad/s)
+        acc_lim_x: 0.5,          // Acceleration limit in x
+        acc_lim_theta: 0.5       // Angular acceleration limit
       }
     };
+    
+    logWorkflow(`Creating 'charge' move to charger at (${chargerPosition.x}, ${chargerPosition.y}), orientation: ${chargerPosition.ori}`);
     
     // Send the charge command to the robot
     const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, chargeCommand, { headers: getHeaders() });
@@ -590,82 +623,139 @@ async function executeZone104Workflow(): Promise<any> {
     logWorkflow(`📍 STEP 1/8: Moving to 104_Load_docking`);
     await moveToPoint(-15.409467385438802, 6.403540839556854, 178.97, '104_Load_docking');
     
-    // STEP 2: Use align_with_rack move type for proper bin pickup
+    // STEP 2: Use align_with_rack move type for proper bin pickup with retry mechanism
     logWorkflow(`📍 STEP 2/8: Aligning with rack at 104_Load using align_with_rack special move type`);
     
-    try {
-      // Stop robot first for safety
+    let alignSuccess = false;
+    let alignAttempts = 0;
+    const maxAlignAttempts = 3; // Maximum number of attempts to align with rack
+    
+    while (!alignSuccess && alignAttempts < maxAlignAttempts) {
+      alignAttempts++;
+      logWorkflow(`Attempt ${alignAttempts}/${maxAlignAttempts} to align with rack`);
+      
       try {
-        await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() });
-        logWorkflow(`✅ Stopped robot before align with rack`);
-      } catch (stopError: any) {
-        logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
-      }
-      
-      // Wait for stabilization
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Create a move with type=align_with_rack - critical for proper bin alignment
-      const alignCommand = {
-        creator: 'robot-api',
-        type: 'align_with_rack', // Special move type for rack pickup
-        target_x: -15.478,
-        target_y: 6.43,
-        target_ori: 178.75
-      };
-      
-      logWorkflow(`Creating align_with_rack move: ${JSON.stringify(alignCommand)}`);
-      
-      // Send the move command to align with rack
-      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, alignCommand, { headers: getHeaders() });
-      
-      if (!response.data || !response.data.id) {
-        throw new Error('Failed to create align_with_rack move - invalid response');
-      }
-      
-      const moveId = response.data.id;
-      logWorkflow(`Robot align_with_rack command sent - move ID: ${moveId}`);
-      
-      // Wait for alignment to complete
-      let moveComplete = false;
-      let maxRetries = 120; // 2 minutes at 1 second intervals
-      let attempts = 0;
-      
-      while (!moveComplete && attempts < maxRetries) {
-        attempts++;
+        // Stop robot first for safety
+        try {
+          await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() });
+          logWorkflow(`✅ Stopped robot before align with rack`);
+        } catch (stopError: any) {
+          logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
+        }
         
-        // Wait 1 second between checks
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait for stabilization
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Check move status
-        const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
-        const moveStatus = statusResponse.data.state;
+        // Create a move with type=align_with_rack - critical for proper bin alignment
+        const alignCommand = {
+          creator: 'robot-api',
+          type: 'align_with_rack', // Special move type for rack pickup
+          target_x: -15.478,
+          target_y: 6.43,
+          target_ori: 178.75
+        };
         
-        logWorkflow(`Current align_with_rack status: ${moveStatus}`);
+        logWorkflow(`Creating align_with_rack move: ${JSON.stringify(alignCommand)}`);
         
-        // Check if move is complete
-        if (moveStatus === 'succeeded') {
-          moveComplete = true;
-          logWorkflow(`✅ Robot has completed align_with_rack operation (ID: ${moveId})`);
-        } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
-          throw new Error(`Align with rack failed or was cancelled. Status: ${moveStatus}`);
+        // Send the move command to align with rack
+        const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, alignCommand, { headers: getHeaders() });
+        
+        if (!response.data || !response.data.id) {
+          throw new Error('Failed to create align_with_rack move - invalid response');
+        }
+        
+        const moveId = response.data.id;
+        logWorkflow(`Robot align_with_rack command sent - move ID: ${moveId}`);
+        
+        // Wait for alignment to complete
+        let moveComplete = false;
+        let maxRetries = 120; // 2 minutes at 1 second intervals
+        let attempts = 0;
+        
+        while (!moveComplete && attempts < maxRetries) {
+          attempts++;
+          
+          // Wait 1 second between checks
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Check move status
+          const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
+          const moveStatus = statusResponse.data.state;
+          
+          logWorkflow(`Current align_with_rack status: ${moveStatus}`);
+          
+          // Check if move is complete
+          if (moveStatus === 'succeeded') {
+            moveComplete = true;
+            alignSuccess = true;
+            logWorkflow(`✅ Robot has completed align_with_rack operation (ID: ${moveId})`);
+          } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
+            if (moveStatus === 'failed') {
+              // Check failure reason
+              const failReason = statusResponse.data.fail_reason_str || 'Unknown failure';
+              logWorkflow(`⚠️ Align with rack failed with reason: ${failReason}`);
+            }
+            throw new Error(`Align with rack failed or was cancelled. Status: ${moveStatus}`);
+          } else {
+            logWorkflow(`Still aligning (move ID: ${moveId}), waiting...`);
+          }
+        }
+        
+        // Final check to ensure we didn't just time out
+        if (!moveComplete) {
+          throw new Error(`Align with rack timed out after ${maxRetries} attempts`);
+        }
+        
+        // Add safety wait after alignment
+        logWorkflow(`✅ Align with rack complete, waiting 5 seconds for stability...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+      } catch (alignError: any) {
+        logWorkflow(`❌ ERROR during align_with_rack operation (attempt ${alignAttempts}/${maxAlignAttempts}): ${alignError.message}`);
+        
+        if (alignAttempts < maxAlignAttempts) {
+          logWorkflow(`⚠️ Retrying align_with_rack after 5 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds before retrying
+          
+          // Try moving back slightly before next attempt to get a better approach angle
+          try {
+            logWorkflow(`⚠️ Moving back slightly to get a better approach angle for next attempt...`);
+            // Back up 10cm
+            await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
+              action: "joystick",
+              linear: { x: -0.1, y: 0.0, z: 0.0 },
+              angular: { x: 0.0, y: 0.0, z: 0.0 }
+            }, { headers: getHeaders() });
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Stop the movement
+            await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
+              action: "joystick",
+              linear: { x: 0.0, y: 0.0, z: 0.0 },
+              angular: { x: 0.0, y: 0.0, z: 0.0 }
+            }, { headers: getHeaders() });
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (moveError: any) {
+            logWorkflow(`Warning: Could not adjust position for retry: ${moveError.message}`);
+          }
+          
+          // Continue to next retry attempt
+          continue;
         } else {
-          logWorkflow(`Still aligning (move ID: ${moveId}), waiting...`);
+          // If we've exhausted all retries, throw the error
+          logWorkflow(`❌ All align_with_rack attempts failed. Returning robot to charger...`);
+          
+          // Immediately try to return robot to charger if all attempts fail
+          try {
+            await returnToCharger();
+            logWorkflow(`✅ Successfully sent robot back to charger after align_with_rack failures`);
+          } catch (chargerError: any) {
+            logWorkflow(`❌ Failed to return robot to charger: ${chargerError.message}`);
+          }
+          
+          throw new Error(`Failed to align with rack after ${maxAlignAttempts} attempts: ${alignError.message}`);
         }
       }
-      
-      // Final check to ensure we didn't just time out
-      if (!moveComplete) {
-        throw new Error(`Align with rack timed out after ${maxRetries} attempts`);
-      }
-      
-      // Add safety wait after alignment
-      logWorkflow(`✅ Align with rack complete, waiting 5 seconds for stability...`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-    } catch (alignError: any) {
-      logWorkflow(`❌ ERROR during align_with_rack operation: ${alignError.message}`);
-      throw alignError;
     }
     
     // STEP 3: Backup slightly for proper bin alignment (handled in jack_up)
