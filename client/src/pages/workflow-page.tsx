@@ -304,16 +304,33 @@ export function FloorSelectionPage() {
         {serviceTitle} {operationTitle} - Select Floor
       </h2>
 
-      <div className="grid grid-cols-2 gap-4 flex-1">
-        {floors.map((floor, index) => (
-          <FloorCard
-            key={floor.id}
-            number={floor.name}
-            color={getFloorColor(index)}
-            onClick={() => setLocation(`/workflow/${serviceType}/${operationType}/${floor.id}`)}
-          />
-        ))}
-      </div>
+      {hasNoFloors ? (
+        <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6 max-w-xl w-full">
+            <h3 className="text-xl font-semibold text-red-700 mb-2">Unable to Load Floor Data</h3>
+            <p className="text-gray-700 mb-4">
+              Could not retrieve floor information from the robot. Please check that the robot is powered on and connected to the network.
+            </p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 flex-1">
+          {floors.map((floor, index) => (
+            <FloorCard
+              key={floor.id}
+              number={floor.name}
+              color={getFloorColor(index)}
+              onClick={() => setLocation(`/workflow/${serviceType}/${operationType}/${floor.id}`)}
+            />
+          ))}
+        </div>
+      )}
 
       <footer className="flex justify-end mt-4">
         <Button variant="outline" className="bg-indigo-500 text-white">
@@ -372,7 +389,7 @@ export function ShelfSelectionPage() {
   const operationTitle = operationType.charAt(0).toUpperCase() + operationType.slice(1);
   const floorName = floorId.includes("_") ? floorId.split("_")[1] : floorId;
   
-  // Load available shelves for this floor
+  // Load available shelves for this floor - no fallback data
   useEffect(() => {
     const fetchShelves = async () => {
       try {
@@ -389,13 +406,6 @@ export function ShelfSelectionPage() {
               description: `Could not find shelf information for floor ${floorName}`,
               variant: "destructive",
             });
-            // Demo data
-            setShelves([
-              { id: '107_Load', displayName: '107' },
-              { id: '108_Load', displayName: '108' },
-              { id: '109_Load', displayName: '109' },
-              { id: '110_Load', displayName: '110' }
-            ]);
           }
         } else {
           toast({
@@ -403,13 +413,6 @@ export function ShelfSelectionPage() {
             description: data.error || "Failed to load available shelves",
             variant: "destructive",
           });
-          // Demo data
-          setShelves([
-            { id: '107_Load', displayName: '107' },
-            { id: '108_Load', displayName: '108' },
-            { id: '109_Load', displayName: '109' },
-            { id: '110_Load', displayName: '110' }
-          ]);
         }
       } catch (error) {
         toast({
@@ -417,13 +420,6 @@ export function ShelfSelectionPage() {
           description: "Could not connect to server",
           variant: "destructive",
         });
-        // Demo data
-        setShelves([
-          { id: '107_Load', displayName: '107' },
-          { id: '108_Load', displayName: '108' },
-          { id: '109_Load', displayName: '109' },
-          { id: '110_Load', displayName: '110' }
-        ]);
       } finally {
         setLoading(false);
       }
@@ -445,6 +441,9 @@ export function ShelfSelectionPage() {
     
     setLocation(`/workflow/confirm/${serviceType}/${operationType}/${floorId}/${selectedShelf}`);
   };
+  
+  // Check if we have any shelves after loading is complete
+  const hasNoShelves = !loading && shelves.length === 0;
   
   if (loading) {
     return (
@@ -477,26 +476,45 @@ export function ShelfSelectionPage() {
         {serviceTitle} {operationTitle} - Floor {floorName}
       </h2>
 
-      <div className="grid grid-cols-2 gap-4 flex-1">
-        {shelves.map((shelf, index) => (
-          <ShelfCard
-            key={shelf.id}
-            number={shelf.displayName}
-            selected={selectedShelf === shelf.id}
-            color={selectedShelf === shelf.id ? 'bg-green-400' : (index === 0 ? 'bg-green-400' : 'bg-black')}
-            onClick={() => setSelectedShelf(shelf.id)}
-          />
-        ))}
-      </div>
+      {hasNoShelves ? (
+        <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6 max-w-xl w-full">
+            <h3 className="text-xl font-semibold text-red-700 mb-2">No Shelf Points Available</h3>
+            <p className="text-gray-700 mb-4">
+              Could not find any shelf points for floor {floorName}. Please check the robot's map configuration and ensure shelf points are correctly labeled.
+            </p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4 flex-1">
+            {shelves.map((shelf, index) => (
+              <ShelfCard
+                key={shelf.id}
+                number={shelf.displayName}
+                selected={selectedShelf === shelf.id}
+                color={selectedShelf === shelf.id ? 'bg-green-400' : (index === 0 ? 'bg-green-400' : 'bg-black')}
+                onClick={() => setSelectedShelf(shelf.id)}
+              />
+            ))}
+          </div>
 
-      <div className="flex justify-center mt-6">
-        <Button 
-          className="w-full max-w-xl py-6 bg-green-500 hover:bg-green-600 text-white"
-          onClick={handleConfirm}
-        >
-          <span className="text-xl">Confirm Selection</span>
-        </Button>
-      </div>
+          <div className="flex justify-center mt-6">
+            <Button 
+              className="w-full max-w-xl py-6 bg-green-500 hover:bg-green-600 text-white"
+              onClick={handleConfirm}
+            >
+              <span className="text-xl">Confirm Selection</span>
+            </Button>
+          </div>
+        </>
+      )}
 
       <footer className="flex justify-end mt-4">
         <Button variant="outline" className="bg-indigo-500 text-white">
