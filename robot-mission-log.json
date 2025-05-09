@@ -284,4 +284,17 @@
     "loggedAt": "2025-05-08T23:49:41.534Z",
     "outcome": "completed"
   }
-]
+][2025-05-09T00:05:14.597Z] 🤖 Sending robot to pick up bin from zone 104 and deliver to Drop-off point...
+[2025-05-09T00:05:14.600Z] Attempting to use endpoint with /api prefix...
+[2025-05-09T00:05:15.159Z] ✅ Task sent successfully!
+[2025-05-09T00:05:15.160Z] {
+  "success": true,
+  "message": "Local pickup task started with full bin operations.",
+  "missionId": "mission_1746749115141_g7a3ln0",
+  "charging": false,
+  "duration": 510
+}
+[2025-05-09T00:05:15.160Z] 📊 Tracking mission ID: mission_1746749115141_g7a3ln0...
+[2025-05-09T00:05:15.161Z] Starting mission monitoring for ID: mission_1746749115141_g7a3ln0
+[2025-05-09T00:05:15.166Z] Mission progress: 0/5 steps completed
+[2025-05-09T00:05:20.172Z] Mission progress: 0/5 steps completed

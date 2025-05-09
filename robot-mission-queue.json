@@ -267,5 +267,79 @@
     "updatedAt": "2025-05-08T23:49:41.533Z",
     "robotSn": "L382502104987ir",
     "offline": false
+  },
+  {
+    "id": "mission_1746749115141_g7a3ln0",
+    "name": "Local Pickup - Shelf zone-104 to Pickup zone-104-bin",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -16.329,
+          "y": 6.419,
+          "ori": 0,
+          "label": "shelf zone-104"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to shelf zone-104 sent successfully",
+          "moveId": 4192
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -16.329,
+          "y": 6.419,
+          "ori": 0,
+          "label": "pickup zone-104-bin"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to pickup zone-104-bin sent successfully",
+          "moveId": 4193
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -3.067,
+          "y": 2.578,
+          "ori": 0,
+          "label": "standby"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to standby sent successfully",
+          "moveId": 4194
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 5,
+    "createdAt": "2025-05-09T00:05:15.141Z",
+    "updatedAt": "2025-05-09T00:05:31.917Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
   }
 ]

@@ -26,6 +26,54 @@ export function registerLocalDropoffRoute(app: express.Express) {
     logRobotTask(`New LOCAL DROPOFF task received - Shelf: ${shelf.id}, Pickup: ${pickup.id}`);
     logRobotTask(`Full task details: ${JSON.stringify(req.body, null, 2)}`);
 
+    // Check if the robot is currently moving
+    async function checkMoveStatus(): Promise<boolean> {
+      try {
+        const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
+          headers: { 'x-api-key': ROBOT_SECRET }
+        });
+        
+        if (response.data && response.data.state) {
+          logRobotTask(`Current move status: ${response.data.state}`);
+          
+          // Check if the move is complete
+          return ['succeeded', 'cancelled', 'failed'].includes(response.data.state);
+        }
+        
+        // If no clear state, assume complete
+        return true;
+      } catch (error) {
+        // If error (like 404 - no current move), consider it complete
+        logRobotTask(`No active movement or error checking status`);
+        return true;
+      }
+    }
+    
+    // Wait for the robot to complete its current movement
+    async function waitForMoveComplete(moveId: number, timeout = 60000): Promise<void> {
+      const startTime = Date.now();
+      let isMoving = true;
+      
+      logRobotTask(`Waiting for robot to complete movement (ID: ${moveId})...`);
+      
+      while (isMoving && (Date.now() - startTime < timeout)) {
+        isMoving = !(await checkMoveStatus());
+        
+        if (isMoving) {
+          // Wait a bit before checking again
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          logRobotTask(`Still moving (move ID: ${moveId}), waiting...`);
+        }
+      }
+      
+      if (isMoving) {
+        logRobotTask(`⚠️ Timed out waiting for robot to complete movement (ID: ${moveId})`);
+        throw new Error(`Movement timeout exceeded (${timeout}ms)`);
+      } else {
+        logRobotTask(`✅ Robot has completed movement (ID: ${moveId})`);
+      }
+    }
+    
     async function moveTo(point: any, label: string, headers: any) {
       logRobotTask(`➡️ Sending move command to: (${point.x}, ${point.y})`);
 
@@ -45,18 +93,21 @@ export function registerLocalDropoffRoute(app: express.Express) {
         }
       };
 
+      // First make sure any existing move is complete
+      await checkMoveStatus();
+      
+      // Send the move command
       const moveRes = await axios.post(`${ROBOT_API_URL}/chassis/moves`, payload, { headers });
       logRobotTask(`✅ Move command sent: ${JSON.stringify(moveRes.data)}`);
       
-      // Robot specific API doesn't have /robot/state endpoint
-      // We'll wait a fixed time to let the robot start moving
-      logRobotTask(`Robot move command sent for ${label} - move ID: ${moveRes.data.id}`);
+      // Get the move ID for tracking
+      const moveId = moveRes.data.id;
+      logRobotTask(`Robot move command sent for ${label} - move ID: ${moveId}`);
       
-      // Wait a fixed amount of time - the robot should eventually complete the move
-      // In a real implementation, we'd monitor position via WebSocket
-      await new Promise(res => setTimeout(res, 5000));
+      // Wait for this move to complete before proceeding
+      await waitForMoveComplete(moveId, 120000); // 2 minute timeout
       
-      logRobotTask(`Robot move command to ${label} considered complete`);
+      logRobotTask(`Robot move command to ${label} confirmed complete`);
       return moveRes.data;
     }
 
