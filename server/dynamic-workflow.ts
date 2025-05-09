@@ -317,10 +317,41 @@ async function getMapPoints(): Promise<MapPoints> {
 
 /**
  * Get the corresponding docking point for a shelf point
+ * Enhanced with special handling for Map 3
  */
-function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string]): Point | null {
+function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string], floorId?: string): Point | null {
+  const isMap3 = floorId === "3";
   const dockingId = `${shelfId}_docking`;
   const dockingPoint = floorPoints.dockingPoints.find(p => p.id === dockingId);
+  
+  // If no matching docking point and this is Map 3, use fallbacks
+  if (!dockingPoint && isMap3) {
+    console.log(`Map 3: No specific docking point found for shelf ${shelfId}`);
+    
+    // Try to find any docking point
+    if (floorPoints.dockingPoints.length > 0) {
+      console.log(`Map 3: Using first available docking point: ${floorPoints.dockingPoints[0].id}`);
+      return floorPoints.dockingPoints[0];
+    }
+    
+    // If no docking points at all, create a virtual one
+    const shelfPoint = floorPoints.shelfPoints.find(p => p.id === shelfId);
+    if (shelfPoint) {
+      console.log(`Map 3: Creating virtual docking point for shelf ${shelfId}`);
+      const virtualDocking: Point = {
+        id: `${shelfId}_virtual_docking`,
+        x: shelfPoint.x - 0.5, // Position it slightly away from the shelf
+        y: shelfPoint.y,
+        ori: shelfPoint.ori
+      };
+      
+      // Add it to the collection for future use
+      floorPoints.dockingPoints.push(virtualDocking);
+      console.log(`Map 3: Created virtual docking point at (${virtualDocking.x}, ${virtualDocking.y})`);
+      return virtualDocking;
+    }
+  }
+  
   return dockingPoint || null;
 }
 
