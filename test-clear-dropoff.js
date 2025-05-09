@@ -3,7 +3,7 @@
  * This is used to test the full Zone 104 workflow
  */
 
-const axios = require('axios');
+import axios from 'axios';
 
 async function clearDropoffLocation() {
   try {

@@ -28,7 +28,8 @@ function logRobotTask(message: string) {
 }
 
 /**
- * Checks if a bin is present at the specified position using robot sensors
+ * Checks if a bin is present at the specified position
+ * First checks our bin status API (with overrides), then fallbacks to assumptions
  * @param x X coordinate
  * @param y Y coordinate
  * @param pointId For logging purposes
@@ -36,6 +37,20 @@ function logRobotTask(message: string) {
  */
 async function checkForBin(x: number, y: number, pointId: string): Promise<boolean> {
   try {
+    // First check our bin status API (which includes overrides)
+    try {
+      const binStatusResponse = await axios.get(`http://localhost:5000/api/bins/status?location=${pointId}`);
+      if (binStatusResponse.data && binStatusResponse.data.success) {
+        const binPresent = binStatusResponse.data.binPresent;
+        const source = binStatusResponse.data.source;
+        logRobotTask(`Bin detection at ${pointId}: ${binPresent ? '⚠️ BIN PRESENT (OCCUPIED)' : '✅ CLEAR'} [Source: ${source}]`);
+        return binPresent;
+      }
+    } catch (error: any) {
+      logRobotTask(`Error checking bin status API: ${error.message}`);
+      // Continue to fallback methods
+    }
+    
     // For pickup points (contains "Load"), assume a bin is present
     if (pointId.includes('Load') && !pointId.includes('docking')) {
       logRobotTask(`[BIN-DETECTION] Assuming bin is present at pickup point ${pointId}`);
