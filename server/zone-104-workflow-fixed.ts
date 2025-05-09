@@ -872,17 +872,19 @@ async function executeZone104Workflow(): Promise<any> {
     logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking (with correct coordinates from physical map)`);
     await moveToPoint(-2.314, 2.543, 0, 'Drop-off_Load_docking');
     
-    // STEP 5.5: Align with rack for proper dropoff
+    // STEP 5.5: Align with rack for proper dropoff with retry mechanism
     logWorkflow(`📍 STEP 5.5/8: Aligning with rack at Drop-off_Load using align_with_rack special move type`);
     
-    // Check jack state before alignment
+    // CRITICAL: First check if jack is already up, and if so, lower it before attempting align_with_rack
+    // The error "jack_in_up_state" indicates the jack needs to be down before alignment
     logWorkflow(`⚠️ SAFETY CHECK: Verifying jack state before alignment...`);
     try {
-      const jackResponse = await axios.get(`${ROBOT_API_URL}/device_info/jack/state`, { headers: getHeaders() });
-      const jackState = jackResponse.data.state || 'unknown';
+      // Check jack state
+      const jackStateResponse = await axios.get(`${ROBOT_API_URL}/jack_state`, { headers: getHeaders() });
+      const jackState = jackStateResponse.data;
       
-      if (jackState !== 'down') {
-        logWorkflow(`⚠️ Jack is in ${jackState} state, need to lower before alignment`);
+      if (jackState && jackState.is_up === true) {
+        logWorkflow(`⚠️ Jack is currently UP. Must lower it before alignment.`);
         
         try {
           // Execute jack_down operation
@@ -913,79 +915,142 @@ async function executeZone104Workflow(): Promise<any> {
       }
     }
     
-    // Stop robot first for safety
-    try {
-      await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() });
-      logWorkflow(`✅ Stopped robot before align with rack for dropoff`);
-    } catch (stopError: any) {
-      logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
-    }
+    let alignSuccess = false;
+    let alignAttempts = 0;
+    const maxAlignAttempts = 3; // Maximum number of attempts to align with rack
     
-    // Wait for stabilization
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Create a move with type=align_with_rack for dropoff
-    const alignCommand = {
-      creator: 'robot-api',
-      type: 'align_with_rack', // Special move type for rack dropoff
-      target_x: -3.067,
-      target_y: 2.579,
-      target_ori: 0
-    };
-    
-    logWorkflow(`Creating align_with_rack move for dropoff: ${JSON.stringify(alignCommand)}`);
-    
-    // Send the move command to align with rack
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, alignCommand, { headers: getHeaders() });
-    
-    if (!response.data || !response.data.id) {
-      throw new Error('Failed to create align_with_rack move for dropoff - invalid response');
-    }
-    
-    const moveId = response.data.id;
-    logWorkflow(`Robot align_with_rack command sent for dropoff - move ID: ${moveId}`);
-    
-    // Wait for alignment to complete
-    let moveComplete = false;
-    let maxRetries = 120; // 2 minutes at 1 second intervals
-    let attempts = 0;
-    
-    while (!moveComplete && attempts < maxRetries) {
-      attempts++;
+    while (!alignSuccess && alignAttempts < maxAlignAttempts) {
+      alignAttempts++;
+      logWorkflow(`Attempt ${alignAttempts}/${maxAlignAttempts} to align with rack for dropoff`);
       
-      // Wait 1 second between checks
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Check move status
-      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
-      const moveStatus = statusResponse.data.state;
-      
-      logWorkflow(`Current align_with_rack status for dropoff: ${moveStatus}`);
-      
-      // Check if move is complete
-      if (moveStatus === 'succeeded') {
-        moveComplete = true;
-        logWorkflow(`✅ Robot has completed align_with_rack operation for dropoff (ID: ${moveId})`);
-      } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
-        throw new Error(`Align with rack for dropoff failed or was cancelled. Status: ${moveStatus}`);
-      } else {
-        logWorkflow(`Still aligning for dropoff (move ID: ${moveId}), waiting...`);
+      try {
+        // Stop robot first for safety
+        try {
+          await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() });
+          logWorkflow(`✅ Stopped robot before align with rack for dropoff`);
+        } catch (stopError: any) {
+          logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
+        }
+        
+        // Wait for stabilization
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Create a move with type=align_with_rack for dropoff
+        const alignCommand = {
+          creator: 'robot-api',
+          type: 'align_with_rack', // Special move type for rack dropoff
+          target_x: -3.067,
+          target_y: 2.579,
+          target_ori: 0
+        };
+        
+        logWorkflow(`Creating align_with_rack move for dropoff: ${JSON.stringify(alignCommand)}`);
+        
+        // Send the move command to align with rack
+        const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, alignCommand, { headers: getHeaders() });
+        
+        if (!response.data || !response.data.id) {
+          throw new Error('Failed to create align_with_rack move for dropoff - invalid response');
+        }
+        
+        const moveId = response.data.id;
+        logWorkflow(`Robot align_with_rack command sent for dropoff - move ID: ${moveId}`);
+        
+        // Wait for alignment to complete
+        let moveComplete = false;
+        let maxRetries = 120; // 2 minutes at 1 second intervals
+        let attempts = 0;
+        
+        while (!moveComplete && attempts < maxRetries) {
+          attempts++;
+          
+          // Wait 1 second between checks
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Check move status
+          const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
+          const moveStatus = statusResponse.data.state;
+          
+          logWorkflow(`Current align_with_rack status for dropoff: ${moveStatus}`);
+          
+          // Check if move is complete
+          if (moveStatus === 'succeeded') {
+            moveComplete = true;
+            alignSuccess = true;
+            logWorkflow(`✅ Robot has completed align_with_rack operation for dropoff (ID: ${moveId})`);
+          } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
+            if (moveStatus === 'failed') {
+              // Check failure reason
+              const failReason = statusResponse.data.fail_reason_str || 'Unknown failure';
+              logWorkflow(`⚠️ Align with rack for dropoff failed with reason: ${failReason}`);
+            }
+            throw new Error(`Align with rack for dropoff failed or was cancelled. Status: ${moveStatus}`);
+          } else {
+            logWorkflow(`Still aligning for dropoff (move ID: ${moveId}), waiting...`);
+          }
+        }
+        
+        // Final check to ensure we didn't just time out
+        if (!moveComplete) {
+          logWorkflow(`⚠️ WARNING: Align with rack for dropoff timed out after ${maxRetries} attempts, but will continue workflow`);
+          return {
+            success: false,
+            warning: `Align with rack for dropoff timed out after ${maxRetries} attempts`,
+            moveId: moveId
+          };
+        }
+        
+        // Add safety wait after alignment
+        logWorkflow(`✅ Align with rack for dropoff complete, waiting 5 seconds for stability...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+      } catch (alignError: any) {
+        logWorkflow(`❌ ERROR during align_with_rack operation for dropoff (attempt ${alignAttempts}/${maxAlignAttempts}): ${alignError.message}`);
+        
+        if (alignAttempts < maxAlignAttempts) {
+          logWorkflow(`⚠️ Retrying align_with_rack for dropoff after 5 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds before retrying
+          
+          // Try moving back slightly before next attempt to get a better approach angle
+          try {
+            logWorkflow(`⚠️ Moving back slightly to get a better approach angle for next dropoff attempt...`);
+            // Back up 10cm
+            await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
+              action: "joystick",
+              linear: { x: -0.1, y: 0.0, z: 0.0 },
+              angular: { x: 0.0, y: 0.0, z: 0.0 }
+            }, { headers: getHeaders() });
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Stop the movement
+            await axios.post(`${ROBOT_API_URL}/chassis/joystick`, {
+              action: "joystick",
+              linear: { x: 0.0, y: 0.0, z: 0.0 },
+              angular: { x: 0.0, y: 0.0, z: 0.0 }
+            }, { headers: getHeaders() });
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (moveError: any) {
+            logWorkflow(`Warning: Could not adjust position for dropoff retry: ${moveError.message}`);
+          }
+          
+          // Continue to next retry attempt
+          continue;
+        } else {
+          // If we've exhausted all retries, throw the error
+          logWorkflow(`❌ All align_with_rack attempts for dropoff failed. Returning robot to charger...`);
+          
+          // Immediately try to return robot to charger if all attempts fail
+          try {
+            await returnToCharger();
+            logWorkflow(`✅ Successfully sent robot back to charger after align_with_rack failures for dropoff`);
+          } catch (chargerError: any) {
+            logWorkflow(`❌ Failed to return robot to charger: ${chargerError.message}`);
+          }
+          
+          throw new Error(`Failed to align with rack for dropoff after ${maxAlignAttempts} attempts: ${alignError.message}`);
+        }
       }
     }
-    
-    // Final check to ensure we didn't just time out
-    if (!moveComplete) {
-      logWorkflow(`⚠️ WARNING: Align with rack for dropoff timed out after ${maxRetries} attempts, but will continue workflow`);
-      return {
-        success: false,
-        warning: `Align with rack for dropoff timed out after ${maxRetries} attempts`,
-        moveId: moveId
-      };
-    }
-    
-    // Add safety wait after alignment
-    logWorkflow(`✅ Align with rack for dropoff complete, waiting 5 seconds for stability...`);
-    await new Promise(resolve => setTimeout(resolve, 5000));
     
     // STEP 6: Move to actual dropoff point (Drop-off_Load)
     logWorkflow(`📍 STEP 6/8: Moving to Drop-off_Load`);
