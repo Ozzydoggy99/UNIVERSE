@@ -176,48 +176,145 @@ export function registerLocalDropoffRoute(app: express.Express) {
         // Full mission with bin operations
         logRobotTask('Creating full mission plan with bin operations');
         
-        missionSteps = [
-          // Step 1: Go to pickup point
-          {
-            type: 'move' as const,
-            params: {
-              x: pickup.x,
-              y: pickup.y,
-              ori: pickup.ori ?? 0,
-              label: `pickup ${pickup.id}`
+        // Check if pickup point is at the same location as shelf (common for zone-104)
+        const isSameLocation = 
+          shelf.x === pickup.x && 
+          shelf.y === pickup.y;
+        
+        if (isSameLocation) {
+          logRobotTask(`🔍 Detected that pickup point is at same location as shelf - optimizing mission steps`);
+          
+          // Create a docking point 1 meter away from the shelf
+          const dockingDistance = 1.0; // 1 meter
+          
+          // Calculate position based on orientation
+          // For zone-104, we need to approach from the right direction
+          const dockX = pickup.x - dockingDistance;
+          const dockY = pickup.y;
+          
+          logRobotTask(`📍 Creating docking approach point at (${dockX}, ${dockY}) for better bin dropoff`);
+          
+          missionSteps = [
+            // Step 1: Go to docking position near pickup/shelf
+            {
+              type: 'move' as const,
+              params: {
+                x: dockX,
+                y: dockY,
+                ori: pickup.ori ?? 0,
+                label: `docking point for ${pickup.id}`
+              }
+            },
+            // Step 2: Move precisely to pickup/shelf position
+            {
+              type: 'move' as const,
+              params: {
+                x: pickup.x,
+                y: pickup.y,
+                ori: pickup.ori ?? 0,
+                label: `pickup/shelf ${pickup.id}`
+              }
+            },
+            // Step 3: Jack Up to grab bin
+            {
+              type: 'jack_up' as const,
+              params: {}
+            },
+            // Step 4: Skip going to shelf since we're already there
+            // Step 5: Jack Down to release bin
+            {
+              type: 'jack_down' as const,
+              params: {}
+            },
+            // Step 6: Return to standby
+            {
+              type: 'move' as const,
+              params: {
+                x: standby.x,
+                y: standby.y,
+                ori: standby.ori ?? 0,
+                label: 'standby'
+              }
             }
-          },
-          // Step 2: Jack Up
-          {
-            type: 'jack_up' as const,
-            params: {}
-          },
-          // Step 3: Go to shelf
-          {
-            type: 'move' as const,
-            params: {
-              x: shelf.x,
-              y: shelf.y,
-              ori: shelf.ori ?? 0,
-              label: `shelf ${shelf.id}`
+          ];
+        } else {
+          // Standard mission with separate pickup and shelf locations
+          
+          // Create docking points for both pickup and shelf
+          const pickupDockingDistance = 1.0; // 1 meter
+          const shelfDockingDistance = 1.0; // 1 meter
+          
+          const pickupDockX = pickup.x - pickupDockingDistance;
+          const pickupDockY = pickup.y;
+          
+          const shelfDockX = shelf.x - shelfDockingDistance;
+          const shelfDockY = shelf.y;
+          
+          logRobotTask(`📍 Creating docking approach points: pickup at (${pickupDockX}, ${pickupDockY}), shelf at (${shelfDockX}, ${shelfDockY})`);
+          
+          missionSteps = [
+            // Step 1: Go to docking position near pickup
+            {
+              type: 'move' as const,
+              params: {
+                x: pickupDockX,
+                y: pickupDockY,
+                ori: pickup.ori ?? 0,
+                label: `docking point for pickup ${pickup.id}`
+              }
+            },
+            // Step 2: Move precisely to pickup position
+            {
+              type: 'move' as const,
+              params: {
+                x: pickup.x,
+                y: pickup.y,
+                ori: pickup.ori ?? 0,
+                label: `pickup ${pickup.id}`
+              }
+            },
+            // Step 3: Jack Up
+            {
+              type: 'jack_up' as const,
+              params: {}
+            },
+            // Step 4: Go to docking position near shelf
+            {
+              type: 'move' as const,
+              params: {
+                x: shelfDockX,
+                y: shelfDockY,
+                ori: shelf.ori ?? 0,
+                label: `docking point for shelf ${shelf.id}`
+              }
+            },
+            // Step 5: Move precisely to shelf position
+            {
+              type: 'move' as const,
+              params: {
+                x: shelf.x,
+                y: shelf.y,
+                ori: shelf.ori ?? 0,
+                label: `shelf ${shelf.id}`
+              }
+            },
+            // Step 6: Jack Down
+            {
+              type: 'jack_down' as const,
+              params: {}
+            },
+            // Step 7: Return to standby
+            {
+              type: 'move' as const,
+              params: {
+                x: standby.x,
+                y: standby.y,
+                ori: standby.ori ?? 0,
+                label: 'standby'
+              }
             }
-          },
-          // Step 4: Jack Down
-          {
-            type: 'jack_down' as const,
-            params: {}
-          },
-          // Step 5: Return to standby
-          {
-            type: 'move' as const,
-            params: {
-              x: standby.x,
-              y: standby.y,
-              ori: standby.ori ?? 0,
-              label: 'standby'
-            }
-          }
-        ];
+          ];
+        }
         
         logRobotTask(`Created full mission plan with ${missionSteps.length} steps`);
       }
