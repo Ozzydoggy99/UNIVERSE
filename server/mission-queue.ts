@@ -545,6 +545,7 @@ export class MissionQueueManager {
       if (isChargerMove) {
         console.log(`🔋 CHARGER DOCKING: Using 'charge' move type for ${label}`);
         console.log(`🔋 CHARGER DOCKING: Target position (${params.x}, ${params.y}), orientation: ${params.ori}`);
+        console.log(`🔋 CHARGER DOCKING: Including required charge_retry_count=3 parameter`);
       }
       
       // Step 1: Send move command to robot with enhanced params
@@ -555,6 +556,8 @@ export class MissionQueueManager {
         target_z: 0,
         target_ori: params.ori || 0,
         creator: "web_interface",
+        // For charge move type, we need to include charge_retry_count as required by AutoXing API
+        ...(isChargerMove ? { charge_retry_count: 3 } : {}),
         properties: {
           max_trans_vel: 0.5,
           max_rot_vel: 0.5,
