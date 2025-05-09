@@ -68,6 +68,158 @@ async function checkForBin(pointId: string): Promise<boolean> {
 }
 
 /**
+ * Create a direct robot task using the AutoXing API
+ * This uses the specialized shelf operation API with proper stepActs for bin operations
+ */
+async function createDirectShelfTask(
+  pickupPoint: Point, 
+  pickupDockingPoint: Point, 
+  dropoffPoint: Point, 
+  dropoffDockingPoint: Point, 
+  chargerPoint: Point
+): Promise<any> {
+  try {
+    logRobotTask('Creating a direct shelf task using AutoXing API');
+    
+    // Create a properly formatted task according to robot API documentation
+    const task = {
+      name: `Zone 104 Shelf Pickup and Return to Charger ${new Date().toISOString()}`,
+      robotSn: ROBOT_SERIAL,
+      runNum: 1,
+      taskType: 2, // Regular task
+      runType: 20, // Standard task
+      routeMode: 1, // Best path
+      runMode: 1, // One-time execution
+      ignorePublicSite: false,
+      speed: -1, // Default speed
+      // Current position info not needed - robot knows its position
+      
+      // Define all the points in the task
+      pts: [
+        // STEP 1: Go to docking position first
+        {
+          x: pickupDockingPoint.x,
+          y: pickupDockingPoint.y,
+          yaw: pickupDockingPoint.ori,
+          areaId: pickupDockingPoint.areaId || "",
+          type: -1, // Regular point
+          ext: {
+            id: pickupDockingPoint.id,
+            name: pickupDockingPoint.id
+          },
+          // No special actions at docking point
+          stepActs: []
+        },
+        
+        // STEP 2: Go to pickup position
+        {
+          x: pickupPoint.x,
+          y: pickupPoint.y,
+          yaw: pickupPoint.ori,
+          areaId: pickupPoint.areaId || "",
+          type: 3, // IMPORTANT: Mark as shelf point (type 3)
+          ext: {
+            id: pickupPoint.id,
+            name: pickupPoint.id
+          },
+          // This is the critical part - we need to use type 47 for lifting
+          stepActs: [
+            {
+              type: 47, // Lift up operation (per documentation)
+              data: {} // No special parameters needed
+            },
+            // Add a pause after lifting for safety
+            {
+              type: 18, // Pause action
+              data: {
+                pauseTime: 3 // 3 second pause
+              }
+            }
+          ]
+        },
+        
+        // STEP 3: Go to dropoff docking position
+        {
+          x: dropoffDockingPoint.x,
+          y: dropoffDockingPoint.y,
+          yaw: dropoffDockingPoint.ori,
+          areaId: dropoffDockingPoint.areaId || "",
+          type: -1, // Regular point
+          ext: {
+            id: dropoffDockingPoint.id,
+            name: dropoffDockingPoint.id
+          },
+          // No special actions at docking point
+          stepActs: []
+        },
+        
+        // STEP 4: Go to dropoff position
+        {
+          x: dropoffPoint.x,
+          y: dropoffPoint.y,
+          yaw: dropoffPoint.ori,
+          areaId: dropoffPoint.areaId || "",
+          type: 3, // IMPORTANT: Mark as shelf point (type 3)
+          ext: {
+            id: dropoffPoint.id,
+            name: dropoffPoint.id
+          },
+          // This is the critical part - we need to use type 48 for dropping
+          stepActs: [
+            {
+              type: 48, // Lift down operation (per documentation)
+              data: {} // No special parameters needed
+            },
+            // Add a pause after dropping for safety
+            {
+              type: 18, // Pause action
+              data: {
+                pauseTime: 3 // 3 second pause
+              }
+            }
+          ]
+        },
+        
+        // STEP 5: Return to charger
+        {
+          x: chargerPoint.x,
+          y: chargerPoint.y,
+          yaw: chargerPoint.ori,
+          areaId: chargerPoint.areaId || "",
+          type: 1, // IMPORTANT: Mark as charging point (type 1)
+          ext: {
+            id: chargerPoint.id,
+            name: chargerPoint.id
+          },
+          // No special actions needed for charger - the point type takes care of it
+          stepActs: []
+        }
+      ]
+    };
+    
+    // Log the complete task definition
+    logRobotTask(`Created direct robot task with ${task.pts.length} points`);
+    
+    // Call the robot API to create and start the task
+    const response = await axios.post(`${ROBOT_API_URL}/api/v2/task`, task, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ROBOT_SECRET
+      }
+    });
+    
+    logRobotTask(`✅ Successfully created direct task - Response: ${JSON.stringify(response.data)}`);
+    return response.data;
+  } catch (error: any) {
+    logRobotTask(`❌ Error creating direct shelf task: ${error.message}`);
+    if (error.response) {
+      logRobotTask(`API Error Details: ${JSON.stringify(error.response.data)}`);
+    }
+    throw error;
+  }
+}
+
+/**
  * Registers the Zone 104 workflow routes
  */
 export function registerZone104WorkflowRoute(app: express.Express) {
@@ -126,7 +278,8 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       const chargerPoint = allPoints.find(p => 
         p.id === 'charger' || 
         p.id === 'Charger' || 
-        p.id.toLowerCase().includes('charg')
+        p.id.toLowerCase().includes('charg') ||
+        p.id.includes('Charging Station')
       );
       
       // Validate all required points exist
@@ -158,8 +311,38 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       logRobotTask(`- Dropoff docking: ${dropoffDockingPoint.id} at (${dropoffDockingPoint.x}, ${dropoffDockingPoint.y}), ori: ${dropoffDockingPoint.ori}`);
       logRobotTask(`- Charger: ${chargerPoint.id} at (${chargerPoint.x}, ${chargerPoint.y}), ori: ${chargerPoint.ori}`);
       
+      // First try using the direct robot API approach 
+      try {
+        logRobotTask('Attempting to use direct robot task API for better bin operations handling...');
+        const directTaskResult = await createDirectShelfTask(
+          pickupPoint,
+          pickupDockingPoint,
+          dropoffPoint,
+          dropoffDockingPoint,
+          chargerPoint
+        );
+        
+        // Calculate planning time
+        const directTaskDuration = Date.now() - startTime;
+        
+        // Return success to the caller
+        return res.status(200).json({
+          success: true,
+          message: 'Zone 104 workflow initiated successfully with direct robot API',
+          taskId: directTaskResult.id || directTaskResult.taskId,
+          points: 5,
+          duration: directTaskDuration,
+          method: 'direct_robot_api',
+          note: 'Using specialized shelf points with proper stepActs for bin operations'
+        });
+      } catch (directTaskError: any) {
+        // Log the error but continue with fallback method
+        logRobotTask(`⚠️ Direct robot task creation failed: ${directTaskError.message}`);
+        logRobotTask('Falling back to mission queue approach...');
+      }
+      
+      // FALLBACK METHOD: Use our mission queue system instead
       // Define the mission steps according to the documented process
-      // We create steps that directly match the mission step type expected by mission-queue.ts
       const workflowSteps: Omit<MissionStep, "completed" | "retryCount">[] = [];
       
       // STEP 1: Always go to pickup docking position first
@@ -238,7 +421,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       });
       
       // Log the workflow steps for documentation
-      logRobotTask('📋 Created workflow steps:');
+      logRobotTask('📋 Created fallback workflow steps:');
       for (let i = 0; i < workflowSteps.length; i++) {
         const step = workflowSteps[i];
         if (step.type === 'move') {
@@ -255,23 +438,24 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       logRobotTask('✅ Cancelled any existing active missions');
       
       // Create the mission and let the mission queue execute it
-      const missionName = `Zone 104 Workflow with Charger Return`;
+      const missionName = `Zone 104 Workflow with Charger Return (Fallback Method)`;
       const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
       
       // Calculate planning time
       const duration = Date.now() - startTime;
       
-      logRobotTask(`✅ Created mission with ID: ${mission.id}`);
+      logRobotTask(`✅ Created mission with ID: ${mission.id} (fallback method)`);
       logRobotTask(`🚀 Total planning time: ${duration}ms`);
       
       // Return success to the caller
       return res.status(200).json({
         success: true,
-        message: 'Zone 104 workflow initiated successfully',
+        message: 'Zone 104 workflow initiated successfully using fallback method',
         missionId: mission.id,
         steps: workflowSteps.length,
         duration,
-        note: 'Robot will return to charger after completing the pickup and dropoff'
+        method: 'mission_queue_fallback',
+        note: 'Robot will return to charger after completing the pickup and dropoff (using fallback implementation)'
       });
     } catch (error: any) {
       // Comprehensive error handling
