@@ -579,6 +579,112 @@
           "ori": 178.97,
           "label": "docking for 104_Load"
         },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking for 104_Load completed successfully",
+          "moveId": 4227
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -16.329171529605446,
+          "y": 6.419632917129547,
+          "ori": 0,
+          "label": "104_Load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load completed successfully",
+          "moveId": 4228
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -4.067094531843395,
+          "y": 2.5788015960870325,
+          "ori": 0,
+          "label": "docking for Drop-off_Load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking for Drop-off_Load completed successfully",
+          "moveId": 4229
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -3.067094531843395,
+          "y": 2.5788015960870325,
+          "ori": 0,
+          "label": "Drop-off_Load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Drop-off_Load completed successfully",
+          "moveId": 4230
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 0.09001154779753051,
+          "y": 4.615265033436344,
+          "ori": 0,
+          "label": "Desk"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Desk completed successfully",
+          "moveId": 4231
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 7,
+    "createdAt": "2025-05-09T01:12:02.984Z",
+    "updatedAt": "2025-05-09T01:14:54.799Z",
+    "robotSn": "L382502104987ir",
+    "offline": false
+  },
+  {
+    "id": "mission_1746754035769_pv2dmm8",
+    "name": "Zone 104 Complete Workflow (Pickup to Dropoff)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -15.609137185776945,
+          "y": 6.403540839698962,
+          "ori": 178.97,
+          "label": "docking for 104_Load"
+        },
         "completed": false,
         "retryCount": 0
       },
@@ -641,8 +747,8 @@
     ],
     "status": "in_progress",
     "currentStepIndex": 0,
-    "createdAt": "2025-05-09T01:12:02.984Z",
-    "updatedAt": "2025-05-09T01:12:02.989Z",
+    "createdAt": "2025-05-09T01:27:15.769Z",
+    "updatedAt": "2025-05-09T01:27:15.783Z",
     "robotSn": "L382502104987ir"
   }
 ]

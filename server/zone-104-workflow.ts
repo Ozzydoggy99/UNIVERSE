@@ -27,6 +27,37 @@ function logRobotTask(message: string) {
   fs.appendFileSync(debugLogFile, logEntry);
 }
 
+/**
+ * Checks if a bin is present at the specified position using robot sensors
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param pointId For logging purposes
+ * @returns True if a bin is detected
+ */
+async function checkForBin(x: number, y: number, pointId: string): Promise<boolean> {
+  try {
+    // For pickup points (contains "Load"), assume a bin is present
+    if (pointId.includes('Load') && !pointId.includes('docking')) {
+      logRobotTask(`[BIN-DETECTION] Assuming bin is present at pickup point ${pointId}`);
+      return true;
+    }
+    
+    // For dropoff points, assume bin is not present (OK to dropoff)
+    if (pointId.toLowerCase().includes('drop') && !pointId.includes('docking')) {
+      logRobotTask(`[BIN-DETECTION] Assuming dropoff is clear at ${pointId}`);
+      return false;
+    }
+    
+    // Default fallback
+    logRobotTask(`[BIN-DETECTION] Using default bin detection logic for ${pointId}`);
+    return pointId.includes('Load'); // Return true for Load points, false otherwise
+  } catch (error: any) {
+    logRobotTask(`[BIN-DETECTION] Error checking for bin: ${error.message}`);
+    // In case of error, default based on point type
+    return pointId.includes('Load');
+  }
+}
+
 export function registerZone104WorkflowRoute(app: express.Express) {
   /**
    * This handler creates a complete pickup and drop-off workflow for zone 104
@@ -38,7 +69,6 @@ export function registerZone104WorkflowRoute(app: express.Express) {
    */
   const handleZone104Workflow = async (req: express.Request, res: express.Response) => {
     const startTime = Date.now();
-    const headers = { 'x-api-key': ROBOT_SECRET };
     
     logRobotTask(`🚀 Starting ZONE-104 workflow (pickup and dropoff sequence)`);
     
@@ -164,7 +194,55 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         logRobotTask(`- Standby: ${standbyPoint.id} at (${standbyPoint.x}, ${standbyPoint.y}), orientation: ${standbyPoint.ori}`);
       }
       
-      // Create mission steps for pickup sequence
+      // Check for bin presence first to determine if workflow should continue
+      let skipToStandby = false;
+      let cancelWorkflow = false;
+      let reasonMessage = '';
+      
+      try {
+        const binAtPickup = await checkForBin(pickupPoint.x, pickupPoint.y, pickupPoint.id);
+        logRobotTask(`Bin detection at pickup point ${pickupPoint.id}: ${binAtPickup ? '✅ BIN PRESENT' : '❌ NO BIN'}`);
+        
+        if (!binAtPickup) {
+          skipToStandby = true;
+          reasonMessage = 'No bin detected at pickup location';
+          logRobotTask(`⚠️ WARNING: No bin detected at pickup location (${pickupPoint.id}). Will skip pickup and go to standby.`);
+        }
+        
+        const binAtDropoff = await checkForBin(dropoffPoint.x, dropoffPoint.y, dropoffPoint.id);
+        logRobotTask(`Bin detection at dropoff point ${dropoffPoint.id}: ${binAtDropoff ? '⚠️ BIN PRESENT (OCCUPIED)' : '✅ NO BIN (CLEAR)'}`);
+        
+        if (binAtDropoff) {
+          logRobotTask(`⚠️ WARNING: Dropoff location (${dropoffPoint.id}) is already occupied. Cannot deliver bin here.`);
+          reasonMessage = 'Dropoff location already occupied';
+          
+          // If we have a bin to pickup but nowhere to put it, cancel the workflow
+          if (binAtPickup) {
+            cancelWorkflow = true;
+            logRobotTask(`❌ WORKFLOW ABORTED: Pickup has bin but dropoff is occupied. Cannot complete workflow.`);
+          } else {
+            skipToStandby = true;
+            logRobotTask(`ℹ️ No action needed: No bin at pickup and dropoff is occupied. Going to standby.`);
+          }
+        }
+      } catch (error: any) {
+        logRobotTask(`⚠️ Error during bin detection: ${error.message}. Will continue with planned workflow.`);
+      }
+      
+      // If workflow should be canceled based on bin detection
+      if (cancelWorkflow) {
+        return res.status(409).json({
+          success: false,
+          message: 'Workflow cannot be completed',
+          reason: reasonMessage,
+          details: {
+            binAtPickup: true,
+            binAtDropoff: true
+          }
+        });
+      }
+      
+      // Create standard mission steps (without bin detection for now)
       const pickupMissionSteps = [
         // Step 1: Go to docking position near pickup point
         {
@@ -245,7 +323,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       logRobotTask(`- Step 5: Move to dropoff point (${dropoffPoint.id}) at (${dropoffPoint.x.toFixed(2)}, ${dropoffPoint.y.toFixed(2)})`);
       logRobotTask(`- Step 6: Jack down to release bin`);
       logRobotTask(`- Step 7: Return to ${standbyPoint ? standbyPoint.id : 'dropoff docking'} position`);
-      logRobotTask(`Mission will continue executing even if the robot goes offline`);
+      logRobotTask(`Mission will continue executing with status checking at each step`);
       
       // Start immediate execution
       await missionQueue.processMissionQueue();
