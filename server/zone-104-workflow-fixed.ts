@@ -590,9 +590,83 @@ async function executeZone104Workflow(): Promise<any> {
     logWorkflow(`📍 STEP 1/8: Moving to 104_Load_docking`);
     await moveToPoint(-15.409467385438802, 6.403540839556854, 178.97, '104_Load_docking');
     
-    // STEP 2: Move to actual pickup point (104_Load)
-    logWorkflow(`📍 STEP 2/8: Moving to 104_Load`);
-    await moveToPoint(-15.478, 6.43, 178.75, '104_Load');
+    // STEP 2: Use align_with_rack move type for proper bin pickup
+    logWorkflow(`📍 STEP 2/8: Aligning with rack at 104_Load using align_with_rack special move type`);
+    
+    try {
+      // Stop robot first for safety
+      try {
+        await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() });
+        logWorkflow(`✅ Stopped robot before align with rack`);
+      } catch (stopError: any) {
+        logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
+      }
+      
+      // Wait for stabilization
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Create a move with type=align_with_rack - critical for proper bin alignment
+      const alignCommand = {
+        creator: 'robot-api',
+        type: 'align_with_rack', // Special move type for rack pickup
+        target_x: -15.478,
+        target_y: 6.43,
+        target_ori: 178.75
+      };
+      
+      logWorkflow(`Creating align_with_rack move: ${JSON.stringify(alignCommand)}`);
+      
+      // Send the move command to align with rack
+      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, alignCommand, { headers: getHeaders() });
+      
+      if (!response.data || !response.data.id) {
+        throw new Error('Failed to create align_with_rack move - invalid response');
+      }
+      
+      const moveId = response.data.id;
+      logWorkflow(`Robot align_with_rack command sent - move ID: ${moveId}`);
+      
+      // Wait for alignment to complete
+      let moveComplete = false;
+      let maxRetries = 120; // 2 minutes at 1 second intervals
+      let attempts = 0;
+      
+      while (!moveComplete && attempts < maxRetries) {
+        attempts++;
+        
+        // Wait 1 second between checks
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check move status
+        const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
+        const moveStatus = statusResponse.data.state;
+        
+        logWorkflow(`Current align_with_rack status: ${moveStatus}`);
+        
+        // Check if move is complete
+        if (moveStatus === 'succeeded') {
+          moveComplete = true;
+          logWorkflow(`✅ Robot has completed align_with_rack operation (ID: ${moveId})`);
+        } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
+          throw new Error(`Align with rack failed or was cancelled. Status: ${moveStatus}`);
+        } else {
+          logWorkflow(`Still aligning (move ID: ${moveId}), waiting...`);
+        }
+      }
+      
+      // Final check to ensure we didn't just time out
+      if (!moveComplete) {
+        throw new Error(`Align with rack timed out after ${maxRetries} attempts`);
+      }
+      
+      // Add safety wait after alignment
+      logWorkflow(`✅ Align with rack complete, waiting 5 seconds for stability...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+    } catch (alignError: any) {
+      logWorkflow(`❌ ERROR during align_with_rack operation: ${alignError.message}`);
+      throw alignError;
+    }
     
     // STEP 3: Backup slightly for proper bin alignment (handled in jack_up)
     logWorkflow(`📍 STEP 3/8: Performing precise backing movement for bin alignment`);
@@ -602,8 +676,9 @@ async function executeZone104Workflow(): Promise<any> {
     await executeJackUp();
     
     // STEP 5: Move to docking position for dropoff (Drop-off_Load_docking)
-    logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking`);
-    await moveToPoint(-17.879301628443036, 0.04639236955095483, 269.73, 'Drop-off_Load_docking');
+    // Using adjusted coordinates to ensure they are within the navigable area
+    logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking (with adjusted coordinates)`);
+    await moveToPoint(-17.5, 0.05, 269.73, 'Drop-off_Load_docking');
     
     // STEP 6: Move to actual dropoff point (Drop-off_Load)
     logWorkflow(`📍 STEP 6/8: Moving to Drop-off_Load`);
