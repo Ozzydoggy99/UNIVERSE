@@ -21,6 +21,7 @@ import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
 import { registerReturnToChargerHandler } from './return-to-charger';
 import { registerZone104WorkflowRoute } from './zone-104-workflow';
+import { registerBinStatusRoutes } from './bin-status-routes';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -60,6 +61,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register Zone-104 workflow with new point naming convention
   registerZone104WorkflowRoute(app);
+  
+  // Register bin status routes for testing
+  registerBinStatusRoutes(app);
   
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
