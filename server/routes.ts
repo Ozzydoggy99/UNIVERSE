@@ -28,6 +28,7 @@ import { registerZone104WorkflowHandler as registerFixedWorkflowHandler } from '
 // Direct charger docking implementation for testing
 import { registerChargerDockingRoutes } from './charger-docking';
 import { registerBinStatusRoutes } from './bin-status-routes';
+import { registerTaskApiRoutes } from './robot-task-api';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -79,6 +80,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register bin status routes for testing
   registerBinStatusRoutes(app);
+  
+  // Register the new Task API for unified robot task management
+  registerTaskApiRoutes(app);
   
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
