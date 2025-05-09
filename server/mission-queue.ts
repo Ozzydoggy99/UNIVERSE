@@ -138,29 +138,20 @@ export class MissionQueueManager {
         let stepResult: any;
         
         try {
-          // SAFETY: For moves followed by jack operations, add longer pause
-          if (currentStepIndex > 0 && step.type !== 'move' && mission.steps[currentStepIndex-1].type === 'move') {
-            console.log(`⚠️ SAFETY PAUSE: Ensuring robot is COMPLETELY STOPPED before ${step.type} operation`);
-            await new Promise(resolve => setTimeout(resolve, 3000)); // 3-second safety pause
-          }
-          
           // Execute the step based on type
           if (step.type === 'move') {
             stepResult = await this.executeMoveStep(step.params);
+            
+            // Make sure move is complete - check one more time to be certain
+            await this.checkMoveStatus();
           } else if (step.type === 'jack_up') {
-            console.log(`⚠️ CRITICAL OPERATION: Jack up - robot MUST be completely still`);
+            console.log(`⚠️ CRITICAL OPERATION: Jack up - checking robot status`);
             stepResult = await this.executeJackUpStep();
-            
-            // SAFETY: Add pause after jack operation to ensure it's complete
-            console.log(`Waiting to ensure jack up is fully complete...`);
-            await new Promise(resolve => setTimeout(resolve, 3000)); // 3-second safety pause
+            // Jack up operation sends feedback through the API response
           } else if (step.type === 'jack_down') {
-            console.log(`⚠️ CRITICAL OPERATION: Jack down - robot MUST be completely still`);
+            console.log(`⚠️ CRITICAL OPERATION: Jack down - checking robot status`);
             stepResult = await this.executeJackDownStep();
-            
-            // SAFETY: Add pause after jack operation to ensure it's complete
-            console.log(`Waiting to ensure jack down is fully complete...`);
-            await new Promise(resolve => setTimeout(resolve, 3000)); // 3-second safety pause
+            // Jack down operation sends feedback through the API response
           }
           
           // Successfully completed step

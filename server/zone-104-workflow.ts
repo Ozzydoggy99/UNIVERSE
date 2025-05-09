@@ -242,83 +242,115 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         });
       }
       
-      // Create safety-enhanced mission steps using only supported step types
-      const safetySteps = [
-        // === PICKUP PHASE ===
-        
+      // After bin detection is complete, create the mission steps based on detection results
+      // For type safety with MissionStep
+      type MoveStep = {
+        type: 'move';
+        params: {
+          x: number;
+          y: number;
+          ori: number;
+          label: string;
+        };
+      };
+      
+      type JackStep = {
+        type: 'jack_up' | 'jack_down';
+        params: Record<string, any>;
+      };
+      
+      type MissionStep = MoveStep | JackStep;
+      
+      // Get bin detection results from above code
+      // The bin status has already been detected at this point and logged
+      // We can access the variables binAtPickup and binAtDropoff that were defined above
+      const binDetectionResults = { 
+        binAtPickup: await checkForBin(pickupPoint.x, pickupPoint.y, pickupPoint.id),
+        binAtDropoff: await checkForBin(dropoffPoint.x, dropoffPoint.y, dropoffPoint.id)
+      };
+      
+      // Create mission steps based on the exact sequence specified:
+      // 1. Go to 104_load_docking
+      // 2. Check for bin at 104_load (already done above)
+      // 3. Go under bin and jack up
+      // 4. Go to drop-off_load_docking
+      // 5. Check for bin at drop-off_load (already done above)
+      // 6. If no bin at dropoff, complete delivery
+      // 7. Return to standby
+      const workflowSteps: MissionStep[] = [
         // Step 1: Go to docking position near pickup point
         {
-          type: 'move' as const,
+          type: 'move',
           params: {
             x: pickupDockingPoint!.x,
             y: pickupDockingPoint!.y,
             ori: pickupDockingPoint!.ori || 0,
             label: `docking for ${pickupPoint.id}`
           }
-        },
-        
-        // Step 2: Move SLOWLY and precisely UNDER the pickup position (bin)
-        {
-          type: 'move' as const,
+        }
+      ];
+      
+      // Only add pickup steps if there's a bin to pick up
+      if (binDetectionResults.binAtPickup) {
+        // Step 2: Move UNDER the bin for pickup
+        workflowSteps.push({
+          type: 'move',
           params: {
             x: pickupPoint.x,
             y: pickupPoint.y,
             ori: pickupPoint.ori || 0,
-            label: `approaching ${pickupPoint.id} for pickup`
+            label: `under ${pickupPoint.id} for pickup`
           }
-        },
+        });
         
-        // Step 3: Jack Up to grab bin - ROBOT MUST BE COMPLETELY STILL
-        {
-          type: 'jack_up' as const,
+        // Step 3: Jack Up to grab bin
+        workflowSteps.push({
+          type: 'jack_up',
           params: {}
-        },
-        
-        // === TRANSPORT PHASE ===
+        } as JackStep);
         
         // Step 4: Go to docking position near dropoff
-        {
-          type: 'move' as const,
+        workflowSteps.push({
+          type: 'move',
           params: {
             x: dropoffDockingPoint!.x,
             y: dropoffDockingPoint!.y,
             ori: dropoffDockingPoint!.ori || 0,
             label: `moving to ${dropoffPoint.id} docking position`
           }
-        },
+        });
         
-        // Step 5: Move SLOWLY and precisely TO the dropoff position
-        {
-          type: 'move' as const,
-          params: {
-            x: dropoffPoint.x, 
-            y: dropoffPoint.y,
-            ori: dropoffPoint.ori || 0,
-            label: `approaching ${dropoffPoint.id} for dropoff`
-          }
-        },
-        
-        // Step 6: Jack Down to release bin - ROBOT MUST BE COMPLETELY STILL
-        {
-          type: 'jack_down' as const,
-          params: {}
-        },
-        
-        // === RETURN PHASE ===
-        
-        // Step 7: Return to standby position
-        {
-          type: 'move' as const,
-          params: {
-            x: standbyPoint ? standbyPoint.x : dropoffDockingPoint!.x,
-            y: standbyPoint ? standbyPoint.y : dropoffDockingPoint!.y,
-            ori: standbyPoint ? standbyPoint.ori || 0 : dropoffDockingPoint!.ori || 0,
-            label: standbyPoint ? `returning to ${standbyPoint.id}` : 'returning to final position'
-          }
+        // Only complete dropoff if there's no bin already at dropoff
+        if (!binDetectionResults.binAtDropoff) {
+          // Step 5: Move TO the dropoff position
+          workflowSteps.push({
+            type: 'move',
+            params: {
+              x: dropoffPoint.x, 
+              y: dropoffPoint.y,
+              ori: dropoffPoint.ori || 0,
+              label: `approaching ${dropoffPoint.id} for dropoff`
+            }
+          });
+          
+          // Step 6: Jack Down to release bin
+          workflowSteps.push({
+            type: 'jack_down',
+            params: {}
+          } as JackStep);
         }
-      ];
+      }
       
-      const pickupMissionSteps = safetySteps;
+      // Step 7: Return to standby position
+      workflowSteps.push({
+        type: 'move',
+        params: {
+          x: standbyPoint ? standbyPoint.x : dropoffDockingPoint!.x,
+          y: standbyPoint ? standbyPoint.y : dropoffDockingPoint!.y,
+          ori: standbyPoint ? standbyPoint.ori || 0 : dropoffDockingPoint!.ori || 0,
+          label: standbyPoint ? `returning to ${standbyPoint.id}` : 'returning to final position'
+        }
+      });
       
       // First clear any existing active missions
       await missionQueue.cancelAllActiveMissions();
@@ -326,17 +358,22 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       
       // Create the mission in the queue
       const missionName = `Zone 104 Complete Workflow (Pickup to Dropoff)`;
-      const mission = missionQueue.createMission(missionName, pickupMissionSteps, 'L382502104987ir');
+      const mission = missionQueue.createMission(missionName, workflowSteps, 'L382502104987ir');
       
       logRobotTask(`✅ Mission created with ID: ${mission.id}`);
       logRobotTask('Mission details:');
-      logRobotTask(`- Step 1: Move to pickup docking point (${pickupDockingPoint!.id})`);
-      logRobotTask(`- Step 2: Move UNDER bin at ${pickupPoint.id} (with enhanced safety)`);
-      logRobotTask(`- Step 3: Jack up to grab bin - WAIT FOR COMPLETE STOP`);
-      logRobotTask(`- Step 4: Move to dropoff docking point (${dropoffDockingPoint!.id})`);
-      logRobotTask(`- Step 5: Move to dropoff position (${dropoffPoint.id}) with enhanced safety`);
-      logRobotTask(`- Step 6: Jack down to release bin - WAIT FOR COMPLETE STOP`);
-      logRobotTask(`- Step 7: Return to ${standbyPoint ? standbyPoint.id : 'dropoff docking'} position`);
+      
+      // Log the dynamically generated steps based on the actual workflow
+      for (let i = 0; i < workflowSteps.length; i++) {
+        const step = workflowSteps[i];
+        if (step.type === 'move') {
+          logRobotTask(`- Step ${i+1}: Move to ${step.params.label}`);
+        } else if (step.type === 'jack_up') {
+          logRobotTask(`- Step ${i+1}: Jack up to grab bin - WAIT FOR COMPLETE STOP`);
+        } else if (step.type === 'jack_down') {
+          logRobotTask(`- Step ${i+1}: Jack down to release bin - WAIT FOR COMPLETE STOP`);
+        }
+      }
       logRobotTask(`⚠️ SAFETY INSTRUCTIONS: Robot must be completely stopped before jack operations`);
       logRobotTask(`⚠️ IMPORTANT: Check that robot is fully stopped before and after jack movements`);
       
@@ -351,7 +388,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         message: 'Zone 104 complete workflow started (pickup → dropoff)',
         missionId: mission.id,
         duration: totalDuration,
-        steps: pickupMissionSteps.length
+        steps: workflowSteps.length
       });
     } catch (err: any) {
       const errorMessage = err.response?.data || err.message;

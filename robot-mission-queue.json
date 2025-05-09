@@ -808,7 +808,8 @@
           "label": "approaching 104_Load for pickup"
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 3,
+        "errorMessage": "Movement timeout exceeded (120000ms)"
       },
       {
         "type": "jack_up",
@@ -856,11 +857,11 @@
         "retryCount": 0
       }
     ],
-    "status": "in_progress",
+    "status": "failed",
     "currentStepIndex": 1,
     "createdAt": "2025-05-09T01:42:37.173Z",
-    "updatedAt": "2025-05-09T01:43:26.213Z",
+    "updatedAt": "2025-05-09T01:49:38.429Z",
     "robotSn": "L382502104987ir",
-    "offline": false
+    "offline": true
   }
 ]
