@@ -1247,10 +1247,32 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
             hasCharger: !!floorData.chargerPoint,
             hasDropoff: !!floorData.dropoffPoint,
             hasPickup: !!floorData.pickupPoint,
-            shelfPoints: floorData.shelfPoints.map(p => ({
-              id: p.id,
-              displayName: p.id.includes('_Load') ? p.id.split('_')[0] : p.id
-            }))
+            shelfPoints: floorData.shelfPoints.map((p, index) => {
+              // Try to make a user-friendly display name
+              let displayName = p.id;
+              
+              // Case 1: If ID contains '_Load', extract the number before it (e.g. "104_Load" -> "104")
+              if (p.id.includes('_Load')) {
+                displayName = p.id.split('_')[0];
+              } 
+              // Case 2: If it's a numeric ID, use it directly
+              else if (!isNaN(parseInt(p.id))) {
+                displayName = p.id;
+              }
+              // Case 3: If it's a long hex ID (like MongoDB ObjectId), use a simple numbering scheme
+              else if (p.id.length > 10) {
+                displayName = `Point ${index + 1}`;
+              }
+              
+              return {
+                id: p.id,
+                displayName: displayName,
+                // Include coordinates for reference but don't expose in UI
+                x: p.x,
+                y: p.y,
+                ori: p.ori
+              };
+            })
           };
         });
       
