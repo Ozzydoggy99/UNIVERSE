@@ -998,7 +998,7 @@ async function executePickupWorkflow(
       shelfDockingPoint.x,
       shelfDockingPoint.y,
       shelfDockingPoint.ori,
-      shelfDockingId
+      shelfDockingPoint.id
     );
     
     // Allow a brief pause for stability
@@ -1353,9 +1353,10 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
         });
       }
       
-      // Translate from Floor ID to Map ID if needed (Floor 1 = Map 3)
-      const mapId = floorId === "1" ? "3" : floorId;
-      console.log(`Translating Floor ID ${floorId} to Map ID ${mapId} for robot API calls`);
+      // We use the map ID directly as provided by the robot API
+      // The floorId should be the actual map ID from the robot's maps list
+      const mapId = floorId;
+      console.log(`Using map ID ${mapId} for robot API calls`);
       
       // Execute the workflow (which will handle logging itself)
       const result = await workflowFn(workflowId, serviceType, mapId, shelfId);
@@ -1396,40 +1397,37 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
       // Get real map points from robot API - no fallback data
       const mapPoints = await getMapPoints();
       
-      // Transform into a more user-friendly format and prioritize the current active map
-      // Map ID 3 actually translates to Floor 1 (Phil's Map)
+      // Transform into a more user-friendly format and prioritize the active map (Map 3)
       const mapData = Object.keys(mapPoints)
         .sort((a, b) => {
-          // Always put map "3" first (this is the current active map on the robot)
+          // Always put map "3" first (this is the active map on the robot)
           if (a === "3") return -1;
           if (b === "3") return 1;
-          // Fallback to prioritize map "1" if available
-          if (a === "1") return -1;
-          if (b === "1") return 1;
           // Otherwise sort numerically
           return parseInt(a) - parseInt(b);
         })
         .map(mapId => {
-          const floorData = mapPoints[mapId];
-          
-          // Translate map ID to floor ID (Map ID 3 = Floor 1)
-          const floorId = mapId === "3" ? "1" : mapId;
+          const mapData = mapPoints[mapId];
           
           // Log what we found for debugging
-          console.log(`Map ${mapId} (Floor ${floorId}) has ${floorData.shelfPoints.length} shelf points`);
-          if (floorData.shelfPoints.length > 0) {
-            console.log(`First shelf point: ${JSON.stringify(floorData.shelfPoints[0])}`);
+          console.log(`Map ID ${mapId} has ${mapData.shelfPoints.length} shelf points`);
+          if (mapData.shelfPoints.length > 0) {
+            console.log(`First shelf point: ${JSON.stringify(mapData.shelfPoints[0])}`);
+          }
+          
+          // Make a more descriptive name based on the map ID
+          let mapName = "Map " + mapId;
+          if (mapId === "3") {
+            mapName = "Phil's Map";
           }
           
           return {
-            id: floorId, // Return Floor ID for frontend display
-            mapId: mapId, // Keep track of original map ID for API calls
-            name: mapId === "3" ? "Floor 1 (Phil's Map)" : 
-                 (floorId.includes('_') ? floorId.split('_')[1] : `Floor ${floorId}`),
-            hasCharger: !!floorData.chargerPoint,
-            hasDropoff: !!floorData.dropoffPoint,
-            hasPickup: !!floorData.pickupPoint,
-            shelfPoints: floorData.shelfPoints.map((p, index) => {
+            id: mapId, // Use actual map ID for all operations 
+            name: mapName,
+            hasCharger: !!mapData.chargerPoint,
+            hasDropoff: !!mapData.dropoffPoint,
+            hasPickup: !!mapData.pickupPoint,
+            shelfPoints: mapData.shelfPoints.map((p, index) => {
               // Try to make a user-friendly display name
               let displayName = p.id;
               
