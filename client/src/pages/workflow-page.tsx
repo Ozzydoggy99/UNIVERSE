@@ -228,7 +228,13 @@ export function FloorSelectionPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [floors, setFloors] = useState<Array<{ id: string, name: string }>>([]);
+  const [floors, setFloors] = useState<Array<{ 
+    id: string, 
+    name: string, 
+    displayName: string, 
+    hasShelfPoints: boolean, 
+    shelfCount: number 
+  }>>([]);
   
   const serviceType = params?.serviceType || "";
   const operationType = params?.operationType || "";
@@ -245,10 +251,39 @@ export function FloorSelectionPage() {
         const data = await response.json();
         
         if (data.success && data.maps) {
-          setFloors(data.maps.map((map: any) => ({
-            id: map.id,
-            name: map.id.includes("_") ? map.id.split("_")[1] : map.id
-          })));
+          // Map data comes pre-sorted with priority to map "1" from the server
+          // Transform the data for display
+          const floorData = data.maps.map((map: any) => {
+            // Create a cleaner name for display
+            let displayName = map.id.includes("_") ? map.id.split("_")[1] : map.id;
+            
+            // Check if it has shelf points - add indicator
+            const hasShelfPoints = map.shelfPoints && map.shelfPoints.length > 0;
+            const shelfCount = hasShelfPoints ? ` (${map.shelfPoints.length} points)` : ' (No points)';
+            
+            // Prioritize map 1 with a visual indicator
+            const isMap1 = map.id === "1";
+            const priorityFlag = isMap1 ? " ★" : "";
+            
+            return {
+              id: map.id,
+              name: displayName,
+              displayName: displayName + priorityFlag + shelfCount,
+              hasShelfPoints: hasShelfPoints,
+              shelfCount: map.shelfPoints?.length || 0
+            };
+          });
+          
+          setFloors(floorData);
+          
+          // Auto redirect to shelf selection for maps with only one floor and has shelf points
+          if (floorData.length === 1 && floorData[0].hasShelfPoints) {
+            console.log("Only one floor available with shelf points - auto-selecting");
+            // Delay auto-selection to prevent race condition
+            setTimeout(() => {
+              setLocation(`/workflow/${serviceType}/${operationType}/${floorData[0].id}`);
+            }, 500);
+          }
         } else {
           toast({
             title: "Error loading floors",
@@ -268,7 +303,7 @@ export function FloorSelectionPage() {
     };
     
     fetchFloors();
-  }, [toast]);
+  }, [toast, serviceType, operationType]);
   
   // If we have no floors after loading, show an error state instead of using hardcoded floors
   const hasNoFloors = !loading && floors.length === 0;
@@ -325,8 +360,20 @@ export function FloorSelectionPage() {
             <FloorCard
               key={floor.id}
               number={floor.name}
-              color={getFloorColor(index)}
-              onClick={() => setLocation(`/workflow/${serviceType}/${operationType}/${floor.id}`)}
+              displayText={floor.displayName}
+              color={getFloorColor(index, floor.id === "1")}
+              disabled={!floor.hasShelfPoints}
+              onClick={() => {
+                if (floor.hasShelfPoints) {
+                  setLocation(`/workflow/${serviceType}/${operationType}/${floor.id}`);
+                } else {
+                  toast({
+                    title: "Floor unavailable",
+                    description: "This floor has no shelf points and cannot be selected",
+                    variant: "destructive",
+                  });
+                }
+              }}
             />
           ))}
         </div>
@@ -344,30 +391,54 @@ export function FloorSelectionPage() {
 // Floor Card Component
 function FloorCard({ 
   number, 
+  displayText,
   color, 
+  disabled = false,
   onClick 
 }: { 
   number: string, 
+  displayText?: string,
   color: string, 
+  disabled?: boolean,
   onClick: () => void 
 }) {
+  // Show the display text (which includes shelf count) or just the number
+  const displayName = displayText || number;
+  
   return (
     <Card 
-      className={`${color} cursor-pointer transition-transform hover:scale-102`}
+      className={`${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer transition-transform hover:scale-102'}`}
       onClick={onClick}
     >
-      <CardContent className="flex items-center justify-center h-full min-h-[180px]">
-        <div className={`flex items-center justify-center w-16 h-16 ${color === 'bg-red-400' || color === 'bg-blue-400' ? 'bg-white/20' : 'bg-black/20'} rounded-md`}>
-          <span className="text-2xl font-bold text-white">{number}</span>
+      <CardContent className="flex flex-col items-center justify-center h-full min-h-[180px] p-4 text-white">
+        <div className={`flex items-center justify-center w-16 h-16 ${color === 'bg-red-400' || color === 'bg-blue-400' ? 'bg-white/20' : 'bg-black/20'} rounded-md mb-4`}>
+          <span className="text-2xl font-bold">{number}</span>
         </div>
+        
+        {displayText && displayText !== number && (
+          <div className="text-center mt-2">
+            <span className="text-sm">{displayText}</span>
+          </div>
+        )}
+        
+        {disabled && (
+          <div className="mt-2 py-1 px-3 bg-white/20 rounded text-xs font-medium">
+            No shelf points available
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-// Get a color based on index
-function getFloorColor(index: number): string {
-  const colors = ['bg-red-400', 'bg-green-400', 'bg-blue-400', 'bg-yellow-400'];
+// Get a color based on index - prioritize map "1" with green
+function getFloorColor(index: number, isPrimaryMap: boolean = false): string {
+  // If this is map "1", always use green
+  if (isPrimaryMap) {
+    return 'bg-green-500';
+  }
+  
+  const colors = ['bg-red-400', 'bg-blue-400', 'bg-yellow-400', 'bg-purple-400'];
   return colors[index % colors.length];
 }
 
