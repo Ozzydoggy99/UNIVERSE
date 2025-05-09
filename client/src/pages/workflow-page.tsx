@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { ArrowLeftCircle, ShowerHead, Trash2, LogOut } from "lucide-react";
+import { ArrowLeftCircle, ShowerHead, Trash2, LogOut, Battery, BatteryCharging, WifiOff, CheckCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ROBOT_SERIAL } from "@/lib/constants";
 
@@ -640,6 +640,11 @@ export function WorkflowConfirmationPage() {
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [workflowStatus, setWorkflowStatus] = useState<any>(null);
   const [statusPolling, setStatusPolling] = useState<number | null>(null);
+  const [robotStatus, setRobotStatus] = useState<{battery: number, charging: boolean, connected: boolean}>({
+    battery: 0,
+    charging: false,
+    connected: false
+  });
   
   const serviceType = params?.serviceType || "";
   const operationType = params?.operationType || "";
