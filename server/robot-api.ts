@@ -10,14 +10,32 @@ const headers = getAuthHeaders();
  * @param app Express application
  */
 export function registerRobotApiRoutes(app: Express) {
-  // Check if the robot is currently charging
+  // Comprehensive charging status endpoint that checks multiple sources
   app.get('/api/robot/charging-status', async (req: Request, res: Response) => {
     try {
-      const isCharging = await isRobotCharging();
-      res.json({ 
+      // Use a timestamp for logging
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] [ROBOT-API] Checking robot charging status from multiple sources...`);
+      
+      // Collect status from all available sources
+      const statusResults = await getChargingStatusFromAllSources();
+      
+      // Check if ANY source indicates the robot is charging
+      const isCharging = statusResults.some((result: {charging: boolean}) => result.charging === true);
+      
+      // Get the battery level if available
+      const batteryLevel = statusResults.find((r: {batteryLevel?: number}) => r.batteryLevel !== undefined)?.batteryLevel;
+      
+      const response = { 
         charging: isCharging,
-        timestamp: new Date().toISOString()
-      });
+        timestamp: timestamp,
+        batteryLevel: batteryLevel,
+        details: statusResults
+      };
+      
+      console.log(`[${timestamp}] [ROBOT-API] Charging status results:`, JSON.stringify(response));
+      
+      res.json(response);
     } catch (error: any) {
       console.error('Error checking robot charging status:', error);
       res.status(500).json({ 
@@ -114,80 +132,175 @@ export async function getLastMoveStatus() {
  * Check if robot is currently charging
  * @returns Promise resolving to boolean indicating charging status
  */
-export async function isRobotCharging(): Promise<boolean> {
+/**
+ * Collect charging status from all possible sources
+ * Returns an array of results with source name, charging status, and optional battery level
+ */
+export async function getChargingStatusFromAllSources(): Promise<Array<{
+  source: string;
+  charging: boolean;
+  batteryLevel?: number;
+  error?: string;
+}>> {
+  const timestamp = new Date().toISOString();
+  const results: Array<{
+    source: string;
+    charging: boolean;
+    batteryLevel?: number;
+    error?: string;
+  }> = [];
+  
+  // 1. Try the WebSocket /battery_state topic data
   try {
-    // Try to get the battery state information via WebSocket subscription
-    // We will rely on the latest move data instead, which is more reliable for status
-    try {
-      const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
-      const moveData = moveResponse.data;
+    // This would use the data from the WebSocket subscription
+    // For now, we'll check a cached value or call the API directly
+    results.push({
+      source: 'websocket_battery_state',
+      charging: false,
+      error: 'WebSocket data not yet implemented'
+    });
+  } catch (wsError: any) {
+    results.push({
+      source: 'websocket_battery_state',
+      charging: false,
+      error: wsError.message
+    });
+  }
+  
+  // 2. Try the standard battery_state API endpoint
+  try {
+    const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers });
+    const batteryData = batteryResponse.data;
+    
+    let isCharging = false;
+    let batteryLevel: number | undefined = undefined;
+    
+    // Parse the response which could be in various formats
+    if (batteryData) {
+      // Extract charging status
+      if (typeof batteryData === 'object') {
+        // Direct JSON response
+        isCharging = batteryData.is_charging === true || 
+                     batteryData.status === 'charging' ||
+                     batteryData.charging === true;
+                     
+        // Extract battery level if available
+        batteryLevel = batteryData.percentage || 
+                       batteryData.level || 
+                       batteryData.battery_level ||
+                       batteryData.batteryLevel;
+      } else if (typeof batteryData === 'string') {
+        // String response that might contain JSON
+        isCharging = batteryData.includes('"is_charging":true') || 
+                     batteryData.includes('"charging":true') ||
+                     batteryData.includes('"status":"charging"') ||
+                     batteryData.includes('"status": "charging"');
+                     
+        // Try to extract battery level using regex
+        const batteryMatch = batteryData.match(/"percentage":\s*(\d+)/);
+        if (batteryMatch && batteryMatch[1]) {
+          batteryLevel = parseInt(batteryMatch[1], 10);
+        }
+      }
+    }
+    
+    console.log(`[${timestamp}] [ROBOT-API] Battery API response: charging=${isCharging}, level=${batteryLevel}`);
+    
+    results.push({
+      source: 'battery_state_api',
+      charging: isCharging,
+      batteryLevel: batteryLevel
+    });
+  } catch (batteryError: any) {
+    console.log(`[${timestamp}] [ROBOT-API] Error checking battery state API:`, batteryError.message);
+    results.push({
+      source: 'battery_state_api',
+      charging: false,
+      error: batteryError.message
+    });
+  }
+  
+  // 3. Try the /chassis/state endpoint
+  try {
+    const stateResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
+    const stateData = stateResponse.data;
+    
+    let isCharging = false;
+    if (stateData) {
+      isCharging = stateData.charging === true || 
+                   stateData.is_charging === true ||
+                   (stateData.state && stateData.state.toLowerCase().includes('charg'));
+    }
+    
+    console.log(`[${timestamp}] [ROBOT-API] Chassis state API response: charging=${isCharging}`);
+    
+    results.push({
+      source: 'chassis_state_api',
+      charging: isCharging
+    });
+  } catch (stateError: any) {
+    console.log(`[${timestamp}] [ROBOT-API] Error checking chassis state API:`, stateError.message);
+    results.push({
+      source: 'chassis_state_api',
+      charging: false,
+      error: stateError.message
+    });
+  }
+  
+  // 4. Check the latest move status
+  try {
+    const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
+    const moveData = moveResponse.data;
+    
+    let isCharging = false;
+    if (moveData) {
+      // Check for explicit charging flag
+      isCharging = moveData.is_charging === true;
       
-      // Check if the robot's latest move status contains an error about charging
-      if (moveData && moveData.error) {
+      // Or check if the move type was 'charge' and it succeeded
+      if (moveData.type === 'charge' && moveData.state === 'succeeded') {
+        isCharging = true;
+      }
+      
+      // Or check for charging-related error messages
+      if (moveData.error && typeof moveData.error === 'string') {
         const errorMessage = moveData.error.toLowerCase();
         if (errorMessage.includes('charging') || 
             errorMessage.includes('jacking up is not allowed') ||
             errorMessage.includes('while charging')) {
-          console.log('Robot is charging according to move error:', moveData.error);
-          return true;
+          isCharging = true;
         }
       }
-      
-      // If the move response has an explicit is_charging field
-      if (moveData && moveData.is_charging === true) {
-        console.log('Robot is charging according to move data');
-        return true;
-      }
-    } catch (moveError: any) {
-      if (moveError.response && moveError.response.status === 404) {
-        console.log('Robot API endpoint not found - cannot check move data for charging status');
-        // Continue to next method instead of throwing
-      }
-      console.log('Error checking move data for charging status:', moveError.message);
     }
     
-    // Check if the latest chassis state indicates charging
-    try {
-      // First try the chassis state endpoint
-      const stateResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
-      const stateData = stateResponse.data;
-      
-      if (stateData && stateData.charging === true) {
-        console.log('Robot is charging according to chassis state');
-        return true;
-      }
-    } catch (chassisError: any) {
-      if (chassisError.response && chassisError.response.status === 404) {
-        console.log('Robot API endpoint not found - cannot check chassis state for charging status');
-        // Continue to next method instead of throwing
-      }
-      console.log('Could not get chassis state to check charging status:', chassisError.message);
-    }
+    console.log(`[${timestamp}] [ROBOT-API] Latest move API response: charging=${isCharging}`);
     
-    // Finally, check battery state information as a fallback
-    try {
-      const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery-state`, { headers });
-      const batteryData = batteryResponse.data;
-      
-      // Check if response contains HTML with charging status
-      if (typeof batteryData === 'string' && 
-          (batteryData.includes('"status": "charging"') || 
-           batteryData.includes('"status":"charging"'))) {
-        console.log('Robot is charging according to battery state');
-        return true;
-      }
-    } catch (batteryError: any) {
-      if (batteryError.response && batteryError.response.status === 404) {
-        console.log('Robot API endpoint not found - cannot check battery state for charging status');
-        // Continue instead of throwing
-      }
-      console.log('Could not get battery state to check charging status:', batteryError.message);
-    }
-    
-    // If we've checked all endpoints and found no indication of charging
-    // Return false - means the robot is not charging or we couldn't determine
-    console.log('No charging indicators found, assuming robot is not charging');
-    return false;
+    results.push({
+      source: 'latest_move_api',
+      charging: isCharging
+    });
+  } catch (moveError: any) {
+    console.log(`[${timestamp}] [ROBOT-API] Error checking latest move API:`, moveError.message);
+    results.push({
+      source: 'latest_move_api',
+      charging: false,
+      error: moveError.message
+    });
+  }
+  
+  // Return all results
+  return results;
+}
+
+/**
+ * Legacy method to check if robot is charging
+ * @returns Promise resolving to boolean indicating charging status
+ */
+export async function isRobotCharging(): Promise<boolean> {
+  try {
+    // Use the comprehensive method and check if ANY source indicates charging
+    const statusResults = await getChargingStatusFromAllSources();
+    return statusResults.some((result: {charging: boolean}) => result.charging === true);
   } catch (error) {
     console.log('Error checking robot charging status:', error);
     // Instead of throwing, return false as default to allow operations to continue
