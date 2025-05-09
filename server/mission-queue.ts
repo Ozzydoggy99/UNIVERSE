@@ -592,6 +592,11 @@ export class MissionQueueManager {
       
       // CRITICAL: Verify robot is still completely stopped after jack up
       console.log("⚠️ SAFETY CHECK: Verifying robot is still completely stopped after jack up...");
+      
+      // Double check with an additional stabilization period to be certain
+      console.log("Adding additional 3-second final stabilization period...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       try {
         const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
         const wheelState = wheelResponse.data;
@@ -617,6 +622,10 @@ export class MissionQueueManager {
           console.log(`Warning: Could not check wheel state after jack up: ${error.message}`);
         }
       }
+      
+      // Final absolute safety wait - this ensures robot has fully completed all internal processes
+      console.log("⚠️ Adding FINAL safety waiting period of 2 seconds...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       console.log("✅ Jack up completed successfully and verified");
       return response.data;
@@ -682,6 +691,11 @@ export class MissionQueueManager {
       
       // CRITICAL: Verify robot is still completely stopped after jack down
       console.log("⚠️ SAFETY CHECK: Verifying robot is still completely stopped after jack down...");
+      
+      // Double check with an additional stabilization period to be certain
+      console.log("Adding additional 3-second final stabilization period...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       try {
         const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
         const wheelState = wheelResponse.data;
@@ -707,6 +721,10 @@ export class MissionQueueManager {
           console.log(`Warning: Could not check wheel state after jack down: ${error.message}`);
         }
       }
+      
+      // Final absolute safety wait - this ensures robot has fully completed all internal processes
+      console.log("⚠️ Adding FINAL safety waiting period of 2 seconds...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       console.log("✅ Jack down completed successfully and verified");
       return response.data;
