@@ -213,13 +213,15 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       });
       
       // STEP 7: Return to charger (instead of standby)
+      // Using the 'charge' move type to properly dock with the charger
       workflowSteps.push({
         type: 'move',
         params: {
           x: chargerPoint.x,
           y: chargerPoint.y,
           ori: chargerPoint.ori,
-          label: chargerPoint.id
+          label: chargerPoint.id,
+          isCharger: true // Explicitly mark this as a charger move
         }
       });
       
@@ -228,7 +230,11 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       for (let i = 0; i < workflowSteps.length; i++) {
         const step = workflowSteps[i];
         if (step.type === 'move') {
-          logRobotTask(`- Step ${i+1}: Move to ${step.params.label} (${step.params.x}, ${step.params.y})`);
+          if (step.params.isCharger) {
+            logRobotTask(`- Step ${i+1}: CHARGER DOCKING at ${step.params.label} (${step.params.x}, ${step.params.y}) - Using 'charge' move type`);
+          } else {
+            logRobotTask(`- Step ${i+1}: Move to ${step.params.label} (${step.params.x}, ${step.params.y})`);
+          }
         } else if (step.type === 'jack_up') {
           logRobotTask(`- Step ${i+1}: JACK UP with safety wait: ${step.params.waitComplete}`);
         } else if (step.type === 'jack_down') {

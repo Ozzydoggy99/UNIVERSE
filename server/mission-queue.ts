@@ -538,9 +538,18 @@ export class MissionQueueManager {
       // First make sure any existing move is complete before sending a new one
       await this.checkMoveStatus();
       
+      // Check if this is a move to a charging station - if so use 'charge' type instead of 'standard'
+      const isChargerMove = label.toLowerCase().includes('charg') || 
+                           (params.isCharger === true);
+      
+      if (isChargerMove) {
+        console.log(`🔋 CHARGER DOCKING: Using 'charge' move type for ${label}`);
+        console.log(`🔋 CHARGER DOCKING: Target position (${params.x}, ${params.y}), orientation: ${params.ori}`);
+      }
+      
       // Step 1: Send move command to robot with enhanced params
       const payload = {
-        type: "standard",
+        type: isChargerMove ? "charge" : "standard", // Use 'charge' type for charger moves
         target_x: params.x,
         target_y: params.y,
         target_z: 0,
@@ -566,6 +575,29 @@ export class MissionQueueManager {
       await this.waitForMoveComplete(moveId, 120000);
       
       console.log(`Robot move command to ${label} confirmed complete`);
+      
+      // If this was a charger move, verify charging status
+      if (isChargerMove) {
+        try {
+          console.log(`🔋 CHARGER DOCKING: Verifying charging status...`);
+          // Wait a moment for charging to initiate
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // Check battery state to verify if charging
+          const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers });
+          const batteryState = batteryResponse.data;
+          
+          if (batteryState && batteryState.is_charging) {
+            console.log(`🔋 CHARGER DOCKING: ✅ SUCCESS! Robot is now CHARGING`);
+          } else {
+            console.log(`🔋 CHARGER DOCKING: ⚠️ WARNING: Robot completed move to charger but is not charging`);
+            console.log(`🔋 CHARGER DOCKING: Battery state: ${JSON.stringify(batteryState)}`);
+          }
+        } catch (batteryError: any) {
+          console.log(`🔋 CHARGER DOCKING: ⚠️ Could not verify charging status: ${batteryError.message}`);
+        }
+      }
+      
       return { success: true, message: `Move command to ${label} completed successfully`, moveId };
 
     } catch (err: any) {
