@@ -58,6 +58,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register return to charger and jack down operations
   registerReturnToChargerHandler(app);
   
+  // Register Zone-104 workflow with new point naming convention
+  registerZone104WorkflowRoute(app);
+  
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
   

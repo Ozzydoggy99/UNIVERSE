@@ -7,6 +7,12 @@ import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 import { fetchRobotMapPoints } from './robot-map-data';
 import { isRobotCharging, isEmergencyStopPressed } from './robot-api';
 import { missionQueue } from './mission-queue';
+import { Point } from './types';
+
+// Extended point interface with description for our workflow points
+interface WorkflowPoint extends Point {
+  description?: string;
+}
 
 // Configure debug log file
 const debugLogFile = path.join(process.cwd(), 'robot-debug.log');
@@ -71,14 +77,14 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       logRobotTask(`Found ${points.length} map points`);
       
       // Find our specific points using the new naming convention
-      const pickupPoint = points.find(p => p.id === '104_Load');
-      const pickupDockingPoint = points.find(p => p.id === '104_Load_docking');
-      const dropoffPoint = points.find(p => p.id === 'Dropoff');
-      const dropoffDockingPoint = points.find(p => p.id === 'Dropoff_docking');
+      const pickupPoint = points.find(p => p.id === '104_Load') as Point;
+      let pickupDockingPoint = points.find(p => p.id === '104_Load_docking') as WorkflowPoint | undefined;
+      const dropoffPoint = points.find(p => p.id === 'Dropoff') as Point;
+      let dropoffDockingPoint = points.find(p => p.id === 'Dropoff_docking') as WorkflowPoint | undefined;
       const standbyPoint = points.find(p => 
         p.id.toLowerCase().includes('desk') || 
         p.id.toLowerCase().includes('standby')
-      );
+      ) as Point | undefined;
       
       // Validate all required points exist
       if (!pickupPoint) {
@@ -95,12 +101,13 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         // Calculate approach point opposite to orientation
         pickupDockingPoint = {
           id: '104_Load_docking_dynamic',
+          name: '104_Load_docking_dynamic',
           x: pickupPoint.x - dockingDistance * Math.cos(radians),
           y: pickupPoint.y - dockingDistance * Math.sin(radians),
           ori: orientation,
           floorId: pickupPoint.floorId,
           description: 'Dynamic docking point for 104_Load'
-        };
+        } as WorkflowPoint;
       }
       
       if (!dropoffPoint) {
@@ -117,12 +124,13 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         // Calculate approach point opposite to orientation
         dropoffDockingPoint = {
           id: 'Dropoff_docking_dynamic',
+          name: 'Dropoff_docking_dynamic',
           x: dropoffPoint.x - dockingDistance * Math.cos(radians),
           y: dropoffPoint.y - dockingDistance * Math.sin(radians),
           ori: orientation,
           floorId: dropoffPoint.floorId,
           description: 'Dynamic docking point for Dropoff'
-        };
+        } as WorkflowPoint;
       }
       
       if (!standbyPoint) {
@@ -132,9 +140,9 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       // Log the points we found
       logRobotTask('✅ Found all required map points:');
       logRobotTask(`- Pickup: ${pickupPoint.id} at (${pickupPoint.x}, ${pickupPoint.y}), orientation: ${pickupPoint.ori}`);
-      logRobotTask(`- Pickup docking: ${pickupDockingPoint.id} at (${pickupDockingPoint.x}, ${pickupDockingPoint.y}), orientation: ${pickupDockingPoint.ori}`);
+      logRobotTask(`- Pickup docking: ${pickupDockingPoint!.id} at (${pickupDockingPoint!.x}, ${pickupDockingPoint!.y}), orientation: ${pickupDockingPoint!.ori}`);
       logRobotTask(`- Dropoff: ${dropoffPoint.id} at (${dropoffPoint.x}, ${dropoffPoint.y}), orientation: ${dropoffPoint.ori}`);
-      logRobotTask(`- Dropoff docking: ${dropoffDockingPoint.id} at (${dropoffDockingPoint.x}, ${dropoffDockingPoint.y}), orientation: ${dropoffDockingPoint.ori}`);
+      logRobotTask(`- Dropoff docking: ${dropoffDockingPoint!.id} at (${dropoffDockingPoint!.x}, ${dropoffDockingPoint!.y}), orientation: ${dropoffDockingPoint!.ori}`);
       if (standbyPoint) {
         logRobotTask(`- Standby: ${standbyPoint.id} at (${standbyPoint.x}, ${standbyPoint.y}), orientation: ${standbyPoint.ori}`);
       }
