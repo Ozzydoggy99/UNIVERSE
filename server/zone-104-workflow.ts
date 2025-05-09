@@ -266,7 +266,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           x: pickupDockingPoint!.x,
           y: pickupDockingPoint!.y,
           ori: pickupDockingPoint!.ori || 0,
-          label: `docking for ${pickupPoint.id}`
+          label: `${pickupPoint.id}_docking`
         }
       });
       
@@ -286,7 +286,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
             x: pickupPoint.x,
             y: pickupPoint.y,
             ori: pickupPoint.ori || 0,
-            label: `under ${pickupPoint.id} for pickup`
+            label: `${pickupPoint.id}`
           }
         });
         
@@ -305,7 +305,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
             x: dropoffDockingPoint!.x,
             y: dropoffDockingPoint!.y,
             ori: dropoffDockingPoint!.ori || 0,
-            label: `moving to ${dropoffPoint.id} docking position`
+            label: `${dropoffPoint.id}_docking`
           }
         });
         
@@ -324,7 +324,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
               x: dropoffPoint.x, 
               y: dropoffPoint.y,
               ori: dropoffPoint.ori || 0,
-              label: `approaching ${dropoffPoint.id} for dropoff`
+              label: `${dropoffPoint.id}`
             }
           });
           
