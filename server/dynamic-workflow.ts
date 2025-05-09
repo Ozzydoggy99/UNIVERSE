@@ -983,6 +983,7 @@ async function executePickupWorkflow(
       throw new Error(`Dropoff docking point not found on floor "${floorId}"`);
     }
     
+    // Always require a charger point
     if (!floorPoints.chargerPoint) {
       throw new Error(`Charger point not found on floor "${floorId}"`);
     }
@@ -1174,6 +1175,7 @@ async function executeDropoffWorkflow(
       throw new Error(`Pickup docking point not found on floor "${floorId}"`);
     }
     
+    // Always require a charger point
     if (!floorPoints.chargerPoint) {
       throw new Error(`Charger point not found on floor "${floorId}"`);
     }

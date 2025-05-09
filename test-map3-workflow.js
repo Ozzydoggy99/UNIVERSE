@@ -43,17 +43,17 @@ async function testMap3Workflow() {
     
     console.log('✅ Found Map 3 (Phil\'s Map):');
     console.log(`   Name: ${map3.name}`);
-    console.log(`   Has Charger: ${floor1.hasCharger}`);
-    console.log(`   Has Dropoff: ${floor1.hasDropoff}`);
-    console.log(`   Has Pickup: ${floor1.hasPickup}`);
-    console.log(`   Shelf Points: ${floor1.shelfPoints.length}`);
+    console.log(`   Has Charger: ${map3.hasCharger}`);
+    console.log(`   Has Dropoff: ${map3.hasDropoff}`);
+    console.log(`   Has Pickup: ${map3.hasPickup}`);
+    console.log(`   Shelf Points: ${map3.shelfPoints.length}`);
     
-    if (floor1.shelfPoints.length === 0) {
-      throw new Error('No shelf points found on Floor 1');
+    if (map3.shelfPoints.length === 0) {
+      throw new Error('No shelf points found on Map 3 (Phil\'s Map)');
     }
     
     // Get the first shelf point for our workflow
-    const shelfPoint = floor1.shelfPoints[0];
+    const shelfPoint = map3.shelfPoints[0];
     console.log(`✅ Found shelf point: ${shelfPoint.displayName} (${shelfPoint.id})`);
     console.log(`   Coordinates: (${shelfPoint.x}, ${shelfPoint.y}), Orientation: ${shelfPoint.ori}`);
     
@@ -77,14 +77,14 @@ async function testMap3Workflow() {
     console.log('\n📍 Step 3: Workflow configuration for test:');
     console.log(`   Service Type: laundry`);
     console.log(`   Operation Type: pickup`);
-    console.log(`   Floor ID: ${floor1.id}`);
+    console.log(`   Map ID: ${map3.id}`);
     console.log(`   Shelf ID: ${shelfPoint.id}`);
     
     console.log('\n🔍 To execute this workflow, run:');
     console.log(`curl -X POST -H "Content-Type: application/json" -d '{
   "serviceType": "laundry", 
   "operationType": "pickup", 
-  "floorId": "${floor1.id}", 
+  "floorId": "${map3.id}", 
   "shelfId": "${shelfPoint.id}"
 }' http://localhost:5000/api/workflow/pickup`);
 
