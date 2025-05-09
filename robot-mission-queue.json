@@ -354,14 +354,20 @@
           "ori": 0,
           "label": "shelf zone-104"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to shelf zone-104 completed successfully",
+          "moveId": 4197
+        }
       },
       {
         "type": "jack_up",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -393,9 +399,9 @@
       }
     ],
     "status": "in_progress",
-    "currentStepIndex": 0,
+    "currentStepIndex": 2,
     "createdAt": "2025-05-09T00:14:34.461Z",
-    "updatedAt": "2025-05-09T00:14:34.461Z",
+    "updatedAt": "2025-05-09T00:17:04.289Z",
     "robotSn": "L382502104987ir",
     "offline": false
   },

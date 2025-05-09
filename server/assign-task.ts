@@ -8,7 +8,10 @@ import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
 // Helper functions for robot movement
 async function sendMoveCommand(x: number, y: number, logToFile: Function): Promise<any> {
   try {
-    logToFile(`Sending move command to: (${x}, ${y})`);
+    logToFile(`➡️ Sending move command to: (${x}, ${y})`);
+    
+    // First, make sure any existing move is complete before sending a new one
+    await checkMoveStatus(logToFile);
     
     // Prepare move data in the format expected by the robot API
     const moveData = {
@@ -27,7 +30,7 @@ async function sendMoveCommand(x: number, y: number, logToFile: Function): Promi
       }
     };
     
-    logToFile(`Move payload: ${JSON.stringify(moveData)}`);
+    logToFile(`📦 Move payload: ${JSON.stringify(moveData)}`);
     
     // Send the move command to the robot API
     const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveData, {
@@ -37,10 +40,16 @@ async function sendMoveCommand(x: number, y: number, logToFile: Function): Promi
       }
     });
     
-    logToFile(`Move command successful: ${JSON.stringify(response.data)}`);
+    const moveId = response.data.id;
+    logToFile(`✅ Move command accepted: ${JSON.stringify(response.data)}`);
+    logToFile(`🔄 Move ID: ${moveId} created for movement to (${x}, ${y})`);
+    
     return response.data;
   } catch (error: any) {
     logToFile(`❌ Move command failed: ${error.message}`);
+    if (error.response) {
+      logToFile(`📊 Error response data: ${JSON.stringify(error.response.data || {})}`);
+    }
     throw error;
   }
 }
@@ -82,9 +91,9 @@ async function waitForMoveComplete(logToFile: Function, timeout = 60000): Promis
     isMoving = !(await checkMoveStatus(logToFile));
     
     if (isMoving) {
-      // Wait a bit before checking again
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      logToFile('Still moving, waiting...');
+      // Wait 5 seconds before checking again to reduce API load
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      logToFile('Still moving, waiting for completion...');
     }
   }
   
