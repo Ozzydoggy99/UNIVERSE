@@ -3647,5 +3647,116 @@
     "createdAt": "2025-05-09T23:19:37.235Z",
     "updatedAt": "2025-05-09T23:22:11.054Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1746835008658_nz7oi1d",
+    "name": "Pickup to 104 Workflow",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -2.3698434171137706,
+          "y": 3.6822849324380513,
+          "ori": 179.5,
+          "label": "Pick-up_Load_docking"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Pick-up_Load_docking completed successfully",
+          "moveId": 4500
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -3.0419502283507427,
+          "y": 3.6906049373897076,
+          "ori": 0,
+          "label": "Align with rack at Pick-up_Load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "joystick",
+        "params": {
+          "label": "Small backup for proper bin alignment",
+          "linear": {
+            "x": -0.05,
+            "y": 0,
+            "z": 0
+          },
+          "angular": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "duration": 1500,
+          "stabilizationTime": 1000
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -16.253106853127974,
+          "y": 6.419632917129547,
+          "ori": 0,
+          "label": "104_Load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking (safe position)"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "in_progress",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-09T23:56:48.659Z",
+    "updatedAt": "2025-05-09T23:57:31.924Z",
+    "robotSn": "L382502104987ir"
   }
 ]

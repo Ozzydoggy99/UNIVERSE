@@ -43,36 +43,49 @@ export async function getRackSpecifications(): Promise<any> {
   try {
     const settings = await fetchRobotSystemSettings();
     
-    // Navigate to the rack.specs in the settings object
-    // Handle different possible paths in the settings hierarchy
+    // Log the keys at the root level to help debug
+    console.log('Available settings keys:', Object.keys(settings));
+    
+    // Found out that the actual key is "rack.specs" (with a dot)
     let rackSpecs = null;
     
-    if (settings && settings.rack && settings.rack.specs) {
-      // Direct path
-      rackSpecs = settings.rack.specs;
-    } else if (settings && settings.system && settings.system.rack && settings.system.rack.specs) {
-      // Nested under system
-      rackSpecs = settings.system.rack.specs;
-    } else if (settings && settings.schema && settings.schema.rack && settings.schema.rack.specs) {
-      // Nested under schema
-      rackSpecs = settings.schema.rack.specs;
+    // Try to find rack.specs as a top-level property (flattened dot notation)
+    if (settings && settings["rack.specs"] && Array.isArray(settings["rack.specs"]) && settings["rack.specs"].length > 0) {
+      console.log('Found rack.specs as a top-level property with dot notation');
+      // Use the first spec in the array (most complete one)
+      rackSpecs = settings["rack.specs"][0]; 
+      console.log('Using rack spec:', rackSpecs);
+    } 
+    else if (settings && settings.rack && settings.rack.specs) {
+      // Try the nested structure
+      console.log('Found rack.specs in nested structure');
+      rackSpecs = Array.isArray(settings.rack.specs) ? settings.rack.specs[0] : settings.rack.specs;
     }
     
     if (!rackSpecs) {
       // Look for any property that might contain rack specifications
-      const rackKeys = Object.keys(settings).filter(key => 
-        key.toLowerCase().includes('rack') || 
-        (settings[key] && typeof settings[key] === 'object' && 
-          Object.keys(settings[key]).some(subKey => subKey.toLowerCase().includes('rack')))
-      );
+      console.log('Searching for any property containing rack specs...');
       
-      if (rackKeys.length > 0) {
-        // Try first matching key
-        const firstKey = rackKeys[0];
-        if (settings[firstKey] && settings[firstKey].specs) {
-          rackSpecs = settings[firstKey].specs;
-        } else if (settings[firstKey] && settings[firstKey].rack && settings[firstKey].rack.specs) {
-          rackSpecs = settings[firstKey].rack.specs;
+      for (const key of Object.keys(settings)) {
+        if (key.includes('rack') && settings[key]) {
+          console.log(`Found potential rack-related key: ${key}`);
+          
+          // If it's an array, use the first element
+          if (Array.isArray(settings[key]) && settings[key].length > 0) {
+            console.log(`Key ${key} is an array with ${settings[key].length} items`);
+            // If array elements have width and depth, it's likely the rack specs
+            if (settings[key][0].width && settings[key][0].depth) {
+              rackSpecs = settings[key][0];
+              console.log(`Using array element from ${key}:`, rackSpecs);
+              break;
+            }
+          }
+          // If it's an object with width and depth directly
+          else if (typeof settings[key] === 'object' && settings[key].width && settings[key].depth) {
+            rackSpecs = settings[key];
+            console.log(`Using object from ${key}:`, rackSpecs);
+            break;
+          }
         }
       }
     }
@@ -88,11 +101,15 @@ export async function getRackSpecifications(): Promise<any> {
       throw new Error('Rack specifications incomplete - missing width or depth');
     }
     
+    // Create a standardized rack specs object with defaults for missing fields
     return {
       width: rackSpecs.width,
       depth: rackSpecs.depth,
-      leg_shape: rackSpecs.leg_shape || 'rectangular',  // Default to rectangular if not specified
-      hole_diameter: rackSpecs.hole_diameter || 0       // Default to 0 if not specified
+      leg_shape: rackSpecs.leg_shape || 'square',  // Default to square if not specified
+      leg_size: rackSpecs.leg_size || 0.03,        // Default to 3cm if not specified
+      margin: rackSpecs.margin || [0, 0, 0, 0],    // Default to no margin if not specified
+      alignment: rackSpecs.alignment || 'center',  // Default to center alignment if not specified
+      alignment_margin_back: rackSpecs.alignment_margin_back || 0.02 // Default to 2cm if not specified
     };
   } catch (error: any) {
     console.error('Failed to get rack specifications:', error.message);
