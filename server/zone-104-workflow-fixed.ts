@@ -633,7 +633,12 @@ async function returnToCharger(): Promise<any> {
     
     // Final check to ensure we didn't just time out
     if (!moveComplete) {
-      throw new Error(`Return to charger timed out after ${maxRetries} attempts`);
+      logWorkflow(`⚠️ WARNING: Return to charger timed out after ${maxRetries} attempts, but will continue workflow`);
+      return {
+        success: false,
+        warning: `Return to charger timed out after ${maxRetries} attempts`,
+        moveId: moveId
+      };
     }
     
     // Check battery state to confirm charging
