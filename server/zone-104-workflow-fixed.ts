@@ -856,11 +856,121 @@ async function executeZone104Workflow(): Promise<any> {
     // Using adjusted coordinates to ensure they are within the navigable area
     // Previous coordinates (-17.5, 0.05) were outside navigable area causing "ending_point_not_in_ground" error
     logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking (with adjusted coordinates)`);
-    await moveToPoint(-4.067, 2.579, 269.73, 'Drop-off_Load_docking');
+    await moveToPoint(-4.067094531843395, 2.5788015960870325, 0, 'Drop-off_Load_docking');
+    
+    // STEP 5.5: Align with rack for proper dropoff
+    logWorkflow(`📍 STEP 5.5/8: Aligning with rack at Drop-off_Load using align_with_rack special move type`);
+    
+    // Check jack state before alignment
+    logWorkflow(`⚠️ SAFETY CHECK: Verifying jack state before alignment...`);
+    try {
+      const jackResponse = await axios.get(`${ROBOT_API_URL}/device_info/jack/state`, { headers: getHeaders() });
+      const jackState = jackResponse.data.state || 'unknown';
+      
+      if (jackState !== 'down') {
+        logWorkflow(`⚠️ Jack is in ${jackState} state, need to lower before alignment`);
+        
+        try {
+          // Execute jack_down operation
+          await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+          
+          // Wait for jack operation to complete
+          logWorkflow(`Lowering jack before alignment, waiting 10 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          
+          logWorkflow(`✅ Successfully lowered jack before alignment`);
+        } catch (jackDownError: any) {
+          logWorkflow(`⚠️ Warning: Failed to lower jack: ${jackDownError.message}`);
+          logWorkflow(`Continuing with alignment attempts anyway...`);
+        }
+      } else {
+        logWorkflow(`✅ Jack is already in down state - safe to proceed with alignment`);
+      }
+    } catch (jackCheckError: any) {
+      logWorkflow(`⚠️ Warning: Could not check jack state: ${jackCheckError.message}`);
+      
+      // As a precaution, try lowering the jack anyway
+      try {
+        await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+        logWorkflow(`Precautionary jack_down executed, waiting 10 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      } catch (precautionJackError: any) {
+        logWorkflow(`⚠️ Warning: Precautionary jack_down failed: ${precautionJackError.message}`);
+      }
+    }
+    
+    // Stop robot first for safety
+    try {
+      await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() });
+      logWorkflow(`✅ Stopped robot before align with rack for dropoff`);
+    } catch (stopError: any) {
+      logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
+    }
+    
+    // Wait for stabilization
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Create a move with type=align_with_rack for dropoff
+    const alignCommand = {
+      creator: 'robot-api',
+      type: 'align_with_rack', // Special move type for rack dropoff
+      target_x: -3.067094531843395,
+      target_y: 2.5788015960870325,
+      target_ori: 0
+    };
+    
+    logWorkflow(`Creating align_with_rack move for dropoff: ${JSON.stringify(alignCommand)}`);
+    
+    // Send the move command to align with rack
+    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, alignCommand, { headers: getHeaders() });
+    
+    if (!response.data || !response.data.id) {
+      throw new Error('Failed to create align_with_rack move for dropoff - invalid response');
+    }
+    
+    const moveId = response.data.id;
+    logWorkflow(`Robot align_with_rack command sent for dropoff - move ID: ${moveId}`);
+    
+    // Wait for alignment to complete
+    let moveComplete = false;
+    let maxRetries = 120; // 2 minutes at 1 second intervals
+    let attempts = 0;
+    
+    while (!moveComplete && attempts < maxRetries) {
+      attempts++;
+      
+      // Wait 1 second between checks
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check move status
+      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
+      const moveStatus = statusResponse.data.state;
+      
+      logWorkflow(`Current align_with_rack status for dropoff: ${moveStatus}`);
+      
+      // Check if move is complete
+      if (moveStatus === 'succeeded') {
+        moveComplete = true;
+        logWorkflow(`✅ Robot has completed align_with_rack operation for dropoff (ID: ${moveId})`);
+      } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
+        throw new Error(`Align with rack for dropoff failed or was cancelled. Status: ${moveStatus}`);
+      } else {
+        logWorkflow(`Still aligning for dropoff (move ID: ${moveId}), waiting...`);
+      }
+    }
+    
+    // Final check to ensure we didn't just time out
+    if (!moveComplete) {
+      throw new Error(`Align with rack for dropoff timed out after ${maxRetries} attempts`);
+    }
+    
+    // Add safety wait after alignment
+    logWorkflow(`✅ Align with rack for dropoff complete, waiting 5 seconds for stability...`);
+    await new Promise(resolve => setTimeout(resolve, 5000));
     
     // STEP 6: Move to actual dropoff point (Drop-off_Load)
     logWorkflow(`📍 STEP 6/8: Moving to Drop-off_Load`);
-    await moveToPoint(-3.067, 2.579, 269.73, 'Drop-off_Load');
+    await moveToPoint(-3.067094531843395, 2.5788015960870325, 0, 'Drop-off_Load');
     
     // STEP 7: Execute jack_down to lower bin
     logWorkflow(`📍 STEP 7/8: Executing jack_down operation to lower bin`);
