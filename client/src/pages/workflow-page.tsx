@@ -631,6 +631,56 @@ function ShelfCard({
 }
 
 // Workflow confirmation page
+// Robot Status Card Component
+function RobotStatusCard({ 
+  battery, 
+  charging, 
+  connected 
+}: { 
+  battery: number, 
+  charging: boolean, 
+  connected: boolean 
+}) {
+  const getBatteryIcon = () => {
+    if (charging) {
+      return <BatteryCharging className="h-5 w-5 text-green-500" />;
+    }
+    
+    if (battery >= 80) {
+      return <Battery className="h-5 w-5 text-green-500" />;
+    } else if (battery >= 40) {
+      return <Battery className="h-5 w-5 text-yellow-500" />;
+    } else {
+      return <Battery className="h-5 w-5 text-red-500" />;
+    }
+  };
+  
+  return (
+    <div className="bg-white rounded-lg border p-4 mb-4 w-full max-w-xl">
+      <h3 className="text-lg font-medium mb-2">Robot Status</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          {connected ? (
+            <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+          ) : (
+            <WifiOff className="h-5 w-5 text-red-500 mr-2" />
+          )}
+          <span className={connected ? "text-green-700" : "text-red-700"}>
+            {connected ? "Connected" : "Disconnected"}
+          </span>
+        </div>
+        
+        <div className="flex items-center">
+          {getBatteryIcon()}
+          <span className="ml-2">
+            {battery}% {charging && "(Charging)"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WorkflowConfirmationPage() {
   const [_, params] = useRoute("/workflow/confirm/:serviceType/:operationType/:floorId/:shelfId");
   const [, setLocation] = useLocation();
@@ -741,14 +791,39 @@ export function WorkflowConfirmationPage() {
     }
   };
   
-  // Clean up interval on unmount
+  // Fetch robot status
   useEffect(() => {
+    const fetchRobotStatus = async () => {
+      try {
+        const response = await fetch('/api/robot/status');
+        const data = await response.json();
+        
+        if (response.ok && data) {
+          setRobotStatus({
+            battery: data.battery || 0,
+            charging: data.charging || false,
+            connected: data.connected || false
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch robot status:", error);
+      }
+    };
+    
+    // Fetch initial status
+    fetchRobotStatus();
+    
+    // Poll for status every 10 seconds
+    const statusInterval = setInterval(fetchRobotStatus, 10000);
+    
+    // Clean up on unmount
     return () => {
+      clearInterval(statusInterval);
       if (statusPolling) {
         clearInterval(statusPolling);
       }
     };
-  }, [statusPolling]);
+  }, []);
   
   const handleStartOrBack = () => {
     if (workflowStarted) {
@@ -777,6 +852,12 @@ export function WorkflowConfirmationPage() {
       </header>
 
       <div className="flex-1 flex flex-col items-center justify-center">
+        <RobotStatusCard 
+          battery={robotStatus.battery}
+          charging={robotStatus.charging}
+          connected={robotStatus.connected}
+        />
+        
         {workflowStarted ? (
           <WorkflowStatus 
             status={workflowStatus} 
