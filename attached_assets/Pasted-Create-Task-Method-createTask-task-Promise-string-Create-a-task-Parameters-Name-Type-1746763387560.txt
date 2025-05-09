@@ -1,0 +1,100 @@
+Create Task
+Method
+createTask(task) -> {Promise.<string>}
+Create a task.
+
+Parameters
+Name	Type	Description
+task	TaskInfo	Task information
+Return Value Promise.<string>
+taskID
+
+WARNING
+Task created successfully. Please note that the task has not started executing at this time.
+
+Example
+Example
+Task description: Created a multi-point meal delivery task, arrived at table A, turned on the LED strip, then arrived at table B and turned off the LED strip, and finally returned to the charging station.
+
+JavaScript
+
+...
+
+task = {
+    "name": "Multi-point Meal Delivery",
+    "robotId": "xxxxxxx",
+    "routeMode": 1, // 1 calculate the route in order of task points, 2 calculate the shortest path, default is 1
+    "runMode": 1, // Driving mode 1 flexible obstacle avoidance 2 driving according to trajectory default is 1
+    "runNum": 1, // Number of task executions, default is 1, 0 means infinite loop
+    "taskType": 2, // Optional parameter, default is -1, task type 0 disinfection 1 return to charging station 2 restaurant 3 hotel 4 delivery (five-in-one) 5 factory 6 chassis mini program
+    "runType": 21, // Optional parameter, default is -1, run type 0 scheduled disinfection 1 temporary disinfection 20 express meal delivery 21 multi-point meal delivery 22 direct delivery 23 patrol 24 return 25 return to base 26 summon 27 restaurant birthday mode task 28 lead 29 lift task
+    "ignorePublicSite": false, // Whether to ignore public sites, default is not to ignore
+    "pts": [{
+            "x": -3.8,
+            "y": 1.15,
+            "yaw": 89,
+            "areaId": "xxxxxx",
+            "type": -1,
+            "ext": {
+                "name": "Table A"
+            },
+            "stepActs": [{
+                "type": 37,
+                "data": {
+                    "mode": 1, // Execution mode, 1 executed by the upper computer 2 executed by the chassis
+                    "color": 1,
+                    "feature": 1,
+                    "indexs": [{
+                            "index": 0,
+                            "num": 10
+                        },
+                        {
+                            "index": 11,
+                            "num": 10
+                        }
+                    ]
+                }
+            }]
+        },
+        {
+            "x": -0.45,
+            "y": 0.55,
+            "yaw": 89,
+            "areaId": "xxxxxxxxxxx",
+            "type": -1,
+            "ext": {
+                "name": "Table B"
+            },
+            "stepActs": [{
+                "type": 38,
+                "data": {
+                    "mode": 1, // Execution mode, 1 executed by the upper computer 2 executed by the chassis
+                    "indexs": [{
+                            "index": 0,
+                            "num": 10
+                        },
+                        {
+                            "index": 11,
+                            "num": 10
+                        }
+                    ]
+                }
+            }]
+        }
+    ],
+    "backPt": {
+        "type": 9, // Point type, 9 charging station 10 standby point
+        "x": 0.11,
+        "y": 1.22,
+        "yaw": 89,
+        "stopRadius": 1, // Stop radius, unit: meters, default is 1
+        "areaId": "xxxx",
+        "ext": {
+            "name": "Charging Station"
+        }
+    }
+}
+
+let taskId = await this.axRobot.createTask(task)
+
+...

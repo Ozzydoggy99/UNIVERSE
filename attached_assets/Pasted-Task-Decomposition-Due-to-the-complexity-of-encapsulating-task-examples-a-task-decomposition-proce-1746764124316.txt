@@ -1,0 +1,142 @@
+Task Decomposition
+Due to the complexity of encapsulating task examples, a task decomposition process is provided here, which users can combine and match according to their own needs
+
+The simplest example: the simplest example of point A, which defaults to a one-time simple point task
+
+TypeScript
+
+  const task1 = {
+    "name": "Multiple tasks", 1, // Task name
+    "pts": [
+      {
+        "x": 6.7925255925160855, //  x
+        "y": 1.2596787664165277, // y
+        // "yaw": 268, /// yaw
+        "areaId": "66879695c207ce62f87991c7", // areaId
+      }
+]
+  }
+  const success = axRobot.startTask(task1)
+Multiple pois tasks：A->B->C
+
+TypeScript
+
+  const task1 = {
+    "name": "Multiple tasks", 1, // Task name
+    "pts": [
+      {
+        "x": 6.7925255925160855, // x of A
+        "y": 1.2596787664165277, // y of A
+        // "yaw": 268, /// yaw of A
+        "areaId": "66879695c207ce62f87991c7", // areaId of A
+      },
+      {
+        "x": 6.7925255925160855, // x of B
+        "y": 1.2596787664165277, // y of B
+        // "yaw": 268, /// yaw of B
+        "areaId": "66879695c207ce62f87991c7", // areaId of B
+      },
+      {
+        "x": 6.7925255925160855, // x of C
+        "y": 1.2596787664165277, //  y of C
+        // "yaw": 268, // yaw of C
+        "areaId": "66879695c207ce62f87991c7", // areaId of C
+      }
+    ]
+  }
+  const success = axRobot.startTask(task1)
+Enriched to Task A: You can specify the running mode and actions, which can facilitate future demand statistics
+
+TypeScript
+
+  const task1 = {
+    "name": "Multiple tasks", 1, // Task name is not required
+    // "runMode": <runMode>, // runMode
+    // "runNum": <runNum>, // runNum
+    // "taskType": <taskType>, // taskType
+    // "runType": <runType>, /// runType
+    "pts": [
+      {
+              "x": 6.7925255925160855, //x of A
+              "y": 1.2596787664165277, // y of A
+              // "yaw": 268, ///yaw of A
+              "areaId": "66879695c207ce62f87991c7", // area id of A
+              // "dockingRadius": "1",
+              // "ext": {
+              //     "name": "poi 1",
+              //     "id": "668796861f783f4b11c89ddc"
+              // }
+          }
+    ]
+  }
+  const success = axRobot.startTask(task1)
+Enriched to Task A: After arriving at Task A, actions can be taken, such as playing music or waiting for interaction between the head and shell. To achieve this, step Acts need to be set for each point, as shown below
+
+TypeScript
+
+  const task1 = {
+    // "name": "Multiple tasks", 1, // Task name is not required
+    // "pts": [
+    //   {
+    //     "x": 6.7925255925160855, //x of A
+    //     "y": 1.2596787664165277, // y of A
+    //     // "yaw": 268, ///yaw of A
+    //     "areaId": "66879695c207ce62f87991c7", // area id of A
+        "stepActs": [
+          {
+              "type": 40 // wait
+          },
+    //   ]
+    // }]
+  }
+  const success = axRobot.startTask(task1)
+Enriched to Task A: At the beginning of the task, you can set the current location (such as coordinates, music) and set the task curPt as follows
+
+TypeScript
+
+  const task1 = {
+    // "name": "Multiple tasks", 1, // Task name is not required
+    "curPt": {
+      // "x": 6.7925255925160855, //x of A 
+      // "y": 1.2596787664165277, // y of A 
+      // "yaw": 268, ///yaw of A
+      // stepActs: [] // actions
+    },
+    // "pts": [
+    //   {
+    //     "x": 6.7925255925160855, //x of A
+    //     "y": 1.2596787664165277, // y of A
+    //     // "yaw": 268, ///yaw of A
+    //     "areaId": "66879695c207ce62f87991c7", // area id of A
+    //     "stepActs": [
+    //       {
+    //           "type": 40 // wait
+    //       },
+    //   ]
+    // }]
+  }
+  const success = axRobot.startTask(task1)
+Enriched to Task A: Set Return Point
+
+TypeScript
+
+  const task1 = {
+    // "name": "Multiple tasks", 1, // Task name is not required
+    "backPt": {
+      "x": 6.7925255925160855, //x of A
+      "y": 1.2596787664165277, // y of A
+      // "yaw": 268, ///yaw of A
+    },
+    // "pts": [
+    //   {
+    //     "x": 6.7925255925160855, //x of A
+    //     "y": 1.2596787664165277, // y of A
+    //     // "yaw": 268, ///yaw of A
+    //     "areaId": "66879695c207ce62f87991c7", // area id of A
+    //     "stepActs": [
+    //       {
+    //           "type": 40 // wait
+    //       },
+    //   ]
+    // }]
+  }

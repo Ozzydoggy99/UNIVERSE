@@ -1,0 +1,210 @@
+getRobotSettingById
+Method
+getRobotSettingById(robotId) -> {Promise.<any>}
+Get robot settings by robotId
+
+Parameters
+Fields	Type	Description
+robotId	string	robotId
+Environmental
+
+Cloud
+Local
+Return Value Promise.<any>
+Fields	Type	Description
+robotId	string	robotId
+businessScene	string	businessScene
+settings	string	settings
+Example
+JavaScript
+
+...
+let settingsData = {}
+const settingsResult = await axRobot.getRobotSettingById(robotId);
+if (settingsResult) {
+  settingsData = settingsResult.settings;
+}
+...
+Response Data Example
+JSON
+
+...
+{
+  "id": 1,
+  "robotId": "81822013000931v",
+  "businessScene": 2,
+  "settings": {
+    "animation": {
+      "fhAnimation": {
+        "data": {
+          "id": "/storage/emulated/0/launcher/local/animation/<name>",
+          "name": "<name>",
+          "path": "/storage/emulated/0/launcher/local/animation/<name>"
+        },
+        "switch": false
+      },
+      "scAnimation": {
+        "data": {
+          "id": "/storage/emulated/0/launcher/local/animation/<name>",
+          "name": "<name>",
+          "path": "/storage/emulated/0/launcher/local/animation/<name>"
+        },
+        "switch": false
+      },
+      "sleepAnimation": {
+        "data": {
+          "id": "/storage/emulated/0/launcher/local/animation/<name>",
+          "name": "<name>",
+          "path": "/storage/emulated/0/launcher/local/animation/<name>"
+        },
+        "switch": 0
+      },
+      "xyAnimation": {
+        "data": {
+          "id": "/storage/emulated/0/launcher/local/animation/<name>",
+          "name": "<name>",
+          "path": "/storage/emulated/0/launcher/local/animation/<name>"
+        },
+        "switch": false
+      },
+      "ylAnimation": {
+        "data": {
+          "id": "/storage/emulated/0/launcher/local/animation/65.gif",
+          "name": "65.gif",
+          "path": "/storage/emulated/0/launcher/local/animation/65.gif"
+        },
+        "switch": false
+      }
+    },
+    "basic": {
+      "adminPass": "9999",
+      "boor": "63c64050f0e02ee8af9df666",
+      "char": "658260925b69eb2d91ba8b94",
+      "currenttab": 0,
+      "door": "65a4dd533c3781e9f18defb2",
+      "fontSize": 0,
+      "language": 1,
+      "model": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "runMode": 3,
+      "standby": "663c7977be378bb5ee8b43a2",
+      "welcomeId": "65a4dd533c3781e9f18defb2",
+      "welcomeModel": false,
+      "welcomePlayId": 1
+    },
+    "cruise": {
+      "countdownSwitch": true,
+      "speed": 73,
+      "standbyTime": 101
+    },
+    "delivery": {
+      "countdownSwitch": true,
+      "errorTraywarn": true,
+      "isLineCall": true,
+      "isReturn": true,
+      "moderate": 0,
+      "moderateSwitch": false,
+      "openSmartswitch": true,
+      "pallet": [
+        19,
+        ...
+      ],
+      "pauseDuration": 60,
+      "runSpeed": 113,
+      "smartList": [
+        2,
+        3
+      ],
+      "stopDuration": 60,
+      "takeawayCountdown": 5
+    },
+    "footprint": [
+      [
+        0.248,
+        0.108
+      ],
+      ...
+    ],
+    "forceBattery": 10,
+    "lightStrip": {
+      "arriveState": {
+        "lightColor": 5,
+        "lightType": 3
+      },
+      "chargingState": {
+        "lightColor": 3,
+        "lightType": 4
+      },
+      "errorState": {
+        "lightColor": 1,
+        "lightType": 2
+      },
+      "idleState": {
+        "lightColor": 4,
+        "lightType": 4
+      },
+      "lightStripSwitch": true,
+      "taskState": {
+        "lightColor": 4,
+        "lightType": 1
+      }
+    },
+    "lowBattery": 15,
+    "otherSetting": {
+      "footprint": [
+        [
+          0.248,
+          0.108
+        ],
+        ...
+      ],
+      "forceBattery": 10,
+      "lightStrip": {
+        "arriveState": {
+          "lightColor": 5,
+          "lightType": 3
+        },
+        "chargingState": {
+          "lightColor": 3,
+          "lightType": 4
+        },
+        "errorState": {
+          "lightColor": 1,
+          "lightType": 2
+        },
+        "idleState": {
+          "lightColor": 4,
+          "lightType": 4
+        },
+        "lightStripSwitch": true,
+        "taskState": {
+          "lightColor": 4,
+          "lightType": 1
+        }
+      },
+      "lowBattery": 15,
+      "skipPtDelay": 1800
+    },
+    "runMode": 3,
+    "skipPtDelay": 1800,
+    "sound": {
+      "avoidVolume": 50,
+      "musicFile": "/storage/emulated/0/launcher/resource/local/<file>",
+      "musicFileName": "<file>",
+      "musicVolume": 50,
+      "switchon": true,
+      "systemVolume": 50,
+      "voiceVolume": 50
+    }
+  },
+  "createTime": 1717053578920,
+  "updateTime": 1717053578920
+}
+...

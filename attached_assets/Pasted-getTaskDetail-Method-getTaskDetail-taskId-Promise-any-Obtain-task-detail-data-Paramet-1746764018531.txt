@@ -1,0 +1,284 @@
+getTaskDetail
+Method
+getTaskDetail(taskId) -> {Promise.<any>}
+Obtain task detail data.
+
+Parameters
+Fields	Type	Description
+taskId	string	taskId
+Return Value Promise.<any>
+Fields	Type	Description
+taskId	Integer	taskId
+name	Object	name
+taskPts	Array	taskPts
+taskPts.ext	Object	ext
+taskPts.ext.name	String	ext
+taskPts.areaId	String	areaId
+runType	Integer	runType
+businessId	String	businessId
+backPt	Object	backPt
+backPt.areaId	String	areaId
+backPt.ext	Object	ext
+backPt.ext.id	String	Id
+backPt.ext.name	String	name
+backPt.key	String	key
+backPt.stepActs	Array	stepActs
+backPt.stepActs.data	Object	data
+backPt.stepActs.data.color	Integer	
+backPt.stepActs.data.feature	Integer	
+backPt.stepActs.data.mode	Integer	
+backPt.stepActs.type	Integer	
+backPt.stopRadius	Integer	
+backPt.type	Integer	type
+backPt.x	Number	x
+backPt.y	Number	y
+backPt.yaw	Integer	yaw
+speed	Integer	speed
+taskType	Integer	taskType
+runNum	Integer	runNum
+busiType	Integer	busiType
+ignorePublicSite	Boolean	
+isCancel	Boolean	isCancel
+isFinish	Boolean	isFinish
+robotId	String	robotId
+robotName	String	robotName
+runMode	Integer	runMode
+buildingId	String	buildingId
+isExcute	Boolean	isExcute
+createTime	Integer	createTime
+routeMode	Integer	routeMode
+isDel	Boolean	isDel
+taskState	String	taskState
+useTime	Integer	useTime:ms
+taskLogs	Array	taskLogs
+taskLogs._id	String	_id
+taskLogs.taskType	Integer	taskType
+taskLogs.logType	Integer	logType
+taskLogs.logName	String	logName
+taskLogs.timestamp	Integer	timestamp
+taskLogs.createTime	Integer	createTime
+taskTracks	Object	taskTracks
+data.taskTracks.65b0b1xxxxxxxdea1	Array	
+data.taskTracks.65b0b1xxxxxxxdea1.timestamp	Integer	
+taskTracks.65b0b1xxxxxxxdea1.x	Number	
+taskTracks.65b0b1xxxxxxxdea1.y	Number	
+taskTracks.65b0b1xxxxxxxdea1.yaw	Number	
+Request Example
+JavaScript
+
+...
+let taskInfo = await axRobot.getTaskDetail(taskId);
+...
+Response data Example
+JSON
+
+...
+{
+    "taskId": "61xxxxxxxxxxxxxx99",
+    "name": "<name>",
+    "taskPts": [{
+        "ext": {
+            "name": "3"
+        }, 
+        "areaId": "65bxxxxxxxxxxa1" 
+    }],
+    "runType": 21,
+    "businessId": "655xxxxxxxxxeeb", 
+    "backPt": {
+        "areaId": "6xxxxxxxa1",
+        "ext": {
+            "id": "65xxxxxxea2",
+            "name": "<name>"
+        },
+        "key": "",
+        "stepActs": [{
+            "data": {
+                "color": 4,
+                "feature": 1,
+                "mode": 1
+            },
+            "type": 37
+        }],
+        "stopRadius": 1,
+        "type": 9,
+        "x": -0.2579306188960005,
+        "y": -0.3057315748102021,
+        "yaw": 50
+    }, 
+    "speed": -1,
+    "taskType": 2,
+    "runNum": 1, 
+    "busiType": 5, 
+    "ignorePublicSite": true,
+    "isCancel": false,
+    "isFinish": false, 
+    "robotId": "8981307a02163yT",
+    "robotName": "63yT",
+    "runMode": 1, 
+    "buildingId": "64xxxxxxxc",
+    "isExcute": false, 
+    "createTime": 1706079196905, 
+    "routeMode": 1,
+    "isDel": false,
+    "taskState": "success", 
+    "useTime": 29078, 
+    "taskLogs": [{
+            "_id": "65b0b3e28171a93d2ca362db",
+            "taskType": "restaurant",
+            "logType": "state",
+            "logName": "task-start",
+            "timestamp": 1706079198426,
+            "createTime": 1706079202386
+        },
+        {
+            "_id": "65b0b3e28171a93d2ca362dc",
+            "taskType": "restaurant",
+            "logType": "event",
+            "logName": "turn-on-light",
+            "Data": {
+                "color": 4,
+                "feature": 1,
+                "mode": 1
+            },
+            "timestamp": 1706079198446,
+            "createTime": 1706079202389
+        },
+        {
+            "_id": "65b0b3e28171a93d2ca362dd",
+            "taskType": "restaurant",
+            "logType": "event",
+            "logName": "play-audio",
+            "Data": {
+                "audioId": "/storage/xxxxxx.mp3",
+                "channel": 1,
+                "duration": -1,
+                "forcePlay": true,
+                "interval": -1,
+                "mode": 1,
+                "num": 1,
+                "volume": 50
+            },
+            "timestamp": 1706079198463,
+            "createTime": 1706079202391
+        },
+        {
+            "_id": "65b0b3e28171a93d2ca362de",
+            "taskType": "restaurant",
+            "logType": "event",
+            "logName": "set-speed",
+            "Data": {
+                "speed": 1.2
+            },
+            "timestamp": 1706079198586,
+            "createTime": 1706079202393
+        },
+        {
+            "_id": "65b0b3f48171a93d2ca362df",
+            "taskType": "restaurant",
+            "logType": "state",
+            "logName": "dest-arrive",
+            "Data": {
+                "current": {
+                    "id": "65bxxxxxxx4",
+                    "index": 0,
+                    "name": "3"
+                }
+            },
+            "timestamp": 1706079217941,
+            "createTime": 1706079220441
+        },
+        {
+            "_id": "65b0b3f48171a93d2ca362e0",
+            "taskType": "restaurant",
+            "logType": "event",
+            "logName": "play-audio",
+            "Data": {
+                "audioId": "/storage/xxxx.mp3",
+                "duration": -1,
+                "forcePlay": true,
+                "interval": -1,
+                "mode": 1,
+                "num": 1,
+                "volume": 50
+            },
+            "timestamp": 1706079217949,
+            "createTime": 1706079220443
+        },
+        {
+            "_id": "65b0b3f48171a93d2ca362e1",
+            "taskType": "restaurant",
+            "logType": "event",
+            "logName": "turn-on-light",
+            "Data": {
+                "color": 5,
+                "feature": 3,
+                "mode": 1
+            },
+            "timestamp": 1706079217959,
+            "createTime": 1706079220445
+        },
+        {
+            "_id": "65b0b3fd8171a93d2ca362e2",
+            "taskType": "restaurant",
+            "logType": "event",
+            "logName": "turn-on-light",
+            "Data": {
+                "color": 4,
+                "feature": 1,
+                "mode": 1
+            },
+            "timestamp": 1706079226522,
+            "createTime": 1706079229665
+        },
+        {
+            "_id": "65b0b4188171a93d2ca362eb",
+            "taskType": "restaurant",
+            "logType": "state",
+            "logName": "dest-arrive",
+            "Data": {
+                "current": {
+                    "id": "65bxxxxxxx6cdea2",
+                    "name": "<name>",
+                    "type": 9
+                }
+            },
+            "timestamp": 1706079251803,
+            "createTime": 1706079256550
+        },
+        {
+            "_id": "65b0b4188171a93d2ca362ec",
+            "taskType": "restaurant",
+            "logType": "event",
+            "logName": "turn-on-light",
+            "Data": {
+                "color": 4,
+                "feature": 1,
+                "mode": 1
+            },
+            "timestamp": 1706079251814,
+            "createTime": 1706079256552
+        },
+        {
+            "_id": "65b0b42d8171a93d2ca362ed",
+            "taskType": "restaurant",
+            "logType": "state",
+            "logName": "task-end",
+            "Data": {
+                "endType": "success"
+            },
+            "timestamp": 1706079274736,
+            "createTime": 1706079277619
+        }
+    ], 
+    "taskTracks": {
+        "65b0b1xxxxxxxdea1": [{
+                "timestamp": 1706079198600,
+                "x": 0.0725,
+                "y": -0.005,
+                "yaw": 1.53
+            },
+            ...
+        ]
+    } 
+} 
+...

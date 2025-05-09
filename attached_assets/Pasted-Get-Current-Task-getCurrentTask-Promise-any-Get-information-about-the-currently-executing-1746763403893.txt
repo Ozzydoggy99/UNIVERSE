@@ -1,0 +1,103 @@
+Get Current Task
+getCurrentTask() -> {Promise.<any>}
+Get information about the currently executing task.
+
+Return value Promise.<any>
+Name	Type	Description
+task	any	task information
+Example
+getCurrentTask
+JavaScript
+
+...
+let task = await axRobot.getCurrentTask();
+console.log(task.isCancel); // Whether the task has been canceled
+console.log(task.runType); // run type; 0-timed disinfecting 1-temporary disinfecting 20-fast meal delivery 21-multi-point meal delivery 22-leading 23-cruising 24-returning 25-returning to pile charging
+console.log(task.businessId); // The business ID to which the task belongs
+console.log(task.robotId); // Robot ID
+console.log(task.buildingId); // building ID
+console.log(task.isExecute); // Whether it has been executed
+console.log(task.taskType); // task type; 0-disinfect 1-recharge pile 2-restaurant
+console.log(task.taskPts); // Task node information, please refer to the description of starting the task execution
+console.log(task.createTime); // task creation time
+console.log(task.runNum); // The number of times the task is run
+console.log(task.name); // task name
+console.log(task.busiType); // business type
+console.log(task.isDel); // Is it deleted
+console.log(task.taskId); // task ID
+...
+JavaScript
+
+task = {
+    "isCancel": false, // Indicates whether the task is canceled
+    "dispatchType": 0,
+    "runType": 20, // Run type
+    "businessId": "60d998a1fcccxxxxxxxxxx", // Business ID
+    "backPt": {
+        "ext": {
+            "name": "ChargingPoint"
+        }, // Extension field, forced to be of object type
+        "areaId": "62a9a29a0249axxxxxxxxxx",
+        "x": 3.70775374139248,
+        "y": 14.108656413399421,
+        "actType": -1,
+        "type": 9,
+        "yaw": 180
+    },
+    "robotId": "61822012000xxxxxx", // Robot ID
+    "buildingId": "60a4c374059xxxxxxxxxx", // Building ID
+    "isExcute": false, // Indicates whether the task is executed
+    "taskType": 2, // 0: Disinfection, 1: Return to charging point, 2: Restaurant
+    "taskPts": [
+        {
+            "ext": {
+                "name": "TaskPoint1",
+                "xxx": "xxx"
+            }, // Extension field, forced to be of object type
+            "stepActs": [
+                {
+                    "data": {
+                        "pauseTime": 30 // Pause time in seconds, 0 means no pause, only set when type=18
+                    }, // Custom action data
+                    "type": 18 // Action type: 5 - Play audio, 6 - Open box door, 18 - Pause, 28 - Close cargo door, 32 - Switch spray, 36 - Close audio, 37 - Turn on light strip, 38 - Turn off light strip
+                }
+            ], // Task point action category
+            "areaId": "62a9a29a0249axxxxxxxxxx",
+            "x": 2.41806081987761,
+            "y": 14.800125903065009,
+            "actType": -1,
+            "isPass": true, // Indicates whether the task point has been passed; if false, the point won't be considered for routing in the next task execution
+            "yaw": 0
+        },
+        {
+            "ext": {
+                "name": "TaskPoint2",
+                "xxx": "xxx"
+            }, // Extension field, forced to be of object type
+            "stepActs": [
+                {
+                    "data": {
+                        "url": "Audio online address",
+                        "playMode": 2,
+                        "intervalTime": 20
+                    }, // Custom action data
+                    "type": 5 // Action type: 5 - Play audio, 6 - Open box door, 18 - Pause, 28 - Close cargo door, 32 - Switch spray, 36 - Close audio, 37 - Turn on light strip, 38 - Turn off light strip
+                }
+            ], // Task point action category
+            "areaId": "62a9a29a0249axxxxxxxxxx",
+            "x": 2.4106838026227706,
+            "y": 11.768194034402768,
+            "actType": -1,
+            "isPass": false, // Indicates whether the task point has been passed; if false, the point won't be considered for routing in the next task execution
+            "yaw": 0
+        }
+    ], // List of task points to be updated
+    "createTime": 1662953493608, // Creation time
+    "runNum": 1,
+    "appId": "ax3e0e444xxxxxxxx",
+    "name": "API disinfection test 10", // Task name
+    "busiType": 0, // Business type
+    "isDel": false, // Indicates whether the task is deleted
+    "taskId": "bba7059d-2e7d-4f17-9fe1-xxxxxxxxxx", // Task ID
+    "routeData": {}
+}

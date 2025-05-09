@@ -1,0 +1,266 @@
+Task constructor guide
+Provide a constructor for the task, which the requester can directly extract and use in their own project.
+
+Constructor function
+
+TypeScript
+
+export class TaskBuilder {
+    public task: any
+    constructor(name?: string, runNum?: number, taskType?: number, runType?: number) {
+        this.task = {
+            name: name,
+            runNum: runNum ? runNum : 1,
+            taskType: taskType ? taskType : 2,
+            runType: runType? runType : 20,
+            sourceType: 6,
+            taskPts: []
+        }
+    } 
+    /**
+    * Add point data
+    * @returns
+    */
+    public addTaskPt(point: any): any {
+        if (point) {
+            this.task.taskPts.push(point)
+        }
+    }
+}
+export class TaskPoint {
+    public taskPt: any
+    /**
+    * change point data
+    * @returns
+    */
+    constructor(point: any) {
+        if (point) {
+            this.taskPt = {
+                x: point.x ? point.x : (point.coordinate && point.coordinate.length > 0) ? point.coordinate[0] : '',
+                y: point.y ? point.y : (point.coordinate && point.coordinate.length > 0) ? point.coordinate[1] : '',
+                yaw: point.yaw,
+                areaId: point.areaId,
+                type: point.type,
+                ext: {
+                    name: point.name,
+                    id: point.id
+                },
+                stepActs: []
+            }
+        } else {
+            this.taskPt = null
+        }
+    }
+    /**
+    * addStepActs
+    * @returns
+    */
+    public addStepActs(act: any): any {
+        if (this.taskPt && act) {
+            this.taskPt.stepActs.push(act)
+        }        
+    }
+}
+export class StepAction {
+    /**
+    * PlayAudioAction
+    * @returns
+    */
+    public PlayAudioAction(audioId: string): any {
+        if (!audioId) {
+            return false
+        }
+        return {
+            "type": 5,
+            "data": {
+                "mode": 1,
+                "url":"",
+                "audioId": audioId,
+                "interval": -1,
+                "num": 1,
+                "volume": 100,
+                "channel": 1,
+                "duration":-1,
+            }
+        }
+    }
+     /**
+    * CloseAudioAction type: 36
+    * @returns
+    */
+     public CloseAudioAction(audioId: string): any {
+        if (!audioId) {
+            return false
+        }
+        return {
+            "type": 36,
+            "data": {
+                "mode": 1,
+                "url":"",
+                "audioId": audioId,
+                "interval": -1,
+                "num": 1,
+                "volume": 100,
+                "channel": 1,
+                "duration":-1,
+            }
+        }
+    }
+    /**
+    * PauseAction type: 18
+    * @returns
+    */
+    public PauseAction(duration: number): any {
+        if (!duration && duration != 0) {
+            return false
+        }
+        return {
+            "type": 18,
+            "data": {
+                "pauseTime": duration
+            }
+        }
+    }
+    /**
+    * WaitAction type: 40
+    * @returns
+    */
+    public WaitAction(duration?: number): any {
+        let data = {
+            "type": 40,
+            "data": {
+                "pauseTime": duration
+            }
+        }
+        if (!duration && duration != 0) {
+            delete data.data
+        }
+        return data
+    }
+    /**
+    * OpenDoor type: 6 
+    * @returns
+    */
+    public OpenDoor(doorIds: Array<string>): any {
+        if (!doorIds || doorIds.length == 0) {
+            return false
+        }
+        let data = {
+            "type": 6,
+            "data": {
+                "mode": 2,
+                "doorIds": doorIds
+            }
+        }
+        return data
+    }
+
+    /**
+    * CloseDoor  type: 28 
+    * @returns
+    */
+    public CloseDoor(doorIds: Array<string>): any {
+        if (!doorIds || doorIds.length == 0) {
+            return false
+        }
+        let data = {
+            "type": 28,
+            "data": {
+                "mode": 2,
+                "doorIds": doorIds
+            }
+        }
+        return data
+    }
+
+    /**
+    * liftUp type: 47
+    * @returns
+    */
+    public liftUp(): any {
+        let data = {
+            "type": 47,
+            "data": {
+            }
+        }
+        return data
+    }
+
+    /**
+    * liftDown type: 48
+    * @returns
+    */
+    public liftDown(): any {
+        let data = {
+            "type": 48,
+            "data": {
+            }
+        }
+        return data
+    }
+
+    /**
+    * rollerLoad type: 54
+    * @returns
+    */
+    public rollerLoad(): any {
+        let data = {
+            "type": 54,
+            "data": {
+            }
+        }
+        return data
+    }
+
+    /**
+    *rollerUnLoad type: 55 
+    * @returns
+    */
+    public rollerUnLoad(): any {
+        let data = {
+            "type": 55,
+            "data": {
+            }
+        }
+        return data
+    }
+}
+Create a task using the constructor above
+
+TypeScript
+
+    // getPoiList
+    const result = await axRobot.getPoiList({
+        robotId: "<robotId>"
+    });
+    const poiList = result.list
+    console.log('poiList', poiList)
+
+    // get one poi
+    if (poiList.length > 0) {
+        let taskBuilder = new TaskBuilder('Task', 1, 2, 20)
+        const stepAction = new StepAction()
+
+        let pt1 = new TaskPoint(poiList[0])
+        pt1.addStepActs(stepAction.WaitAction(20))
+        pt1.addStepActs(stepAction.PlayAudioAction('<audioId>'))
+        const taskPt1 = pt1.taskPt
+        console.log('taskPt1', taskPt1)
+        taskBuilder.addTaskPt(taskPt1)
+
+        let pt2 = new TaskPoint(poiList[2])
+        pt2.addStepActs(stepAction.WaitAction(3))
+        pt2.addStepActs(stepAction.PlayAudioAction('<audioId>'))
+        const taskPt2 = pt2.taskPt
+        console.log('taskPt2', taskPt2)
+        taskBuilder.addTaskPt(taskPt2)
+
+
+        const task = taskBuilder.task
+        console.log('task', task)
+        // startTask
+        const isOk = await axRobot.startTask(task)
+        if (isOk) {
+            console.log("Start task success")
+        }
+    }
