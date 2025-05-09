@@ -17,16 +17,12 @@
 
 import express from 'express';
 import axios from 'axios';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
-// Configuration - make sure these match our actual robot configuration
-const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
-const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
-
-// API headers for authentication
-const headers = {
-  'Content-Type': 'application/json',
-  'x-api-key': ROBOT_SECRET
-};
+// Use the standardized authentication headers function
+function getHeaders() {
+  return getAuthHeaders();
+}
 
 /**
  * Helper function to log workflow steps with timestamps
@@ -52,7 +48,7 @@ async function moveToPoint(x: number, y: number, ori: number, label: string): Pr
     let hasActiveMove = false;
 
     try {
-      const currentMovesResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers });
+      const currentMovesResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers: getHeaders() });
       if (currentMovesResponse.data && currentMovesResponse.data.state === 'moving') {
         hasActiveMove = true;
         logWorkflow(`⚠️ Robot is currently moving. Cancelling current move`);
@@ -61,7 +57,7 @@ async function moveToPoint(x: number, y: number, ori: number, label: string): Pr
         await axios.patch(
           `${ROBOT_API_URL}/chassis/moves/current`,
           { state: 'cancelled' },
-          { headers }
+          { headers: getHeaders() }
         );
         
         // Wait for move to cancel
@@ -90,7 +86,7 @@ async function moveToPoint(x: number, y: number, ori: number, label: string): Pr
     };
 
     // Send the move command to the robot
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, { headers });
+    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, { headers: getHeaders() });
     const moveId = response.data.id;
 
     logWorkflow(`Move command sent for ${label} - move ID: ${moveId}`);
@@ -107,14 +103,14 @@ async function moveToPoint(x: number, y: number, ori: number, label: string): Pr
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Check move status
-      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
+      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
       const moveStatus = statusResponse.data.state;
       
       logWorkflow(`Current move status: ${moveStatus}`);
       
       // Try to get current position for better monitoring
       try {
-        const posResponse = await axios.get(`${ROBOT_API_URL}/chassis/pose`, { headers });
+        const posResponse = await axios.get(`${ROBOT_API_URL}/chassis/pose`, { headers: getHeaders() });
         const pos = posResponse.data;
         
         // Validate position data before using toFixed
@@ -144,7 +140,7 @@ async function moveToPoint(x: number, y: number, ori: number, label: string): Pr
     }
 
     // Do one final status check to be absolutely certain
-    const finalStatusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
+    const finalStatusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
     const finalStatus = finalStatusResponse.data.state;
     logWorkflow(`Final move status check: ${finalStatus}`);
     
@@ -181,7 +177,7 @@ async function executeJackUp(): Promise<any> {
     let hasSafetyCheckPassed = true;
     
     try {
-      const currentMovesResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers });
+      const currentMovesResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers: getHeaders() });
       if (currentMovesResponse.data && currentMovesResponse.data.state === 'moving') {
         logWorkflow(`⚠️ SAFETY VIOLATION: Robot still has active move command`);
         hasSafetyCheckPassed = false;
@@ -200,7 +196,7 @@ async function executeJackUp(): Promise<any> {
     
     while (wheelCheckAttempts < maxWheelCheckAttempts && !wheelCheckPassed) {
       try {
-        const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
+        const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers: getHeaders() });
         const wheelState = wheelResponse.data;
         
         if (wheelState) {
@@ -230,7 +226,7 @@ async function executeJackUp(): Promise<any> {
     
     // Check 3: Verify robot is not busy
     try {
-      const busyResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
+      const busyResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers: getHeaders() });
       const busyState = busyResponse.data;
       
       if (busyState && busyState.is_busy) {
@@ -271,7 +267,7 @@ async function executeJackUp(): Promise<any> {
           y: 0.0,
           z: 0.0
         }
-      }, { headers });
+      }, { headers: getHeaders() });
       
       // Wait for the backup movement to complete (1.5 seconds)
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -289,7 +285,7 @@ async function executeJackUp(): Promise<any> {
           y: 0.0,
           z: 0.0
         }
-      }, { headers });
+      }, { headers: getHeaders() });
       
       // Wait for stop to complete
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -304,7 +300,7 @@ async function executeJackUp(): Promise<any> {
     logWorkflow(`⚠️ CRITICAL OPERATION: Jack up - robot confirmed stopped, proceeding with operation`);
     
     // Send the jack up command
-    const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
+    const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers: getHeaders() });
     
     // IMPORTANT: Wait longer for the jack operation to complete (takes ~10 seconds to be safe)
     logWorkflow(`Jack up operation started, waiting 10 seconds for complete stability...`);
@@ -363,7 +359,7 @@ async function executeJackDown(): Promise<any> {
     let hasSafetyCheckPassed = true;
     
     try {
-      const currentMovesResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers });
+      const currentMovesResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers: getHeaders() });
       if (currentMovesResponse.data && currentMovesResponse.data.state === 'moving') {
         logWorkflow(`⚠️ SAFETY VIOLATION: Robot still has active move command`);
         hasSafetyCheckPassed = false;
@@ -382,7 +378,7 @@ async function executeJackDown(): Promise<any> {
     
     while (wheelCheckAttempts < maxWheelCheckAttempts && !wheelCheckPassed) {
       try {
-        const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
+        const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers: getHeaders() });
         const wheelState = wheelResponse.data;
         
         if (wheelState) {
@@ -412,7 +408,7 @@ async function executeJackDown(): Promise<any> {
     
     // Check 3: Verify robot is not busy
     try {
-      const busyResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
+      const busyResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers: getHeaders() });
       const busyState = busyResponse.data;
       
       if (busyState && busyState.is_busy) {
@@ -440,7 +436,7 @@ async function executeJackDown(): Promise<any> {
     logWorkflow(`⚠️ CRITICAL OPERATION: Jack down - robot confirmed stopped, proceeding with operation`);
     
     // Send the jack down command
-    const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
+    const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
     
     // IMPORTANT: Wait for the jack operation to complete (takes ~10 seconds to be safe)
     logWorkflow(`Jack down operation started, waiting 10 seconds for complete stability...`);
@@ -502,7 +498,7 @@ async function returnToCharger(): Promise<any> {
     };
     
     // Send the charge command to the robot
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, chargeCommand, { headers });
+    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, chargeCommand, { headers: getHeaders() });
     const moveId = response.data.id;
     
     logWorkflow(`Charge command sent - move ID: ${moveId}`);
@@ -519,14 +515,14 @@ async function returnToCharger(): Promise<any> {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Check move status
-      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
+      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
       const moveStatus = statusResponse.data.state;
       
       logWorkflow(`Current charger return status: ${moveStatus}`);
       
       // Try to get current position for better monitoring
       try {
-        const posResponse = await axios.get(`${ROBOT_API_URL}/chassis/pose`, { headers });
+        const posResponse = await axios.get(`${ROBOT_API_URL}/chassis/pose`, { headers: getHeaders() });
         const pos = posResponse.data;
         
         // Validate position data before using toFixed
@@ -557,7 +553,7 @@ async function returnToCharger(): Promise<any> {
     
     // Check battery state to confirm charging
     try {
-      const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers });
+      const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers: getHeaders() });
       const batteryState = batteryResponse.data;
       
       if (batteryState && batteryState.is_charging) {
