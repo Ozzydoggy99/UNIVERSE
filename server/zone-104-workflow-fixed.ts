@@ -60,8 +60,8 @@ async function moveToPoint(x: number, y: number, ori: number, label: string): Pr
           { headers: getHeaders() }
         );
         
-        // Wait for move to cancel
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Wait 3 seconds for move to cancel
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     } catch (checkError: any) {
       // If we can't check current move, proceed anyway
@@ -673,6 +673,11 @@ async function executeZone104Workflow(): Promise<any> {
   // Generate a unique workflow ID with timestamp
   const workflowId = `zone104_${Date.now()}`;
   
+  // Declare alignment variables once at the beginning to avoid redeclaration
+  let alignSuccess = false;
+  let alignAttempts = 0;
+  const maxAlignAttempts = 3; // Maximum number of attempts to align with rack
+  
   logWorkflow(`🚀 Starting Zone 104 workflow ${workflowId}`);
   
   try {
@@ -723,9 +728,9 @@ async function executeZone104Workflow(): Promise<any> {
       }
     }
     
-    let alignSuccess = false;
-    let alignAttempts = 0;
-    const maxAlignAttempts = 3; // Maximum number of attempts to align with rack
+    // Reset alignment variables for pickup procedure
+    alignSuccess = false;
+    alignAttempts = 0;
     
     while (!alignSuccess && alignAttempts < maxAlignAttempts) {
       alignAttempts++;
@@ -808,9 +813,8 @@ async function executeZone104Workflow(): Promise<any> {
           };
         }
         
-        // Add safety wait after alignment
-        logWorkflow(`✅ Align with rack complete, waiting 5 seconds for stability...`);
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // No additional wait after alignment
+        logWorkflow(`✅ Align with rack complete, continuing workflow...`);
         
       } catch (alignError: any) {
         logWorkflow(`❌ ERROR during align_with_rack operation (attempt ${alignAttempts}/${maxAlignAttempts}): ${alignError.message}`);
@@ -872,53 +876,28 @@ async function executeZone104Workflow(): Promise<any> {
     logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking (with correct coordinates from physical map)`);
     await moveToPoint(-2.314, 2.543, 0, 'Drop-off_Load_docking');
     
-    // STEP 5.5: Align with rack for proper dropoff with retry mechanism
-    logWorkflow(`📍 STEP 5.5/8: Aligning with rack at Drop-off_Load using align_with_rack special move type`);
+    // STEP 6: Use align_with_rack move type for proper bin dropoff with retry mechanism
+    logWorkflow(`📍 STEP 6/8: Aligning with rack at Drop-off_Load using align_with_rack special move type`);
     
-    // CRITICAL: First check if jack is already up, and if so, lower it before attempting align_with_rack
-    // The error "jack_in_up_state" indicates the jack needs to be down before alignment
-    logWorkflow(`⚠️ SAFETY CHECK: Verifying jack state before alignment...`);
+    // CRITICAL: First check if jack is already up - needed for dropoff
+    logWorkflow(`⚠️ SAFETY CHECK: Verifying jack state before dropoff...`);
     try {
       // Check jack state
       const jackStateResponse = await axios.get(`${ROBOT_API_URL}/jack_state`, { headers: getHeaders() });
       const jackState = jackStateResponse.data;
       
-      if (jackState && jackState.is_up === true) {
-        logWorkflow(`⚠️ Jack is currently UP. Must lower it before alignment.`);
-        
-        try {
-          // Execute jack_down operation
-          await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
-          
-          // Wait for jack operation to complete
-          logWorkflow(`Lowering jack before alignment, waiting 10 seconds...`);
-          await new Promise(resolve => setTimeout(resolve, 10000));
-          
-          logWorkflow(`✅ Successfully lowered jack before alignment`);
-        } catch (jackDownError: any) {
-          logWorkflow(`⚠️ Warning: Failed to lower jack: ${jackDownError.message}`);
-          logWorkflow(`Continuing with alignment attempts anyway...`);
-        }
+      if (jackState && jackState.is_up !== true) {
+        logWorkflow(`⚠️ Jack is currently DOWN but should be UP for dropoff. Check for errors in previous steps.`);
       } else {
-        logWorkflow(`✅ Jack is already in down state - safe to proceed with alignment`);
+        logWorkflow(`✅ Jack is in UP state - ready to proceed with dropoff alignment`);
       }
     } catch (jackCheckError: any) {
       logWorkflow(`⚠️ Warning: Could not check jack state: ${jackCheckError.message}`);
-      
-      // As a precaution, try lowering the jack anyway
-      try {
-        await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
-        logWorkflow(`Precautionary jack_down executed, waiting 10 seconds...`);
-        await new Promise(resolve => setTimeout(resolve, 10000));
-      } catch (precautionJackError: any) {
-        logWorkflow(`⚠️ Warning: Precautionary jack_down failed: ${precautionJackError.message}`);
-      }
     }
     
     // Reset alignment variables for dropoff procedure
     alignSuccess = false;
     alignAttempts = 0;
-    // Using the same maxAlignAttempts constant (3) defined for pickup
     
     while (!alignSuccess && alignAttempts < maxAlignAttempts) {
       alignAttempts++;
@@ -932,9 +911,6 @@ async function executeZone104Workflow(): Promise<any> {
         } catch (stopError: any) {
           logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
         }
-        
-        // Wait for stabilization
-        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Create a move with type=align_with_rack for dropoff
         const alignCommand = {
@@ -1001,9 +977,8 @@ async function executeZone104Workflow(): Promise<any> {
           };
         }
         
-        // Add safety wait after alignment
-        logWorkflow(`✅ Align with rack for dropoff complete, waiting 5 seconds for stability...`);
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // No additional wait after alignment
+        logWorkflow(`✅ Align with rack for dropoff complete, continuing workflow...`);
         
       } catch (alignError: any) {
         logWorkflow(`❌ ERROR during align_with_rack operation for dropoff (attempt ${alignAttempts}/${maxAlignAttempts}): ${alignError.message}`);
@@ -1052,10 +1027,6 @@ async function executeZone104Workflow(): Promise<any> {
         }
       }
     }
-    
-    // STEP 6: Move to actual dropoff point (Drop-off_Load)
-    logWorkflow(`📍 STEP 6/8: Moving to Drop-off_Load`);
-    await moveToPoint(-3.067, 2.579, 0, 'Drop-off_Load');
     
     // STEP 7: Execute jack_down to lower bin
     logWorkflow(`📍 STEP 7/8: Executing jack_down operation to lower bin`);
