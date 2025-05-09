@@ -1353,8 +1353,12 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
         });
       }
       
+      // Translate from Floor ID to Map ID if needed (Floor 1 = Map 3)
+      const mapId = floorId === "1" ? "3" : floorId;
+      console.log(`Translating Floor ID ${floorId} to Map ID ${mapId} for robot API calls`);
+      
       // Execute the workflow (which will handle logging itself)
-      const result = await workflowFn(workflowId, serviceType, floorId, shelfId);
+      const result = await workflowFn(workflowId, serviceType, mapId, shelfId);
       
       // Return result
       return res.status(200).json({
@@ -1393,7 +1397,7 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
       const mapPoints = await getMapPoints();
       
       // Transform into a more user-friendly format and prioritize the current active map
-      // In this case, map "3" is the active map which should be treated as the primary floor
+      // Map ID 3 actually translates to Floor 1 (Phil's Map)
       const mapData = Object.keys(mapPoints)
         .sort((a, b) => {
           // Always put map "3" first (this is the current active map on the robot)
@@ -1405,18 +1409,23 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
           // Otherwise sort numerically
           return parseInt(a) - parseInt(b);
         })
-        .map(floorId => {
-          const floorData = mapPoints[floorId];
+        .map(mapId => {
+          const floorData = mapPoints[mapId];
+          
+          // Translate map ID to floor ID (Map ID 3 = Floor 1)
+          const floorId = mapId === "3" ? "1" : mapId;
           
           // Log what we found for debugging
-          console.log(`Map ${floorId} has ${floorData.shelfPoints.length} shelf points`);
+          console.log(`Map ${mapId} (Floor ${floorId}) has ${floorData.shelfPoints.length} shelf points`);
           if (floorData.shelfPoints.length > 0) {
             console.log(`First shelf point: ${JSON.stringify(floorData.shelfPoints[0])}`);
           }
           
           return {
-            id: floorId,
-            name: floorId.includes('_') ? floorId.split('_')[1] : floorId,
+            id: floorId, // Return Floor ID for frontend display
+            mapId: mapId, // Keep track of original map ID for API calls
+            name: mapId === "3" ? "Floor 1 (Phil's Map)" : 
+                 (floorId.includes('_') ? floorId.split('_')[1] : `Floor ${floorId}`),
             hasCharger: !!floorData.chargerPoint,
             hasDropoff: !!floorData.dropoffPoint,
             hasPickup: !!floorData.pickupPoint,
