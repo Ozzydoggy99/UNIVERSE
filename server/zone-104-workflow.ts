@@ -107,12 +107,43 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       const pickupDockingPoint = allPoints.find(p => p.id === '104_Load_docking');
       const dropoffPoint = allPoints.find(p => p.id === 'Drop-off_Load');
       const dropoffDockingPoint = allPoints.find(p => p.id === 'Drop-off_Load_docking');
-      const chargerPoint = allPoints.find(p => 
-        p.id === 'charger' || 
-        p.id === 'Charger' || 
-        p.id.toLowerCase().includes('charg') ||
-        p.id.includes('Charging Station')
-      );
+      // Get the charger point using two methods:
+      // 1. First try to get from the robot API directly (most accurate)
+      // 2. Fall back to map points if API method fails
+      let chargerPoint;
+      
+      try {
+        // Try to get charger position from the AutoXing API
+        const mapResponse = await axios.get(`${ROBOT_API_URL}/maps/current`, { 
+          headers: getAuthHeaders() 
+        });
+        
+        if (mapResponse.data && mapResponse.data.charger_pose && mapResponse.data.charger_pose.pos) {
+          // Create a charger point from the API data
+          chargerPoint = {
+            id: 'Charging Station_docking',
+            x: mapResponse.data.charger_pose.pos[0],
+            y: mapResponse.data.charger_pose.pos[1],
+            ori: mapResponse.data.charger_pose.ori || 0
+          };
+          
+          logRobotTask(`Found charger position from API: (${chargerPoint.x}, ${chargerPoint.y}), ori: ${chargerPoint.ori}`);
+        }
+      } catch (error: any) {
+        logRobotTask(`Warning: Could not get charger position from API: ${error.message}`);
+        // Will fall back to map points method below
+      }
+      
+      // Fallback: If we couldn't get the charger position from API, use map points
+      if (!chargerPoint) {
+        logRobotTask(`Falling back to map points to find charger...`);
+        chargerPoint = allPoints.find(p => 
+          p.id === 'charger' || 
+          p.id === 'Charger' || 
+          p.id.toLowerCase().includes('charg') ||
+          p.id.includes('Charging Station')
+        );
+      }
       
       // Validate all required points exist
       if (!pickupPoint) {

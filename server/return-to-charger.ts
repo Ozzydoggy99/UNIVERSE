@@ -117,18 +117,21 @@ export function registerReturnToChargerHandler(app: Express) {
             label: 'docking point for charger'
           }
         },
-        // Step 2: Move precisely to charger position
+        // Step 2: Move precisely to charger position with charge move type
         {
           type: 'move' as const,
           params: {
             x: charger.x,
             y: charger.y,
             ori: charger.ori ?? 0,
-            label: 'charger point'
+            label: 'charger point',
+            isCharger: true // This indicates we want the charge move type with charge_retry_count
           }
         },
         // We do not want to jack_down at the charger - removed this step
       ];
+      
+      logRobotTask('🔋 NOTE: Using charge move type with charge_retry_count for final charger docking step');
       
       // Cancel all other pending or in-progress missions first
       logRobotTask('⚠️ Cancelling all other missions before returning to charger');
