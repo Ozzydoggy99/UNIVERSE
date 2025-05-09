@@ -12,8 +12,13 @@ async function testZone104Workflow() {
   try {
     console.log('🚀 Starting Zone 104 complete workflow (pickup and dropoff)...');
     
-    // Make the API call to start the workflow
-    const response = await axios.post(`${API_BASE_URL}/robots/workflows/zone-104`);
+    // Make the API call to start the workflow using the new dynamic workflow system
+    const response = await axios.post(`${API_BASE_URL}/workflow/pickup`, {
+      serviceType: 'laundry',
+      operationType: 'pickup',
+      floorId: '3',  // Using Map 3 by default
+      shelfId: '104_Load'  // Using the standard naming convention
+    });
     
     if (response.data && response.data.success) {
       console.log(`✅ Workflow started successfully! Mission ID: ${response.data.missionId}`);
@@ -40,21 +45,22 @@ async function monitorMission(missionId, maxRetries = 120) {
     attempt++;
     
     try {
-      const response = await axios.get(`${API_BASE_URL}/missions/${missionId}`);
+      const response = await axios.get(`${API_BASE_URL}/workflow/${missionId}`);
       const mission = response.data;
       
-      if (mission.status === 'completed') {
-        console.log(`✅ Mission ${missionId} completed successfully!`);
+      const workflow = mission.workflow;
+      if (workflow.status === 'completed') {
+        console.log(`✅ Workflow ${missionId} completed successfully!`);
         completed = true;
-      } else if (mission.status === 'failed') {
-        throw new Error(`Mission ${missionId} failed: ${mission.errorMessage || 'Unknown error'}`);
+      } else if (workflow.status === 'failed') {
+        throw new Error(`Workflow ${missionId} failed: ${workflow.error || 'Unknown error'}`);
       } else {
         // Calculate progress
-        const totalSteps = mission.steps.length;
-        const completedSteps = mission.steps.filter(s => s.completed).length;
-        const progress = Math.round((completedSteps / totalSteps) * 100);
+        const totalSteps = workflow.totalSteps;
+        const currentStep = workflow.currentStep;
+        const progress = Math.round((currentStep / totalSteps) * 100);
         
-        console.log(`⏳ Mission in progress: ${progress}% complete (${completedSteps}/${totalSteps} steps) - Status: ${mission.status}`);
+        console.log(`⏳ Workflow in progress: ${progress}% complete (Step ${currentStep}/${totalSteps}) - Status: ${workflow.status}`);
         
         // Wait 5 seconds before checking again
         await new Promise(resolve => setTimeout(resolve, 5000));
