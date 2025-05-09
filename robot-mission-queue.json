@@ -2417,5 +2417,177 @@
     "createdAt": "2025-05-09T05:03:44.323Z",
     "updatedAt": "2025-05-09T05:07:01.554Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1746770823416_539u9wu",
+    "name": "Zone 104 Workflow with Charger Return (Fallback Method)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -16.253106853127974,
+          "y": 6.419632917129547,
+          "ori": 0,
+          "label": "104_Load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -2.3143658339108697,
+          "y": 2.543396298051448,
+          "ori": 177.73,
+          "label": "Drop-off_Load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -3.067094531843395,
+          "y": 2.5788015960870325,
+          "ori": 0,
+          "label": "Drop-off_Load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 0.03443853667262486,
+          "y": 0.4981316698765672,
+          "ori": 266.11,
+          "label": "Charging Station_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-09T06:07:03.416Z",
+    "updatedAt": "2025-05-09T06:07:28.909Z",
+    "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1746770848916_ce450zx",
+    "name": "Zone 104 Workflow with Charger Return (Fallback Method)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -16.253106853127974,
+          "y": 6.419632917129547,
+          "ori": 0,
+          "label": "104_Load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -2.3143658339108697,
+          "y": 2.543396298051448,
+          "ori": 177.73,
+          "label": "Drop-off_Load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -3.067094531843395,
+          "y": 2.5788015960870325,
+          "ori": 0,
+          "label": "Drop-off_Load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 0.03443853667262486,
+          "y": 0.4981316698765672,
+          "ori": 266.11,
+          "label": "Charging Station_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "pending",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-09T06:07:28.916Z",
+    "updatedAt": "2025-05-09T06:07:28.916Z",
+    "robotSn": "L382502104987ir"
   }
 ]
