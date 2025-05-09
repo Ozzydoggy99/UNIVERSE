@@ -1,21 +1,40 @@
 // client/src/pages/my-template.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
+import { useAuth } from '@/hooks/use-auth';
 import { useRobotMapData } from '@/hooks/use-robot-map-data';
 import { useSimplifiedRobotTask } from '@/hooks/use-simplified-robot-task';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Point } from '@/types/robot';
-import { Loader2, ListIcon, WifiOff } from 'lucide-react';
+import { Loader2, ListIcon, WifiOff, ShowerHead, Trash2, LogOut } from 'lucide-react';
 import { MissionStatus } from '@/components/mission-status';
 
 export default function MyTemplatePage() {
   const { data, loading, error } = useRobotMapData();
   const { assignTask, loading: taskLoading, error: taskError, success, isCharging, lastTaskResult, latestMissionId } = useSimplifiedRobotTask();
+  const { user, logoutMutation } = useAuth();
+  const [, navigate] = useLocation();
+  
+  // If this is Phil's account, we want to use the new dynamic workflow
+  useEffect(() => {
+    // Check if user has templateId 1 (Phil's template)
+    if (user && user.username === "Phil") {
+      // Automatically redirect to new workflow page
+      // Comment out to disable auto-redirect
+      // navigate('/workflow');
+    }
+  }, [user, navigate]);
   
   const [mode, setMode] = useState<'pickup' | 'dropoff' | null>(null);
   const [floor, setFloor] = useState<string | null>(null);
   const [selectedShelf, setSelectedShelf] = useState<Point | null>(null);
   const [showMissionStatus, setShowMissionStatus] = useState<boolean>(false);
+  
+  // Navigate to new workflow
+  const goToNewWorkflow = () => {
+    navigate('/workflow');
+  };
   
   // Modified point type to ensure name property exists
   const ensureName = (point: Point): Point => {
@@ -60,12 +79,50 @@ export default function MyTemplatePage() {
 
   return (
     <div className="p-4 space-y-6 max-w-xl mx-auto">
-      <h1 className="text-xl font-semibold text-center">Robot Mission Control</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-xl font-semibold">Robot Mission Control</h1>
+        {user && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm">{user.username}</span>
+            <button 
+              className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5"
+              onClick={() => logoutMutation.mutate()}
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
+      
+      {/* New UI Workflow Button */}
+      {user && user.username === "Phil" && (
+        <Card className="p-4 bg-green-50 border-green-100">
+          <h2 className="text-lg font-semibold text-green-700 mb-2">New Simplified Interface</h2>
+          <p className="text-sm mb-3">Use our new step-by-step workflow interface designed to make robot control easier.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => navigate('/workflow')}
+              className="bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2"
+            >
+              <ShowerHead className="h-5 w-5" />
+              Laundry
+            </Button>
+            <Button
+              onClick={() => navigate('/workflow')}
+              className="bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2"
+            >
+              <Trash2 className="h-5 w-5" />
+              Trash
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Step 1: Select Mode */}
       {!mode && (
         <Card className="p-4 flex flex-col gap-4">
-          <h2 className="text-lg">Select Mode</h2>
+          <h2 className="text-lg">Legacy Control Panel</h2>
           <Button onClick={() => setMode('pickup')}>Pickup</Button>
           <Button onClick={() => setMode('dropoff')}>Dropoff</Button>
         </Card>

@@ -4,25 +4,82 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { ArrowLeftCircle, ShowerHead, Trash2 } from "lucide-react";
+import { ArrowLeftCircle, ShowerHead, Trash2, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { ROBOT_SERIAL } from "@/lib/constants";
 
 // Main service selection page
 export default function WorkflowPage() {
+  const { user, logoutMutation } = useAuth();
+  const [, navigate] = useLocation();
+  const [robotStatus, setRobotStatus] = useState<{battery: number, connected: boolean}>({
+    battery: 0,
+    connected: false
+  });
+  
+  // Get robot status on page load
+  useEffect(() => {
+    const checkRobotStatus = async () => {
+      try {
+        const response = await fetch(`/api/robot/status?serial=${ROBOT_SERIAL}`);
+        const data = await response.json();
+        
+        if (response.ok && data) {
+          setRobotStatus({
+            battery: data.battery || 0,
+            connected: true
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch robot status:", error);
+      }
+    };
+    
+    checkRobotStatus();
+    
+    // Poll for robot status every 10 seconds
+    const interval = setInterval(checkRobotStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Go back to template page
+  const handleBackClick = () => {
+    navigate('/my-template');
+  };
+  
   return (
     <div className="flex flex-col min-h-screen p-4">
       <header className="flex items-center mb-8">
         <div className="flex items-center">
           <h1 className="text-2xl font-semibold text-green-700">SKYTECH</h1>
+          <button 
+            className="ml-4 text-sm text-gray-600 hover:underline"
+            onClick={handleBackClick}
+          >
+            Back to Dashboard
+          </button>
         </div>
         <div className="ml-auto flex items-center">
-          <span className="mr-2 text-lg">Phil</span>
-          <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white">
-            <ArrowLeftCircle size={20} />
-          </div>
+          {robotStatus.connected && (
+            <div className="mr-4 flex items-center">
+              <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+              <span className="text-sm">Robot: {robotStatus.battery}%</span>
+            </div>
+          )}
+          
+          <span className="mr-2 text-lg">{user?.username || "Phil"}</span>
+          <button 
+            className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white"
+            onClick={() => logoutMutation.mutate()}
+            title="Logout"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </header>
 
       <div className="flex flex-col items-center justify-center flex-1 space-y-8">
+        <h2 className="text-2xl font-semibold mb-4">Select Service Type</h2>
         <ServiceCard 
           title="LAUNDRY" 
           icon={<ShowerHead size={48} />}
