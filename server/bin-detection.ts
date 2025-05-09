@@ -67,12 +67,16 @@ export async function checkForBin(x: number, y: number, pointId?: string): Promi
     // If this is a pickup point (contains "Load" in pointId), assume bin is present
     // If this is a dropoff point (contains "Drop" in pointId), assume bin is not present
     if (pointId) {
-      if (pointId.includes('Load') && !pointId.includes('docking')) {
-        console.log(`[BIN-DETECTION] Assuming bin is present at pickup point ${pointId}`);
-        return true;
-      } else if (pointId.toLowerCase().includes('drop') && !pointId.includes('docking')) {
+      // Check for dropoff points first since they take precedence
+      if (pointId.toLowerCase().includes('drop') && !pointId.includes('docking')) {
         console.log(`[BIN-DETECTION] Assuming no bin is present at dropoff point ${pointId}`);
         return false;
+      }
+      // Then check for load points
+      else if (pointId.includes('Load') && !pointId.includes('docking') && 
+               !pointId.toLowerCase().includes('drop')) { // Make sure it's not a dropoff point
+        console.log(`[BIN-DETECTION] Assuming bin is present at pickup point ${pointId}`);
+        return true;
       }
     }
     
@@ -167,16 +171,20 @@ export async function getBinDetectionStatus(
     
     // Final fallback - use point name
     if (method === 'none' && pointId) {
-      if (pointId.includes('Load') && !pointId.includes('docking')) {
-        detected = true;
-        confidence = 0.7;
-        method = 'point_name_heuristic';
-        console.log(`[BIN-DETECTION] Assuming bin is present at pickup point ${pointId}`);
-      } else if (pointId.toLowerCase().includes('drop') && !pointId.includes('docking')) {
+      // Check for dropoff points first since they take precedence
+      if (pointId.toLowerCase().includes('drop') && !pointId.includes('docking')) {
         detected = false;
         confidence = 0.7;
         method = 'point_name_heuristic';
         console.log(`[BIN-DETECTION] Assuming no bin is present at dropoff point ${pointId}`);
+      }
+      // Then check for load points that are not dropoff points
+      else if (pointId.includes('Load') && !pointId.includes('docking') && 
+               !pointId.toLowerCase().includes('drop')) {
+        detected = true;
+        confidence = 0.7;
+        method = 'point_name_heuristic';
+        console.log(`[BIN-DETECTION] Assuming bin is present at pickup point ${pointId}`);
       }
     }
     

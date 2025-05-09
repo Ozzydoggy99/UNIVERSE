@@ -114,40 +114,107 @@ export class MissionQueueManager {
   }
   
   /**
-   * Execute a mission step by step
+   * Execute a mission step by step with enhanced validation and logging
    */
   async executeMission(mission: Mission) {
+    // Log mission start with details for debugging
+    console.log(`========== MISSION EXECUTION START ==========`);
     console.log(`Executing mission ${mission.id} (${mission.name})`);
+    console.log(`Total steps: ${mission.steps.length}`);
+    console.log(`Current step index: ${mission.currentStepIndex}`);
+    
+    // Add debug log for robot position at start
+    try {
+      const positionRes = await axios.get(`${ROBOT_API_URL}/pose/`, { headers });
+      if (positionRes.data) {
+        console.log(`Robot starting position: (${positionRes.data.x.toFixed(2)}, ${positionRes.data.y.toFixed(2)}, orientation: ${positionRes.data.ori.toFixed(2)}°)`);
+      }
+    } catch (error: any) {
+      console.log(`Unable to get robot starting position: ${error.message}`);
+    }
     
     let currentStepIndex = mission.currentStepIndex;
     let allStepsCompleted = true;
     
+    // Log all steps in the mission for debugging
+    console.log(`Mission steps:`);
+    mission.steps.forEach((step, idx) => {
+      const status = step.completed ? '✅ COMPLETED' : (idx === currentStepIndex ? '⏳ CURRENT' : '⏳ PENDING');
+      const details = step.type === 'move' ? ` to ${step.params.label || `(${step.params.x}, ${step.params.y})`}` : '';
+      console.log(`  ${idx + 1}. ${step.type}${details} - ${status}`);
+    });
+    
+    // Execute each step
     while (currentStepIndex < mission.steps.length) {
       const step = mission.steps[currentStepIndex];
+      const stepNumber = currentStepIndex + 1;
       
       if (step.completed) {
+        console.log(`Skipping already completed step ${stepNumber}/${mission.steps.length}: ${step.type}`);
         currentStepIndex++;
         continue;
       }
       
       try {
-        console.log(`Executing step ${currentStepIndex + 1}/${mission.steps.length}: ${step.type}`);
+        console.log(`\n---------- STEP ${stepNumber}/${mission.steps.length} START ----------`);
+        console.log(`Executing step ${stepNumber}: ${step.type}`);
         
-        // Try to detect if we're offline
-        mission.offline = false;
+        // Add more detailed logging based on step type
+        if (step.type === 'move') {
+          const target = step.params.label || `(${step.params.x}, ${step.params.y})`;
+          console.log(`Moving robot to ${target}`);
+        } else if (step.type === 'jack_up') {
+          console.log(`⚠️ CRITICAL SAFETY OPERATION: Jack up - robot must be COMPLETELY STOPPED`);
+        } else if (step.type === 'jack_down') {
+          console.log(`⚠️ CRITICAL SAFETY OPERATION: Jack down - robot must be COMPLETELY STOPPED`);
+        }
+        
+        // Verify robot is online
+        try {
+          const statusRes = await axios.get(`${ROBOT_API_URL}/service/status`, { 
+            headers,
+            timeout: 5000 // Short timeout to quickly detect offline robots
+          });
+          mission.offline = false;
+          console.log(`Robot connection verified - status: ${statusRes.data?.status || 'ok'}`);
+        } catch (error: any) {
+          console.log(`⚠️ Robot connection check failed: ${error.message}`);
+          // Don't mark as offline yet - the actual operation might still succeed
+        }
+        
         let stepResult: any;
         
         try {
-          // Execute the step based on type
+          // Execute the step based on type with detailed logging
           if (step.type === 'move') {
+            console.log(`Starting move operation to ${step.params.label || `(${step.params.x.toFixed(2)}, ${step.params.y.toFixed(2)})`}`);
             stepResult = await this.executeMoveStep(step.params);
+            console.log(`Move operation complete with result: ${JSON.stringify(stepResult)}`);
             
-            // Make sure move is complete - check one more time to be certain
-            await this.checkMoveStatus();
+            // Double-check move is complete
+            const isMoveComplete = await this.checkMoveStatus();
+            console.log(`Final move status check: ${isMoveComplete ? 'COMPLETE' : 'STILL MOVING'}`);
+            
+            if (!isMoveComplete) {
+              console.log(`⚠️ WARNING: Robot reports it's still moving after move should be complete`);
+              // Wait a bit more to ensure completion
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              const secondCheck = await this.checkMoveStatus();
+              console.log(`Second move status check: ${secondCheck ? 'COMPLETE' : 'STILL MOVING'}`);
+              
+              if (!secondCheck) {
+                throw new Error('Robot failed to complete movement - still moving after operation should be complete');
+              }
+            }
+            
           } else if (step.type === 'jack_up') {
             console.log(`⚠️ CRITICAL OPERATION: Jack up - checking robot status`);
+            
+            // First verify robot is stopped
+            await this.verifyRobotStopped('jack_up');
+            
+            // Execute jack up operation
             stepResult = await this.executeJackUpStep();
-            // Jack up operation sends feedback through the API response
           } else if (step.type === 'jack_down') {
             console.log(`⚠️ CRITICAL OPERATION: Jack down - checking robot status`);
             stepResult = await this.executeJackDownStep();
@@ -237,6 +304,80 @@ export class MissionQueueManager {
     console.log(`Cancelled ${activeMissions.length} active missions`);
   }
   
+  /**
+   * Verify that robot is completely stopped before safety-critical operations
+   * Used for jack_up and jack_down operations to prevent accidents with bins
+   */
+  private async verifyRobotStopped(operation: string): Promise<void> {
+    console.log(`⚠️ SAFETY CHECK: Verifying robot is completely stopped before ${operation}...`);
+    
+    // First check if there's an active move
+    let moveStatus: any = null;
+    try {
+      const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers });
+      moveStatus = moveResponse.data;
+      
+      if (moveStatus && moveStatus.state === 'moving') {
+        console.log(`⚠️ SAFETY VIOLATION: Robot is currently moving, cannot perform ${operation}`);
+        console.log(`Current move details: ${JSON.stringify(moveStatus)}`);
+        throw new Error(`Robot must be completely stopped before ${operation} operation`);
+      }
+    } catch (error: any) {
+      // If we got a 404, it means no current move, which is good
+      if (error.response && error.response.status === 404) {
+        console.log(`No active movement found, robot should be stopped`);
+      } else {
+        console.log(`Error checking move status: ${error.message}`);
+        // Continue with other checks, don't abort due to API errors
+      }
+    }
+    
+    // Second, check wheel state to verify robot is not actually moving
+    try {
+      const wheelResponse = await axios.get(`${ROBOT_API_URL}/wheel_state`, { headers });
+      const wheelState = wheelResponse.data;
+      
+      if (wheelState) {
+        const speed = Math.max(
+          Math.abs(wheelState.left_speed || 0), 
+          Math.abs(wheelState.right_speed || 0)
+        );
+        
+        if (speed > 0.01) { // More than 1cm/s is moving
+          console.log(`⚠️ SAFETY VIOLATION: Robot wheels are moving (${speed.toFixed(2)}m/s), cannot perform ${operation}`);
+          throw new Error(`Robot wheels are moving - must be completely stopped before ${operation}`);
+        } else {
+          console.log(`✅ SAFETY CHECK: Robot wheels are stopped (${speed.toFixed(2)}m/s)`);
+        }
+      }
+    } catch (error: any) {
+      if (error.message.includes('SAFETY VIOLATION')) {
+        // Re-throw safety violations
+        throw error;
+      } else {
+        console.log(`Warning: Could not check wheel state: ${error.message}`);
+        console.log(`Will continue with ${operation} but may be unsafe`);
+      }
+    }
+    
+    // Finally, verify no active operations
+    try {
+      const statusResponse = await axios.get(`${ROBOT_API_URL}/service/status`, { headers });
+      const status = statusResponse.data;
+      
+      if (status && status.is_busy) {
+        console.log(`⚠️ SAFETY WARNING: Robot reports busy status, may be unsafe for ${operation}`);
+        // Give it a moment to settle
+        console.log(`Waiting 3 seconds for robot to stabilize...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    } catch (error: any) {
+      console.log(`Warning: Could not check robot busy status: ${error.message}`);
+    }
+    
+    console.log(`✅ SAFETY CHECK PASSED: Robot appears to be stopped, proceeding with ${operation}`);
+  }
+  
   private async checkMoveStatus(): Promise<boolean> {
     try {
       const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
@@ -261,19 +402,80 @@ export class MissionQueueManager {
   
   /**
    * Wait for the robot to complete its current movement
+   * Enhanced version that verifies the robot is actually moving using position data
    */
-  private async waitForMoveComplete(moveId: number, timeout = 120000): Promise<void> {
+  private async waitForMoveComplete(moveId: number, timeout = 60000): Promise<void> {
     const startTime = Date.now();
     let isMoving = true;
+    let lastPositionUpdate = 0;
+    let lastPosition: {x: number, y: number} | null = null;
+    let noProgressTime = 0;
+    let verifiedMove = false;
     
     console.log(`Waiting for robot to complete movement (ID: ${moveId})...`);
     
+    // First verify the move is active
+    try {
+      const moveStatus = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
+      if (!moveStatus.data || moveStatus.data.state !== 'moving') {
+        console.log(`Move ID ${moveId} is not in 'moving' state: ${moveStatus.data?.state || 'unknown'}`);
+        return; // Exit if move is not active
+      }
+    } catch (error: any) {
+      console.log(`Unable to verify move ${moveId}: ${error.message}`);
+      return; // Exit if can't verify the move
+    }
+    
     while (isMoving && (Date.now() - startTime < timeout)) {
+      // Check move status via API
       isMoving = !(await this.checkMoveStatus());
       
+      // Get current position to verify actual movement
+      try {
+        const positionRes = await axios.get(`${ROBOT_API_URL}/pose/`, { headers });
+        if (positionRes.data) {
+          const currentPosition = {
+            x: positionRes.data.x || 0,
+            y: positionRes.data.y || 0
+          };
+          
+          // Check if position has changed
+          if (lastPosition) {
+            const distance = Math.sqrt(
+              Math.pow(currentPosition.x - lastPosition.x, 2) + 
+              Math.pow(currentPosition.y - lastPosition.y, 2)
+            );
+            
+            if (distance > 0.05) { // More than 5cm movement
+              lastPositionUpdate = Date.now();
+              verifiedMove = true; // We've verified the robot is actually moving
+              console.log(`Robot movement verified: ${distance.toFixed(2)}m displacement`);
+              noProgressTime = 0;
+            } else {
+              noProgressTime = Date.now() - lastPositionUpdate;
+              if (noProgressTime > 10000 && verifiedMove) { // 10 seconds without movement
+                console.log(`⚠️ Robot hasn't moved in ${(noProgressTime/1000).toFixed(0)} seconds`);
+              }
+            }
+          } else {
+            lastPositionUpdate = Date.now();
+          }
+          
+          lastPosition = currentPosition;
+        }
+      } catch (error: any) {
+        console.log(`Unable to get robot position: ${error.message}`);
+      }
+      
       if (isMoving) {
-        // Wait 5 seconds before checking again to reduce API load
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // If stopped making progress for more than 20 seconds but still "moving", timeout early
+        if (noProgressTime > 20000 && verifiedMove) {
+          console.log(`⚠️ Robot has stopped moving for over 20 seconds while still in 'moving' state`);
+          throw new Error(`Movement stalled - no progress for ${(noProgressTime/1000).toFixed(0)} seconds`);
+        }
+        
+        // Wait 3 seconds before checking again (reduced from 5)
+        await new Promise(resolve => setTimeout(resolve, 3000));
         console.log(`Still moving (move ID: ${moveId}), waiting...`);
       }
     }
