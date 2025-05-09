@@ -9,7 +9,7 @@ const QUEUE_FILE = path.join(process.cwd(), 'robot-mission-queue.json');
 const MISSION_LOG_FILE = path.join(process.cwd(), 'robot-mission-log.json');
 
 export interface MissionStep {
-  type: 'move' | 'jack_up' | 'jack_down';
+  type: 'move' | 'jack_up' | 'jack_down' | 'manual_joystick' | 'align_with_rack' | 'to_unload_point';
   params: Record<string, any>;
   completed: boolean;
   robotResponse?: any;
@@ -223,6 +223,12 @@ export class MissionQueueManager {
             console.log(`⚠️ CRITICAL OPERATION: Jack down - robot confirmed stopped, proceeding with operation`);
             stepResult = await this.executeJackDownStep();
             // Jack down operation sends feedback through the API response
+          } else if (step.type === 'manual_joystick') {
+            console.log(`Executing manual joystick command: ${step.params.label || 'No label'}`);
+            // First verify robot is in a suitable state
+            await this.verifyRobotStopped('manual_joystick');
+            // Execute the joystick command
+            stepResult = await this.executeManualJoystickStep(step.params);
           }
           
           // Successfully completed step

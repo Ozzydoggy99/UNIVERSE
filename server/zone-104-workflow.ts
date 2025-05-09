@@ -147,7 +147,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       // Define the mission steps according to the documented process
       const workflowSteps: Omit<MissionStep, "completed" | "retryCount">[] = [];
       
-      // STEP 1: Always go to pickup docking position first
+      // STEP 1: Go to pickup docking position first (approach point)
       workflowSteps.push({
         type: 'move',
         params: {
@@ -158,41 +158,19 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         }
       });
       
-      // STEP 2: Go to pickup position
+      // STEP 2: Use align_with_rack move for proper rack alignment
+      // This is the proper way to align with a rack/shelf according to the AutoXing documentation
       workflowSteps.push({
-        type: 'move',
+        type: 'align_with_rack',
         params: {
           x: pickupPoint.x,
           y: pickupPoint.y,
           ori: pickupPoint.ori,
-          label: pickupPoint.id
+          label: `Align with rack at ${pickupPoint.id}`
         }
       });
       
-      // STEP 3: CRITICAL - Back up slightly for proper bin alignment
-      // This is a separate dedicated backup step before jack_up for better positioning
-      workflowSteps.push({
-        type: 'manual_joystick',
-        params: {
-          action: "joystick",
-          linear: {
-            x: -0.05, // Negative x means backward movement (5cm)
-            y: 0.0,
-            z: 0.0
-          },
-          angular: {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0
-          },
-          duration: 1500, // 1.5 seconds of movement
-          waitComplete: true,
-          stabilizationTime: 2000, // 2 seconds stabilization after movement
-          label: "Backup for bin alignment"
-        }
-      });
-      
-      // STEP 4: Jack up to grab bin
+      // STEP 3: Jack up to grab bin
       workflowSteps.push({
         type: 'jack_up',
         params: {
