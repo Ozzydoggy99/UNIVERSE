@@ -915,9 +915,10 @@ async function executeZone104Workflow(): Promise<any> {
       }
     }
     
-    let alignSuccess = false;
-    let alignAttempts = 0;
-    const maxAlignAttempts = 3; // Maximum number of attempts to align with rack
+    // Reset alignment variables for dropoff procedure
+    alignSuccess = false;
+    alignAttempts = 0;
+    // Using the same maxAlignAttempts constant (3) defined for pickup
     
     while (!alignSuccess && alignAttempts < maxAlignAttempts) {
       alignAttempts++;
