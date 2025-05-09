@@ -3,7 +3,7 @@ import express from 'express';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from './robot-constants';
 import { fetchRobotMapPoints } from './robot-map-data';
 import { isRobotCharging, isEmergencyStopPressed, returnToCharger } from './robot-api';
 import { missionQueue } from './mission-queue';

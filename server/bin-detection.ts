@@ -1,6 +1,6 @@
 // server/bin-detection.ts
 import axios from 'axios';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
 /**
  * Check if there's a bin at the specified position
@@ -13,7 +13,7 @@ import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
  */
 export async function checkForBin(x: number, y: number, pointId?: string): Promise<boolean> {
   try {
-    const headers = { 'x-api-key': ROBOT_SECRET };
+    const headers = getAuthHeaders();
     const sensorApiEndpoint = `${ROBOT_API_URL}/sensors/distance`;
     
     // First try to use distance sensors if available
@@ -103,7 +103,7 @@ export async function getBinDetectionStatus(
   pointId?: string
 ): Promise<{detected: boolean, confidence: number, method: string}> {
   try {
-    const headers = { 'x-api-key': ROBOT_SECRET };
+    const headers = getAuthHeaders();
     let detected = false;
     let confidence = 0;
     let method = 'none';
