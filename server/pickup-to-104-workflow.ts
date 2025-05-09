@@ -165,6 +165,26 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
         }
       });
       
+      // STEP 2.5: Small backup movement for proper bin alignment (CRITICAL FOR SUCCESS)
+      workflowSteps.push({
+        type: 'joystick',
+        params: {
+          label: 'Small backup for proper bin alignment',
+          linear: {
+            x: -0.05, // 5cm backward movement
+            y: 0.0,
+            z: 0.0
+          },
+          angular: {
+            x: 0.0, 
+            y: 0.0,
+            z: 0.0
+          },
+          duration: 1500, // 1.5 seconds of movement
+          stabilizationTime: 1000 // 1 second to stabilize after stopping
+        }
+      });
+      
       // STEP 3: Jack up to grab bin
       workflowSteps.push({
         type: 'jack_up',
