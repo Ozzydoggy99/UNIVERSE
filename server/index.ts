@@ -61,11 +61,16 @@ app.use((req, res, next) => {
   const startPort = 5000;
   const maxPortAttempts = 10; // Try ports 5000-5009
   
+  // To avoid port conflicts, we need to ensure any existing server is properly closed
+  // before attempting to start a new one
   function tryPort(portNumber: number, attempt: number) {
+    // Add better error handling and port availability checking
     server.listen({
       port: portNumber,
       host: "0.0.0.0",
-      reusePort: true,
+      // Setting reusePort to false to ensure we don't try to share a port that might be
+      // in use by another server instance - this is more compatible with various platforms
+      reusePort: false,
     }, () => {
       log(`serving on port ${portNumber}`);
     }).on('error', (err: any) => {

@@ -41,7 +41,8 @@ const subscribeTopics: string[] = [
  * Get the WebSocket URL for the robot
  */
 function getRobotWebSocketUrl(): string {
-  // According to the documentation, the correct path is /ws/v2/topics
+  // According to the new documentation, we need to use the proper API endpoint
+  // The AutoXing API docs specify the WebSocket URL format
   return `${ROBOT_API_URL.replace(/^http/, 'ws')}/ws/v2/topics`;
 }
 
@@ -93,19 +94,21 @@ function connectRobotWebSocket() {
       reconnectAttempt = 0;
 
       // Subscribe to topics
-      subscribeTopics.forEach(topic => {
-        try {
-          if (robotWs && robotWs.readyState === WebSocket.OPEN) {
-            // Per documentation, the correct command format is { "enable_topic": "/topic_name" }
-            robotWs.send(JSON.stringify({
-              enable_topic: topic
-            }));
-            console.log(`Subscribed to robot topic: ${topic}`);
-          }
-        } catch (e) {
-          console.error(`Error subscribing to topic ${topic}:`, e);
+      // According to the updated API documentation, we should use the enable_topics command
+      // with an array of topics for more efficient subscription
+      try {
+        if (robotWs && robotWs.readyState === WebSocket.OPEN) {
+          // Per the AutoXing API docs, we need to use the command format:
+          // { "command": "enable_topics", "topics": ["/topic1", "/topic2"] }
+          robotWs.send(JSON.stringify({
+            command: "enable_topics",
+            topics: subscribeTopics
+          }));
+          console.log(`Subscribed to robot topics: ${subscribeTopics.join(', ')}`);
         }
-      });
+      } catch (e) {
+        console.error(`Error subscribing to topics:`, e);
+      }
 
       // Set up ping interval
       if (pingInterval) {
