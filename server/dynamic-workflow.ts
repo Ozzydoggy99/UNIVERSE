@@ -223,13 +223,31 @@ async function getMapPoints(): Promise<MapPoints> {
           if (shelfPoints.length === 0) {
             console.log(`✅ Map 3: Using ObjectId point as shelf point: ${point.id}`);
             shelfPoints.push(point);
+          } 
+          // If we already have one shelf point, consider this as a possible dropoff point
+          else if (!dropoffPoint && shelfPoints.length === 1) {
+            console.log(`✅ Map 3: Using second ObjectId point as dropoff point: ${point.id}`);
+            dropoffPoint = point;
           }
-          
-          // If there are multiple of these points, try to identify docking points
-          // based on their proximity to other points
-          if (!dropoffDockingPoint && dockingPoints.length === 0) {
-            console.log(`✅ Map 3: Using first ObjectId point as docking point: ${point.id}`);
+          // If we already have one shelf point and one dropoff point, consider this as a possible pickup point
+          else if (!pickupPoint && shelfPoints.length === 1 && dropoffPoint) {
+            console.log(`✅ Map 3: Using third ObjectId point as pickup point: ${point.id}`);
+            pickupPoint = point;
+          }
+          // Any additional points can be docking points
+          else if (dockingPoints.length < 3) {
+            console.log(`✅ Map 3: Using ObjectId point as docking point: ${point.id}`);
             dockingPoints.push(point);
+            
+            // If we don't have specific docking points yet, assign them based on order
+            if (!dropoffDockingPoint && dropoffPoint) {
+              console.log(`✅ Map 3: Assigning docking point to dropoff: ${point.id}`);
+              dropoffDockingPoint = point;
+            } 
+            else if (!pickupDockingPoint && pickupPoint) {
+              console.log(`✅ Map 3: Assigning docking point to pickup: ${point.id}`);
+              pickupDockingPoint = point;
+            }
           }
         }
         
@@ -948,7 +966,7 @@ async function executePickupWorkflow(
     logWorkflow(workflowId, `🚀 Starting ${serviceType} pickup workflow from shelf ${shelfId} on floor ${floorId}`);
     
     // STEP 1: Move to shelf docking point
-    logWorkflow(workflowId, `📍 STEP 1/8: Moving to shelf docking point: ${shelfDockingId}`);
+    logWorkflow(workflowId, `📍 STEP 1/8: Moving to shelf docking point: ${shelfDockingPoint.id}`);
     workflow.currentStep = 1;
     await moveToPoint(
       workflowId,
@@ -1169,7 +1187,7 @@ async function executeDropoffWorkflow(
     await executeJackUp(workflowId);
     
     // STEP 4: Move to shelf docking point
-    logWorkflow(workflowId, `📍 STEP 4/8: Moving to shelf docking point: ${shelfDockingId}`);
+    logWorkflow(workflowId, `📍 STEP 4/8: Moving to shelf docking point: ${shelfDockingPoint.id}`);
     workflow.currentStep = 4;
     await moveToPoint(
       workflowId,
