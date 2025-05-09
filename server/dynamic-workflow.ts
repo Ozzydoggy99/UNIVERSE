@@ -729,6 +729,10 @@ async function executeJackDown(workflowId: string): Promise<void> {
 
 /**
  * Return robot to charging station
+ * @param workflowId The workflow ID for logging
+ * @param chargerX X-coordinate of the charger
+ * @param chargerY Y-coordinate of the charger
+ * @param chargerOri Orientation of the charger
  */
 async function returnToCharger(workflowId: string, chargerX: number, chargerY: number, chargerOri: number): Promise<void> {
   logWorkflow(workflowId, `🔋 Starting return to charger operation...`);
