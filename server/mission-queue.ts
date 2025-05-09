@@ -617,6 +617,10 @@ export class MissionQueueManager {
       const timestamp = new Date().toISOString();
       console.log(`[${timestamp}] [JACK-UP] Executing jack_up operation`);
       
+      // Initial stabilization delay to ensure robot is completely stopped
+      console.log(`[${timestamp}] [JACK-UP] Pre-operation stabilization delay (3 seconds)...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       // The align_with_rack command has already positioned the robot correctly
       // Just call the jack_up service directly
       console.log(`[${timestamp}] [JACK-UP] Initiating JACK_UP service call`);
@@ -625,9 +629,13 @@ export class MissionQueueManager {
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
       console.log(`[${timestamp}] [JACK-UP] Jack up command executed, response: ${JSON.stringify(response.data)}`);
       
-      // Wait for jack operation to fully complete (5 seconds is enough)
-      console.log(`[${timestamp}] [JACK-UP] Waiting for jack up operation to complete...`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Wait longer for jack operation to fully complete (10 seconds for safety)
+      console.log(`[${timestamp}] [JACK-UP] Waiting for jack up operation to complete (10 seconds)...`);
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      
+      // Final stabilization delay to ensure operation is fully completed
+      console.log(`[${timestamp}] [JACK-UP] Final stabilization period (3 seconds)...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       console.log(`[${timestamp}] [JACK-UP] ✅ Jack up completed successfully`);
       return response.data;
@@ -667,6 +675,10 @@ export class MissionQueueManager {
       const timestamp = new Date().toISOString();
       console.log(`[${timestamp}] [JACK-DOWN] Executing jack_down operation`);
       
+      // Initial stabilization delay to ensure robot is completely stopped
+      console.log(`[${timestamp}] [JACK-DOWN] Pre-operation stabilization delay (3 seconds)...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       // Directly call the jack_down service (robot is already in position)
       console.log(`[${timestamp}] [JACK-DOWN] Initiating JACK_DOWN service call`);
       
@@ -674,9 +686,13 @@ export class MissionQueueManager {
       const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
       console.log(`[${timestamp}] [JACK-DOWN] Jack down command executed, response: ${JSON.stringify(response.data)}`);
       
-      // Wait for jack operation to fully complete
-      console.log(`[${timestamp}] [JACK-DOWN] Waiting for jack down operation to complete...`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Wait longer for jack operation to fully complete (10 seconds for safety)
+      console.log(`[${timestamp}] [JACK-DOWN] Waiting for jack down operation to complete (10 seconds)...`);
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      
+      // Final stabilization delay to ensure operation is fully completed
+      console.log(`[${timestamp}] [JACK-DOWN] Final stabilization period (3 seconds)...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       console.log(`[${timestamp}] [JACK-DOWN] ✅ Jack down completed successfully`);
       return response.data;
