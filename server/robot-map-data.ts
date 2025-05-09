@@ -1,13 +1,13 @@
 // server/robot-map-data.ts
 import { Point } from './types';
 import axios from 'axios';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
 /**
  * Fetch all map points from the robot's current map using overlays
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
-  const headers = { 'x-api-key': ROBOT_SECRET };
+  const headers = getAuthHeaders();
 
   try {
     // Fetch the list of maps

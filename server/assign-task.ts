@@ -3,7 +3,7 @@ import express, { Request, Response } from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
 // Helper functions for robot movement
 async function sendMoveCommand(x: number, y: number, logToFile: Function): Promise<any> {
@@ -35,8 +35,8 @@ async function sendMoveCommand(x: number, y: number, logToFile: Function): Promi
     // Send the move command to the robot API
     const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveData, {
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ROBOT_SECRET
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
       }
     });
     
@@ -59,7 +59,7 @@ async function checkMoveStatus(logToFile: Function): Promise<boolean> {
   try {
     const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
       headers: {
-        'x-api-key': ROBOT_SECRET,
+        ...getAuthHeaders(),
         'Content-Type': 'application/json'
       }
     });

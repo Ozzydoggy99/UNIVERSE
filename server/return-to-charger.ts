@@ -2,7 +2,7 @@ import { Express } from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 import { missionQueue, MissionQueueManager } from './mission-queue';
 
 // Function to log robot task messages with timestamps
@@ -31,7 +31,7 @@ export function registerReturnToChargerHandler(app: Express) {
       const response = await axios.post(
         `${ROBOT_API_URL}/services/jack_down`,
         {},
-        { headers: { 'x-api-key': ROBOT_SECRET } }
+        { headers: getAuthHeaders() }
       );
       
       const result = response.data;
