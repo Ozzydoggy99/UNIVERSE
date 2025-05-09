@@ -912,16 +912,19 @@ async function executeZone104Workflow(): Promise<any> {
           logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
         }
         
-        // Create a move with type=align_with_rack for dropoff
+        // IMPORTANT FIX: We need two steps for dropoff:
+        // 1. We moved to Drop-off_Load_docking (already done in Step 5)
+        // 2. Now we need to align with Drop-off_Load for the actual dropoff
+        // Using the specific align_with_rack coordinates for the dropoff point
         const alignCommand = {
           creator: 'robot-api',
           type: 'align_with_rack', // Special move type for rack dropoff
-          target_x: -3.067,
+          target_x: -3.067, // These are the dropoff coordinates (Drop-off_Load)
           target_y: 2.579,
           target_ori: 0
         };
         
-        logWorkflow(`Creating align_with_rack move for dropoff: ${JSON.stringify(alignCommand)}`);
+        logWorkflow(`⚠️ RACK OPERATION: Creating align_with_rack move for dropoff at Drop-off_Load: ${JSON.stringify(alignCommand)}`);
         
         // Send the move command to align with rack
         const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, alignCommand, { headers: getHeaders() });
@@ -948,7 +951,7 @@ async function executeZone104Workflow(): Promise<any> {
           const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
           const moveStatus = statusResponse.data.state;
           
-          logWorkflow(`Current align_with_rack status for dropoff: ${moveStatus}`);
+          logWorkflow(`⚠️ RACK DROPOFF: Current align_with_rack status at Drop-off_Load: ${moveStatus}`);
           
           // Check if move is complete
           if (moveStatus === 'succeeded') {
