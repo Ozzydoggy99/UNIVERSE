@@ -169,7 +169,30 @@ export function registerZone104WorkflowRoute(app: express.Express) {
         }
       });
       
-      // STEP 3: Jack up to grab bin
+      // STEP 3: CRITICAL - Back up slightly for proper bin alignment
+      // This is a separate dedicated backup step before jack_up for better positioning
+      workflowSteps.push({
+        type: 'manual_joystick',
+        params: {
+          action: "joystick",
+          linear: {
+            x: -0.05, // Negative x means backward movement (5cm)
+            y: 0.0,
+            z: 0.0
+          },
+          angular: {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+          },
+          duration: 1500, // 1.5 seconds of movement
+          waitComplete: true,
+          stabilizationTime: 2000, // 2 seconds stabilization after movement
+          label: "Backup for bin alignment"
+        }
+      });
+      
+      // STEP 4: Jack up to grab bin
       workflowSteps.push({
         type: 'jack_up',
         params: {
@@ -232,6 +255,8 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           logRobotTask(`- Step ${i+1}: JACK UP with safety wait: ${step.params.waitComplete}`);
         } else if (step.type === 'jack_down') {
           logRobotTask(`- Step ${i+1}: JACK DOWN with safety wait: ${step.params.waitComplete}`);
+        } else if (step.type === 'manual_joystick') {
+          logRobotTask(`- Step ${i+1}: ${step.params.label} (${step.params.linear.x}, ${step.params.linear.y}) for ${step.params.duration}ms`);
         }
       }
       
