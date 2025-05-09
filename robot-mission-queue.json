@@ -2753,8 +2753,13 @@
           "ori": 178.97,
           "label": "104_Load_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking completed successfully",
+          "moveId": 4338
+        }
       },
       {
         "type": "align_with_rack",
@@ -2764,8 +2769,13 @@
           "ori": 0,
           "label": "Align with rack at 104_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4339,
+          "message": "Align with rack completed successfully"
+        }
       },
       {
         "type": "jack_up",
@@ -2775,7 +2785,8 @@
           "safetyWait": true
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 0,
+        "errorMessage": "Critical safety failure: Unable to ensure robot is stopped before jack operation: Request failed with status code 404"
       },
       {
         "type": "move",
@@ -2821,10 +2832,10 @@
         "retryCount": 0
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 0,
+    "status": "failed",
+    "currentStepIndex": 2,
     "createdAt": "2025-05-09T06:38:15.968Z",
-    "updatedAt": "2025-05-09T06:38:15.978Z",
+    "updatedAt": "2025-05-09T06:40:34.636Z",
     "robotSn": "L382502104987ir"
   }
 ]
