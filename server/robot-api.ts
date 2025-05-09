@@ -250,7 +250,9 @@ export async function returnToCharger(): Promise<any> {
     
     // First try the dedicated return to charger endpoint if available
     try {
-      const response = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { headers });
+      const response = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { 
+        headers: getAuthHeaders() 
+      });
       console.log('Return to charger command sent successfully via services endpoint');
       return {
         success: true,
