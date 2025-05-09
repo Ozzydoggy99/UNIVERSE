@@ -4,7 +4,7 @@
  * This script tests the full bin pickup workflow specifically with the robot's actual Map 3
  */
 
-const axios = require('axios');
+import axios from 'axios';
 
 // Robot API configuration
 const ROBOT_API_URL = 'http://47.180.91.99:8090';
@@ -35,15 +35,14 @@ async function testMap3Workflow() {
       throw new Error('No maps found in workflow API');
     }
     
-    // Find Floor 1 (which corresponds to Map 3)
-    const floor1 = maps.find(m => m.id === '1');
-    if (!floor1) {
-      throw new Error('Floor 1 not found in workflow API');
+    // Find Map 3 (Phil's Map)
+    const map3 = maps.find(m => m.id === '3');
+    if (!map3) {
+      throw new Error('Map 3 (Phil\'s Map) not found in workflow API');
     }
     
-    console.log('✅ Found Floor 1 (Phil\'s Map):');
-    console.log(`   Name: ${floor1.name}`);
-    console.log(`   Map ID: ${floor1.mapId}`);
+    console.log('✅ Found Map 3 (Phil\'s Map):');
+    console.log(`   Name: ${map3.name}`);
     console.log(`   Has Charger: ${floor1.hasCharger}`);
     console.log(`   Has Dropoff: ${floor1.hasDropoff}`);
     console.log(`   Has Pickup: ${floor1.hasPickup}`);

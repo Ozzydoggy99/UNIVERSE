@@ -1219,7 +1219,7 @@ async function executeDropoffWorkflow(
       shelfDockingPoint.x,
       shelfDockingPoint.y,
       shelfDockingPoint.ori,
-      shelfDockingId
+      shelfDockingPoint.id
     );
     
     // STEP 5: Move to shelf point with to_unload_point
@@ -1247,7 +1247,7 @@ async function executeDropoffWorkflow(
       shelfDockingPoint.x,
       shelfDockingPoint.y,
       shelfDockingPoint.ori,
-      `${shelfDockingId} (safe position)`
+      `${shelfDockingPoint.id} (safe position)`
     );
     
     // STEP 8: Return to charger
@@ -1444,8 +1444,8 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
               // Case A: MongoDB ObjectId format (24 chars, hexadecimal)
               else if (p.id.length === 24 && /^[0-9a-f]{24}$/i.test(p.id)) {
                 // For map ID 3, make a specific displayName as this is the only floor/shelf
-                const mapIsFloor3 = floorId === "3";
-                displayName = mapIsFloor3 ? "Shelf 1" : `Point ${index + 1}`;
+                const isMap3 = mapId === "3";
+                displayName = isMap3 ? "Shelf 1" : `Point ${index + 1}`;
               }
               // Case B: UUID format (with or without hyphens)
               else if ((p.id.length === 36 && p.id.includes('-')) || 
