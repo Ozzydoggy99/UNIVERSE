@@ -263,78 +263,32 @@ async function getMapPoints(): Promise<MapPoints> {
         }
       }
       
-      // Special handling for map 3 - if we don't have all required points
-      // but we have shelf points, attempt to set up a working configuration
+      // Only log what we found for map 3 - no virtual points
       if (mapId === "3" && shelfPoints.length > 0) {
         console.log(`Map 3 has ${shelfPoints.length} shelf points`);
         if (shelfPoints.length > 0) {
           console.log(`First shelf point: ${JSON.stringify(shelfPoints[0])}`);
         }
         
-        // If we don't have a charger point, use the first shelf point with a modified orientation
-        if (!chargerPoint && shelfPoints.length > 0) {
-          console.log(`⚠️ No explicit charger point found on Map 3 - creating one based on shelf point`);
-          
-          // Create a virtual charger point based on the shelf point
-          // but with a different orientation to avoid collisions
-          const basePoint = shelfPoints[0];
-          chargerPoint = {
-            id: `virtual_charger_${basePoint.id}`,
-            x: basePoint.x - 0.5, // Position it to the left of the shelf
-            y: basePoint.y,
-            ori: (basePoint.ori + 180) % 360  // Opposite direction
-          };
-          console.log(`Created virtual charger point: ${JSON.stringify(chargerPoint)}`);
+        // Report on missing points for debugging but don't create virtual ones
+        if (!chargerPoint) {
+          console.log(`⚠️ Warning: No charger point found on Map 3`);
         }
         
-        // If we don't have a pickup point, create one based on the shelf point
-        if (!pickupPoint && shelfPoints.length > 0) {
-          console.log(`⚠️ No explicit pickup point found on Map 3 - creating one based on shelf point`);
-          const basePoint = shelfPoints[0];
-          pickupPoint = {
-            id: `virtual_pickup_${basePoint.id}`,
-            x: basePoint.x,
-            y: basePoint.y + 0.7, // Position above the shelf
-            ori: basePoint.ori
-          };
-          console.log(`Created virtual pickup point: ${JSON.stringify(pickupPoint)}`);
+        if (!pickupPoint) {
+          console.log(`⚠️ Warning: No pickup point found on Map 3`);
         }
         
-        // If we don't have a pickup docking point, create one based on the pickup point
-        if (!pickupDockingPoint && pickupPoint) {
-          console.log(`⚠️ No explicit pickup docking point found on Map 3 - creating one based on pickup point`);
-          pickupDockingPoint = {
-            id: `virtual_pickup_docking_${pickupPoint.id}`,
-            x: pickupPoint.x,
-            y: pickupPoint.y - 0.5, // Position it below the pickup point
-            ori: pickupPoint.ori
-          };
-          console.log(`Created virtual pickup docking point: ${JSON.stringify(pickupDockingPoint)}`);
+        if (!pickupDockingPoint) {
+          console.log(`⚠️ Warning: No pickup docking point found on Map 3`);
         }
         
-        // If we don't have a dropoff point, use the first shelf point
-        if (!dropoffPoint && shelfPoints.length > 0) {
-          console.log(`⚠️ No explicit dropoff point found on Map 3 - using first shelf point as dropoff`);
-          const basePoint = shelfPoints[0];
-          dropoffPoint = {
-            id: `virtual_dropoff_${basePoint.id}`,
-            x: basePoint.x,
-            y: basePoint.y + 0.3, // Position slightly above the shelf
-            ori: basePoint.ori
-          };
-          console.log(`Created virtual dropoff point: ${JSON.stringify(dropoffPoint)}`);
+        if (!dropoffPoint) {
+          console.log(`⚠️ Warning: No dropoff point found on Map 3`);
         }
         
-        // If we don't have a dropoff docking point, create one based on the dropoff point
-        if (!dropoffDockingPoint && dropoffPoint) {
-          console.log(`⚠️ No explicit dropoff docking point found on Map 3 - creating one based on dropoff point`);
-          dropoffDockingPoint = {
-            id: `virtual_dropoff_docking_${dropoffPoint.id}`,
-            x: dropoffPoint.x,
-            y: dropoffPoint.y - 0.5,  // Offset slightly to avoid collision
-            ori: dropoffPoint.ori
-          };
-          console.log(`Created virtual dropoff docking point: ${JSON.stringify(dropoffDockingPoint)}`);
+        if (!dropoffDockingPoint) {
+          console.log(`⚠️ Warning: No dropoff docking point found on Map 3`);
         }
       }
       
@@ -367,7 +321,7 @@ function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string]
   const dockingPoint = floorPoints.dockingPoints.find(p => p.id === dockingId);
   
   // Only return actual docking points from the API, no fallbacks
-  return dockingPoint;
+  return dockingPoint || null;
 }
 
 /**
