@@ -93,8 +93,21 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
 export function getShelfPointsByFloor(points: Point[]): Record<string, Point[]> {
   const grouped: Record<string, Point[]> = {};
   for (const p of points) {
-    const isShelf = /^\d+$/.test(p.id);
+    // More flexible shelf detection with multiple patterns:
+    // 1. Pure numeric IDs (like "104")
+    // 2. IDs starting with numbers followed by underscore (like "104_Load")
+    // 3. IDs containing "_Load" or "_load" anywhere
+    // 4. Long IDs that might be UUIDs with no clear pattern (but excluding _docking points)
+    const isShelf = (
+      /^\d+$/.test(p.id) || 
+      /^\d+_/.test(p.id) ||
+      p.id.includes('_Load') || 
+      p.id.includes('_load') ||
+      (p.id.length > 20 && !p.id.includes('_docking') && !p.id.toLowerCase().includes('charger'))
+    );
     if (!isShelf) continue;
+    
+    console.log(`Found shelf point in getShelfPointsByFloor: ${p.id} (${p.x}, ${p.y})`);
     const floorId = p.floorId || "1"; // Default to floor 1 if missing
     if (!grouped[floorId]) grouped[floorId] = [];
     grouped[floorId].push(p);
@@ -199,13 +212,37 @@ export function getShelfPoints(points: Point[]): Point[] {
     throw new Error('No map points available for shelf filtering');
   }
   
-  // Filter and return only numeric points (like shelf IDs)
-  const numericPoints = points.filter(point => {
+  // Filter using the same flexible detection as getShelfPointsByFloor
+  const shelfPoints = points.filter(point => {
     const id = String(point.id || "").trim();
-    return /^\d+$/.test(id);
+    
+    // More flexible shelf detection with multiple patterns
+    return (
+      /^\d+$/.test(id) || 
+      /^\d+_/.test(id) ||
+      id.includes('_Load') || 
+      id.includes('_load') ||
+      (id.length > 20 && !id.includes('_docking') && !id.toLowerCase().includes('charger'))
+    );
   });
   
-  // Sort numeric points by their numeric ID
-  numericPoints.sort((a, b) => parseInt(String(a.id)) - parseInt(String(b.id)));
-  return numericPoints;
+  // Log what we found
+  console.log(`Found ${shelfPoints.length} shelf points in getShelfPoints`);
+  if (shelfPoints.length > 0) {
+    console.log(`First shelf point: ${JSON.stringify(shelfPoints[0])}`);
+  }
+  
+  // Sort shelf points - try numeric sorting when possible
+  shelfPoints.sort((a, b) => {
+    // If both have numeric IDs, sort numerically
+    const numA = parseInt(String(a.id));
+    const numB = parseInt(String(b.id));
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    // Otherwise sort alphabetically
+    return String(a.id).localeCompare(String(b.id));
+  });
+  
+  return shelfPoints;
 }
