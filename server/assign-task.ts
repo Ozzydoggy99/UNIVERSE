@@ -34,10 +34,7 @@ async function sendMoveCommand(x: number, y: number, logToFile: Function): Promi
     
     // Send the move command to the robot API
     const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveData, {
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json'
-      }
+      headers: getAuthHeaders()
     });
     
     const moveId = response.data.id;
@@ -58,10 +55,7 @@ async function sendMoveCommand(x: number, y: number, logToFile: Function): Promi
 async function checkMoveStatus(logToFile: Function): Promise<boolean> {
   try {
     const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json'
-      }
+      headers: getAuthHeaders()
     });
     
     if (response.data && response.data.state) {
