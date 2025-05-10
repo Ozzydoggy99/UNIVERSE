@@ -745,13 +745,13 @@ async function executeJackDown(workflowId: string): Promise<void> {
 }
 
 /**
- * Return robot to charging station
+ * Return robot to charging station with multiple fallback methods
  * @param workflowId The workflow ID for logging
- * @param chargerX X-coordinate of the charger
- * @param chargerY Y-coordinate of the charger
- * @param chargerOri Orientation of the charger
+ * @param chargerX X-coordinate of the charger (optional if using API methods)
+ * @param chargerY Y-coordinate of the charger (optional if using API methods)
+ * @param chargerOri Orientation of the charger (optional if using API methods)
  */
-async function returnToCharger(workflowId: string, chargerX: number, chargerY: number, chargerOri: number): Promise<void> {
+async function returnToCharger(workflowId: string, chargerX?: number, chargerY?: number, chargerOri?: number): Promise<void> {
   logWorkflow(workflowId, `🔋 Starting return to charger operation...`);
   
   try {
@@ -798,86 +798,249 @@ async function returnToCharger(workflowId: string, chargerX: number, chargerY: n
       }
     }
     
-    // Create a charge move (special move type for returning to charger)
-    logWorkflow(workflowId, `Creating 'charge' move to charger at (${chargerX}, ${chargerY}), orientation: ${chargerOri}`);
-    const chargeCommand = {
-      creator: 'workflow-service',
-      type: 'charge', // Special move type for charger docking
-      target_x: chargerX,
-      target_y: chargerY,
-      target_ori: chargerOri,
-      charge_retry_count: 3 // Allow up to 3 retry attempts for docking
-    };
-    
-    // Send charge command
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, chargeCommand, { headers: getHeaders() });
-    
-    if (!response.data || !response.data.id) {
-      throw new Error('Failed to create charge move command');
-    }
-    
-    const moveId = response.data.id;
-    logWorkflow(workflowId, `Charge command sent - move ID: ${moveId}`);
-    
-    // Wait for charge move to complete
-    let moveComplete = false;
-    let attempts = 0;
-    const maxRetries = 180; // 3 minutes at 1 second intervals
-    
-    while (!moveComplete && attempts < maxRetries) {
-      attempts++;
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      try {
-        // Check move status
-        const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
-        const moveStatus = statusResponse.data.state;
-        
-        logWorkflow(workflowId, `Current charger return status: ${moveStatus}`);
-        
-        // Try to get position data for logging
-        try {
-          const posResponse = await axios.get(`${ROBOT_API_URL}/tracked_pose`, { headers: getHeaders() });
-          logWorkflow(workflowId, `Current position: ${JSON.stringify(posResponse.data)}`);
-        } catch (error) {
-          const posError = error as any;
-          logWorkflow(workflowId, `Position data incomplete or invalid: ${JSON.stringify(posError.response?.data || {})}`);
-        }
-        
-        if (moveStatus === 'succeeded') {
-          moveComplete = true;
-          logWorkflow(workflowId, `🔋 ✅ Robot has successfully returned to charger (ID: ${moveId})`);
-        } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
-          const reason = statusResponse.data.fail_reason_str || 'Unknown reason';
-          throw new Error(`Return to charger failed or was cancelled. Status: ${moveStatus} Reason: ${reason}`);
-        } else {
-          logWorkflow(workflowId, `Still moving to charger (move ID: ${moveId}), waiting...`);
-        }
-      } catch (error: any) {
-        if (error.message.includes('Return to charger failed')) {
-          throw error;
-        }
-        logWorkflow(workflowId, `Error checking charger return status: ${error.message}`);
-        // Continue checking despite error
-      }
-    }
-    
-    if (!moveComplete) {
-      throw new Error(`Return to charger timed out after ${maxRetries} seconds`);
-    }
-    
-    // Verify charging status
+    // METHOD 1: Try to use the services/return_to_charger API endpoint (newest method)
+    logWorkflow(workflowId, `🔋 METHOD 1: Using services API to return to charger`);
     try {
-      const chargeResponse = await axios.get(`${ROBOT_API_URL}/charging_state`, { headers: getHeaders() });
-      const chargingState = chargeResponse.data;
+      const serviceResponse = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { 
+        headers: getHeaders() 
+      });
       
-      if (chargingState && chargingState.is_charging) {
-        logWorkflow(workflowId, `✅ Robot is successfully charging`);
-      } else {
-        logWorkflow(workflowId, `⚠️ Warning: Robot returned to charger but may not be charging`);
+      logWorkflow(workflowId, `✅ Return to charger command sent via services API`);
+      
+      // Wait for the robot to start moving to the charger
+      logWorkflow(workflowId, `Waiting for robot to begin charger return...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Wait for charging state
+      logWorkflow(workflowId, `Waiting for robot to reach charger (up to 3 minutes)...`);
+      let chargerReached = false;
+      let attempts = 0;
+      const maxRetries = 36; // 3 minutes at 5-second intervals
+      
+      while (!chargerReached && attempts < maxRetries) {
+        attempts++;
+        try {
+          const chargeResponse = await axios.get(`${ROBOT_API_URL}/charging_state`, { 
+            headers: getHeaders() 
+          });
+          
+          if (chargeResponse.data && chargeResponse.data.is_charging) {
+            chargerReached = true;
+            logWorkflow(workflowId, `✅ Confirmed: Robot is now charging via services API method!`);
+          } else {
+            logWorkflow(workflowId, `Still returning to charger via services API... (attempt ${attempts}/${maxRetries})`);
+          }
+        } catch (error: any) {
+          logWorkflow(workflowId, `Warning: Error checking charging status: ${error.message}`);
+        }
+        
+        if (!chargerReached) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
       }
-    } catch (error: any) {
-      logWorkflow(workflowId, `Warning: Could not check charging status: ${error.message}`);
+      
+      if (chargerReached) {
+        return; // Success! No need to try other methods
+      } else {
+        logWorkflow(workflowId, `Method 1 (services API) did not reach charging state after 3 minutes, trying next method...`);
+      }
+    } catch (serviceError: any) {
+      logWorkflow(workflowId, `Warning: Services API method failed: ${serviceError.message}`);
+      // Will fall through to next method
+    }
+    
+    // METHOD 2: Fall back to task API with runType 25 (charging task type)
+    logWorkflow(workflowId, `🔋 METHOD 2: Using task API with runType 25 (charging task)`);
+    try {
+      // Create a task with runType 25 (charging) as per documentation
+      const chargingTask = {
+        runType: 25, // Charging task type
+        name: `Return to Charger (${new Date().toISOString()})`,
+        robotSn: ROBOT_SERIAL,
+        taskPriority: 10, // High priority for charging
+        isLoop: false
+      };
+      
+      const taskResponse = await axios.post(`${ROBOT_API_URL}/api/v2/task`, chargingTask, {
+        headers: getHeaders()
+      });
+      
+      logWorkflow(workflowId, `✅ Return to charger command sent via task API`);
+      
+      // Wait for the task to be processed
+      logWorkflow(workflowId, `Waiting for task to be processed...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Wait for charging state
+      logWorkflow(workflowId, `Waiting for robot to reach charger via task API (up to 3 minutes)...`);
+      let chargerReached = false;
+      let attempts = 0;
+      const maxRetries = 36; // 3 minutes at 5-second intervals
+      
+      while (!chargerReached && attempts < maxRetries) {
+        attempts++;
+        try {
+          const chargeResponse = await axios.get(`${ROBOT_API_URL}/charging_state`, { 
+            headers: getHeaders() 
+          });
+          
+          if (chargeResponse.data && chargeResponse.data.is_charging) {
+            chargerReached = true;
+            logWorkflow(workflowId, `✅ Confirmed: Robot is now charging via task API method!`);
+          } else {
+            logWorkflow(workflowId, `Still returning to charger via task API... (attempt ${attempts}/${maxRetries})`);
+          }
+        } catch (error: any) {
+          logWorkflow(workflowId, `Warning: Error checking charging status: ${error.message}`);
+        }
+        
+        if (!chargerReached) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+      
+      if (chargerReached) {
+        return; // Success! No need to try other methods
+      } else {
+        logWorkflow(workflowId, `Method 2 (task API) did not reach charging state after 3 minutes, trying next method...`);
+      }
+    } catch (taskError: any) {
+      logWorkflow(workflowId, `Warning: Task API method failed: ${taskError.message}`);
+      // Will fall through to next method
+    }
+    
+    // METHOD 3: Fall back to the v1 charging API
+    logWorkflow(workflowId, `🔋 METHOD 3: Using basic charge API endpoint`);
+    try {
+      const chargingResponse = await axios.post(`${ROBOT_API_URL}/charge`, {}, { headers: getHeaders() });
+      
+      logWorkflow(workflowId, `✅ Return to charger command sent via charge API`);
+      
+      // Wait for the command to take effect
+      logWorkflow(workflowId, `Waiting for charge command to take effect...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Wait for charging state
+      logWorkflow(workflowId, `Waiting for robot to reach charger via charge API (up to 3 minutes)...`);
+      let chargerReached = false;
+      let attempts = 0;
+      const maxRetries = 36; // 3 minutes at 5-second intervals
+      
+      while (!chargerReached && attempts < maxRetries) {
+        attempts++;
+        try {
+          const chargeResponse = await axios.get(`${ROBOT_API_URL}/charging_state`, { 
+            headers: getHeaders() 
+          });
+          
+          if (chargeResponse.data && chargeResponse.data.is_charging) {
+            chargerReached = true;
+            logWorkflow(workflowId, `✅ Confirmed: Robot is now charging via charge API method!`);
+          } else {
+            logWorkflow(workflowId, `Still returning to charger via charge API... (attempt ${attempts}/${maxRetries})`);
+          }
+        } catch (error: any) {
+          logWorkflow(workflowId, `Warning: Error checking charging status: ${error.message}`);
+        }
+        
+        if (!chargerReached) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+      
+      if (chargerReached) {
+        return; // Success!
+      } else {
+        logWorkflow(workflowId, `Method 3 (charge API) did not reach charging state after 3 minutes.`);
+      }
+    } catch (chargeError: any) {
+      logWorkflow(workflowId, `Warning: Charge API method failed: ${chargeError.message}`);
+    }
+    
+    // METHOD 4: Last resort - use coordinates if available
+    if (chargerX !== undefined && chargerY !== undefined && chargerOri !== undefined) {
+      logWorkflow(workflowId, `🔋 METHOD 4: Using coordinate-based move with charge type`);
+      try {
+        // Create a charge move (special move type for returning to charger)
+        logWorkflow(workflowId, `Creating 'charge' move to charger at (${chargerX}, ${chargerY}), orientation: ${chargerOri}`);
+        const chargeCommand = {
+          creator: 'workflow-service',
+          type: 'charge', // Special move type for charger docking
+          target_x: chargerX,
+          target_y: chargerY,
+          target_ori: chargerOri,
+          charge_retry_count: 3 // Allow up to 3 retry attempts for docking
+        };
+        
+        // Send charge command
+        const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, chargeCommand, { headers: getHeaders() });
+        
+        if (!response.data || !response.data.id) {
+          throw new Error('Failed to create charge move command');
+        }
+        
+        const moveId = response.data.id;
+        logWorkflow(workflowId, `Charge command sent - move ID: ${moveId}`);
+        
+        // Wait for charge move to complete
+        let moveComplete = false;
+        let attempts = 0;
+        const maxRetries = 180; // 3 minutes at 1 second intervals
+        
+        while (!moveComplete && attempts < maxRetries) {
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          try {
+            // Check move status
+            const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
+            const moveStatus = statusResponse.data.state;
+            
+            logWorkflow(workflowId, `Current charger return status: ${moveStatus}`);
+            
+            if (moveStatus === 'succeeded') {
+              moveComplete = true;
+              logWorkflow(workflowId, `🔋 ✅ Robot has successfully returned to charger (ID: ${moveId})`);
+            } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
+              const reason = statusResponse.data.fail_reason_str || 'Unknown reason';
+              throw new Error(`Return to charger failed or was cancelled. Status: ${moveStatus} Reason: ${reason}`);
+            } else {
+              logWorkflow(workflowId, `Still moving to charger (move ID: ${moveId}), waiting...`);
+            }
+          } catch (error: any) {
+            if (error.message.includes('Return to charger failed')) {
+              throw error;
+            }
+            logWorkflow(workflowId, `Error checking charger return status: ${error.message}`);
+            // Continue checking despite error
+          }
+        }
+        
+        if (!moveComplete) {
+          throw new Error(`Return to charger timed out after ${maxRetries} seconds`);
+        }
+        
+        // Verify charging status
+        try {
+          const chargeResponse = await axios.get(`${ROBOT_API_URL}/charging_state`, { headers: getHeaders() });
+          const chargingState = chargeResponse.data;
+          
+          if (chargingState && chargingState.is_charging) {
+            logWorkflow(workflowId, `✅ Robot is successfully charging`);
+          } else {
+            logWorkflow(workflowId, `⚠️ Warning: Robot returned to charger but may not be charging`);
+          }
+        } catch (error: any) {
+          logWorkflow(workflowId, `Warning: Could not check charging status: ${error.message}`);
+        }
+      } catch (moveError: any) {
+        logWorkflow(workflowId, `Warning: Coordinate-based charge move failed: ${moveError.message}`);
+        throw new Error(`All return to charger methods failed. Robot may not be able to return to charger automatically.`);
+      }
+    } else {
+      // If we reach here, all methods have failed and we don't have coordinates
+      logWorkflow(workflowId, `❌ All return to charger methods failed and no coordinates were provided.`);
+      throw new Error(`All return to charger methods failed. Robot may not be able to return to charger automatically.`);
     }
     
   } catch (error: any) {
