@@ -159,22 +159,80 @@ export function registerRobotApiRoutes(app: Express) {
   });
 }
 
-export async function fetchMaps() {
-  return axios.get(`${ROBOT_API_URL}/maps`, { headers });
+/**
+ * Fetch all available maps from the robot
+ * Supports both v1 and v2 of the maps API
+ */
+export async function fetchMaps(): Promise<any> {
+  try {
+    // First try the v2 API
+    try {
+      const response = await axios.get(`${ROBOT_API_URL}/api/v2/area_map`, {
+        headers: getAuthHeaders()
+      });
+      return response;
+    } catch (v2Error) {
+      console.log('V2 maps API failed, trying v1 API...');
+      // Fall back to v1 API
+      return axios.get(`${ROBOT_API_URL}/maps`, { headers });
+    }
+  } catch (error) {
+    console.error('Error fetching maps:', error);
+    throw error;
+  }
 }
 
-export async function fetchMapPoints(mapId: string) {
-  // The points are actually stored in the overlay data of the map
-  // We need to fetch the map details and extract the points from the overlay
-  return axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers });
+/**
+ * Fetch all points for a specific map
+ * Supports both v1 and v2 of the maps API
+ */
+export async function fetchMapPoints(mapId: string): Promise<any> {
+  try {
+    // First try the v2 API
+    try {
+      const response = await axios.get(`${ROBOT_API_URL}/api/v2/area_map/${mapId}/points`, {
+        headers: getAuthHeaders()
+      });
+      return response;
+    } catch (v2Error) {
+      console.log('V2 map points API failed, trying v1 API...');
+      // Fall back to v1 API
+      // The points are actually stored in the overlay data of the map
+      return axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers });
+    }
+  } catch (error) {
+    console.error(`Error fetching map points for map ${mapId}:`, error);
+    throw error;
+  }
 }
 
-export async function moveToPoint(x: number, y: number) {
-  return axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-    action: "move_to",
-    target_x: x,
-    target_y: y,
-  }, { headers });
+/**
+ * Move the robot to a specific point
+ * Handles options for orientation and movement properties
+ */
+export async function moveToPoint(x: number, y: number, orientation?: number): Promise<any> {
+  try {
+    const moveCommand = {
+      creator: 'robot-api',
+      type: 'standard',
+      target_x: x,
+      target_y: y,
+      target_ori: orientation || 0,
+      properties: {
+        max_trans_vel: 0.5,
+        max_rot_vel: 0.5,
+        acc_lim_x: 0.5,
+        acc_lim_theta: 0.5
+      }
+    };
+    
+    return axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, {
+      headers: getAuthHeaders()
+    });
+  } catch (error) {
+    console.error('Error moving to point:', error);
+    throw error;
+  }
 }
 
 export async function getLastMoveStatus() {
@@ -410,6 +468,7 @@ export async function isEmergencyStopPressed(): Promise<boolean> {
  * Send the robot back to its charging station
  * @returns Promise resolving to operation result
  */
+
 export async function returnToCharger(): Promise<any> {
   try {
     console.log(`Sending robot ${ROBOT_SERIAL} back to charging station...`);

@@ -216,12 +216,7 @@ export class MissionQueueManager {
             // Execute jack down operation directly
             stepResult = await this.executeJackDownStep();
             // Jack down operation sends feedback through the API response
-          } else if (step.type === 'manual_joystick') {
-            console.log(`Executing manual joystick command: ${step.params.label || 'No label'}`);
-            // First verify robot is in a suitable state
-            await this.verifyRobotStopped('manual_joystick');
-            // Execute the joystick command
-            stepResult = await this.executeManualJoystickStep(step.params);
+          // manual_joystick step type removed - not supported by this robot model
           } else if (step.type === 'align_with_rack') {
             console.log(`⚠️ RACK OPERATION: Aligning with rack at ${step.params.label || `(${step.params.x}, ${step.params.y})`}`);
             // Execute the align with rack move - this is a special move type for shelf/rack pickup
@@ -1016,84 +1011,7 @@ export class MissionQueueManager {
    * Execute a manual joystick command
    * Used for precise movements like backing up slightly
    */
-  private async executeManualJoystickStep(params: any): Promise<any> {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [JOYSTICK] ⚠️ Executing manual joystick movement: ${params.label || 'Unlabeled movement'}`);
-    
-    try {
-      // Ensure robot is stopped first
-      try {
-        await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers });
-        console.log(`[${timestamp}] [JOYSTICK] ✅ Robot stopped before joystick command`);
-      } catch (stopError: any) {
-        console.log(`[${timestamp}] [JOYSTICK] Warning: Failed to send stop command: ${stopError.message}`);
-      }
-      
-      // Allow stabilization time
-      const stabilizationTime = params.stabilizationTime || 2000;
-      console.log(`[${timestamp}] [JOYSTICK] Waiting ${stabilizationTime}ms for stabilization...`);
-      await new Promise(resolve => setTimeout(resolve, stabilizationTime));
-      
-      // Construct joystick command
-      const joystickCommand = {
-        action: params.action || "joystick",
-        linear: params.linear || { x: 0.0, y: 0.0, z: 0.0 },
-        angular: params.angular || { x: 0.0, y: 0.0, z: 0.0 }
-      };
-      
-      console.log(`[${timestamp}] [JOYSTICK] Sending joystick command: ${JSON.stringify(joystickCommand)}`);
-      
-      // Send the joystick command to the robot
-      const response = await axios.post(`${ROBOT_API_URL}/chassis/joystick`, joystickCommand, { headers });
-      console.log(`[${timestamp}] [JOYSTICK] Joystick command sent successfully`);
-      
-      // Wait for the specified duration
-      const duration = params.duration || 1000;
-      console.log(`[${timestamp}] [JOYSTICK] Waiting ${duration}ms for movement to complete...`);
-      await new Promise(resolve => setTimeout(resolve, duration));
-      
-      // Send stop command to halt movement
-      try {
-        await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers });
-        console.log(`[${timestamp}] [JOYSTICK] ✅ Stop command sent after joystick movement`);
-      } catch (stopError: any) {
-        console.log(`[${timestamp}] [JOYSTICK] Warning: Failed to send stop command: ${stopError.message}`);
-      }
-      
-      // Wait for final stabilization
-      const finalStabilizationTime = params.finalStabilizationTime || stabilizationTime;
-      console.log(`[${timestamp}] [JOYSTICK] Waiting ${finalStabilizationTime}ms for final stabilization...`);
-      await new Promise(resolve => setTimeout(resolve, finalStabilizationTime));
-      
-      console.log(`[${timestamp}] [JOYSTICK] ✅ Manual joystick movement completed successfully`);
-      return { success: true, message: `Manual joystick ${params.label} completed successfully` };
-      
-    } catch (error: any) {
-      console.error(`[${timestamp}] [JOYSTICK] ❌ ERROR during joystick operation: ${error.message}`);
-      
-      // Check for specific API errors
-      if (error.response) {
-        console.error(`[${timestamp}] [JOYSTICK] Response error details:`, error.response.data);
-        
-        // Check for 404 errors (endpoint not found)
-        if (error.response.status === 404) {
-          console.error(`[${timestamp}] [JOYSTICK] ❌ Joystick command failed: Endpoint not found`);
-          throw new Error(`Failed to send joystick command: Not Found`);
-        }
-        
-        // Handle emergency stop or other robot errors
-        if (error.response.status === 500) {
-          const errorMsg = error.response.data?.message || error.response.data?.error || 'Internal Server Error';
-          if (errorMsg.includes('emergency') || errorMsg.includes('e-stop')) {
-            console.error(`[${timestamp}] [JOYSTICK] ❌ EMERGENCY STOP DETECTED: Robot in emergency stop state`);
-            throw new Error(`Emergency stop detected: Cannot perform joystick operation`);
-          }
-        }
-      }
-      
-      throw new Error(`Failed to execute joystick command: ${error.message}`);
-    }
-  }
+  // executeManualJoystickStep has been removed as the robot doesn't support joystick commands
 }
 
 // Export singleton instance
