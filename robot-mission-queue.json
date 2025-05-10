@@ -4133,5 +4133,39 @@
     "createdAt": "2025-05-10T00:14:29.961Z",
     "updatedAt": "2025-05-10T00:17:08.563Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1746836814952_2rqtxys",
+    "name": "Return to Charger - HIGH PRIORITY",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": 0.10227969754721469,
+          "y": 1.4958278044241498,
+          "ori": 266.11,
+          "label": "docking point for charger"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 0.03443853667262486,
+          "y": 0.4981316698765672,
+          "ori": 266.11,
+          "label": "charger point",
+          "isCharger": true
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "in_progress",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-10T00:26:54.952Z",
+    "updatedAt": "2025-05-10T00:26:54.960Z",
+    "robotSn": "L382502104987ir"
   }
 ]
