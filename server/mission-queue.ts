@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
+import { fetchRobotMapPoints } from './robot-map-data';
 
 // Queue file location
 const QUEUE_FILE = path.join(process.cwd(), 'robot-mission-queue.json');
@@ -1019,74 +1020,82 @@ export class MissionQueueManager {
   // executeManualJoystickStep has been removed as the robot doesn't support joystick commands
   
   /**
-   * Execute a return to charger operation using the proper API endpoint
-   * This is a dedicated function that follows the robot's official API for return-to-charger operations
+   * Execute a return to charger operation
+   * Use hardcoded known charger coordinates for direct navigation
    */
   private async executeReturnToChargerStep(params: any): Promise<any> {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] [RETURN-TO-CHARGER] ⚠️ Executing return to charger operation`);
     
     try {
-      // First try the dedicated return_to_charger service endpoint (most reliable)
+      // Use the known charger coordinates from previous runs
+      // This is the exact location used in previous successful return-to-charger operations
+      console.log(`[${timestamp}] [RETURN-TO-CHARGER] Using precise coordinate-based navigation to charger`);
+
+      // Known charger docking point coordinates from the logs
+      const chargerDockingPoint = {
+        x: 0.03443853667262486,
+        y: 0.4981316698765672,
+        ori: 266.11
+      };
+      
+      // Execute move to charger docking point
+      console.log(`[${timestamp}] [RETURN-TO-CHARGER] Moving to charger docking point at (${chargerDockingPoint.x}, ${chargerDockingPoint.y})`);
+      
       try {
-        const response = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { headers });
-        console.log(`[${timestamp}] [RETURN-TO-CHARGER] ✅ Return to charger command sent via services API`);
+        // Create a charge-type move command with charge_retry_count
+        const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+          action: "move_to",
+          target_x: chargerDockingPoint.x,
+          target_y: chargerDockingPoint.y,
+          target_ori: chargerDockingPoint.ori,
+          is_charging: true,
+          charge_retry_count: 3,
+          properties: {
+            max_trans_vel: 0.3,  // Slower speed for more accurate docking
+            max_rot_vel: 0.3,
+            acc_lim_x: 0.3,
+            acc_lim_theta: 0.3,
+            planning_mode: "directional"
+          }
+        }, { headers });
         
-        // Wait for the robot to start moving to the charger
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log(`[${timestamp}] [RETURN-TO-CHARGER] ✅ Move to charger command sent. Move ID: ${moveResponse.data?.id}`);
+        
+        // Wait for the robot to start moving to the charger (don't wait for completion)
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
         return { 
           success: true, 
-          message: 'Return to charger command executed successfully via services API',
-          method: 'services_api'
+          message: 'Return to charger initiated with coordinate-based navigation',
+          moveId: moveResponse.data?.id,
+          method: 'coordinate_based_with_charging'
         };
-      } catch (serviceError: any) {
-        console.log(`[${timestamp}] [RETURN-TO-CHARGER] Warning: Services API method failed: ${serviceError.message}`);
+      } catch (moveError: any) {
+        console.log(`[${timestamp}] [RETURN-TO-CHARGER] ⚠️ Charger coordinate move error: ${moveError.message}`);
         
-        // Fall back to v2 task API method
+        // Try regular move without charging flags as a fallback
         try {
-          // Create a task with runType 25 (charging) as per documentation
-          const chargingTask = {
-            runType: 25, // Charging task type
-            name: `Return to Charger (${new Date().toISOString()})`,
-            robotSn: params.robotSn || 'L382502104987ir', // Use robot serial from params or default
-            taskPriority: 10, // High priority for charging
-            isLoop: false
-          };
+          console.log(`[${timestamp}] [RETURN-TO-CHARGER] Trying standard move to charger coordinates`);
           
-          const taskResponse = await axios.post(`${ROBOT_API_URL}/api/v2/task`, chargingTask, {
-            headers
-          });
+          const standardMoveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+            action: "move_to",
+            target_x: chargerDockingPoint.x,
+            target_y: chargerDockingPoint.y,
+            target_ori: chargerDockingPoint.ori
+          }, { headers });
           
-          console.log(`[${timestamp}] [RETURN-TO-CHARGER] ✅ Return to charger command sent via task API`);
-          
-          // Wait a moment for task to be processed
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          console.log(`[${timestamp}] [RETURN-TO-CHARGER] ✅ Standard move to charger initiated. Move ID: ${standardMoveResponse.data?.id}`);
           
           return {
             success: true,
-            message: 'Return to charger command executed successfully via task API',
-            taskId: taskResponse.data.id || taskResponse.data.taskId,
-            method: 'task_api'
+            message: 'Return to charger initiated with standard move to charger coordinates',
+            moveId: standardMoveResponse.data?.id,
+            method: 'standard_coordinate_move'
           };
-        } catch (taskError: any) {
-          console.log(`[${timestamp}] [RETURN-TO-CHARGER] Warning: Task API method failed: ${taskError.message}`);
-          
-          // Last resort - try to use the v1 charging API
-          try {
-            const chargingResponse = await axios.post(`${ROBOT_API_URL}/charge`, {}, { headers });
-            
-            console.log(`[${timestamp}] [RETURN-TO-CHARGER] ✅ Return to charger command sent via charge API`);
-            
-            return {
-              success: true,
-              message: 'Return to charger command executed successfully via charge API',
-              method: 'charge_api'
-            };
-          } catch (chargeError: any) {
-            console.log(`[${timestamp}] [RETURN-TO-CHARGER] Warning: Charge API method failed: ${chargeError.message}`);
-            throw new Error(`All return to charger methods failed. Robot may not be able to return to charger automatically.`);
-          }
+        } catch (standardMoveError: any) {
+          console.log(`[${timestamp}] [RETURN-TO-CHARGER] ⚠️ Standard move to charger failed: ${standardMoveError.message}`);
+          throw new Error(`Failed to navigate to charger using coordinates: ${standardMoveError.message}`);
         }
       }
     } catch (error: any) {
