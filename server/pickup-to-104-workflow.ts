@@ -221,7 +221,8 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
         }
       });
       
-      // STEP 8: Optional - Return to charger
+      // STEP 8: Always return to charger
+      // First try using the charger point coordinates if available
       if (chargerPoint) {
         workflowSteps.push({
           type: 'move',
@@ -231,6 +232,16 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
             ori: chargerPoint.ori,
             label: chargerPoint.id,
             isCharger: true // Explicitly mark this as a charger move
+          }
+        });
+      } 
+      // If no charger point found, use the dedicated return-to-charger API
+      else {
+        workflowSteps.push({
+          type: 'return_to_charger',
+          params: {
+            label: 'Return to charging station',
+            useApi: true
           }
         });
       }
@@ -253,6 +264,8 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
           logRobotTask(`- Step ${i+1}: ALIGN WITH RACK at ${step.params.label} (${step.params.x}, ${step.params.y})`);
         } else if (step.type === 'to_unload_point') {
           logRobotTask(`- Step ${i+1}: TO UNLOAD POINT at ${step.params.label} (${step.params.x}, ${step.params.y})`);
+        } else if (step.type === 'return_to_charger') {
+          logRobotTask(`- Step ${i+1}: RETURN TO CHARGER using ${step.params.useApi ? 'API method' : 'point movement'}`);
         }
       }
       

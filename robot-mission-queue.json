@@ -3969,8 +3969,13 @@
           "ori": 0,
           "label": "104_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4512,
+          "message": "Move to unload point completed successfully"
+        }
       },
       {
         "type": "jack_down",
@@ -3979,8 +3984,9 @@
           "stabilizationTime": 3000,
           "safetyWait": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -3990,14 +3996,19 @@
           "ori": 178.97,
           "label": "104_Load_docking (safe position)"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking (safe position) completed successfully",
+          "moveId": 4513
+        }
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 4,
+    "status": "completed",
+    "currentStepIndex": 7,
     "createdAt": "2025-05-10T00:06:40.180Z",
-    "updatedAt": "2025-05-10T00:08:28.925Z",
+    "updatedAt": "2025-05-10T00:09:19.407Z",
     "robotSn": "L382502104987ir"
   }
 ]

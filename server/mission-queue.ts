@@ -9,7 +9,7 @@ const QUEUE_FILE = path.join(process.cwd(), 'robot-mission-queue.json');
 const MISSION_LOG_FILE = path.join(process.cwd(), 'robot-mission-log.json');
 
 export interface MissionStep {
-  type: 'move' | 'jack_up' | 'jack_down' | 'manual_joystick' | 'align_with_rack' | 'to_unload_point';
+  type: 'move' | 'jack_up' | 'jack_down' | 'align_with_rack' | 'to_unload_point' | 'return_to_charger';
   params: Record<string, any>;
   completed: boolean;
   robotResponse?: any;
@@ -231,6 +231,11 @@ export class MissionQueueManager {
             // Execute the unload point move
             stepResult = await this.executeToUnloadPointStep(step.params);
             console.log(`Move to unload point complete with result: ${JSON.stringify(stepResult)}`);
+          } else if (step.type === 'return_to_charger') {
+            console.log(`⚠️ CRITICAL OPERATION: Returning robot to charging station...`);
+            // Execute the return to charger operation using the API
+            stepResult = await this.executeReturnToChargerStep(step.params);
+            console.log(`Return to charger operation complete with result: ${JSON.stringify(stepResult)}`);
           }
           
           // Successfully completed step
@@ -1012,6 +1017,83 @@ export class MissionQueueManager {
    * Used for precise movements like backing up slightly
    */
   // executeManualJoystickStep has been removed as the robot doesn't support joystick commands
+  
+  /**
+   * Execute a return to charger operation using the proper API endpoint
+   * This is a dedicated function that follows the robot's official API for return-to-charger operations
+   */
+  private async executeReturnToChargerStep(params: any): Promise<any> {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [RETURN-TO-CHARGER] ⚠️ Executing return to charger operation`);
+    
+    try {
+      // First try the dedicated return_to_charger service endpoint (most reliable)
+      try {
+        const response = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { headers });
+        console.log(`[${timestamp}] [RETURN-TO-CHARGER] ✅ Return to charger command sent via services API`);
+        
+        // Wait for the robot to start moving to the charger
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        return { 
+          success: true, 
+          message: 'Return to charger command executed successfully via services API',
+          method: 'services_api'
+        };
+      } catch (serviceError: any) {
+        console.log(`[${timestamp}] [RETURN-TO-CHARGER] Warning: Services API method failed: ${serviceError.message}`);
+        
+        // Fall back to v2 task API method
+        try {
+          // Create a task with runType 25 (charging) as per documentation
+          const chargingTask = {
+            runType: 25, // Charging task type
+            name: `Return to Charger (${new Date().toISOString()})`,
+            robotSn: params.robotSn || 'L382502104987ir', // Use robot serial from params or default
+            taskPriority: 10, // High priority for charging
+            isLoop: false
+          };
+          
+          const taskResponse = await axios.post(`${ROBOT_API_URL}/api/v2/task`, chargingTask, {
+            headers
+          });
+          
+          console.log(`[${timestamp}] [RETURN-TO-CHARGER] ✅ Return to charger command sent via task API`);
+          
+          // Wait a moment for task to be processed
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          return {
+            success: true,
+            message: 'Return to charger command executed successfully via task API',
+            taskId: taskResponse.data.id || taskResponse.data.taskId,
+            method: 'task_api'
+          };
+        } catch (taskError: any) {
+          console.log(`[${timestamp}] [RETURN-TO-CHARGER] Warning: Task API method failed: ${taskError.message}`);
+          
+          // Last resort - try to use the v1 charging API
+          try {
+            const chargingResponse = await axios.post(`${ROBOT_API_URL}/charge`, {}, { headers });
+            
+            console.log(`[${timestamp}] [RETURN-TO-CHARGER] ✅ Return to charger command sent via charge API`);
+            
+            return {
+              success: true,
+              message: 'Return to charger command executed successfully via charge API',
+              method: 'charge_api'
+            };
+          } catch (chargeError: any) {
+            console.log(`[${timestamp}] [RETURN-TO-CHARGER] Warning: Charge API method failed: ${chargeError.message}`);
+            throw new Error(`All return to charger methods failed. Robot may not be able to return to charger automatically.`);
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error(`[${timestamp}] [RETURN-TO-CHARGER] ❌ ERROR during return to charger operation: ${error.message}`);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance
