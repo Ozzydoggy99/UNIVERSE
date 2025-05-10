@@ -4625,8 +4625,13 @@
           "ori": 179.5,
           "label": "Pick-up_Load_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Pick-up_Load_docking completed successfully",
+          "moveId": 4542
+        }
       },
       {
         "type": "align_with_rack",
@@ -4635,6 +4640,131 @@
           "y": 3.6906049373897076,
           "ori": 0,
           "label": "Align with rack at Pick-up_Load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4543,
+          "message": "Align with rack completed successfully"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking completed successfully",
+          "moveId": 4544
+        }
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -16.253106853127974,
+          "y": 6.419632917129547,
+          "ori": 0,
+          "label": "104_Load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4545,
+          "message": "Move to unload point completed successfully"
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking (safe position)"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking (safe position) completed successfully",
+          "moveId": 4546
+        }
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 0.03443853667262486,
+          "y": 0.4981316698765672,
+          "ori": 266.11,
+          "label": "Charging Station_docking",
+          "isCharger": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Charging Station_docking completed successfully",
+          "moveId": 4547
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 8,
+    "createdAt": "2025-05-10T21:46:54.220Z",
+    "updatedAt": "2025-05-10T21:50:41.099Z",
+    "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1746914191682_u7e46cm",
+    "name": "Zone 104 Workflow with Charger Return",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -15.409467385438802,
+          "y": 6.403540839556854,
+          "ori": 178.97,
+          "label": "104_Load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -16.253106853127974,
+          "y": 6.419632917129547,
+          "ori": 0,
+          "label": "Align with rack at 104_Load"
         },
         "completed": false,
         "retryCount": 0
@@ -4652,21 +4782,21 @@
       {
         "type": "move",
         "params": {
-          "x": -15.409467385438802,
-          "y": 6.403540839556854,
-          "ori": 178.97,
-          "label": "104_Load_docking"
+          "x": -2.3143658339108697,
+          "y": 2.543396298051448,
+          "ori": 177.73,
+          "label": "Drop-off_Load_docking"
         },
         "completed": false,
         "retryCount": 0
       },
       {
-        "type": "to_unload_point",
+        "type": "move",
         "params": {
-          "x": -16.253106853127974,
-          "y": 6.419632917129547,
+          "x": -3.067094531843395,
+          "y": 2.5788015960870325,
           "ori": 0,
-          "label": "104_Load"
+          "label": "Drop-off_Load"
         },
         "completed": false,
         "retryCount": 0
@@ -4677,17 +4807,6 @@
           "waitComplete": true,
           "stabilizationTime": 3000,
           "safetyWait": true
-        },
-        "completed": false,
-        "retryCount": 0
-      },
-      {
-        "type": "move",
-        "params": {
-          "x": -15.409467385438802,
-          "y": 6.403540839556854,
-          "ori": 178.97,
-          "label": "104_Load_docking (safe position)"
         },
         "completed": false,
         "retryCount": 0
@@ -4707,8 +4826,8 @@
     ],
     "status": "in_progress",
     "currentStepIndex": 0,
-    "createdAt": "2025-05-10T21:46:54.220Z",
-    "updatedAt": "2025-05-10T21:46:54.241Z",
+    "createdAt": "2025-05-10T21:56:31.682Z",
+    "updatedAt": "2025-05-10T21:56:31.684Z",
     "robotSn": "L382502104987ir"
   }
 ]
