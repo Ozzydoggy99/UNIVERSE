@@ -4146,8 +4146,13 @@
           "ori": 266.11,
           "label": "docking point for charger"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to docking point for charger completed successfully",
+          "moveId": 4520
+        }
       },
       {
         "type": "move",
@@ -4158,14 +4163,19 @@
           "label": "charger point",
           "isCharger": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to charger point completed successfully",
+          "moveId": 4521
+        }
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 0,
+    "status": "completed",
+    "currentStepIndex": 2,
     "createdAt": "2025-05-10T00:26:54.952Z",
-    "updatedAt": "2025-05-10T00:26:54.960Z",
+    "updatedAt": "2025-05-10T00:27:39.950Z",
     "robotSn": "L382502104987ir"
   }
 ]

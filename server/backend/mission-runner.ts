@@ -76,7 +76,93 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
     }
   }
 
-  appendLog("[MISSION COMPLETE]\n");
+  appendLog("[MAIN MISSION TASKS COMPLETE]");
+  
+  // Now initiate return to charger using our robust multi-method approach
+  try {
+    appendLog("🔋 Initiating return to charger...");
+    
+    // Method 1: Try services/return_to_charger API endpoint (newest method)
+    try {
+      appendLog("🔋 METHOD 1: Using services API to return to charger");
+      const serviceResponse = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { headers });
+      appendLog("✅ Return to charger command sent via services API");
+      
+      // Wait a moment for the command to take effect
+      await wait(5000);
+      appendLog("✅ Return to charger operation initiated successfully via services API");
+      appendLog("[MISSION COMPLETE WITH CHARGER RETURN]\n");
+      
+      return {
+        mission: `Auto-${uiMode}-${shelfId}-${Date.now()}`,
+        status: "completed",
+        sequence: [...sequence.map(p => p.id), "charger-via-services-api"]
+      };
+    } 
+    catch (serviceError: any) {
+      appendLog(`⚠️ Services API method failed: ${serviceError.message}`);
+      // Fall through to next method
+    }
+    
+    // Method 2: Fall back to task API with runType 25 (charging task type)
+    try {
+      appendLog("🔋 METHOD 2: Using task API with runType 25 (charging task)");
+      const chargingTask = {
+        runType: 25, // Charging task type
+        name: `Return to Charger (${new Date().toISOString()})`,
+        robotSn: 'L382502104987ir',
+        taskPriority: 10, // High priority for charging
+        isLoop: false
+      };
+      
+      const taskResponse = await axios.post(`${ROBOT_API_URL}/api/v2/task`, chargingTask, { headers });
+      appendLog("✅ Return to charger command sent via task API");
+      
+      // Wait a moment for the task to be processed
+      await wait(3000);
+      appendLog("✅ Return to charger operation initiated successfully via task API");
+      appendLog("[MISSION COMPLETE WITH CHARGER RETURN]\n");
+      
+      return {
+        mission: `Auto-${uiMode}-${shelfId}-${Date.now()}`,
+        status: "completed",
+        sequence: [...sequence.map(p => p.id), "charger-via-task-api"]
+      };
+    } 
+    catch (taskError: any) {
+      appendLog(`⚠️ Task API method failed: ${taskError.message}`);
+      // Fall through to next method
+    }
+    
+    // Method 3: Fall back to the v1 charging API
+    try {
+      appendLog("🔋 METHOD 3: Using basic charge API endpoint");
+      const chargingResponse = await axios.post(`${ROBOT_API_URL}/charge`, {}, { headers });
+      appendLog("✅ Return to charger command sent via charge API");
+      
+      // Wait a moment for the command to take effect
+      await wait(3000);
+      appendLog("✅ Return to charger operation initiated successfully via charge API");
+      appendLog("[MISSION COMPLETE WITH CHARGER RETURN]\n");
+      
+      return {
+        mission: `Auto-${uiMode}-${shelfId}-${Date.now()}`,
+        status: "completed",
+        sequence: [...sequence.map(p => p.id), "charger-via-charge-api"]
+      };
+    } 
+    catch (chargeError: any) {
+      appendLog(`⚠️ Charge API method failed: ${chargeError.message}`);
+      // All methods failed, just return with warning
+      appendLog("⚠️ All return to charger methods failed. Robot may not return to charger automatically.");
+    }
+  }
+  catch (error: any) {
+    appendLog(`❌ ERROR during return to charger: ${error.message}`);
+    // Continue despite return to charger error
+  }
+
+  appendLog("[MISSION COMPLETE WITHOUT CHARGER RETURN]\n");
   
   return {
     mission: `Auto-${uiMode}-${shelfId}-${Date.now()}`,
