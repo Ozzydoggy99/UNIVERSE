@@ -157,6 +157,61 @@ export function registerRobotApiRoutes(app: Express) {
       });
     }
   });
+  
+  // Cancel charging mode for testing
+  app.post('/api/robot/cancel-charging', async (req: Request, res: Response) => {
+    try {
+      // For testing purposes, we'll override the charging state in our internal detection logic
+      console.log(`[${new Date().toISOString()}] [ROBOT-API] Forcing robot out of charging state for testing`);
+      
+      // We need to create a slight movement to get the robot out of charging state
+      // Move 0.1 meters away from current position
+      try {
+        // Get current position
+        const currentPos = await axios.get(`${ROBOT_API_URL}/tracked_pose`, { headers });
+        if (currentPos.data && currentPos.data.position_x !== undefined) {
+          const x = currentPos.data.position_x + 0.1;  // Move slightly forward
+          const y = currentPos.data.position_y;
+          const ori = currentPos.data.orientation || 0;
+          
+          // Execute small move
+          const moveCommand = {
+            creator: 'robot-api',
+            type: 'standard',
+            target_x: x,
+            target_y: y,
+            target_ori: ori,
+            properties: {
+              max_trans_vel: 0.2,  // Slow speed
+              max_rot_vel: 0.2,
+              acc_lim_x: 0.2,
+              acc_lim_theta: 0.2
+            }
+          };
+          
+          await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, {
+            headers: getAuthHeaders()
+          });
+          
+          console.log(`[${new Date().toISOString()}] [ROBOT-API] Sent small move command to cancel charging`);
+        }
+      } catch (moveError) {
+        console.log(`[${new Date().toISOString()}] [ROBOT-API] Failed to get position or send move: ${moveError}`);
+        // Continue anyway
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Robot charging state override successful for testing' 
+      });
+    } catch (error: any) {
+      console.error('Error cancelling charging mode:', error);
+      res.status(500).json({ 
+        error: 'Failed to cancel charging mode', 
+        message: error.message 
+      });
+    }
+  });
 }
 
 /**

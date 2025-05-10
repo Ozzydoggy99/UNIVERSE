@@ -4398,8 +4398,9 @@
           "stabilizationTime": 3000,
           "safetyWait": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -4409,8 +4410,13 @@
           "ori": 178.97,
           "label": "104_Load_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking completed successfully",
+          "moveId": 4532
+        }
       },
       {
         "type": "to_unload_point",
@@ -4420,8 +4426,13 @@
           "ori": 0,
           "label": "104_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4533,
+          "message": "Move to unload point completed successfully"
+        }
       },
       {
         "type": "jack_down",
@@ -4430,8 +4441,9 @@
           "stabilizationTime": 3000,
           "safetyWait": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -4441,8 +4453,13 @@
           "ori": 178.97,
           "label": "104_Load_docking (safe position)"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking (safe position) completed successfully",
+          "moveId": 4534
+        }
       },
       {
         "type": "return_to_charger",
@@ -4450,14 +4467,20 @@
           "label": "Return to charging station",
           "useApi": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Return to charger initiated with coordinate-based navigation",
+          "moveId": 4535,
+          "method": "coordinate_based_with_charging"
+        }
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 2,
+    "status": "completed",
+    "currentStepIndex": 8,
     "createdAt": "2025-05-10T00:43:52.731Z",
-    "updatedAt": "2025-05-10T00:44:50.369Z",
+    "updatedAt": "2025-05-10T00:46:56.259Z",
     "robotSn": "L382502104987ir"
   }
 ]
