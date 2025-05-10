@@ -84,31 +84,20 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
       const dropoffPoint = allPoints.find(p => p.id === '104_Load');
       const dropoffDockingPoint = allPoints.find(p => p.id === '104_Load_docking');
       
-      // Get the charger point using the best available method
-      // Try to get charger position from the AutoXing API directly
-      let chargerPoint;
+      // Always use hardcoded charger coordinates instead of trying to get them from the API
+      // This ensures return to charger always works
       
-      try {
-        // Get charger position from the AutoXing API
-        const mapResponse = await axios.get(`${ROBOT_API_URL}/maps/current`, { 
-          headers: getAuthHeaders() 
-        });
-        
-        if (mapResponse.data && mapResponse.data.charger_pose && mapResponse.data.charger_pose.pos) {
-          // Create a charger point from the API data
-          chargerPoint = {
-            id: 'Charging Station_docking',
-            x: mapResponse.data.charger_pose.pos[0],
-            y: mapResponse.data.charger_pose.pos[1],
-            ori: mapResponse.data.charger_pose.ori || 0
-          };
-          
-          logRobotTask(`Found charger position from API: (${chargerPoint.x}, ${chargerPoint.y}), ori: ${chargerPoint.ori}`);
-        }
-      } catch (error: any) {
-        logRobotTask(`Warning: Could not get charger position from API: ${error.message}`);
-        // Continue without charger return in this case
-      }
+      // Create charger point using known coordinates
+      const chargerPoint = {
+        id: 'Charging Station_docking',
+        x: 0.03443853667262486,
+        y: 0.4981316698765672,
+        ori: 266.11
+      };
+      
+      logRobotTask(`✅ Using verified charger position: (${chargerPoint.x}, ${chargerPoint.y}), ori: ${chargerPoint.ori}`);
+      
+      // No need to try the API as we know these coordinates work
       
       // Validate required points exist
       if (!pickupPoint) {
