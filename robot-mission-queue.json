@@ -4023,8 +4023,13 @@
           "ori": 179.5,
           "label": "Pick-up_Load_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Pick-up_Load_docking completed successfully",
+          "moveId": 4514
+        }
       },
       {
         "type": "align_with_rack",
@@ -4034,8 +4039,13 @@
           "ori": 0,
           "label": "Align with rack at Pick-up_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4515,
+          "message": "Align with rack completed successfully"
+        }
       },
       {
         "type": "jack_up",
@@ -4044,8 +4054,9 @@
           "stabilizationTime": 3000,
           "safetyWait": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -4055,8 +4066,13 @@
           "ori": 178.97,
           "label": "104_Load_docking"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking completed successfully",
+          "moveId": 4516
+        }
       },
       {
         "type": "to_unload_point",
@@ -4066,8 +4082,13 @@
           "ori": 0,
           "label": "104_Load"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4517,
+          "message": "Move to unload point completed successfully"
+        }
       },
       {
         "type": "jack_down",
@@ -4076,8 +4097,9 @@
           "stabilizationTime": 3000,
           "safetyWait": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -4087,8 +4109,13 @@
           "ori": 178.97,
           "label": "104_Load_docking (safe position)"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to 104_Load_docking (safe position) completed successfully",
+          "moveId": 4518
+        }
       },
       {
         "type": "return_to_charger",
@@ -4097,13 +4124,14 @@
           "useApi": true
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 0,
+        "errorMessage": "All return to charger methods failed. Robot may not be able to return to charger automatically."
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 0,
+    "status": "failed",
+    "currentStepIndex": 7,
     "createdAt": "2025-05-10T00:14:29.961Z",
-    "updatedAt": "2025-05-10T00:14:29.974Z",
+    "updatedAt": "2025-05-10T00:17:08.563Z",
     "robotSn": "L382502104987ir"
   }
 ]
