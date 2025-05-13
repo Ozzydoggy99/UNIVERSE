@@ -408,7 +408,7 @@ function FloorCard({
   const baseClasses = "p-4 hover:shadow-lg transition-shadow cursor-pointer";
   const colorClasses = isSelected 
     ? "border-green-500 bg-green-100" 
-    : "border-gray-300 bg-white hover:bg-gray-50";
+    : "border-black bg-black hover:bg-gray-800";
     
   return (
     <Card 
@@ -416,7 +416,7 @@ function FloorCard({
       onClick={onSelect}
     >
       <div className="flex flex-col items-center">
-        <h3 className="text-lg font-medium text-gray-700">{floor.displayName}</h3>
+        <h3 className={`text-lg font-medium ${isSelected ? 'text-gray-700' : 'text-white'}`}>{floor.displayName}</h3>
         
         {isSelected && (
           <div className="mt-3 text-green-600 flex items-center">
@@ -596,7 +596,7 @@ function ShelfCard({
   const baseClasses = "p-4 hover:shadow-lg transition-shadow cursor-pointer";
   const colorClasses = isSelected 
     ? "border-green-500 bg-green-100" 
-    : "border-gray-300 bg-white hover:bg-gray-50";
+    : "border-black bg-black hover:bg-gray-800";
     
   return (
     <Card 
@@ -604,7 +604,7 @@ function ShelfCard({
       onClick={onSelect}
     >
       <div className="flex flex-col items-center">
-        <h3 className="text-lg font-medium text-gray-700">{shelf.displayName}</h3>
+        <h3 className={`text-lg font-medium ${isSelected ? 'text-gray-700' : 'text-white'}`}>{shelf.displayName}</h3>
         
         {isSelected && (
           <div className="mt-3 text-green-600 flex items-center">
