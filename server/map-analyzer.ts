@@ -126,7 +126,7 @@ export async function analyzeRobotMaps(): Promise<Record<string, any>> {
       });
       
       // Find matching pairs (load points and their docking points)
-      const matchingPairs = [];
+      const matchingPairs: Array<{load: Point, docking: Point}> = [];
       
       const loadPoints = processedPoints.filter(p => 
         p.category === 'shelf_load' || 
@@ -171,7 +171,7 @@ export async function analyzeRobotMaps(): Promise<Record<string, any>> {
       standardMaps: standardMaps.length,
       mapDetails: mapAnalysis
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error analyzing robot maps:', error);
     return {
       error: 'Failed to analyze robot maps',
@@ -179,6 +179,3 @@ export async function analyzeRobotMaps(): Promise<Record<string, any>> {
     };
   }
 }
-
-// Export the main function
-export { analyzeRobotMaps };
