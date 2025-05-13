@@ -156,42 +156,38 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       const { serviceType } = req.params;
       logger.info(`Getting operations for service type: ${serviceType}`);
       
-      // Always enable operations regardless of robot capabilities 
-      // This ensures users can select any operation in the dynamic workflow
-      // Only show operations that are discovered from the robot
-      // If we truly can't find any operations, include both as a last resort
+      // Strict policy: Only show operations discovered from robot capabilities
+      // No fallbacks or default operations if none are found
+      // This ensures users only see operations the robot can actually perform
       let operations = [];
       
-      try {
-        const robotId = ROBOT_SERIAL;
-        const capabilities = await discoverRobotCapabilities(robotId);
-        
-        // For service types, we need to create the operations based on what we know
-        // No fallbacks, only genuine operations discovered from the robot
-        if (serviceType === 'laundry' || serviceType === 'trash') {
-          // Check if we have central pickup and dropoff
-          if (capabilities.hasCentralPickup) {
-            operations.push({
-              id: 'pickup',
-              displayName: 'Pick Up',
-              enabled: true
-            });
-          }
-          
-          if (capabilities.hasCentralDropoff) {
-            operations.push({
-              id: 'dropoff',
-              displayName: 'Drop Off',
-              enabled: true
-            });
-          }
+      // Don't catch exceptions - let them propagate to show real errors
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // For service types, we need to create the operations based on what we know
+      // No fallbacks, only genuine operations discovered from the robot
+      if (serviceType === 'laundry' || serviceType === 'trash') {
+        // Check if we have central pickup and dropoff
+        if (capabilities.hasCentralPickup) {
+          operations.push({
+            id: 'pickup',
+            displayName: 'Pick Up',
+            enabled: true
+          });
         }
         
-        // Log what we found from robot
-        logger.info(`Found ${operations.length} operations from robot for service type ${serviceType}`);
-      } catch (error) {
-        logger.error(`Error getting robot capabilities: ${error}`);
+        if (capabilities.hasCentralDropoff) {
+          operations.push({
+            id: 'dropoff',
+            displayName: 'Drop Off',
+            enabled: true
+          });
+        }
       }
+      
+      // Log what we found from robot
+      logger.info(`Found ${operations.length} operations from robot for service type ${serviceType}`);
       
       // No fallbacks - only show operations that actually exist on the robot
       if (operations.length === 0) {
@@ -221,31 +217,28 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         floorNumber: number;
       }
       
-      // If we can't get real floor data, provide default floors
+      // No fallbacks - we only use actual floors from the robot's capabilities
       let floors: Floor[] = [];
       
-      try {
-        const robotId = ROBOT_SERIAL;
-        const capabilities = await discoverRobotCapabilities(robotId);
-        
-        // Filter and transform maps to floors
-        floors = capabilities.maps
-          .filter(map => {
-            // Only include maps with shelf points for shelf operations
-            if (operationType === 'pickup' || operationType === 'dropoff') {
-              return map.shelfPoints.length > 0;
-            }
-            return true;
-          })
-          .map(map => ({
-            id: map.id,
-            displayName: map.name,
-            floorNumber: map.floorNumber
-          }))
-          .sort((a, b) => a.floorNumber - b.floorNumber);
-      } catch (floorError) {
-        logger.warn(`Could not get floor data from robot, using default floors: ${floorError}`);
-      }
+      // Don't catch exceptions - let them propagate to show real errors
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // Filter and transform maps to floors
+      floors = capabilities.maps
+        .filter(map => {
+          // Only include maps with shelf points for shelf operations
+          if (operationType === 'pickup' || operationType === 'dropoff') {
+            return map.shelfPoints.length > 0;
+          }
+          return true;
+        })
+        .map(map => ({
+          id: map.id,
+          displayName: map.name,
+          floorNumber: map.floorNumber
+        }))
+        .sort((a, b) => a.floorNumber - b.floorNumber);
       
       // No fallback - only show floors that actually exist on the robot
       if (floors.length === 0) {
