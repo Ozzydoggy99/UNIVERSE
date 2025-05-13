@@ -55,7 +55,13 @@ export default function ServiceSelectionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/simplified-workflow/service-types'],
     retry: 1,
-    select: (data) => data as { serviceTypes: ServiceType[] }
+    select: (data) => data as { serviceTypes: ServiceType[] },
+    onSuccess: (data) => {
+      console.log('Service types loaded:', data);
+    },
+    onError: (err) => {
+      console.error('Error loading service types:', err);
+    }
   });
   
   if (isLoading) {
@@ -152,7 +158,7 @@ function ServiceCard({
   const colorClasses = serviceType.enabled
     ? (isSelected 
       ? "border-green-500 bg-green-100" 
-      : "border-gray-300 bg-white hover:bg-gray-50")
+      : "border-black bg-black hover:bg-gray-800")
     : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60";
     
   return (
@@ -160,12 +166,12 @@ function ServiceCard({
       className={`${baseClasses} ${colorClasses}`}
       onClick={serviceType.enabled ? onSelect : undefined}
     >
-      <div className={`p-4 rounded-full ${isSelected ? 'bg-green-500' : 'bg-gray-100'} mb-3`}>
-        <div className={isSelected ? 'text-white' : 'text-gray-600'}>
+      <div className={`p-4 rounded-full ${isSelected ? 'bg-green-500' : 'bg-gray-800'} mb-3`}>
+        <div className="text-white">
           {iconComponent}
         </div>
       </div>
-      <h3 className="text-lg font-medium text-gray-700">{serviceType.displayName}</h3>
+      <h3 className={`text-lg font-medium ${isSelected ? 'text-gray-700' : 'text-white'}`}>{serviceType.displayName}</h3>
       
       {isSelected && (
         <div className="mt-3 text-green-600 flex items-center">
