@@ -273,20 +273,20 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         }
       }
       
-      // Call the appropriate workflow API endpoint
-      const workflowResponse = await axios.post(`/api/dynamic-workflow/execute`, {
-        workflow: workflowType,
-        params: {
-          serviceType,
-          operationType,
-          floorId,
-          shelfId
-        }
+      // Import the dynamic workflow execution function
+      const { executeWorkflow } = await import('./dynamic-workflow');
+      
+      // Execute the workflow directly
+      const workflowResult = await executeWorkflow(workflowType, {
+        serviceType,
+        operationType,
+        floorId,
+        shelfId
       });
       
       res.status(200).json({
         success: true,
-        missionId: workflowResponse.data.missionId,
+        missionId: workflowResult.missionId || 'unknown',
         message: 'Workflow execution started'
       });
     } catch (error) {

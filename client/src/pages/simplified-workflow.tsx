@@ -285,7 +285,7 @@ function OperationCard({
   const colorClasses = operation.enabled
     ? (isSelected 
       ? "border-green-500 bg-green-100" 
-      : "border-gray-300 bg-white hover:bg-gray-50")
+      : "border-black bg-black hover:bg-gray-800")
     : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60";
     
   return (
@@ -294,7 +294,7 @@ function OperationCard({
       onClick={operation.enabled ? onSelect : undefined}
     >
       <div className="flex flex-col items-center">
-        <h3 className="text-lg font-medium text-gray-700">{operation.displayName}</h3>
+        <h3 className={`text-lg font-medium ${isSelected ? 'text-gray-700' : operation.enabled ? 'text-white' : 'text-gray-500'}`}>{operation.displayName}</h3>
         
         {isSelected && (
           <div className="mt-3 text-green-600 flex items-center">
