@@ -76,13 +76,13 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
       logRobotTask(`Available point IDs: ${allPoints.map(p => p.id).join(', ')}`);
       
       // Find specifically needed points using exact IDs (case-sensitive)
-      // This is the main pickup point in the facility - Using Pick-up_Load
-      const pickupPoint = allPoints.find(p => p.id === 'Pick-up_Load');
-      const pickupDockingPoint = allPoints.find(p => p.id === 'Pick-up_Load_docking');
+      // This is the main pickup point in the facility - Using pick-up_load (lowercase p)
+      const pickupPoint = allPoints.find(p => p.id === 'pick-up_load');
+      const pickupDockingPoint = allPoints.find(p => p.id === 'pick-up_load_docking');
       
       // This is the shelf point 104 where we'll drop off the bin
-      const dropoffPoint = allPoints.find(p => p.id === '104_Load');
-      const dropoffDockingPoint = allPoints.find(p => p.id === '104_Load_docking');
+      const dropoffPoint = allPoints.find(p => p.id === '104_load');
+      const dropoffDockingPoint = allPoints.find(p => p.id === '104_load_docking');
       
       // Always use hardcoded charger coordinates instead of trying to get them from the API
       // This ensures return to charger always works
@@ -101,19 +101,19 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
       
       // Validate required points exist
       if (!pickupPoint) {
-        throw new Error('Could not find pickup point "Pick-up_Load" in map data');
+        throw new Error('Could not find pickup point "pick-up_load" in map data');
       }
       
       if (!pickupDockingPoint) {
-        throw new Error('Could not find pickup docking point "Pick-up_Load_docking" in map data');
+        throw new Error('Could not find pickup docking point "pick-up_load_docking" in map data');
       }
       
       if (!dropoffPoint) {
-        throw new Error('Could not find dropoff point "104_Load" in map data');
+        throw new Error('Could not find dropoff point "104_load" in map data');
       }
       
       if (!dropoffDockingPoint) {
-        throw new Error('Could not find dropoff docking point "104_Load_docking" in map data');
+        throw new Error('Could not find dropoff docking point "104_load_docking" in map data');
       }
       
       // Log the points we found

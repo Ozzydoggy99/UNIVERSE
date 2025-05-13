@@ -4856,5 +4856,103 @@
     "createdAt": "2025-05-10T21:56:31.682Z",
     "updatedAt": "2025-05-10T22:00:03.404Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747169212387_ho04g0x",
+    "name": "Pickup to 104 Workflow",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.8869687687583792,
+          "y": 2.3113283120324013,
+          "ori": 0,
+          "label": "pick-up_load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.8474520664190095,
+          "y": 2.3113283120324013,
+          "ori": 0,
+          "label": "Align with rack at pick-up_load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -14.801402825241894,
+          "y": 6.768090424742468,
+          "ori": 0,
+          "label": "104_load_docking"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -15.879840208299356,
+          "y": 6.768090424742468,
+          "ori": 0,
+          "label": "104_load"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true,
+          "stabilizationTime": 3000,
+          "safetyWait": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -14.801402825241894,
+          "y": 6.768090424742468,
+          "ori": 0,
+          "label": "104_load_docking (safe position)"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": 0.03443853667262486,
+          "y": 0.4981316698765672,
+          "ori": 266.11,
+          "label": "Charging Station_docking",
+          "isCharger": true
+        },
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "in_progress",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-13T20:46:52.387Z",
+    "updatedAt": "2025-05-13T20:46:52.400Z",
+    "robotSn": "L382502104987ir"
   }
 ]
