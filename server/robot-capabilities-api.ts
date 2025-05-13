@@ -165,25 +165,24 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       const robotId = ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
-      // For service types, we need to create the operations based on what we know
-      // No fallbacks, only genuine operations discovered from the robot
-      if (serviceType === 'laundry' || serviceType === 'trash') {
-        // Check if we have central pickup and dropoff
-        if (capabilities.hasCentralPickup) {
-          operations.push({
-            id: 'pickup',
-            displayName: 'Pick Up',
-            enabled: true
-          });
-        }
-        
-        if (capabilities.hasCentralDropoff) {
-          operations.push({
-            id: 'dropoff',
-            displayName: 'Drop Off',
-            enabled: true
-          });
-        }
+      // For any service type, create operations based on robot capabilities
+      // with no hardcoded service type names
+      
+      // Check if we have central pickup and dropoff
+      if (capabilities.hasCentralPickup) {
+        operations.push({
+          id: 'pickup',
+          displayName: 'Pick Up',
+          enabled: true
+        });
+      }
+      
+      if (capabilities.hasCentralDropoff) {
+        operations.push({
+          id: 'dropoff',
+          displayName: 'Drop Off',
+          enabled: true
+        });
       }
       
       // Log what we found from robot
