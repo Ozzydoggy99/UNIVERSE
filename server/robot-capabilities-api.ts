@@ -220,20 +220,16 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         logger.warn(`Could not get floor data from robot, using default floors: ${floorError}`);
       }
       
-      // If no floors found, provide default floors
+      // If no floors found, provide only Floor 1 as default (real robot only has one floor)
       if (floors.length === 0) {
-        logger.info('No floors found, using default floors');
+        logger.info('No floors found, using default floor (Floor 1 only)');
         floors = [
           {
             id: 'Floor1',
             displayName: 'Floor 1',
             floorNumber: 1
-          },
-          {
-            id: 'Floor2',
-            displayName: 'Floor 2',
-            floorNumber: 2
           }
+          // Removed Floor 2 since it doesn't exist on the actual robot
         ];
       }
       
