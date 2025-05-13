@@ -117,6 +117,18 @@ async function getMapPoints(mapId: string): Promise<any[]> {
  */
 export async function discoverRobotCapabilities(robotId: string): Promise<RobotCapabilities> {
   try {
+    // Check if we have cached capabilities
+    const cachedCapabilities = await storage.getRobotCapabilities(robotId);
+    
+    // If we have cached capabilities that are less than 5 minutes old, return them
+    if (cachedCapabilities && 
+        cachedCapabilities.lastUpdated && 
+        (new Date().getTime() - new Date(cachedCapabilities.lastUpdated).getTime() < 5 * 60 * 1000)) {
+      logger.info(`Using cached robot capabilities for robot ${robotId}`);
+      return cachedCapabilities;
+    }
+    
+    logger.info(`Discovering robot capabilities for robot ${robotId}`);
     const maps = await getMaps();
     
     // Process each map to extract its data and points
@@ -200,13 +212,19 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       }
     ];
     
-    return {
+    // Create the capabilities object
+    const capabilities = {
       maps: mapData,
       serviceTypes,
       hasCharger,
       hasCentralPickup,
       hasCentralDropoff
     };
+    
+    // Store the capabilities in the cache
+    await storage.storeRobotCapabilities(robotId, capabilities);
+    
+    return capabilities;
   } catch (error) {
     logger.error(`Error discovering robot capabilities: ${error}`);
     // Return default capabilities

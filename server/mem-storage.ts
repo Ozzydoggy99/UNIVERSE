@@ -176,6 +176,7 @@ export class MemStorage implements IStorage {
   private elevators = new Map<number, Elevator>();
   private elevatorQueue = new Map<number, ElevatorQueue>();
   private elevatorMaintenance = new Map<number, ElevatorMaintenance>();
+  private robotCapabilities = new Map<string, any>();
   
   constructor() {
     this.sessionStore = new MemoryStore({
@@ -822,6 +823,18 @@ export class MemStorage implements IStorage {
     const updatedMaintenance = { ...maintenance, ...updates };
     this.elevatorMaintenance.set(id, updatedMaintenance);
     return updatedMaintenance;
+  }
+  
+  // Robot Capabilities methods
+  async storeRobotCapabilities(robotId: string, capabilities: any): Promise<void> {
+    this.robotCapabilities.set(robotId, {
+      ...capabilities,
+      lastUpdated: new Date()
+    });
+  }
+  
+  async getRobotCapabilities(robotId: string): Promise<any | undefined> {
+    return this.robotCapabilities.get(robotId);
   }
 }
 

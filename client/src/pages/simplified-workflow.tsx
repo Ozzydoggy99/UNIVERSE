@@ -55,6 +55,7 @@ export default function ServiceSelectionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/simplified-workflow/service-types'],
     retry: 1,
+    select: (data) => data as { serviceTypes: ServiceType[] }
   });
   
   if (isLoading) {
@@ -191,6 +192,7 @@ export function OperationSelectionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations`],
     retry: 1,
+    select: (data) => data as { operations: OperationType[] }
   });
   
   if (isLoading) {

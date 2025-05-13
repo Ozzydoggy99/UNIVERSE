@@ -274,18 +274,13 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       }
       
       // Call the appropriate workflow API endpoint
-      const workflowResponse = await axios.post(`${ROBOT_API_URL}/api/dynamic-workflow/execute`, {
+      const workflowResponse = await axios.post(`/api/dynamic-workflow/execute`, {
         workflow: workflowType,
         params: {
           serviceType,
           operationType,
           floorId,
           shelfId
-        }
-      }, {
-        headers: {
-          'X-Robot-Serial': ROBOT_SERIAL,
-          'X-Robot-Secret': ROBOT_SECRET
         }
       });
       
