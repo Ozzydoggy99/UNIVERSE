@@ -273,11 +273,11 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         }
       }
       
-      // Import the dynamic workflow execution function
-      const { executeWorkflow } = await import('./dynamic-workflow');
+      // To avoid circular dependencies, we'll use the dynamic import
+      const dynamicWorkflow = await import('./dynamic-workflow');
       
       // Execute the workflow directly
-      const workflowResult = await executeWorkflow(workflowType, {
+      const workflowResult = await dynamicWorkflow.executeWorkflow(workflowType, {
         serviceType,
         operationType,
         floorId,

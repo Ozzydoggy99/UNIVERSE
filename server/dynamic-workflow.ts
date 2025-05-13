@@ -1652,3 +1652,103 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
   
   console.log('✅ Registered dynamic workflow API routes');
 }
+
+/**
+ * Execute a workflow with the given parameters
+ * This function is called from the simplified-workflow UI
+ */
+export async function executeWorkflow(
+  workflowType: string, 
+  params: {
+    serviceType: string,
+    operationType: string,
+    floorId: string,
+    shelfId: string
+  }
+): Promise<{
+  success: boolean,
+  missionId: string,
+  message: string
+}> {
+  try {
+    console.log(`[DYNAMIC-WORKFLOW] Executing workflow ${workflowType} with params:`, params);
+    
+    // Create a unique workflow ID
+    const workflowId = uuidv4();
+    
+    // Initialize workflow state
+    workflowStates[workflowId] = {
+      id: workflowId,
+      serviceType: params.serviceType as ServiceType,
+      operationType: params.operationType as OperationType,
+      floorId: params.floorId,
+      shelfId: params.shelfId,
+      startTime: new Date(),
+      status: 'queued',
+      currentStep: 0,
+      totalSteps: 5 // Placeholder, will be updated based on workflow
+    };
+    
+    // Log the workflow start
+    logWorkflow(workflowId, `Starting workflow ${workflowType} with params: ${JSON.stringify(params)}`);
+    
+    // Execute the appropriate workflow based on type
+    let missionId: string;
+    
+    if (workflowType === 'zone-104-workflow') {
+      // Call the Zone 104 workflow API endpoint
+      const response = await axios.post(
+        `${ROBOT_API_URL}/zone-104-workflow`,
+        { shelf_id: params.shelfId },
+        { headers: getHeaders() }
+      );
+      missionId = response.data.missionId || workflowId;
+    } 
+    else if (workflowType === 'pickup-to-104-workflow') {
+      // Call the pickup-to-104 workflow API endpoint
+      const response = await axios.post(
+        `${ROBOT_API_URL}/pickup-to-104-workflow`,
+        { shelf_id: params.shelfId },
+        { headers: getHeaders() }
+      );
+      missionId = response.data.missionId || workflowId;
+    }
+    else if (workflowType === 'shelf-to-central') {
+      // Call the local pickup API endpoint (shelf to central)
+      const response = await axios.post(
+        `${ROBOT_API_URL}/local-pickup`,
+        { shelf_id: params.shelfId },
+        { headers: getHeaders() }
+      );
+      missionId = response.data.missionId || workflowId;
+    }
+    else if (workflowType === 'central-to-shelf') {
+      // Call the local dropoff API endpoint (central to shelf)
+      const response = await axios.post(
+        `${ROBOT_API_URL}/local-dropoff`,
+        { shelf_id: params.shelfId },
+        { headers: getHeaders() }
+      );
+      missionId = response.data.missionId || workflowId;
+    }
+    else {
+      throw new Error(`Unknown workflow type: ${workflowType}`);
+    }
+    
+    // Update workflow state
+    workflowStates[workflowId].status = 'in-progress';
+    
+    return {
+      success: true,
+      missionId,
+      message: `Workflow ${workflowType} execution started with ID ${missionId}`
+    };
+  } catch (error: any) {
+    console.error(`[DYNAMIC-WORKFLOW] Error executing workflow:`, error);
+    return {
+      success: false,
+      missionId: 'error',
+      message: `Error executing workflow: ${error.message}`
+    };
+  }
+}
