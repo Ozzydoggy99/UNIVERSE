@@ -186,14 +186,46 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       
       // Check for special points
       for (const point of allPoints) {
-        if (point.id === 'charger') {
+        // Convert point ID to lowercase for case-insensitive comparison
+        const pointId = point.id.toLowerCase();
+        
+        // Check for charger
+        if (pointId === 'charger') {
           hasCharger = true;
-        } else if (point.id === 'pick-up_load' || point.id === 'pickup_load') {
+          logger.info(`Found charger point: ${point.id}`);
+        } 
+        // Check for pickup points - support various naming conventions
+        else if (
+          pointId === 'pick-up_load' || 
+          pointId === 'pickup_load' || 
+          pointId === 'pickup' || 
+          pointId === 'central_pickup' || 
+          pointId === 'central-pickup' ||
+          pointId === 'pick-up' ||
+          pointId.includes('pickup_load') ||
+          pointId.includes('pick-up_load')
+        ) {
           hasCentralPickup = true;
-        } else if (point.id === 'drop-off_load' || point.id === 'dropoff_load') {
+          logger.info(`Found central pickup point: ${point.id}`);
+        } 
+        // Check for dropoff points - support various naming conventions
+        else if (
+          pointId === 'drop-off_load' || 
+          pointId === 'dropoff_load' || 
+          pointId === 'dropoff' || 
+          pointId === 'central_dropoff' || 
+          pointId === 'central-dropoff' ||
+          pointId === 'drop-off' ||
+          pointId.includes('dropoff_load') ||
+          pointId.includes('drop-off_load')
+        ) {
           hasCentralDropoff = true;
+          logger.info(`Found central dropoff point: ${point.id}`);
         }
       }
+      
+      // Debug log for all points to help diagnose naming issues
+      logger.info(`Map ${map.id} has ${allPoints.length} points: ${allPoints.map(p => p.id).join(', ')}`);
     }
     
     // Define available service types
