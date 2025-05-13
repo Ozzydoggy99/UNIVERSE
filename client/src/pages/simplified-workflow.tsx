@@ -322,6 +322,7 @@ export function FloorSelectionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations/${operationType}/floors`],
     retry: 1,
+    select: (data) => data as { floors: Floor[] }
   });
   
   if (isLoading) {
@@ -445,6 +446,7 @@ export function ShelfSelectionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations/${operationType}/floors/${floorId}/shelves`],
     retry: 1,
+    select: (data) => data as { shelves: ShelfPoint[] }
   });
   
   if (isLoading) {
