@@ -10,6 +10,36 @@ const headers = getAuthHeaders();
  * @param app Express application
  */
 export function registerRobotApiRoutes(app: Express) {
+  // WebSocket status endpoint
+  app.get('/api/robot/websocket-status', (req: Request, res: Response) => {
+    try {
+      // Import the websocket status function
+      const { getRobotWebSocketStatus } = require('./robot-websocket');
+      // Import the position tracker
+      const { robotPositionTracker } = require('./robot-position-tracker');
+      
+      const status = getRobotWebSocketStatus();
+      const latestPosition = robotPositionTracker.getLatestPosition();
+      
+      // Get last message time
+      const lastMessageTime = latestPosition?.timestamp 
+        ? new Date(latestPosition.timestamp).toISOString() 
+        : null;
+      
+      res.json({
+        connected: status === 'connected',
+        status,
+        lastMessageTime,
+        position: latestPosition
+      });
+    } catch (error: any) {
+      console.error('Error getting WebSocket status:', error);
+      res.status(500).json({ 
+        error: 'Failed to get WebSocket status', 
+        message: error.message 
+      });
+    }
+  });
   // Comprehensive charging status endpoint that checks multiple sources
   app.get('/api/robot/charging-status', async (req: Request, res: Response) => {
     try {
