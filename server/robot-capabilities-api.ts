@@ -158,18 +158,36 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       
       // Always enable operations regardless of robot capabilities 
       // This ensures users can select any operation in the dynamic workflow
-      const operations = [
-        {
-          id: 'pickup',
-          displayName: 'Pick Up',
-          enabled: true // Force enable pickup
-        },
-        {
-          id: 'dropoff',
-          displayName: 'Drop Off',
-          enabled: true // Force enable dropoff
-        }
-      ];
+      // Only show operations that are discovered from the robot
+      // If we truly can't find any operations, include both as a last resort
+      let operations = [];
+      
+      try {
+        const capabilities = await getRobotCapabilities();
+        operations = capabilities.operations?.[serviceType] || [];
+        
+        // Log what we found from robot
+        logger.info(`Found ${operations.length} operations from robot for service type ${serviceType}`);
+      } catch (error) {
+        logger.error(`Error getting robot capabilities: ${error}`);
+      }
+      
+      // Only as a last resort if absolutely nothing is found
+      if (operations.length === 0) {
+        logger.warn(`No operations found from robot API, using critical fallback for service type: ${serviceType}`);
+        operations = [
+          {
+            id: 'pickup',
+            displayName: 'Pick Up',
+            enabled: true
+          },
+          {
+            id: 'dropoff',
+            displayName: 'Drop Off',
+            enabled: true
+          }
+        ];
+      }
       
       logger.info(`Returning operations: ${JSON.stringify(operations)}`);
       res.status(200).json({ operations });
@@ -220,17 +238,9 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         logger.warn(`Could not get floor data from robot, using default floors: ${floorError}`);
       }
       
-      // If no floors found, provide only Floor 1 as default (real robot only has one floor)
+      // No fallback - only show floors that actually exist on the robot
       if (floors.length === 0) {
-        logger.info('No floors found, using default floor (Floor 1 only)');
-        floors = [
-          {
-            id: 'Floor1',
-            displayName: 'Floor 1',
-            floorNumber: 1
-          }
-          // Removed Floor 2 since it doesn't exist on the actual robot
-        ];
+        logger.info('No floors found on robot');
       }
       
       logger.info(`Returning floors: ${JSON.stringify(floors)}`);
@@ -282,30 +292,9 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         logger.warn(`Could not get shelf data from robot, using default shelves: ${shelfError}`);
       }
       
-      // If no shelves found, provide default shelves based on floor
+      // No fallback - only show shelves that actually exist on the robot
       if (shelves.length === 0) {
-        logger.info(`No shelves found for floor ${floorId}, using default shelves`);
-        
-        // Create different defaults based on floor ID
-        if (floorId === 'Floor1') {
-          shelves = [
-            { id: '104_load', displayName: '104', x: 10.5, y: 8.2 },
-            { id: '112_load', displayName: '112', x: 12.3, y: 9.8 },
-            { id: '115_load', displayName: '115', x: 13.7, y: 7.4 }
-          ];
-        } else if (floorId === 'Floor2') {
-          shelves = [
-            { id: '201_load', displayName: '201', x: 9.2, y: 12.5 },
-            { id: '210_load', displayName: '210', x: 14.8, y: 15.3 },
-            { id: '220_load', displayName: '220', x: 11.6, y: 10.2 }
-          ];
-        } else {
-          shelves = [
-            { id: `${floorId}_101_load`, displayName: '101', x: 10.0, y: 8.0 },
-            { id: `${floorId}_102_load`, displayName: '102', x: 12.0, y: 9.0 },
-            { id: `${floorId}_103_load`, displayName: '103', x: 14.0, y: 10.0 }
-          ];
-        }
+        logger.info(`No shelves found for floor ${floorId}`);
       }
       
       logger.info(`Returning shelves: ${JSON.stringify(shelves)}`);
