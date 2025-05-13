@@ -163,8 +163,29 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       let operations = [];
       
       try {
-        const capabilities = await getRobotCapabilities();
-        operations = capabilities.operations?.[serviceType] || [];
+        const robotId = ROBOT_SERIAL;
+        const capabilities = await discoverRobotCapabilities(robotId);
+        
+        // For service types, we need to create the operations based on what we know
+        // No fallbacks, only genuine operations discovered from the robot
+        if (serviceType === 'laundry' || serviceType === 'trash') {
+          // Check if we have central pickup and dropoff
+          if (capabilities.hasCentralPickup) {
+            operations.push({
+              id: 'pickup',
+              displayName: 'Pick Up',
+              enabled: true
+            });
+          }
+          
+          if (capabilities.hasCentralDropoff) {
+            operations.push({
+              id: 'dropoff',
+              displayName: 'Drop Off',
+              enabled: true
+            });
+          }
+        }
         
         // Log what we found from robot
         logger.info(`Found ${operations.length} operations from robot for service type ${serviceType}`);
@@ -172,21 +193,9 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         logger.error(`Error getting robot capabilities: ${error}`);
       }
       
-      // Only as a last resort if absolutely nothing is found
+      // No fallbacks - only show operations that actually exist on the robot
       if (operations.length === 0) {
-        logger.warn(`No operations found from robot API, using critical fallback for service type: ${serviceType}`);
-        operations = [
-          {
-            id: 'pickup',
-            displayName: 'Pick Up',
-            enabled: true
-          },
-          {
-            id: 'dropoff',
-            displayName: 'Drop Off',
-            enabled: true
-          }
-        ];
+        logger.warn(`No operations found from robot API for service type: ${serviceType}`);
       }
       
       logger.info(`Returning operations: ${JSON.stringify(operations)}`);
