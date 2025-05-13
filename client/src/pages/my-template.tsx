@@ -94,7 +94,7 @@ export default function MyTemplatePage() {
           )}
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-green-100 bg-green-50" 
                 onClick={() => navigate('/simplified-workflow')}>
             <div className="flex flex-col items-center">
@@ -103,26 +103,10 @@ export default function MyTemplatePage() {
               </div>
               <h3 className="text-lg font-medium text-green-700">Robot Service</h3>
               <p className="text-sm text-center text-gray-600 mt-2">
-                New dynamic workflow with automatic maps and points
+                Dynamic workflow with automatic maps and points
               </p>
               <Button className="mt-4 w-full bg-green-600 hover:bg-green-700">
-                Start Dynamic Task
-              </Button>
-            </div>
-          </Card>
-          
-          <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-blue-100 bg-blue-50"
-                onClick={() => navigate('/workflow/trash')}>
-            <div className="flex flex-col items-center">
-              <div className="bg-blue-100 p-4 rounded-full mb-3">
-                <Trash2 className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-medium text-blue-700">Legacy Service</h3>
-              <p className="text-sm text-center text-gray-600 mt-2">
-                Original workflow with fixed maps and points
-              </p>
-              <Button className="mt-4 w-full bg-blue-600 hover:bg-blue-700">
-                Start Legacy Task
+                Start Task
               </Button>
             </div>
           </Card>
