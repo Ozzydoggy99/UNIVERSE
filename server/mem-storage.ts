@@ -150,6 +150,10 @@ export interface IStorage {
   getAllElevatorMaintenanceForElevator(elevatorId: number): Promise<ElevatorMaintenance[]>;
   updateElevatorMaintenance(id: number, updates: Partial<ElevatorMaintenance>): Promise<ElevatorMaintenance | undefined>;
   
+  // Robot capabilities methods
+  storeRobotCapabilities(robotId: string, capabilities: any): Promise<void>;
+  getRobotCapabilities(robotId: string): Promise<any | undefined>;
+  
   // Session store for auth
   sessionStore: session.Store;
 }

@@ -1,287 +1,304 @@
 /**
  * Robot Capabilities API
  * 
- * This module provides API endpoints for retrieving robot capabilities,
- * including maps, shelf points, and supported service types.
+ * This module provides API endpoints for retrieving robot capabilities and configuring
+ * templates based on those capabilities.
  */
 
-import { Express } from 'express';
-import { logger } from './logger';
+import { Request, Response, Express } from 'express';
+import axios from 'axios';
 import { storage } from './storage';
-import { discoverRobotCapabilities, updateTemplateWithRobotCapabilities } from './robot-template-discovery';
-import { isAuthenticated } from './auth-middleware';
-import { robotPointsMap } from './robot-points-map';
+import { ROBOT_API_URL, ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
+import { 
+  discoverRobotCapabilities, 
+  updateTemplateWithRobotCapabilities,
+  RobotCapabilities,
+  MapData,
+  ShelfPoint,
+  ServiceType
+} from './robot-template-discovery';
+
+// Simple logger
+const logger = {
+  info: (message: string) => console.log(message),
+  error: (message: string) => console.error(message),
+  warn: (message: string) => console.warn(message)
+};
 
 /**
- * Registers the robot capabilities API routes
+ * Register API routes for robot capabilities
  */
 export function registerRobotCapabilitiesAPI(app: Express): void {
-  logger.info('[ROBOT-CAPABILITIES-API] Registering robot capabilities API routes');
-  
-  // Endpoint to fetch available maps and shelf points for workflows
-  app.get('/api/workflow/maps', isAuthenticated, async (req, res) => {
+  logger.info('Registering robot capabilities API routes');
+
+  /**
+   * Get available operations based on robot capabilities
+   * 
+   * This endpoint analyzes the current robot maps and point configurations 
+   * and determines which operations can be performed.
+   */
+  app.get('/api/robot-capabilities/operations', async (req: Request, res: Response) => {
     try {
-      logger.info('[ROBOT-CAPABILITIES-API] Fetching map data for workflows');
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
       
-      // Get user's template from the authenticated user
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ success: false, error: 'User not authenticated' });
-      }
-      
-      // Find the template ID assigned to the user
-      const userTemplate = await storage.getUserTemplate(userId);
-      if (!userTemplate) {
-        return res.status(404).json({ success: false, error: 'No template assigned to user' });
-      }
-      
-      // Get the template
-      const template = await storage.getTemplate(userTemplate.templateId);
-      if (!template) {
-        return res.status(404).json({ success: false, error: 'Template not found' });
-      }
-      
-      // Check if the template has robot capabilities (if not, needs to be discovered)
-      if (!template.config?.robotCapabilities) {
-        // Find a robot assigned to this template
-        const robotAssignment = await storage.getTemplateRobotAssignment(template.id);
-        if (!robotAssignment) {
-          // No robot assigned, so do a direct discovery from robot API
-          logger.info('[ROBOT-CAPABILITIES-API] No robot assignment found, fetching map data directly');
-          
-          // Fetch points directly from the robot
-          const points = await robotPointsMap.fetchRobotMapPoints();
-          
-          // Format the data for the response
-          const floorMap = {
-            id: '1',
-            name: 'Floor 1',
-            shelfPoints: []
-          };
-          
-          // Process points to build shelf points list
-          for (const [pointId, pointData] of Object.entries(points)) {
-            // Skip non-shelf points, charger points, and docking points
-            if (
-              !pointId.includes('_load') || 
-              pointId.includes('pick-up') || 
-              pointId.includes('drop-off') ||
-              pointId.toLowerCase().includes('charger') ||
-              pointId.endsWith('_docking')
-            ) {
-              continue;
-            }
-            
-            // Extract display name (e.g., "104" from "104_load")
-            let displayName = pointId;
-            const match = pointId.match(/^(\d+)_/);
-            if (match) {
-              displayName = match[1];
-            }
-            
-            floorMap.shelfPoints.push({
-              id: pointId,
-              displayName,
-              x: pointData.x,
-              y: pointData.y
-            });
-          }
-          
-          // Sort shelf points numerically
-          floorMap.shelfPoints.sort((a, b) => {
-            const numA = parseInt(a.displayName);
-            const numB = parseInt(b.displayName);
-            if (!isNaN(numA) && !isNaN(numB)) {
-              return numA - numB;
-            }
-            return a.displayName.localeCompare(b.displayName);
-          });
-          
-          return res.json({ success: true, maps: [floorMap] });
+      // Determine available operations
+      const operations = {
+        pickup: {
+          enabled: capabilities.hasCentralPickup,
+          displayName: 'Pick Up',
+          description: 'Pick up a bin from central pickup'
+        },
+        dropoff: {
+          enabled: capabilities.hasCentralDropoff,
+          displayName: 'Drop Off',
+          description: 'Drop off a bin at central dropoff'
+        },
+        shelfToShelf: {
+          enabled: capabilities.maps.some(map => map.shelfPoints.length >= 2),
+          displayName: 'Shelf to Shelf',
+          description: 'Move bins between shelves'
+        },
+        returnToCharger: {
+          enabled: capabilities.hasCharger,
+          displayName: 'Return to Charger',
+          description: 'Send robot back to charging station'
         }
-        
-        // Robot assigned, discover capabilities and update template
-        try {
-          await updateTemplateWithRobotCapabilities(storage, template.id, robotAssignment.robotId);
-          
-          // Get the updated template
-          const updatedTemplate = await storage.getTemplate(template.id);
-          if (!updatedTemplate?.config?.robotCapabilities) {
-            throw new Error('Failed to discover robot capabilities');
-          }
-          
-          template.config = updatedTemplate.config;
-        } catch (error) {
-          logger.error(`[ROBOT-CAPABILITIES-API] Error updating robot capabilities: ${error}`);
-          // Continue with direct map fallback
-        }
-      }
+      };
       
-      // Use the capabilities from the template if available
-      if (template.config?.robotCapabilities) {
-        const { maps } = template.config.robotCapabilities;
-        
-        // Format the maps data for the frontend
-        const formattedMaps = maps.map(map => ({
-          id: map.floorNumber.toString(),
-          name: `Floor ${map.floorNumber}`,
-          shelfPoints: map.shelfPoints.map(point => ({
-            id: point.id,
-            displayName: point.displayName,
-            x: point.x,
-            y: point.y
-          }))
-        }));
-        
-        return res.json({ success: true, maps: formattedMaps });
-      } else {
-        // Fallback if capabilities not available
-        logger.warn('[ROBOT-CAPABILITIES-API] No robot capabilities found in template, fetching directly');
-        
-        // Fetch points directly from the robot
-        const points = await robotPointsMap.fetchRobotMapPoints();
-        
-        // Format the data for the response
-        const floorMap = {
-          id: '1',
-          name: 'Floor 1',
-          shelfPoints: []
-        };
-        
-        // Process points to build shelf points list
-        for (const [pointId, pointData] of Object.entries(points)) {
-          // Skip non-shelf points, charger points, and docking points
-          if (
-            !pointId.includes('_load') || 
-            pointId.includes('pick-up') || 
-            pointId.includes('drop-off') ||
-            pointId.toLowerCase().includes('charger') ||
-            pointId.endsWith('_docking')
-          ) {
-            continue;
-          }
-          
-          // Extract display name (e.g., "104" from "104_load")
-          let displayName = pointId;
-          const match = pointId.match(/^(\d+)_/);
-          if (match) {
-            displayName = match[1];
-          }
-          
-          floorMap.shelfPoints.push({
-            id: pointId,
-            displayName,
-            x: pointData.x,
-            y: pointData.y
-          });
-        }
-        
-        // Sort shelf points numerically
-        floorMap.shelfPoints.sort((a, b) => {
-          const numA = parseInt(a.displayName);
-          const numB = parseInt(b.displayName);
-          if (!isNaN(numA) && !isNaN(numB)) {
-            return numA - numB;
-          }
-          return a.displayName.localeCompare(b.displayName);
-        });
-        
-        return res.json({ success: true, maps: [floorMap] });
-      }
+      res.status(200).json({ operations });
     } catch (error) {
-      logger.error(`[ROBOT-CAPABILITIES-API] Error fetching maps: ${error}`);
-      return res.status(500).json({ success: false, error: 'Error fetching map data' });
+      logger.error(`Error retrieving operations: ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve operations' });
     }
   });
-  
-  // Endpoint for admins to manually trigger capabilities discovery for a template
-  app.post('/api/admin/templates/:templateId/discover-capabilities', isAuthenticated, async (req, res) => {
+
+  /**
+   * Get robot capabilities
+   * 
+   * This endpoint retrieves the full capabilities of the robot, including maps,
+   * points, service types, and available operations.
+   */
+  app.get('/api/robot-capabilities', async (req: Request, res: Response) => {
     try {
-      // Check if user is admin
-      if (!req.user?.isAdmin) {
-        return res.status(403).json({ success: false, error: 'Admin access required' });
-      }
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
       
-      const templateId = parseInt(req.params.templateId);
-      if (isNaN(templateId)) {
-        return res.status(400).json({ success: false, error: 'Invalid template ID' });
-      }
-      
-      // Get the template
-      const template = await storage.getTemplate(templateId);
-      if (!template) {
-        return res.status(404).json({ success: false, error: 'Template not found' });
-      }
-      
-      // Find a robot assigned to this template
-      const robotAssignment = await storage.getTemplateRobotAssignment(templateId);
-      if (!robotAssignment) {
-        return res.status(404).json({ success: false, error: 'No robot assigned to this template' });
-      }
-      
-      // Discover robot capabilities and update the template
-      await updateTemplateWithRobotCapabilities(storage, templateId, robotAssignment.robotId);
-      
-      return res.json({ success: true, message: 'Template capabilities updated successfully' });
+      res.status(200).json(capabilities);
     } catch (error) {
-      logger.error(`[ROBOT-CAPABILITIES-API] Error updating template capabilities: ${error}`);
-      return res.status(500).json({ success: false, error: 'Error updating template capabilities' });
+      logger.error(`Error retrieving robot capabilities: ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve robot capabilities' });
     }
   });
-  
-  // Endpoint to fetch service types for a template
-  app.get('/api/workflow/service-types', isAuthenticated, async (req, res) => {
+
+  /**
+   * Apply robot capabilities to template
+   * 
+   * This endpoint updates a template with the robot's capabilities.
+   */
+  app.post('/api/robot-capabilities/apply-to-template/:templateId', async (req: Request, res: Response) => {
     try {
-      logger.info('[ROBOT-CAPABILITIES-API] Fetching service types');
+      const { templateId } = req.params;
+      const robotId = ROBOT_SERIAL;
       
-      // Get user's template from the authenticated user
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ success: false, error: 'User not authenticated' });
-      }
+      await updateTemplateWithRobotCapabilities(parseInt(templateId, 10), robotId);
       
-      // Find the template ID assigned to the user
-      const userTemplate = await storage.getUserTemplate(userId);
-      if (!userTemplate) {
-        return res.status(404).json({ success: false, error: 'No template assigned to user' });
-      }
+      res.status(200).json({ success: true, message: 'Template updated with robot capabilities' });
+    } catch (error) {
+      logger.error(`Error applying robot capabilities to template: ${error}`);
+      res.status(500).json({ error: 'Failed to apply robot capabilities to template' });
+    }
+  });
+
+  /**
+   * Get maps for the simplified workflow UI
+   * 
+   * This endpoint retrieves maps with shelf points formatted for the simplified workflow UI
+   */
+  app.get('/api/simplified-workflow/maps', async (req: Request, res: Response) => {
+    try {
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
       
-      // Get the template
-      const template = await storage.getTemplate(userTemplate.templateId);
-      if (!template) {
-        return res.status(404).json({ success: false, error: 'Template not found' });
-      }
+      // Sort maps by floor number
+      const sortedMaps = [...capabilities.maps].sort((a, b) => a.floorNumber - b.floorNumber);
       
-      // Use the service types from the template if available
-      if (template.config?.robotCapabilities?.serviceTypes) {
-        return res.json({ 
-          success: true, 
-          serviceTypes: template.config.robotCapabilities.serviceTypes
-        });
-      } else {
-        // Fallback to default service types if none defined
-        const defaultServiceTypes = [
-          {
-            id: 'laundry',
-            displayName: 'Laundry',
-            icon: 'ShowerHead',
-            enabled: true
-          },
-          {
-            id: 'trash',
-            displayName: 'Trash',
-            icon: 'Trash2',
-            enabled: true
+      res.status(200).json({ 
+        maps: sortedMaps,
+        serviceTypes: capabilities.serviceTypes 
+      });
+    } catch (error) {
+      logger.error(`Error retrieving maps for simplified workflow: ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve maps' });
+    }
+  });
+
+  /**
+   * Get service types for the simplified workflow UI
+   */
+  app.get('/api/simplified-workflow/service-types', async (req: Request, res: Response) => {
+    try {
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      res.status(200).json({ serviceTypes: capabilities.serviceTypes });
+    } catch (error) {
+      logger.error(`Error retrieving service types: ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve service types' });
+    }
+  });
+
+  /**
+   * Get operations for a specific service type
+   */
+  app.get('/api/simplified-workflow/service-types/:serviceType/operations', async (req: Request, res: Response) => {
+    try {
+      const { serviceType } = req.params;
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // Define operations based on service type and robot capabilities
+      const operations = [
+        {
+          id: 'pickup',
+          displayName: 'Pick Up',
+          enabled: capabilities.hasCentralPickup
+        },
+        {
+          id: 'dropoff',
+          displayName: 'Drop Off',
+          enabled: capabilities.hasCentralDropoff
+        }
+      ];
+      
+      res.status(200).json({ operations });
+    } catch (error) {
+      logger.error(`Error retrieving operations for service type: ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve operations' });
+    }
+  });
+
+  /**
+   * Get floors for a specific operation and service type
+   */
+  app.get('/api/simplified-workflow/service-types/:serviceType/operations/:operationType/floors', async (req: Request, res: Response) => {
+    try {
+      const { serviceType, operationType } = req.params;
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // Filter and transform maps to floors
+      const floors = capabilities.maps
+        .filter(map => {
+          // Only include maps with shelf points for shelf operations
+          if (operationType === 'pickup' || operationType === 'dropoff') {
+            return map.shelfPoints.length > 0;
           }
-        ];
-        
-        return res.json({ success: true, serviceTypes: defaultServiceTypes });
-      }
+          return true;
+        })
+        .map(map => ({
+          id: map.id,
+          displayName: map.name,
+          floorNumber: map.floorNumber
+        }))
+        .sort((a, b) => a.floorNumber - b.floorNumber);
+      
+      res.status(200).json({ floors });
     } catch (error) {
-      logger.error(`[ROBOT-CAPABILITIES-API] Error fetching service types: ${error}`);
-      return res.status(500).json({ success: false, error: 'Error fetching service types' });
+      logger.error(`Error retrieving floors: ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve floors' });
     }
   });
-  
-  logger.info('[ROBOT-CAPABILITIES-API] Robot capabilities API routes registered');
+
+  /**
+   * Get shelf points for a specific floor, operation, and service type
+   */
+  app.get('/api/simplified-workflow/service-types/:serviceType/operations/:operationType/floors/:floorId/shelves', async (req: Request, res: Response) => {
+    try {
+      const { serviceType, operationType, floorId } = req.params;
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // Find the specified map
+      const map = capabilities.maps.find(m => m.id === floorId);
+      
+      if (!map) {
+        return res.status(404).json({ error: 'Floor not found' });
+      }
+      
+      // Get shelf points for the map
+      const shelves = map.shelfPoints.map(point => ({
+        id: point.id,
+        displayName: point.displayName,
+        x: point.x,
+        y: point.y
+      }));
+      
+      res.status(200).json({ shelves });
+    } catch (error) {
+      logger.error(`Error retrieving shelves: ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve shelves' });
+    }
+  });
+
+  /**
+   * Execute a workflow for a specific shelf, floor, operation, and service type
+   */
+  app.post('/api/simplified-workflow/execute', async (req: Request, res: Response) => {
+    try {
+      const { serviceType, operationType, floorId, shelfId } = req.body;
+      
+      if (!serviceType || !operationType || !floorId || !shelfId) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+      }
+      
+      // Determine which workflow template to use based on operation type
+      let workflowType = '';
+      
+      if (operationType === 'pickup') {
+        if (shelfId === 'pickup_load' || shelfId === 'pick-up_load') {
+          // Central pickup to a shelf operation
+          workflowType = 'central-to-shelf';
+        } else {
+          // Shelf to central dropoff operation
+          workflowType = 'pickup-to-104-workflow';
+        }
+      } else if (operationType === 'dropoff') {
+        if (shelfId === 'dropoff_load' || shelfId === 'drop-off_load') {
+          // Shelf to central dropoff operation
+          workflowType = 'shelf-to-central';
+        } else {
+          // Central pickup to a shelf operation
+          workflowType = 'zone-104-workflow';
+        }
+      }
+      
+      // Call the appropriate workflow API endpoint
+      const workflowResponse = await axios.post(`${ROBOT_API_URL}/api/dynamic-workflow/execute`, {
+        workflow: workflowType,
+        params: {
+          serviceType,
+          operationType,
+          floorId,
+          shelfId
+        }
+      }, {
+        headers: {
+          'X-Robot-Serial': ROBOT_SERIAL,
+          'X-Robot-Secret': ROBOT_SECRET
+        }
+      });
+      
+      res.status(200).json({
+        success: true,
+        missionId: workflowResponse.data.missionId,
+        message: 'Workflow execution started'
+      });
+    } catch (error) {
+      logger.error(`Error executing workflow: ${error}`);
+      res.status(500).json({ error: 'Failed to execute workflow' });
+    }
+  });
+
+  logger.info('✅ Registered robot capabilities API routes');
 }

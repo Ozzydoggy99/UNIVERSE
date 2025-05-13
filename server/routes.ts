@@ -97,6 +97,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register the dynamic workflow system for multi-floor robot operations
   registerDynamicWorkflowRoutes(app);
   
+  // Register robot capabilities API for dynamic template configuration
+  registerRobotCapabilitiesAPI(app);
+  
   // Register the robot settings API for rack specifications
   registerRobotSettingsRoutes(app);
   

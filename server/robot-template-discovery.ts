@@ -6,10 +6,25 @@
  */
 
 import axios from 'axios';
-import { logger } from './logger';
-import { robotPointsMap, getPointDisplayName } from './robot-points-map';
-import { IStorage } from './storage';
-import { ROBOT_API_BASE_URL } from './config';
+import { storage } from './storage';
+import { ROBOT_API_URL, ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
+
+// Simple logger
+const logger = {
+  info: (message: string) => console.log(message),
+  error: (message: string) => console.error(message),
+  warn: (message: string) => console.warn(message)
+};
+
+// Helper function to get display name for points
+function getPointDisplayName(pointId: string): string {
+  // Extract display name (e.g., "104" from "104_load")
+  const match = pointId.match(/^(\d+)_/);
+  if (match) {
+    return match[1];
+  }
+  return pointId;
+}
 
 // Types for discovered robot capabilities
 export interface RobotCapabilities {
@@ -44,151 +59,164 @@ export interface ServiceType {
 }
 
 /**
+ * Determines if a point ID represents a shelf point
+ */
+function isShelfPoint(pointId: string): boolean {
+  // Shelf points follow the convention: <number>_load
+  // For example: 104_load, 112_load, etc.
+  return /^\d+_load$/.test(pointId);
+}
+
+/**
+ * Get all maps from the robot
+ */
+async function getMaps(): Promise<any[]> {
+  try {
+    const response = await axios.get(`${ROBOT_API_URL}/maps`, {
+      headers: {
+        'X-Robot-Serial': ROBOT_SERIAL,
+        'X-Robot-Secret': ROBOT_SECRET
+      }
+    });
+    
+    if (response.data && Array.isArray(response.data.maps)) {
+      return response.data.maps;
+    }
+    return [];
+  } catch (error) {
+    logger.error(`Error fetching maps: ${error}`);
+    return [];
+  }
+}
+
+/**
+ * Get all points for a specific map
+ */
+async function getMapPoints(mapId: string): Promise<any[]> {
+  try {
+    const response = await axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, {
+      headers: {
+        'X-Robot-Serial': ROBOT_SERIAL,
+        'X-Robot-Secret': ROBOT_SECRET
+      }
+    });
+    
+    if (response.data && Array.isArray(response.data.points)) {
+      return response.data.points;
+    }
+    return [];
+  } catch (error) {
+    logger.error(`Error fetching points for map ${mapId}: ${error}`);
+    return [];
+  }
+}
+
+/**
  * Discovers robot capabilities by querying the robot's API
  * and analyzing its maps and points
  */
 export async function discoverRobotCapabilities(robotId: string): Promise<RobotCapabilities> {
-  logger.info(`[TEMPLATE-DISCOVERY] Discovering capabilities for robot ${robotId}`);
-  
   try {
-    // First, fetch maps from the robot using our existing points map function
-    const points = await robotPointsMap.fetchRobotMapPoints();
+    const maps = await getMaps();
     
-    if (!points || Object.keys(points).length === 0) {
-      logger.error(`[TEMPLATE-DISCOVERY] No maps or points found for robot ${robotId}`);
-      throw new Error('No maps or points found on robot');
-    }
-    
-    logger.info(`[TEMPLATE-DISCOVERY] Successfully retrieved ${Object.keys(points).length} map points`);
-    
-    // Now we'll organize these points into maps and analyze what's available
-    const mapsData: MapData[] = [];
-    const pointsArray = Object.entries(points);
-    
-    // Find maps and organize points by map
-    const mapIds = new Set<string>();
-    pointsArray.forEach(([pointId, pointData]) => {
-      // Extract map name from point metadata if available
-      if (pointData.mapName) {
-        mapIds.add(pointData.mapName);
-      }
-    });
-    
-    // If no map names found, use default "Floor1"
-    if (mapIds.size === 0) {
-      mapIds.add('Floor1');
-    }
-    
-    // Process each map
-    mapIds.forEach(mapId => {
-      // Extract floor number from map name (e.g., "Floor1" -> 1)
+    // Process each map to extract its data and points
+    const mapDataPromises = maps.map(async (map: any) => {
+      const mapId = map.id || '';
+      const mapName = map.name || mapId;
+      let floorNumber = 1;
+      
+      // Try to extract floor number from map ID (e.g., "Floor1" -> 1)
       const floorMatch = mapId.match(/Floor(\d+)/);
-      const floorNumber = floorMatch ? parseInt(floorMatch[1]) : 1;
+      if (floorMatch) {
+        floorNumber = parseInt(floorMatch[1], 10);
+      } else if (mapId.includes('Basement')) {
+        floorNumber = 0; // Basement is floor 0
+      }
       
-      // Find all shelf points for this map
-      const shelfPoints: ShelfPoint[] = [];
-      pointsArray.forEach(([pointId, pointData]) => {
-        // Skip points that aren't on this map or aren't shelf points
-        if (
-          (pointData.mapName && pointData.mapName !== mapId) || 
-          !isShelfPoint(pointId)
-        ) {
-          return;
-        }
-        
-        // Check if this is a valid shelf point
-        if (isShelfPoint(pointId)) {
-          const basePointId = pointId.endsWith('_docking') 
-            ? pointId.substring(0, pointId.length - 8) 
-            : pointId;
+      // Get all points for this map
+      const points = await getMapPoints(mapId);
+      
+      // Filter for shelf points and format them
+      const shelfPoints = points
+        .filter((point: any) => isShelfPoint(point.id))
+        .map((point: any) => {
+          // Check if there's a corresponding docking point
+          const dockingPointId = `${point.id}_docking`;
+          const hasDockingPoint = points.some((p: any) => p.id === dockingPointId);
           
-          // Skip docking points as we'll process them with their main points
-          if (pointId.endsWith('_docking')) {
-            return;
-          }
-          
-          // Check if this point has a corresponding docking point
-          const hasDockingPoint = pointsArray.some(
-            ([id, _]) => id === `${basePointId}_docking`
-          );
-          
-          // Get a display name for the UI (e.g., "104_load" -> "104")
-          const displayName = getPointDisplayName(basePointId);
-          
-          shelfPoints.push({
-            id: basePointId,
-            displayName,
-            x: pointData.x,
-            y: pointData.y,
-            orientation: pointData.orientation,
+          return {
+            id: point.id,
+            displayName: getPointDisplayName(point.id),
+            x: point.pose?.position?.x || 0,
+            y: point.pose?.position?.y || 0,
+            orientation: point.pose?.orientation?.z || 0,
             hasDockingPoint
-          });
-        }
-      });
+          };
+        });
       
-      // Sort shelf points by ID
-      shelfPoints.sort((a, b) => {
-        // Extract numeric values from display names if possible
-        const numA = parseInt(a.displayName);
-        const numB = parseInt(b.displayName);
-        
-        if (!isNaN(numA) && !isNaN(numB)) {
-          return numA - numB;
-        }
-        
-        return a.displayName.localeCompare(b.displayName);
-      });
-      
-      // Create the map data object
-      mapsData.push({
+      return {
         id: mapId,
-        name: mapId.replace(/([A-Z])/g, ' $1').trim(), // Format "Floor1" as "Floor 1"
+        name: mapName,
         floorNumber,
         shelfPoints
-      });
+      };
     });
     
-    // Sort maps by floor number
-    mapsData.sort((a, b) => a.floorNumber - b.floorNumber);
+    const mapData = await Promise.all(mapDataPromises);
     
-    // Detect if we have central pickup and dropoff points
-    const hasCentralPickup = pointsArray.some(([id, _]) => id.includes('pick-up_load'));
-    const hasCentralDropoff = pointsArray.some(([id, _]) => id.includes('drop-off_load'));
+    // Check for central pickup/dropoff points and charger across all maps
+    let hasCharger = false;
+    let hasCentralPickup = false;
+    let hasCentralDropoff = false;
     
-    // Detect if we have a charger
-    const hasCharger = pointsArray.some(([id, _]) => 
-      id.toLowerCase().includes('charger') || id.toLowerCase().includes('charging')
-    );
+    for (const map of mapData) {
+      const allPoints = await getMapPoints(map.id);
+      
+      // Check for special points
+      for (const point of allPoints) {
+        if (point.id === 'charger') {
+          hasCharger = true;
+        } else if (point.id === 'pick-up_load' || point.id === 'pickup_load') {
+          hasCentralPickup = true;
+        } else if (point.id === 'drop-off_load' || point.id === 'dropoff_load') {
+          hasCentralDropoff = true;
+        }
+      }
+    }
     
-    // Define service types
-    // For now, we'll enable both laundry and trash if we have both pickup and dropoff
-    const serviceTypes: ServiceType[] = [
+    // Define available service types
+    const serviceTypes = [
       {
         id: 'laundry',
         displayName: 'Laundry',
-        icon: 'ShowerHead',
-        enabled: hasCentralPickup && hasCentralDropoff
+        icon: 'shower',
+        enabled: true
       },
       {
         id: 'trash',
         displayName: 'Trash',
-        icon: 'Trash2',
-        enabled: hasCentralPickup && hasCentralDropoff
+        icon: 'trash',
+        enabled: true
       }
     ];
     
-    // Return the complete capabilities
     return {
-      maps: mapsData,
+      maps: mapData,
       serviceTypes,
       hasCharger,
       hasCentralPickup,
       hasCentralDropoff
     };
-    
   } catch (error) {
-    logger.error(`[TEMPLATE-DISCOVERY] Error discovering robot capabilities: ${error}`);
-    throw error;
+    logger.error(`Error discovering robot capabilities: ${error}`);
+    // Return default capabilities
+    return {
+      maps: [],
+      serviceTypes: [],
+      hasCharger: false,
+      hasCentralPickup: false,
+      hasCentralDropoff: false
+    };
   }
 }
 
@@ -196,7 +224,6 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
  * Updates template configuration based on robot capabilities
  */
 export async function updateTemplateWithRobotCapabilities(
-  storage: IStorage, 
   templateId: number, 
   robotId: string
 ): Promise<void> {
@@ -206,45 +233,24 @@ export async function updateTemplateWithRobotCapabilities(
     // Get the robot's capabilities
     const capabilities = await discoverRobotCapabilities(robotId);
     
-    // Get the current template
+    // Get the template
     const template = await storage.getTemplate(templateId);
     if (!template) {
-      throw new Error(`Template ${templateId} not found`);
+      logger.error(`Template ${templateId} not found`);
+      return;
     }
     
-    // Update the template configuration
-    const updatedConfig = {
-      ...template.config,
+    // Update template with capabilities
+    const updatedTemplate = {
+      ...template,
       robotCapabilities: capabilities
     };
     
     // Save the updated template
-    await storage.updateTemplate(templateId, {
-      ...template,
-      config: updatedConfig
-    });
+    await storage.updateTemplate(templateId, updatedTemplate);
     
-    logger.info(`[TEMPLATE-DISCOVERY] Template ${templateId} updated successfully with robot capabilities`);
+    logger.info(`[TEMPLATE-DISCOVERY] Template ${templateId} updated successfully`);
   } catch (error) {
-    logger.error(`[TEMPLATE-DISCOVERY] Failed to update template with robot capabilities: ${error}`);
-    throw error;
+    logger.error(`Error updating template with robot capabilities: ${error}`);
   }
-}
-
-/**
- * Determines if a point ID represents a shelf point
- */
-function isShelfPoint(pointId: string): boolean {
-  // Skip central pickup/dropoff points
-  if (pointId.includes('pick-up') || pointId.includes('drop-off')) {
-    return false;
-  }
-  
-  // Skip charger points
-  if (pointId.toLowerCase().includes('charger') || pointId.toLowerCase().includes('charging')) {
-    return false;
-  }
-  
-  // Consider points with load in the name as shelf points
-  return pointId.includes('_load');
 }

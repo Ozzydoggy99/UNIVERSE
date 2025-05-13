@@ -5,16 +5,16 @@
  * and automatically adapts to the robot's capabilities.
  */
 
-import { useEffect, useState } from "react";
-import { useLocation, useRoute, Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeftCircle, ShowerHead, Trash2, LogOut, CheckCircle } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-import axios from "axios";
+import { useState, useEffect } from 'react';
+import { useLocation, useParams, Link, useRoute } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { ShowerHead, Trash2, ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import axios from 'axios';
 
-// Service type data structure
+// Interface definitions for robot capabilities data
 interface ServiceType {
   id: string;
   displayName: string;
@@ -22,7 +22,18 @@ interface ServiceType {
   enabled: boolean;
 }
 
-// Shelf point data structure
+interface OperationType {
+  id: string;
+  displayName: string;
+  enabled: boolean;
+}
+
+interface Floor {
+  id: string;
+  displayName: string;
+  floorNumber: number;
+}
+
 interface ShelfPoint {
   id: string;
   displayName: string;
@@ -30,756 +41,573 @@ interface ShelfPoint {
   y: number;
 }
 
-// Map data structure
-interface MapData {
-  id: string;
-  name: string;
-  shelfPoints: ShelfPoint[];
-}
-
-// Main service selection page
+/**
+ * Service Selection Page
+ * 
+ * This is the first step in the workflow where users select the service type
+ * (e.g., Laundry, Trash).
+ */
 export default function ServiceSelectionPage() {
-  const { user, logoutMutation } = useAuth();
   const [, navigate] = useLocation();
-  const [loading, setLoading] = useState(true);
-  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const { toast } = useToast();
   
-  // Load available service types
-  useEffect(() => {
-    const fetchServiceTypes = async () => {
-      try {
-        const response = await axios.get('/api/workflow/service-types');
-        if (response.data.success) {
-          setServiceTypes(response.data.serviceTypes);
-        } else {
-          toast({
-            title: "Error",
-            description: response.data.error || "Failed to load service types",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        toast({
-          title: "Connection error",
-          description: "Failed to connect to server",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchServiceTypes();
-  }, [toast]);
+  // Fetch service types from the API
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['/api/simplified-workflow/service-types'],
+    retry: 1,
+  });
   
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-green-700 mb-4" />
-        <p>Loading available services...</p>
+      <div className="container mx-auto p-4">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <span className="ml-2 text-xl">Loading service types...</span>
+        </div>
       </div>
     );
   }
   
-  // If no service types are available or enabled
-  if (serviceTypes.length === 0 || !serviceTypes.some(st => st.enabled)) {
+  if (error) {
     return (
-      <div className="flex flex-col min-h-screen p-4">
-        <header className="flex items-center mb-6">
-          <Link href="/my-template">
-            <div className="flex items-center cursor-pointer">
-              <h1 className="text-2xl font-semibold text-green-700">SKYTECH</h1>
-              <span className="mx-2">—</span>
-              <span>Back</span>
-            </div>
-          </Link>
-          <div className="ml-auto flex items-center">
-            <span className="mr-2 text-lg">{user?.username}</span>
-            <button 
-              className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white"
-              onClick={() => logoutMutation.mutate()}
-              title="Logout"
-            >
-              <LogOut size={20} />
-            </button>
-          </div>
-        </header>
-        
-        <div className="flex flex-col items-center justify-center flex-1">
-          <Card className="max-w-md w-full p-6 bg-amber-50 border-amber-200">
-            <CardContent>
-              <h2 className="text-xl font-semibold text-amber-700 mb-4">No Services Available</h2>
-              <p className="text-gray-700 mb-4">
-                There are no service types configured for this robot template. Please contact an administrator.
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => navigate('/my-template')}
-              >
-                Return to Dashboard
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <footer className="flex justify-end mt-4">
-          <Button variant="outline" className="bg-indigo-500 text-white">
-            View Static Map (No HMR)
+      <div className="container mx-auto p-4">
+        <Card className="p-6 border-red-300 bg-red-50">
+          <h2 className="text-xl font-semibold text-red-700 mb-4">Error Loading Service Types</h2>
+          <p className="text-gray-700">
+            Could not load available service types. Please try again later or contact support.
+          </p>
+          <Button 
+            className="mt-4 bg-primary" 
+            onClick={() => navigate('/')}
+          >
+            Return Home
           </Button>
-        </footer>
+        </Card>
       </div>
     );
   }
   
-  return (
-    <div className="flex flex-col min-h-screen p-4">
-      <header className="flex items-center mb-6">
-        <Link href="/my-template">
-          <div className="flex items-center cursor-pointer">
-            <h1 className="text-2xl font-semibold text-green-700">SKYTECH</h1>
-            <span className="mx-2">—</span>
-            <span>Back</span>
-          </div>
-        </Link>
-        <div className="ml-auto flex items-center">
-          <span className="mr-2 text-lg">{user?.username}</span>
-          <button 
-            className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white"
-            onClick={() => logoutMutation.mutate()}
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-col items-center justify-center flex-1 space-y-8">
-        {serviceTypes.filter(st => st.enabled).map((serviceType) => (
-          <ServiceCard 
-            key={serviceType.id}
-            title={serviceType.displayName} 
-            icon={serviceType.icon}
-            serviceTypeId={serviceType.id}
-            onClick={() => navigate(`/simplified-workflow/${serviceType.id}`)}
-          />
-        ))}
-      </div>
-
-      <footer className="flex justify-end mt-4">
-        <Button variant="outline" className="bg-indigo-500 text-white">
-          View Static Map (No HMR)
-        </Button>
-      </footer>
-    </div>
-  );
-}
-
-// Service card component
-function ServiceCard({ 
-  title, 
-  icon,
-  serviceTypeId,
-  onClick 
-}: { 
-  title: string, 
-  icon: string,
-  serviceTypeId: string,
-  onClick: () => void
-}) {
-  // Determine card color based on service type
-  const bgColor = serviceTypeId === 'laundry' ? 'bg-green-500' : 'bg-blue-500';
+  const serviceTypes = data?.serviceTypes || [];
   
-  // Render the appropriate icon based on the icon name
-  const renderIcon = () => {
-    switch (icon) {
-      case 'ShowerHead':
-        return <ShowerHead size={48} />;
-      case 'Trash2':
-        return <Trash2 size={48} />;
-      default:
-        return null;
-    }
-  };
-  
-  return (
-    <Card 
-      className={`w-64 h-64 ${bgColor} text-white cursor-pointer transition-transform hover:scale-105`}
-      onClick={onClick}
-    >
-      <CardContent className="flex flex-col items-center justify-center h-full">
-        <div className="mb-4">
-          {renderIcon()}
-        </div>
-        <div className="bg-black/20 px-4 py-2 rounded-md">
-          <h2 className="text-xl font-semibold">{title}</h2>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Operation selection page (pickup/dropoff)
-export function OperationSelectionPage() {
-  const [match, params] = useRoute("/simplified-workflow/:serviceType");
-  const [, navigate] = useLocation();
-  const { user, logoutMutation } = useAuth();
-  const { toast } = useToast();
-  
-  if (!match) {
-    return <div>Invalid route</div>;
-  }
-  
-  const serviceType = params?.serviceType || "";
-  // Capitalize first letter for display
-  const serviceTitle = serviceType.charAt(0).toUpperCase() + serviceType.slice(1);
-  
-  return (
-    <div className="flex flex-col min-h-screen p-4">
-      <header className="flex items-center mb-6">
-        <Link href="/simplified-workflow">
-          <div className="flex items-center cursor-pointer">
-            <h1 className="text-2xl font-semibold text-green-700">SKYTECH</h1>
-            <span className="mx-2">—</span>
-            <span>Back</span>
-          </div>
-        </Link>
-        <div className="ml-auto flex items-center">
-          <span className="mr-2 text-lg">{user?.username}</span>
-          <button 
-            className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white"
-            onClick={() => logoutMutation.mutate()}
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
-        </div>
-      </header>
-
-      <h2 className="text-3xl font-semibold text-center mb-8 text-green-700">
-        {serviceTitle} Service
-      </h2>
-
-      <div className="flex flex-col items-center justify-center flex-1 space-y-8">
-        <OperationCard 
-          title="Pickup"
-          description={`Pick up ${serviceType} from a box`}
-          onClick={() => navigate(`/simplified-workflow/${serviceType}/pickup`)}
-          isLight={true}
-        />
-        
-        <OperationCard 
-          title="Dropoff"
-          description={`Drop off ${serviceType} to a box`}
-          onClick={() => navigate(`/simplified-workflow/${serviceType}/dropoff`)}
-          isLight={false}
-        />
-      </div>
-
-      <footer className="flex justify-end mt-4">
-        <Button variant="outline" className="bg-indigo-500 text-white">
-          View Static Map (No HMR)
-        </Button>
-      </footer>
-    </div>
-  );
-}
-
-// Operation card component
-function OperationCard({ 
-  title, 
-  description, 
-  onClick,
-  isLight
-}: { 
-  title: string, 
-  description: string, 
-  onClick: () => void,
-  isLight: boolean
-}) {
-  const bgColor = isLight ? 'bg-white' : 'bg-black';
-  const textColor = isLight ? 'text-black' : 'text-white';
-  const borderClass = isLight ? 'border-2' : '';
-  
-  return (
-    <Card 
-      className={`w-full max-w-md p-4 ${bgColor} ${textColor} ${borderClass} cursor-pointer hover:shadow-lg`}
-      onClick={onClick}
-    >
-      <CardContent className="flex flex-col items-center justify-center py-8">
-        <h3 className="text-3xl font-bold mb-2">{title}</h3>
-        <p>{description}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Floor selection page
-export function FloorSelectionPage() {
-  const [match, params] = useRoute("/simplified-workflow/:serviceType/:operationType");
-  const [, navigate] = useLocation();
-  const { user, logoutMutation } = useAuth();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [maps, setMaps] = useState<MapData[]>([]);
-  
-  if (!match) {
-    return <div>Invalid route</div>;
-  }
-  
-  const serviceType = params?.serviceType || "";
-  const operationType = params?.operationType || "";
-  
-  // Capitalize for display
-  const serviceTitle = serviceType.charAt(0).toUpperCase() + serviceType.slice(1);
-  const operationTitle = operationType.charAt(0).toUpperCase() + operationType.slice(1);
-  
-  // Load available maps/floors
-  useEffect(() => {
-    const fetchMaps = async () => {
-      try {
-        const response = await axios.get('/api/workflow/maps');
-        if (response.data.success) {
-          setMaps(response.data.maps);
-          
-          // Auto select if only one floor is available
-          if (response.data.maps.length === 1) {
-            setTimeout(() => {
-              navigate(`/simplified-workflow/${serviceType}/${operationType}/${response.data.maps[0].id}`);
-            }, 500);
-          }
-        } else {
-          toast({
-            title: "Error",
-            description: response.data.error || "Failed to load floor data",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        toast({
-          title: "Connection error",
-          description: "Failed to connect to server",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchMaps();
-  }, [toast, serviceType, operationType, navigate]);
-  
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-green-700 mb-4" />
-        <p>Loading available floors...</p>
-      </div>
-    );
-  }
-  
-  // If no maps/floors are available
-  if (maps.length === 0) {
-    return (
-      <div className="flex flex-col min-h-screen p-4">
-        <header className="flex items-center mb-6">
-          <Link href={`/simplified-workflow/${serviceType}`}>
-            <div className="flex items-center cursor-pointer">
-              <h1 className="text-2xl font-semibold text-green-700">SKYTECH</h1>
-              <span className="mx-2">—</span>
-              <span>Back</span>
-            </div>
-          </Link>
-          <div className="ml-auto flex items-center">
-            <span className="mr-2 text-lg">{user?.username}</span>
-            <button 
-              className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white"
-              onClick={() => logoutMutation.mutate()}
-              title="Logout"
-            >
-              <LogOut size={20} />
-            </button>
-          </div>
-        </header>
-        
-        <h2 className="text-3xl font-semibold text-center mb-8">
-          {serviceTitle} {operationTitle} - Select Floor
-        </h2>
-        
-        <div className="flex flex-col items-center justify-center flex-1">
-          <Card className="max-w-md w-full p-6 bg-red-50 border-red-200">
-            <CardContent>
-              <h2 className="text-xl font-semibold text-red-700 mb-4">No Floors Available</h2>
-              <p className="text-gray-700 mb-4">
-                There are no floors configured for this robot. Please contact an administrator.
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => navigate(`/simplified-workflow/${serviceType}`)}
-              >
-                Go Back
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <footer className="flex justify-end mt-4">
-          <Button variant="outline" className="bg-indigo-500 text-white">
-            View Static Map (No HMR)
-          </Button>
-        </footer>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="flex flex-col min-h-screen p-4">
-      <header className="flex items-center mb-6">
-        <Link href={`/simplified-workflow/${serviceType}`}>
-          <div className="flex items-center cursor-pointer">
-            <h1 className="text-2xl font-semibold text-green-700">SKYTECH</h1>
-            <span className="mx-2">—</span>
-            <span>Back</span>
-          </div>
-        </Link>
-        <div className="ml-auto flex items-center">
-          <span className="mr-2 text-lg">{user?.username}</span>
-          <button 
-            className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white"
-            onClick={() => logoutMutation.mutate()}
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
-        </div>
-      </header>
-
-      <h2 className="text-3xl font-semibold text-center mb-8">
-        {serviceTitle} {operationTitle} - Select Floor
-      </h2>
-
-      <div className="grid grid-cols-2 gap-4 flex-1">
-        {maps.map((map, index) => {
-          // Skip maps without shelf points
-          if (!map.shelfPoints || map.shelfPoints.length === 0) {
-            return null;
-          }
-          
-          // Colors for different floors
-          const colors = ['bg-red-400', 'bg-green-400', 'bg-blue-400', 'bg-yellow-400'];
-          const bgColor = colors[index % colors.length];
-          
-          return (
-            <FloorCard
-              key={map.id}
-              floorNumber={map.id}
-              color={bgColor}
-              onClick={() => navigate(`/simplified-workflow/${serviceType}/${operationType}/${map.id}`)}
-            />
-          );
-        })}
-      </div>
-
-      <footer className="flex justify-end mt-4">
-        <Button variant="outline" className="bg-indigo-500 text-white">
-          View Static Map (No HMR)
-        </Button>
-      </footer>
-    </div>
-  );
-}
-
-// Floor card component
-function FloorCard({ 
-  floorNumber, 
-  color, 
-  onClick 
-}: { 
-  floorNumber: string, 
-  color: string, 
-  onClick: () => void 
-}) {
-  return (
-    <Card 
-      className={`${color} cursor-pointer transition-transform hover:scale-102`}
-      onClick={onClick}
-    >
-      <CardContent className="flex flex-col items-center justify-center h-full min-h-[180px] p-4 text-white">
-        <div className="flex items-center justify-center w-16 h-16 bg-black/20 rounded-md mb-4">
-          <span className="text-2xl font-bold">{floorNumber}</span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Shelf selection page
-export function ShelfSelectionPage() {
-  const [match, params] = useRoute("/simplified-workflow/:serviceType/:operationType/:floorId");
-  const [, navigate] = useLocation();
-  const { user, logoutMutation } = useAuth();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [shelves, setShelves] = useState<ShelfPoint[]>([]);
-  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
-  const [executingWorkflow, setExecutingWorkflow] = useState(false);
-  
-  if (!match) {
-    return <div>Invalid route</div>;
-  }
-  
-  const serviceType = params?.serviceType || "";
-  const operationType = params?.operationType || "";
-  const floorId = params?.floorId || "";
-  
-  // Capitalize for display
-  const serviceTitle = serviceType.charAt(0).toUpperCase() + serviceType.slice(1);
-  const operationTitle = operationType.charAt(0).toUpperCase() + operationType.slice(1);
-  
-  // Load available shelves for this floor
-  useEffect(() => {
-    const fetchShelves = async () => {
-      try {
-        const response = await axios.get('/api/workflow/maps');
-        if (response.data.success) {
-          const selectedMap = response.data.maps.find((map: MapData) => map.id === floorId);
-          if (selectedMap && selectedMap.shelfPoints) {
-            setShelves(selectedMap.shelfPoints);
-          } else {
-            toast({
-              title: "Error",
-              description: "No shelf points found for this floor",
-              variant: "destructive",
-            });
-          }
-        } else {
-          toast({
-            title: "Error",
-            description: response.data.error || "Failed to load shelf data",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        toast({
-          title: "Connection error",
-          description: "Failed to connect to server",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchShelves();
-  }, [toast, floorId]);
-  
-  // Execute the workflow with the selected parameters
-  const executeWorkflow = async () => {
-    if (!selectedShelf) {
+  const handleSelect = (serviceType: ServiceType) => {
+    if (!serviceType.enabled) {
       toast({
-        title: "Selection required",
-        description: "Please select a shelf point first",
-        variant: "destructive",
+        title: "Service Unavailable",
+        description: `The ${serviceType.displayName} service is currently not available.`,
+        variant: "destructive"
       });
       return;
     }
     
-    setExecutingWorkflow(true);
-    
-    try {
-      // Determine the appropriate workflow based on operation type
-      const workflowEndpoint = operationType === 'pickup'
-        ? '/api/pickup-to-104/workflow' // For pickup from central to shelf
-        : '/api/pickup-from-104/workflow'; // For dropoff from shelf to central
-      
-      // Execute the workflow with the selected shelf
-      const response = await axios.post(workflowEndpoint, {
-        // The ID comes from the shelf point (e.g., "104_load")
-        shelfPointId: selectedShelf
-      });
-      
-      if (response.data.success) {
-        toast({
-          title: "Success",
-          description: "Workflow started successfully",
-          variant: "default",
-        });
-        
-        // Navigate to a confirmation/tracking page
-        navigate('/workflow-status');
-      } else {
-        toast({
-          title: "Error",
-          description: response.data.error || "Failed to start workflow",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to execute workflow",
-        variant: "destructive",
-      });
-    } finally {
-      setExecutingWorkflow(false);
-    }
+    navigate(`/simplified-workflow/${serviceType.id}`);
   };
   
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-green-700 mb-4" />
-        <p>Loading available shelves...</p>
-      </div>
-    );
-  }
-  
-  // If no shelves are available
-  if (shelves.length === 0) {
-    return (
-      <div className="flex flex-col min-h-screen p-4">
-        <header className="flex items-center mb-6">
-          <Link href={`/simplified-workflow/${serviceType}/${operationType}`}>
-            <div className="flex items-center cursor-pointer">
-              <h1 className="text-2xl font-semibold text-green-700">SKYTECH</h1>
-              <span className="mx-2">—</span>
-              <span>Back</span>
-            </div>
-          </Link>
-          <div className="ml-auto flex items-center">
-            <span className="mr-2 text-lg">{user?.username}</span>
-            <button 
-              className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white"
-              onClick={() => logoutMutation.mutate()}
-              title="Logout"
-            >
-              <LogOut size={20} />
-            </button>
-          </div>
-        </header>
-        
-        <h2 className="text-3xl font-semibold text-center mb-8">
-          {serviceTitle} {operationTitle} - Select Shelf
-        </h2>
-        
-        <div className="flex flex-col items-center justify-center flex-1">
-          <Card className="max-w-md w-full p-6 bg-red-50 border-red-200">
-            <CardContent>
-              <h2 className="text-xl font-semibold text-red-700 mb-4">No Shelves Available</h2>
-              <p className="text-gray-700 mb-4">
-                There are no shelf points configured for this floor. Please contact an administrator.
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => navigate(`/simplified-workflow/${serviceType}/${operationType}`)}
-              >
-                Go Back
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <footer className="flex justify-end mt-4">
-          <Button variant="outline" className="bg-indigo-500 text-white">
-            View Static Map (No HMR)
-          </Button>
-        </footer>
-      </div>
-    );
-  }
-  
   return (
-    <div className="flex flex-col min-h-screen p-4">
-      <header className="flex items-center mb-6">
-        <Link href={`/simplified-workflow/${serviceType}/${operationType}`}>
-          <div className="flex items-center cursor-pointer">
-            <h1 className="text-2xl font-semibold text-green-700">SKYTECH</h1>
-            <span className="mx-2">—</span>
-            <span>Back</span>
+    <div className="container mx-auto p-4">
+      <Card className="shadow-lg border-0">
+        <CardContent className="p-6">
+          <h1 className="text-2xl font-bold mb-6 text-center">Select Service Type</h1>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {serviceTypes.map((serviceType: ServiceType) => (
+              <ServiceCard 
+                key={serviceType.id}
+                serviceType={serviceType}
+                onSelect={() => handleSelect(serviceType)}
+              />
+            ))}
           </div>
-        </Link>
-        <div className="ml-auto flex items-center">
-          <span className="mr-2 text-lg">{user?.username}</span>
-          <button 
-            className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white"
-            onClick={() => logoutMutation.mutate()}
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
-        </div>
-      </header>
-
-      <div className="grid grid-cols-2 gap-4 flex-1">
-        {shelves.map((shelf) => (
-          <ShelfCard
-            key={shelf.id}
-            shelfNumber={shelf.displayName}
-            isSelected={selectedShelf === shelf.id}
-            onClick={() => setSelectedShelf(shelf.id)}
-          />
-        ))}
-      </div>
-
-      <div className="mt-8">
-        <Button 
-          className="w-full py-6 text-lg bg-green-500 hover:bg-green-600"
-          onClick={executeWorkflow}
-          disabled={!selectedShelf || executingWorkflow}
-        >
-          {executingWorkflow ? (
-            <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Executing...
-            </>
-          ) : (
-            <>
-              <CheckCircle className="mr-2 h-5 w-5" />
-              Confirm Selection
-            </>
-          )}
-        </Button>
-      </div>
-
-      <footer className="flex justify-end mt-4">
-        <Button variant="outline" className="bg-indigo-500 text-white">
-          View Static Map (No HMR)
-        </Button>
-      </footer>
+          
+          <div className="flex justify-between mt-8">
+            <Button variant="outline" onClick={() => navigate('/')}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-// Shelf card component
-function ShelfCard({ 
-  shelfNumber, 
-  isSelected,
-  onClick 
+/**
+ * Service Card Component
+ * 
+ * Displays a card for a service type with its icon and name.
+ */
+function ServiceCard({ 
+  serviceType, 
+  onSelect,
+  isSelected = false
 }: { 
-  shelfNumber: string, 
-  isSelected: boolean,
-  onClick: () => void 
+  serviceType: ServiceType, 
+  onSelect: () => void,
+  isSelected?: boolean
 }) {
-  const bgColor = isSelected ? 'bg-green-500' : 'bg-black';
+  const iconComponent = serviceType.icon === 'shower' 
+    ? <ShowerHead className="h-8 w-8" /> 
+    : <Trash2 className="h-8 w-8" />;
   
+  const baseClasses = "p-4 hover:shadow-lg transition-shadow cursor-pointer flex flex-col items-center";
+  const colorClasses = serviceType.enabled
+    ? (isSelected 
+      ? "border-green-500 bg-green-100" 
+      : "border-gray-300 bg-white hover:bg-gray-50")
+    : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60";
+    
   return (
     <Card 
-      className={`${bgColor} cursor-pointer transition-all duration-200`}
-      onClick={onClick}
+      className={`${baseClasses} ${colorClasses}`}
+      onClick={serviceType.enabled ? onSelect : undefined}
     >
-      <CardContent className="flex flex-col items-center justify-center h-full min-h-[180px] p-4 text-white relative">
+      <div className={`p-4 rounded-full ${isSelected ? 'bg-green-500' : 'bg-gray-100'} mb-3`}>
+        <div className={isSelected ? 'text-white' : 'text-gray-600'}>
+          {iconComponent}
+        </div>
+      </div>
+      <h3 className="text-lg font-medium text-gray-700">{serviceType.displayName}</h3>
+      
+      {isSelected && (
+        <div className="mt-3 text-green-600 flex items-center">
+          <Check className="h-5 w-5 mr-1" /> Selected
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * Operation Selection Page
+ * 
+ * This is the second step in the workflow where users select the operation
+ * (e.g., Pickup, Dropoff).
+ */
+export function OperationSelectionPage() {
+  const [, navigate] = useLocation();
+  const params = useParams();
+  const { serviceType } = params;
+  const { toast } = useToast();
+  
+  // Fetch operations for the selected service type
+  const { data, isLoading, error } = useQuery({
+    queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations`],
+    retry: 1,
+  });
+  
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <span className="ml-2 text-xl">Loading operations...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card className="p-6 border-red-300 bg-red-50">
+          <h2 className="text-xl font-semibold text-red-700 mb-4">Error Loading Operations</h2>
+          <p className="text-gray-700">
+            Could not load available operations. Please try again later or contact support.
+          </p>
+          <Button 
+            className="mt-4 bg-primary" 
+            onClick={() => navigate(`/simplified-workflow`)}
+          >
+            Back to Service Selection
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+  
+  const operations = data?.operations || [];
+  
+  const handleSelect = (operation: OperationType) => {
+    if (!operation.enabled) {
+      toast({
+        title: "Operation Unavailable",
+        description: `The ${operation.displayName} operation is currently not available.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    navigate(`/simplified-workflow/${serviceType}/${operation.id}`);
+  };
+  
+  return (
+    <div className="container mx-auto p-4">
+      <Card className="shadow-lg border-0">
+        <CardContent className="p-6">
+          <h1 className="text-2xl font-bold mb-6 text-center">Select Operation</h1>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {operations.map((operation: OperationType) => (
+              <OperationCard 
+                key={operation.id}
+                operation={operation}
+                onSelect={() => handleSelect(operation)}
+              />
+            ))}
+          </div>
+          
+          <div className="flex justify-between mt-8">
+            <Button variant="outline" onClick={() => navigate('/simplified-workflow')}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Service Types
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * Operation Card Component
+ * 
+ * Displays a card for an operation with its name and status.
+ */
+function OperationCard({ 
+  operation, 
+  onSelect,
+  isSelected = false
+}: { 
+  operation: OperationType, 
+  onSelect: () => void,
+  isSelected?: boolean
+}) {
+  const baseClasses = "p-4 hover:shadow-lg transition-shadow cursor-pointer";
+  const colorClasses = operation.enabled
+    ? (isSelected 
+      ? "border-green-500 bg-green-100" 
+      : "border-gray-300 bg-white hover:bg-gray-50")
+    : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60";
+    
+  return (
+    <Card 
+      className={`${baseClasses} ${colorClasses}`}
+      onClick={operation.enabled ? onSelect : undefined}
+    >
+      <div className="flex flex-col items-center">
+        <h3 className="text-lg font-medium text-gray-700">{operation.displayName}</h3>
+        
         {isSelected && (
-          <div className="absolute top-2 right-2">
-            <CheckCircle className="h-6 w-6" />
+          <div className="mt-3 text-green-600 flex items-center">
+            <Check className="h-5 w-5 mr-1" /> Selected
           </div>
         )}
-        <div className="flex items-center justify-center w-16 h-16 bg-black/20 rounded-md mb-4">
-          <span className="text-2xl font-bold">{shelfNumber}</span>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Floor Selection Page
+ * 
+ * This is the third step in the workflow where users select the floor
+ * (e.g., Floor 1, Floor 2).
+ */
+export function FloorSelectionPage() {
+  const [, navigate] = useLocation();
+  const params = useParams();
+  const { serviceType, operationType } = params;
+  const { toast } = useToast();
+  
+  // Fetch floors for the selected operation and service type
+  const { data, isLoading, error } = useQuery({
+    queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations/${operationType}/floors`],
+    retry: 1,
+  });
+  
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <span className="ml-2 text-xl">Loading floors...</span>
         </div>
-      </CardContent>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card className="p-6 border-red-300 bg-red-50">
+          <h2 className="text-xl font-semibold text-red-700 mb-4">Error Loading Floors</h2>
+          <p className="text-gray-700">
+            Could not load available floors. Please try again later or contact support.
+          </p>
+          <Button 
+            className="mt-4 bg-primary" 
+            onClick={() => navigate(`/simplified-workflow/${serviceType}`)}
+          >
+            Back to Operations
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+  
+  const floors = data?.floors || [];
+  
+  // Sort floors by floor number
+  const sortedFloors = [...floors].sort((a, b) => a.floorNumber - b.floorNumber);
+  
+  const handleSelect = (floor: Floor) => {
+    navigate(`/simplified-workflow/${serviceType}/${operationType}/${floor.id}`);
+  };
+  
+  return (
+    <div className="container mx-auto p-4">
+      <Card className="shadow-lg border-0">
+        <CardContent className="p-6">
+          <h1 className="text-2xl font-bold mb-6 text-center">Select Floor</h1>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sortedFloors.map((floor: Floor) => (
+              <FloorCard 
+                key={floor.id}
+                floor={floor}
+                onSelect={() => handleSelect(floor)}
+              />
+            ))}
+          </div>
+          
+          <div className="flex justify-between mt-8">
+            <Button variant="outline" onClick={() => navigate(`/simplified-workflow/${serviceType}`)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Operations
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * Floor Card Component
+ * 
+ * Displays a card for a floor with its name.
+ */
+function FloorCard({ 
+  floor, 
+  onSelect,
+  isSelected = false
+}: { 
+  floor: Floor, 
+  onSelect: () => void,
+  isSelected?: boolean
+}) {
+  const baseClasses = "p-4 hover:shadow-lg transition-shadow cursor-pointer";
+  const colorClasses = isSelected 
+    ? "border-green-500 bg-green-100" 
+    : "border-gray-300 bg-white hover:bg-gray-50";
+    
+  return (
+    <Card 
+      className={`${baseClasses} ${colorClasses}`}
+      onClick={onSelect}
+    >
+      <div className="flex flex-col items-center">
+        <h3 className="text-lg font-medium text-gray-700">{floor.displayName}</h3>
+        
+        {isSelected && (
+          <div className="mt-3 text-green-600 flex items-center">
+            <Check className="h-5 w-5 mr-1" /> Selected
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Shelf Selection Page
+ * 
+ * This is the fourth step in the workflow where users select the shelf
+ * (e.g., 104, 112, etc.).
+ */
+export function ShelfSelectionPage() {
+  const [, navigate] = useLocation();
+  const params = useParams();
+  const { serviceType, operationType, floorId } = params;
+  const { toast } = useToast();
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
+  
+  // Fetch shelves for the selected floor, operation, and service type
+  const { data, isLoading, error } = useQuery({
+    queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations/${operationType}/floors/${floorId}/shelves`],
+    retry: 1,
+  });
+  
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <span className="ml-2 text-xl">Loading shelves...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card className="p-6 border-red-300 bg-red-50">
+          <h2 className="text-xl font-semibold text-red-700 mb-4">Error Loading Shelves</h2>
+          <p className="text-gray-700">
+            Could not load available shelves. Please try again later or contact support.
+          </p>
+          <Button 
+            className="mt-4 bg-primary" 
+            onClick={() => navigate(`/simplified-workflow/${serviceType}/${operationType}`)}
+          >
+            Back to Floors
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+  
+  const shelves = data?.shelves || [];
+  
+  // Sort shelves by displayName numerically
+  const sortedShelves = [...shelves].sort((a, b) => {
+    const aNum = parseInt(a.displayName) || 0;
+    const bNum = parseInt(b.displayName) || 0;
+    return aNum - bNum;
+  });
+  
+  const handleSelect = (shelf: ShelfPoint) => {
+    setSelectedShelf(shelf.id);
+  };
+  
+  const handleExecute = async () => {
+    if (!selectedShelf) {
+      toast({
+        title: "No Shelf Selected",
+        description: "Please select a shelf to continue.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsExecuting(true);
+    
+    try {
+      // Execute the workflow
+      const response = await axios.post('/api/simplified-workflow/execute', {
+        serviceType,
+        operationType,
+        floorId,
+        shelfId: selectedShelf
+      });
+      
+      toast({
+        title: "Workflow Started",
+        description: `Robot mission started with ID: ${response.data.missionId}`,
+        variant: "default"
+      });
+      
+      // Return to the dashboard
+      navigate('/');
+    } catch (error) {
+      console.error('Error executing workflow:', error);
+      toast({
+        title: "Workflow Error",
+        description: "Failed to start the robot workflow. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+  
+  return (
+    <div className="container mx-auto p-4">
+      <Card className="shadow-lg border-0">
+        <CardContent className="p-6">
+          <h1 className="text-2xl font-bold mb-6 text-center">Select Shelf</h1>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {sortedShelves.map((shelf: ShelfPoint) => (
+              <ShelfCard 
+                key={shelf.id}
+                shelf={shelf}
+                onSelect={() => handleSelect(shelf)}
+                isSelected={selectedShelf === shelf.id}
+              />
+            ))}
+          </div>
+          
+          <div className="flex justify-between mt-8">
+            <Button variant="outline" onClick={() => navigate(`/simplified-workflow/${serviceType}/${operationType}`)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Floors
+            </Button>
+            
+            <Button 
+              disabled={!selectedShelf || isExecuting}
+              onClick={handleExecute}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isExecuting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  Start Robot Mission
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * Shelf Card Component
+ * 
+ * Displays a card for a shelf with its name.
+ */
+function ShelfCard({ 
+  shelf, 
+  onSelect,
+  isSelected = false
+}: { 
+  shelf: ShelfPoint, 
+  onSelect: () => void,
+  isSelected?: boolean
+}) {
+  const baseClasses = "p-4 hover:shadow-lg transition-shadow cursor-pointer";
+  const colorClasses = isSelected 
+    ? "border-green-500 bg-green-100" 
+    : "border-gray-300 bg-white hover:bg-gray-50";
+    
+  return (
+    <Card 
+      className={`${baseClasses} ${colorClasses}`}
+      onClick={onSelect}
+    >
+      <div className="flex flex-col items-center">
+        <h3 className="text-lg font-medium text-gray-700">{shelf.displayName}</h3>
+        
+        {isSelected && (
+          <div className="mt-3 text-green-600 flex items-center">
+            <Check className="h-5 w-5 mr-1" /> Selected
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
