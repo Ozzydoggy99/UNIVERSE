@@ -285,9 +285,9 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       });
       
       res.status(200).json({
-        success: true,
+        success: workflowResult.success,
         missionId: workflowResult.missionId || 'unknown',
-        message: 'Workflow execution started'
+        message: workflowResult.message || 'Workflow execution started'
       });
     } catch (error) {
       logger.error(`Error executing workflow: ${error}`);
