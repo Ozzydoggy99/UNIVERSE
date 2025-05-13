@@ -52,16 +52,10 @@ export default function ServiceSelectionPage() {
   const { toast } = useToast();
   
   // Fetch service types from the API
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<unknown, Error, { serviceTypes: ServiceType[] }>({
     queryKey: ['/api/simplified-workflow/service-types'],
     retry: 1,
-    select: (data) => data as { serviceTypes: ServiceType[] },
-    onSuccess: (data) => {
-      console.log('Service types loaded:', data);
-    },
-    onError: (err) => {
-      console.error('Error loading service types:', err);
-    }
+    select: (data: any) => data as { serviceTypes: ServiceType[] }
   });
   
   if (isLoading) {
@@ -195,10 +189,10 @@ export function OperationSelectionPage() {
   const { toast } = useToast();
   
   // Fetch operations for the selected service type
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<unknown, Error, { operations: OperationType[] }>({
     queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations`],
     retry: 1,
-    select: (data) => data as { operations: OperationType[] }
+    select: (data: any) => data as { operations: OperationType[] }
   });
   
   if (isLoading) {
@@ -325,10 +319,10 @@ export function FloorSelectionPage() {
   const { toast } = useToast();
   
   // Fetch floors for the selected operation and service type
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<unknown, Error, { floors: Floor[] }>({
     queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations/${operationType}/floors`],
     retry: 1,
-    select: (data) => data as { floors: Floor[] }
+    select: (data: any) => data as { floors: Floor[] }
   });
   
   if (isLoading) {
@@ -449,10 +443,10 @@ export function ShelfSelectionPage() {
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
   
   // Fetch shelves for the selected floor, operation, and service type
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<unknown, Error, { shelves: ShelfPoint[] }>({
     queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations/${operationType}/floors/${floorId}/shelves`],
     retry: 1,
-    select: (data) => data as { shelves: ShelfPoint[] }
+    select: (data: any) => data as { shelves: ShelfPoint[] }
   });
   
   if (isLoading) {
