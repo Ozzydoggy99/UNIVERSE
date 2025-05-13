@@ -42,6 +42,11 @@ import WorkflowPage, {
   ShelfSelectionPage, 
   WorkflowConfirmationPage 
 } from "@/pages/workflow-page";
+import ServiceSelectionPage, {
+  OperationSelectionPage,
+  FloorSelectionPage as SimplifiedFloorPage,
+  ShelfSelectionPage as SimplifiedShelfPage
+} from "@/pages/simplified-workflow";
 import Sidebar, { SidebarProvider, useSidebar } from "@/components/layouts/sidebar";
 import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -508,6 +513,12 @@ function Router() {
       <Route path="/workflow/:serviceType/:operationType" component={FloorSelectionPage} />
       <Route path="/workflow/:serviceType/:operationType/:floorId" component={ShelfSelectionPage} />
       <Route path="/workflow/confirm/:serviceType/:operationType/:floorId/:shelfId" component={WorkflowConfirmationPage} />
+      
+      {/* Simplified Workflow UI Routes - new user interface with automatic discovery */}
+      <ProtectedRoute path="/simplified-workflow" component={ServiceSelectionPage} />
+      <ProtectedRoute path="/simplified-workflow/:serviceType" component={OperationSelectionPage} />
+      <ProtectedRoute path="/simplified-workflow/:serviceType/:operationType" component={SimplifiedFloorPage} />
+      <ProtectedRoute path="/simplified-workflow/:serviceType/:operationType/:floorId" component={SimplifiedShelfPage} />
       
       <Route component={NotFound} />
     </Switch>

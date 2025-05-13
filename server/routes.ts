@@ -34,6 +34,8 @@ import { registerRobotSettingsRoutes } from './robot-settings-api';
 // Direct charger docking implementation for testing
 import { registerChargerDockingRoutes } from './charger-docking';
 import { registerBinStatusRoutes } from './bin-status-routes';
+// Robot capabilities API for dynamic template configuration
+import { registerRobotCapabilitiesAPI } from './robot-capabilities-api';
 import { registerTaskApiRoutes } from './robot-task-api';
 import { registerDynamicWorkflowRoutes } from './dynamic-workflow';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
