@@ -228,21 +228,31 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       logger.info(`Map ${map.id} has ${allPoints.length} points: ${allPoints.map(p => p.id).join(', ')}`);
     }
     
-    // Define available service types
-    const serviceTypes = [
-      {
-        id: 'laundry',
-        displayName: 'Laundry',
-        icon: 'shower',
-        enabled: true
-      },
-      {
-        id: 'trash',
-        displayName: 'Trash',
-        icon: 'trash',
-        enabled: true
+    // Define service types based on available capabilities
+    const serviceTypes = [];
+    
+    // Only add service types if the robot has the necessary capabilities
+    if (hasCentralPickup || hasCentralDropoff) {
+      if (hasCentralPickup) {
+        serviceTypes.push({
+          id: 'laundry',
+          displayName: 'Laundry',
+          icon: 'shower',
+          enabled: true
+        });
       }
-    ];
+      
+      if (hasCentralDropoff) {
+        serviceTypes.push({
+          id: 'trash',
+          displayName: 'Trash',
+          icon: 'trash',
+          enabled: true
+        });
+      }
+    }
+    
+    logger.info(`Discovered ${serviceTypes.length} service types based on robot capabilities`);
     
     // Create the capabilities object
     const capabilities = {
@@ -259,14 +269,9 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
     return capabilities;
   } catch (error) {
     logger.error(`Error discovering robot capabilities: ${error}`);
-    // Return default capabilities
-    return {
-      maps: [],
-      serviceTypes: [],
-      hasCharger: false,
-      hasCentralPickup: false,
-      hasCentralDropoff: false
-    };
+    
+    // No fallbacks - simply return empty capabilities and let the UI handle it
+    throw new Error(`Failed to discover robot capabilities: ${error}`);
   }
 }
 
