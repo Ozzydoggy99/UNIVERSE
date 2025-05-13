@@ -515,10 +515,38 @@ function Router() {
       <Route path="/workflow/confirm/:serviceType/:operationType/:floorId/:shelfId" component={WorkflowConfirmationPage} />
       
       {/* Simplified Workflow UI Routes - new user interface with automatic discovery */}
-      <ProtectedRoute path="/simplified-workflow" component={ServiceSelectionPage} />
-      <ProtectedRoute path="/simplified-workflow/:serviceType" component={OperationSelectionPage} />
-      <ProtectedRoute path="/simplified-workflow/:serviceType/:operationType" component={SimplifiedFloorPage} />
-      <ProtectedRoute path="/simplified-workflow/:serviceType/:operationType/:floorId" component={SimplifiedShelfPage} />
+      <ProtectedRoute 
+        path="/simplified-workflow" 
+        component={() => (
+          <AppLayout>
+            <ServiceSelectionPage />
+          </AppLayout>
+        )} 
+      />
+      <ProtectedRoute 
+        path="/simplified-workflow/:serviceType" 
+        component={() => (
+          <AppLayout>
+            <OperationSelectionPage />
+          </AppLayout>
+        )} 
+      />
+      <ProtectedRoute 
+        path="/simplified-workflow/:serviceType/:operationType" 
+        component={() => (
+          <AppLayout>
+            <SimplifiedFloorPage />
+          </AppLayout>
+        )} 
+      />
+      <ProtectedRoute 
+        path="/simplified-workflow/:serviceType/:operationType/:floorId" 
+        component={() => (
+          <AppLayout>
+            <SimplifiedShelfPage />
+          </AppLayout>
+        )} 
+      />
       
       <Route component={NotFound} />
     </Switch>
