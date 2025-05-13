@@ -14,8 +14,8 @@
 
 import axios from 'axios';
 
-// Robot API base URL
-const ROBOT_API_URL = 'http://47.180.91.99:8090';
+// Use our local API which has proper error handling and fallbacks
+const API_BASE_URL = 'http://localhost:5000';
 
 /**
  * Extracts the floor number from a shelf point ID
@@ -107,12 +107,12 @@ function categorizePoint(pointId) {
 }
 
 /**
- * Get all maps from the robot
+ * Get all maps from the robot through our local API
  */
 async function getMaps() {
   try {
-    const response = await axios.get(`${ROBOT_API_URL}/api/v2/maps`);
-    return response.data.maps || [];
+    const response = await axios.get(`${API_BASE_URL}/api/robot/maps`);
+    return response.data || [];
   } catch (error) {
     console.error('Error fetching maps:', error);
     return [];
@@ -121,13 +121,31 @@ async function getMaps() {
 
 /**
  * Get all points for a specific map
+ * 
+ * Note: Our API returns the full map object with an overlays property
+ * containing GeoJSON features that represent the points
  */
-async function getMapPoints(mapUid) {
+async function getMapPoints(mapId) {
   try {
-    const response = await axios.get(`${ROBOT_API_URL}/api/v2/maps/${mapUid}/points`);
-    return response.data.points || [];
+    const mapResponse = await axios.get(`${API_BASE_URL}/api/robot/maps/${mapId}/points`);
+    
+    // Parse the overlays property which contains the GeoJSON features
+    const overlaysData = JSON.parse(mapResponse.data.overlays || '{"features":[]}');
+    
+    // Extract only the point features
+    const pointFeatures = overlaysData.features.filter(feature => 
+      feature.geometry.type === 'Point'
+    );
+    
+    // Convert to our expected format
+    return pointFeatures.map(feature => ({
+      id: feature.properties.name || 'unnamed',
+      x: feature.geometry.coordinates[0],
+      y: feature.geometry.coordinates[1],
+      theta: parseFloat(feature.properties.yaw || '0')
+    }));
   } catch (error) {
-    console.error(`Error fetching points for map ${mapUid}:`, error);
+    console.error(`Error fetching points for map ${mapId}:`, error);
     return [];
   }
 }
@@ -145,7 +163,8 @@ async function analyzeRobotMaps() {
     
     // Filter for maps with our naming convention
     const standardMaps = maps.filter(map => 
-      map.name.startsWith('Floor') || map.name === 'BasementODT'
+      (map.map_name && map.map_name.startsWith('Floor')) || 
+      (map.map_name === 'BasementODT')
     );
     
     console.log(`Found ${standardMaps.length} maps with standard naming convention`);
@@ -154,7 +173,7 @@ async function analyzeRobotMaps() {
       // Show all available maps
       console.log('\n=== ALL AVAILABLE MAPS ===');
       maps.forEach((map, index) => {
-        console.log(`${index + 1}. ${map.name} (UID: ${map.uid})`);
+        console.log(`${index + 1}. ${map.map_name || map.name || 'Unnamed'} (ID: ${map.id}, UID: ${map.uid})`);
       });
       
       console.log('\nNo maps found with standard naming convention. Please rename maps to follow our convention (Floor1, Floor2, BasementODT).');
@@ -163,14 +182,14 @@ async function analyzeRobotMaps() {
     
     // Process each map
     for (const map of standardMaps) {
-      console.log(`\n--- ANALYZING MAP: ${map.name} (${map.uid}) ---`);
+      console.log(`\n--- ANALYZING MAP: ${map.map_name} (ID: ${map.id}) ---`);
       
       // Get points for this map
-      const points = await getMapPoints(map.uid);
-      console.log(`Found ${points.length} points on map ${map.name}`);
+      const points = await getMapPoints(map.id);
+      console.log(`Found ${points.length} points on map ${map.map_name}`);
       
       if (points.length === 0) {
-        console.log(`No points found on map ${map.name}. Please add points to this map.`);
+        console.log(`No points found on map ${map.map_name}. Please add points to this map.`);
         continue;
       }
       
