@@ -276,29 +276,26 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         y: number;
       }
       
-      // Default shelves if we can't get real data
+      // No fallbacks - we only use actual shelves from the robot
       let shelves: Shelf[] = [];
       
-      try {
-        const robotId = ROBOT_SERIAL;
-        const capabilities = await discoverRobotCapabilities(robotId);
-        
-        // Find the specified map
-        const map = capabilities.maps.find(m => m.id === floorId);
-        
-        if (map) {
-          // Get shelf points for the map
-          shelves = map.shelfPoints.map(point => ({
-            id: point.id,
-            displayName: point.displayName,
-            x: point.x,
-            y: point.y
-          }));
-        } else {
-          logger.warn(`Floor ${floorId} not found in robot capabilities`);
-        }
-      } catch (shelfError) {
-        logger.warn(`Could not get shelf data from robot, using default shelves: ${shelfError}`);
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // Find the specified map
+      const map = capabilities.maps.find(m => m.id === floorId);
+      
+      if (map) {
+        // Get shelf points for the map
+        shelves = map.shelfPoints.map(point => ({
+          id: point.id,
+          displayName: point.displayName,
+          x: point.x,
+          y: point.y
+        }));
+      } else {
+        logger.warn(`Floor ${floorId} not found in robot capabilities`);
+        throw new Error(`Floor ${floorId} not found in robot capabilities`);
       }
       
       // No fallback - only show shelves that actually exist on the robot

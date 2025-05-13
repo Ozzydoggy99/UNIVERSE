@@ -88,6 +88,7 @@ export default function ServiceSelectionPage() {
     );
   }
   
+  // No fallbacks - only use actual service types from the robot
   const serviceTypes = data?.serviceTypes || [];
   
   const handleSelect = (serviceType: ServiceType) => {
@@ -225,6 +226,7 @@ export function OperationSelectionPage() {
     );
   }
   
+  // No fallbacks - only use actual operations from the robot
   const operations = data?.operations || [];
   
   const handleSelect = (operation: OperationType) => {
@@ -355,6 +357,7 @@ export function FloorSelectionPage() {
     );
   }
   
+  // No fallbacks - only use actual floors from the robot
   const floors = data?.floors || [];
   
   // Sort floors by floor number
@@ -479,6 +482,7 @@ export function ShelfSelectionPage() {
     );
   }
   
+  // No fallbacks - only use actual shelves from the robot
   const shelves = data?.shelves || [];
   
   // Sort shelves by displayName numerically
