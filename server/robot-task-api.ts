@@ -563,7 +563,7 @@ async function executeZone104Task(taskId: string): Promise<boolean> {
     }
     
     // STEP 4: Move to docking position for dropoff
-    logTask(taskId, '📍 STEP 4/8: Moving to Drop-off_Load_docking');
+    logTask(taskId, '📍 STEP 4/8: Moving to drop-off_load_docking');
     if (task) task.currentStep = 4;
     
     const moveToDropoffDockingSuccess = await moveToPoint(
@@ -571,15 +571,15 @@ async function executeZone104Task(taskId: string): Promise<boolean> {
       -4.067, 
       2.579, 
       269.73, 
-      'Drop-off_Load_docking'
+      'drop-off_load_docking'
     );
     
     if (!moveToDropoffDockingSuccess) {
-      throw new Error('Failed to move to Drop-off_Load_docking');
+      throw new Error('Failed to move to drop-off_load_docking');
     }
     
     // STEP 5: Move to actual dropoff point
-    logTask(taskId, '📍 STEP 5/8: Moving to Drop-off_Load');
+    logTask(taskId, '📍 STEP 5/8: Moving to drop-off_load');
     if (task) task.currentStep = 5;
     
     const moveToDropoffSuccess = await moveToPoint(
@@ -587,11 +587,11 @@ async function executeZone104Task(taskId: string): Promise<boolean> {
       -3.067, 
       2.579, 
       269.73, 
-      'Drop-off_Load'
+      'drop-off_load'
     );
     
     if (!moveToDropoffSuccess) {
-      throw new Error('Failed to move to Drop-off_Load');
+      throw new Error('Failed to move to drop-off_load');
     }
     
     // STEP 6: Execute jack_down to lower bin
@@ -958,7 +958,7 @@ export function registerTaskApiRoutes(app: express.Express): void {
   // Create a Zone 104 pickup task (convenience endpoint)
   app.post('/api/robot/tasks/zone104-pickup', async (req, res) => {
     try {
-      const taskId = await createTask(TaskType.PICKUP, '104_Load', 'Drop-off_Load');
+      const taskId = await createTask(TaskType.PICKUP, '104_load', 'drop-off_load');
       
       res.status(201).json({
         success: true,
