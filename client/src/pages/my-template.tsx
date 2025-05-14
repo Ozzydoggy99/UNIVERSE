@@ -41,10 +41,10 @@ export default function MyTemplatePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Add a redirect effect - this will automatically take users to the simplified workflow
+  // Add a redirect effect - this will automatically take users to the operations page
   useEffect(() => {
-    // Automatically redirect to simplified workflow
-    navigate('/simplified-workflow');
+    // Skip service type selection entirely and go straight to operations
+    navigate('/simplified-workflow/operations');
   }, [navigate]);
   
   return (
