@@ -103,6 +103,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register the robot settings API for rack specifications
   registerRobotSettingsRoutes(app);
   
+  // Debug endpoint to directly check map points
+  app.get('/api/debug/points', async (req, res) => {
+    try {
+      // Import properly using ES6 syntax
+      const mapDataModule = await import('./robot-map-data');
+      const points = await mapDataModule.fetchRobotMapPoints();
+      
+      // Extract shelf points for inspection
+      const shelfPoints = points.filter((p: any) => 
+        p.id.includes('104') || 
+        p.id.toLowerCase().includes('load')
+      );
+      
+      res.json({
+        total: points.length,
+        shelfPoints: shelfPoints.map((p: any) => ({
+          id: p.id,
+          originalCase: p.id,
+          lowerCase: p.id.toLowerCase(),
+          upperCase: p.id.toUpperCase(),
+          coordinates: { x: p.x, y: p.y }
+        }))
+      });
+    } catch (error) {
+      console.error('Debug endpoint error:', error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+  
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
   

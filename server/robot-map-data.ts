@@ -54,11 +54,19 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
 
     // DEBUG: Let's see what point IDs we're actually getting from the robot
     console.log('------ POINT IDS FROM ROBOT API ------');
+    const pointIds = [];
     features.forEach((f: any) => {
       if (f && f.properties && f.properties.name) {
-        console.log(`Point ID from robot: "${f.properties.name}"`);
+        const pointId = f.properties.name;
+        pointIds.push(pointId);
+        
+        // Log shelf points with their case
+        if (pointId.includes('104') || pointId.toLowerCase().includes('load')) {
+          console.log(`IMPORTANT POINT ID FROM ROBOT: "${pointId}" (case-sensitive exact string)`);
+        }
       }
     });
+    console.log(`Found ${pointIds.length} total point IDs from robot`);
     console.log('------ END POINT IDS ------');
 
     // Filter to only point features and extract data
