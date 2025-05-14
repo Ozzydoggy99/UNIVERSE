@@ -442,7 +442,7 @@ export const reverseFromRackAction: ActionModule = {
       const distance = params.distance || 0.5; // meters
       const speed = params.speed || 0.2; // m/s
       
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/straight`, {
+      const response = await robotApi.post('/api/v2/move/straight', {
         distance: -distance, // Negative for reverse
         velocity: speed
       });
@@ -501,7 +501,7 @@ export const returnToChargerAction: ActionModule = {
       
       // Based on our actual implementation with hardcoded coordinates
       // This is our special case that uses exact coordinates not a point
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/coordinate`, {
+      const response = await robotApi.post('/api/v2/move/coordinate', {
         x: 0.034,
         y: 0.498,
         theta: 266.11,
