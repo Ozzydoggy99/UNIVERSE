@@ -41,6 +41,12 @@ export default function MyTemplatePage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Add a redirect effect - this will automatically take users to the simplified workflow
+  useEffect(() => {
+    // Automatically redirect to simplified workflow
+    navigate('/simplified-workflow');
+  }, [navigate]);
+  
   return (
     <div className="p-4 space-y-6 max-w-xl mx-auto">
       <div className="flex justify-between items-center mb-4">
@@ -77,11 +83,10 @@ export default function MyTemplatePage() {
         </div>
       </div>
       
-      {/* Redirect directly to the simplified workflow since it's the only option */}
-      {useEffect(() => {
-        // Automatically redirect to simplified workflow
-        navigate('/simplified-workflow');
-      }, [])}
+      {/* Loading indicator while redirecting */}
+      <div className="flex justify-center items-center">
+        <p>Redirecting to simplified workflow...</p>
+      </div>
       
       <div className="text-center text-sm text-gray-500 mt-8">
         <p>Robot ready for operations • {robotStatus.connected ? 'Online' : 'Offline'}</p>

@@ -41,8 +41,6 @@ import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { RobotProvider } from "@/providers/robot-provider";
 import { ProtectedRoute } from "@/lib/protected-route";
-import { TemplateManager } from "@/components/templates/template-manager";
-import { TemplateRenderer } from "@/components/templates/template-renderer";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -164,19 +162,7 @@ function Router() {
         )} 
       />
       
-      <ProtectedRoute 
-        path="/templates" 
-        component={() => (
-          <AppLayout>
-            <TemplateManager />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/admin-templates" 
-        component={AdminTemplates} 
-      />
+      {/* Legacy template management routes removed */}
       
       <ProtectedRoute 
         path="/admin-tasks" 
@@ -188,51 +174,12 @@ function Router() {
       />
       
       <ProtectedRoute 
-        path="/robot-assignments" 
-        component={() => (
-          <AppLayout>
-            <RobotAssignments />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/robot-hub" 
-        component={() => (
-          <AppLayout>
-            <RobotHub />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/unassigned-robots" 
-        component={() => (
-          <AppLayout>
-            <UnassignedRobots />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
         path="/robot-details/:serialNumber" 
         component={() => (
           <AppLayout>
             <RobotDetails />
           </AppLayout>
         )} 
-      />
-      
-      <ProtectedRoute 
-        path="/templates/:id" 
-        component={() => {
-          const TemplateDetail = React.lazy(() => import('@/pages/template-detail'));
-          return (
-            <React.Suspense fallback={<div>Loading...</div>}>
-              <TemplateDetail />
-            </React.Suspense>
-          );
-        }} 
       />
       
       <ProtectedRoute 
