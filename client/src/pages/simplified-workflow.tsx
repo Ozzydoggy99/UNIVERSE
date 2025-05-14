@@ -484,7 +484,7 @@ export function ShelfSelectionPage() {
           </p>
           <Button 
             className="mt-4 bg-primary" 
-            onClick={() => navigate(`/simplified-workflow/${serviceType}/${operationType}`)}
+            onClick={() => navigate(`/simplified-workflow/operations/${operationType}`)}
           >
             Back to Floors
           </Button>
@@ -535,7 +535,7 @@ export function ShelfSelectionPage() {
           });
           
           // Return to floor selection to select destination
-          navigate(`/simplified-workflow/${serviceType}/${operationType}`);
+          navigate(`/simplified-workflow/operations/${operationType}`);
           return;
         } else {
           // We already have a source shelf, so this is the target shelf
@@ -548,7 +548,6 @@ export function ShelfSelectionPage() {
           const sourceFloor = localStorage.getItem('sourceFloorId') || '';
           
           const response = await axios.post('/api/simplified-workflow/execute', {
-            serviceType,
             operationType,
             floorId,  // Target floor
             shelfId: selectedShelf,  // Target shelf
@@ -574,7 +573,6 @@ export function ShelfSelectionPage() {
       
       // Regular (non-transfer) workflow execution
       const response = await axios.post('/api/simplified-workflow/execute', {
-        serviceType,
         operationType,
         floorId,
         shelfId: selectedShelf
