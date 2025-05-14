@@ -228,7 +228,7 @@ export const alignWithRackAction: ActionModule = {
       
       while (retries < maxRetries) {
         // Check move action status
-        const statusResponse = await axios.get(`http://47.180.91.99:8090/chassis/moves/${moveActionId}`);
+        const statusResponse = await robotApi.get(`/chassis/moves/${moveActionId}`);
         const state = statusResponse.data.state;
         
         if (state === 'succeeded') {
@@ -452,7 +452,7 @@ export const reverseFromRackAction: ActionModule = {
       let retries = 0;
       
       while (retries < maxRetries) {
-        const statusResponse = await axios.get('http://47.180.91.99:8090/api/v2/move/status');
+        const statusResponse = await robotApi.get('/api/v2/move/status');
         const status = statusResponse.data.status;
         
         if (status === 'idle') {
@@ -513,7 +513,7 @@ export const returnToChargerAction: ActionModule = {
       let retries = 0;
       
       while (retries < maxRetries) {
-        const statusResponse = await axios.get('http://47.180.91.99:8090/api/v2/move/status');
+        const statusResponse = await robotApi.get('/api/v2/move/status');
         const status = statusResponse.data.status;
         
         if (status === 'idle') {
