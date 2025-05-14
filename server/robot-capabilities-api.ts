@@ -211,6 +211,64 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       res.status(500).json({ error: 'Failed to retrieve operations' });
     }
   });
+  
+  /**
+   * Get operations directly - without requiring service type
+   * This is the new endpoint that replaces the service type selection step
+   */
+  app.get('/api/simplified-workflow/operations', async (req: Request, res: Response) => {
+    try {
+      logger.info(`Getting operations directly (no service type)`);
+      
+      // Strict policy: Only show operations discovered from robot capabilities
+      // No fallbacks or default operations if none are found
+      let operations = [];
+      
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // For our unified robot service type, create operations based on robot capabilities
+      if (capabilities.hasCentralPickup) {
+        operations.push({
+          id: 'pickup',
+          displayName: 'Pick Up',
+          enabled: true
+        });
+      }
+      
+      if (capabilities.hasCentralDropoff) {
+        operations.push({
+          id: 'dropoff',
+          displayName: 'Drop Off',
+          enabled: true
+        });
+      }
+      
+      // If we have multiple shelves on any map, allow shelf-to-shelf transfers
+      const hasMultipleShelves = capabilities.maps.some(map => map.shelfPoints.length >= 2);
+      if (hasMultipleShelves) {
+        operations.push({
+          id: 'transfer',
+          displayName: 'Transfer Between Shelves',
+          enabled: true
+        });
+      }
+      
+      // Log what we found from robot
+      logger.info(`Found ${operations.length} operations from robot (direct endpoint)`);
+      
+      // No fallbacks - only show operations that actually exist on the robot
+      if (operations.length === 0) {
+        logger.warn(`No operations found from robot API (direct endpoint)`);
+      }
+      
+      logger.info(`Returning operations: ${JSON.stringify(operations)}`);
+      res.status(200).json({ operations });
+    } catch (error) {
+      logger.error(`Error retrieving operations (direct endpoint): ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve operations' });
+    }
+  });
 
   /**
    * Get floors for a specific operation and service type
@@ -259,6 +317,56 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       res.status(200).json({ floors });
     } catch (error) {
       logger.error(`Error retrieving floors: ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve floors' });
+    }
+  });
+  
+  /**
+   * Get floors for a specific operation directly (without service type)
+   */
+  app.get('/api/simplified-workflow/operations/:operationType/floors', async (req: Request, res: Response) => {
+    try {
+      const { operationType } = req.params;
+      logger.info(`Getting floors for operation ${operationType} (direct endpoint)`);
+      
+      // Define floor type to fix TypeScript issues
+      interface Floor {
+        id: string;
+        displayName: string;
+        floorNumber: number;
+      }
+      
+      // No fallbacks - we only use actual floors from the robot's capabilities
+      let floors: Floor[] = [];
+      
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // Filter and transform maps to floors
+      floors = capabilities.maps
+        .filter(map => {
+          // Only include maps with shelf points for shelf operations
+          if (operationType === 'pickup' || operationType === 'dropoff') {
+            return map.shelfPoints.length > 0;
+          }
+          return true;
+        })
+        .map(map => ({
+          id: map.id,
+          displayName: map.name,
+          floorNumber: map.floorNumber
+        }))
+        .sort((a, b) => a.floorNumber - b.floorNumber);
+      
+      // No fallback - only show floors that actually exist on the robot
+      if (floors.length === 0) {
+        logger.info('No floors found on robot (direct endpoint)');
+      }
+      
+      logger.info(`Returning floors: ${JSON.stringify(floors)}`);
+      res.status(200).json({ floors });
+    } catch (error) {
+      logger.error(`Error retrieving floors (direct endpoint): ${error}`);
       res.status(500).json({ error: 'Failed to retrieve floors' });
     }
   });
@@ -313,15 +421,68 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       res.status(500).json({ error: 'Failed to retrieve shelves' });
     }
   });
+  
+  /**
+   * Get shelf points for a specific floor and operation directly (without service type)
+   */
+  app.get('/api/simplified-workflow/operations/:operationType/floors/:floorId/shelves', async (req: Request, res: Response) => {
+    try {
+      const { operationType, floorId } = req.params;
+      logger.info(`Getting shelves for operation ${operationType}, floor ${floorId} (direct endpoint)`);
+      
+      // Define shelf type to fix TypeScript issues
+      interface Shelf {
+        id: string;
+        displayName: string;
+        x: number;
+        y: number;
+      }
+      
+      // No fallbacks - we only use actual shelves from the robot
+      let shelves: Shelf[] = [];
+      
+      const robotId = ROBOT_SERIAL;
+      const capabilities = await discoverRobotCapabilities(robotId);
+      
+      // Find the specified map
+      const map = capabilities.maps.find(m => m.id === floorId);
+      
+      if (map) {
+        // Get shelf points for the map
+        shelves = map.shelfPoints.map(point => ({
+          id: point.id,
+          displayName: point.displayName,
+          x: point.x,
+          y: point.y
+        }));
+      } else {
+        logger.warn(`Floor ${floorId} not found in robot capabilities (direct endpoint)`);
+        throw new Error(`Floor ${floorId} not found in robot capabilities`);
+      }
+      
+      // No fallback - only show shelves that actually exist on the robot
+      if (shelves.length === 0) {
+        logger.info(`No shelves found for floor ${floorId} (direct endpoint)`);
+      }
+      
+      logger.info(`Returning shelves: ${JSON.stringify(shelves)}`);
+      res.status(200).json({ shelves });
+    } catch (error) {
+      logger.error(`Error retrieving shelves (direct endpoint): ${error}`);
+      res.status(500).json({ error: 'Failed to retrieve shelves' });
+    }
+  });
 
   /**
    * Execute a workflow for a specific shelf, floor, operation, and service type
    */
   app.post('/api/simplified-workflow/execute', async (req: Request, res: Response) => {
     try {
-      const { serviceType, operationType, floorId, shelfId } = req.body;
+      const { operationType, floorId, shelfId } = req.body;
+      // Service type is no longer required
+      const serviceType = 'robot'; // Default service type
       
-      if (!serviceType || !operationType || !floorId || !shelfId) {
+      if (!operationType || !floorId || !shelfId) {
         return res.status(400).json({ error: 'Missing required parameters' });
       }
       
