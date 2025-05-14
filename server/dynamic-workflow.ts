@@ -1958,25 +1958,124 @@ export async function executeWorkflow(
       missionId = mission.id;
       logWorkflow(workflowId, `✅ Created pickup-to-104 mission with ID: ${missionId}`);
     }
-    else if (workflowType === 'shelf-to-central' || workflowType === 'central-to-shelf') {
-      // Create a mission for shelf to central or central to shelf
-      const missionName = `${workflowType} Workflow (${params.shelfId})`;
+    else if (workflowType === 'central-to-shelf') {
+      // Central pickup to specific shelf workflow
+      // Uses the standardized template with placeholders for the shelf point
+      const workflowTemplate = workflowTemplates['central-to-shelf'];
+      const missionName = `${workflowTemplate.name} (${params.shelfId}) - Dynamic execution`;
       
-      // Build appropriate steps based on workflow type
-      workflowSteps = [
-        // Steps would come here based on the workflow logic
-        {
-          type: 'return_to_charger',
-          params: {},
-          completed: false,
-          retryCount: 0
+      // Map the user's shelf ID to the template's expected dropoffShelf input
+      const templateParams = {
+        dropoffShelf: params.shelfId
+      };
+      
+      logWorkflow(workflowId, `Using template ${workflowTemplate.id} with dropoffShelf=${params.shelfId}`);
+      
+      // Build steps from the template
+      workflowSteps = [];
+      
+      // Convert template sequence to concrete workflow steps with real coordinates
+      for (const step of workflowTemplate.sequence) {
+        // Get parameters with placeholders replaced by actual values
+        const stepParams = { ...step.params };
+        
+        // Process any placeholders in pointId fields (like {dropoffShelf})
+        if (stepParams.pointId && typeof stepParams.pointId === 'string') {
+          // Replace {dropoffShelf} with the actual shelf ID
+          stepParams.pointId = stepParams.pointId.replace('{dropoffShelf}', templateParams.dropoffShelf);
         }
-      ];
+        
+        // Convert template step to actual workflow step with coordinates
+        if (step.actionId === 'moveToPoint') {
+          // Get real coordinates for the point
+          const pointId = stepParams.pointId;
+          const point = await getShelfDockingPoint(pointId);
+          
+          if (!point) {
+            throw new Error(`Could not find coordinates for point ${pointId}`);
+          }
+          
+          workflowSteps.push({
+            type: 'move',
+            params: {
+              x: point.x,
+              y: point.y,
+              ori: point.theta,
+              label: step.description || `Moving to ${pointId}`
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'alignWithRack') {
+          // Get real coordinates for the point
+          const pointId = stepParams.pointId;
+          const point = await getShelfPoint(pointId);
+          
+          if (!point) {
+            throw new Error(`Could not find coordinates for point ${pointId}`);
+          }
+          
+          workflowSteps.push({
+            type: 'align_with_rack',
+            params: {
+              x: point.x,
+              y: point.y,
+              ori: point.theta,
+              label: step.description || `Aligning with ${pointId}`
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'jackUp') {
+          workflowSteps.push({
+            type: 'jack_up',
+            params: {
+              waitComplete: true
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'jackDown') {
+          workflowSteps.push({
+            type: 'jack_down',
+            params: {
+              waitComplete: true
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'reverseFromRack') {
+          // Use a type that exists in the mission system
+          workflowSteps.push({
+            type: 'move',
+            params: {
+              // Negative distance means reverse
+              distance: -(stepParams.distance || 0.5),
+              speed: stepParams.speed || 0.2,
+              label: 'Reversing from rack'
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'returnToCharger') {
+          workflowSteps.push({
+            type: 'return_to_charger',
+            params: {},
+            completed: false,
+            retryCount: 0
+          });
+        }
+      }
       
       // Create the mission directly
       const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
       missionId = mission.id;
-      logWorkflow(workflowId, `✅ Created ${workflowType} mission with ID: ${missionId}`);
+      logWorkflow(workflowId, `✅ Created central-to-shelf mission with ID: ${missionId}`);
     }
     else if (workflowType === 'shelf-to-shelf') {
       // Create a mission for shelf to shelf transfer
