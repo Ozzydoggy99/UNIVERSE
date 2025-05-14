@@ -107,11 +107,40 @@ export async function executePickup104Workflow() {
     // Default floor for this operation is Floor 1 (ID: 1)
     const floorId = 1;
     
-    // Get real points from map if available, otherwise use hardcoded fallbacks
-    const shelfPoint = robotPointsMap.getPoint(floorId, '104_load') || SHELF_104_COORDINATES;
-    const shelfDocking = robotPointsMap.getPoint(floorId, '104_load_docking') || SHELF_104_DOCKING;
-    const dropoffPoint = robotPointsMap.getPoint(floorId, 'Drop-off_Load') || DROPOFF_COORDINATES;
-    const dropoffDocking = robotPointsMap.getPoint(floorId, 'Drop-off_Load_docking') || DROPOFF_DOCKING;
+    // Try to get points from the map first
+    let shelfPoint, shelfDocking, dropoffPoint, dropoffDocking;
+    
+    try {
+      shelfPoint = robotPointsMap.getPoint(floorId, '104_load');
+      if (!shelfPoint) {
+        appendLog('104_load point not found in map, using hardcoded coordinates');
+        shelfPoint = SHELF_104_COORDINATES;
+      }
+      
+      shelfDocking = robotPointsMap.getPoint(floorId, '104_load_docking');
+      if (!shelfDocking) {
+        appendLog('104_load_docking point not found in map, using hardcoded coordinates');
+        shelfDocking = SHELF_104_DOCKING;
+      }
+      
+      dropoffPoint = robotPointsMap.getPoint(floorId, 'Drop-off_Load');
+      if (!dropoffPoint) {
+        appendLog('Drop-off_Load point not found in map, using hardcoded coordinates');
+        dropoffPoint = DROPOFF_COORDINATES;
+      }
+      
+      dropoffDocking = robotPointsMap.getPoint(floorId, 'Drop-off_Load_docking');
+      if (!dropoffDocking) {
+        appendLog('Drop-off_Load_docking point not found in map, using hardcoded coordinates');
+        dropoffDocking = DROPOFF_DOCKING;
+      }
+    } catch (error: any) {
+      appendLog(`Error getting map points: ${error.message}. Using hardcoded coordinates.`);
+      shelfPoint = SHELF_104_COORDINATES;
+      shelfDocking = SHELF_104_DOCKING;
+      dropoffPoint = DROPOFF_COORDINATES;
+      dropoffDocking = DROPOFF_DOCKING;
+    }
     
     // Create a mission in our queue with proper step format
     const mission = missionQueue.createMission(
@@ -173,117 +202,24 @@ export async function executePickup104Workflow() {
     
     appendLog(`Created mission with ID: ${missionId}`);
     
-    // Step 1: Move to 104 docking point
-    appendLog('Step 1: Moving to 104 docking point...');
-    const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-      creator: "pickup-104-workflow",
-      type: "standard",
-      target_x: shelfDocking.x,
-      target_y: shelfDocking.y,
-      target_ori: shelfDocking.theta,
-      properties: {
-        max_trans_vel: 0.5,
-        max_rot_vel: 0.5
-      }
-    }, { headers });
+    // The mission queue will automatically process this mission with these steps:
+    // 1. Move to 104 docking point
+    // 2. Align with rack at 104
+    // 3. Jack up to grab bin
+    // 4. Move to drop-off docking point
+    // 5. Align with drop-off rack
+    // 6. Jack down to release bin
+    // 7. Return to charger
     
-    appendLog(`Move command sent, move ID: ${moveResponse.data.id}`);
-    await waitForMoveComplete();
-    await missionQueue.completeStep(missionId, 0);
+    appendLog('Mission created and queued for processing');
+    appendLog('The mission queue system will execute all steps automatically');
+    appendLog('---- 104 PICKUP WORKFLOW INITIATED ----');
     
-    // Step 2: Align with the rack
-    appendLog('Step 2: Aligning with the rack...');
-    const alignResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-      creator: "pickup-104-workflow",
-      type: "align_with_rack",
-      target_x: shelfPoint.x,
-      target_y: shelfPoint.y,
-      target_ori: shelfPoint.theta
-    }, { headers });
-    
-    appendLog(`Align command sent, align ID: ${alignResponse.data.id}`);
-    await waitForMoveComplete();
-    await missionQueue.completeStep(missionId, 1);
-    
-    // Step 3: Jack up
-    appendLog('Step 3: Jacking up to lift the bin...');
-    await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
-    
-    // Wait for jack up to complete
-    appendLog('Waiting for jack up operation to complete (8 seconds)...');
-    await sleep(8000);
-    await missionQueue.completeStep(missionId, 2);
-    
-    // Step 4: Move to drop-off point
-    appendLog('Step 4: Moving to drop-off docking point...');
-    const moveToDropoffResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-      creator: "pickup-104-workflow",
-      type: "standard",
-      target_x: dropoffDocking.x,
-      target_y: dropoffDocking.y,
-      target_ori: dropoffDocking.theta,
-      properties: {
-        max_trans_vel: 0.4,  // Move slower when carrying a bin
-        max_rot_vel: 0.4
-      }
-    }, { headers });
-    
-    appendLog(`Move to drop-off command sent, move ID: ${moveToDropoffResponse.data.id}`);
-    await waitForMoveComplete();
-    await missionQueue.completeStep(missionId, 3);
-    
-    // Step 5: Align with drop-off rack
-    appendLog('Step 5: Aligning with drop-off rack...');
-    const alignDropoffResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-      creator: "pickup-104-workflow",
-      type: "align_with_rack",
-      target_x: dropoffPoint.x,
-      target_y: dropoffPoint.y,
-      target_ori: dropoffPoint.theta
-    }, { headers });
-    
-    appendLog(`Align with drop-off command sent, align ID: ${alignDropoffResponse.data.id}`);
-    await waitForMoveComplete();
-    await missionQueue.completeStep(missionId, 4);
-    
-    // Step 6: Jack down
-    appendLog('Step 6: Jacking down to release the bin...');
-    await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
-    
-    // Wait for jack down to complete
-    appendLog('Waiting for jack down operation to complete (8 seconds)...');
-    await sleep(8000);
-    await missionQueue.completeStep(missionId, 5);
-    
-    // Step 7: Return to charger
-    appendLog('Step 7: Returning to charger...');
-    try {
-      // Try the services API first (preferred method)
-      await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { headers });
-      appendLog('Return to charger command sent via services API');
-    } catch (error: any) {
-      appendLog(`Services API failed: ${error.message}. Trying move action instead...`);
-      
-      // Fall back to move action with type "charge"
-      const chargeResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-        creator: "pickup-104-workflow",
-        type: "charge",
-        charge_retry_count: 3
-      }, { headers });
-      
-      appendLog(`Return to charger command sent via move action, ID: ${chargeResponse.data.id}`);
-    }
-    
-    // Wait for return to charger to complete
-    appendLog('Waiting for return to charger to complete...');
-    await waitForMoveComplete(120); // Longer timeout for charger return
-    await missionQueue.completeStep(missionId, 6);
-    
-    // Complete the mission
-    await missionQueue.completeMission(missionId);
-    
-    appendLog('---- 104 PICKUP WORKFLOW COMPLETED SUCCESSFULLY ----');
-    return { success: true, missionId };
+    return { 
+      success: true, 
+      message: 'Pickup from 104 and drop-off mission created successfully',
+      missionId 
+    };
   } catch (error: any) {
     appendLog(`ERROR: Workflow failed: ${error.message}`);
     appendLog(`Stack trace: ${error.stack}`);
@@ -306,5 +242,5 @@ export function registerPickup104WorkflowHandler(app: any) {
     }
   });
   
-  appendLog('[PICKUP-104-WORKFLOW] ✅ Registered pickup-104 workflow handler');
+  console.log('[PICKUP-104-WORKFLOW] ✅ Registered pickup-104 workflow handler with AutoXing API endpoints');
 }
