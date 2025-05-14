@@ -5,12 +5,12 @@
  * following the proper API documentation for the L382502104987ir robot.
  * 
  * Based on the documentation from the AutoXing SDK, this workflow:
- * 1. Moves to docking position for pickup point (104_Load_docking)
- * 2. Moves to the actual pickup point (104_Load)  
+ * 1. Moves to docking position for pickup point (104_load_docking)
+ * 2. Moves to the actual pickup point (104_load)  
  * 3. Performs a small backup movement for proper bin alignment
  * 4. Performs the jack_up operation to lift the bin
- * 5. Moves to docking position for dropoff (Drop-off_Load_docking)
- * 6. Moves to the actual dropoff point (Drop-off_Load)
+ * 5. Moves to docking position for dropoff (drop-off_load_docking)
+ * 6. Moves to the actual dropoff point (drop-off_load)
  * 7. Performs the jack_down operation to lower the bin
  * 8. Returns to the charging station using the proper "charge" move type
  */
@@ -596,10 +596,10 @@ async function executeZone104Workflow(): Promise<any> {
   logWorkflow(`🚀 Starting Zone 104 workflow ${workflowId}`);
   
   try {
-    // STEP 1: Move to 104_Load_docking (approach point)
-    logWorkflow(`📍 STEP 1/8: Moving to 104_Load_docking`);
-    await moveToPoint(-15.409467385438802, 6.403540839556854, 178.97, '104_Load_docking');
-    logWorkflow(`✅ STEP 1/8 COMPLETE: Reached 104_Load_docking`);
+    // STEP 1: Move to 104_load_docking (approach point)
+    logWorkflow(`📍 STEP 1/8: Moving to 104_load_docking`);
+    await moveToPoint(-15.409467385438802, 6.403540839556854, 178.97, '104_load_docking');
+    logWorkflow(`✅ STEP 1/8 COMPLETE: Reached 104_load_docking`);
     
     // STEP 2: Move to 104_Load (pickup point)
     logWorkflow(`📍 STEP 2/8: Moving to 104_Load`);
