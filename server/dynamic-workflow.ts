@@ -194,10 +194,10 @@ async function getMapPoints(): Promise<MapPoints> {
         const hasSpecialObjectIdFormat = point.id.length === 24 && /^[0-9a-f]{24}$/i.test(point.id);
         
         // Process based on naming convention with more flexible detection
-        if ((point.id.includes('_Load') || point.id.includes('_load')) && !point.id.includes('_docking')) {
+        if (point.id.includes('_load') && !point.id.includes('_docking')) {
           console.log(`✅ Found shelf point: ${point.id}`);
           shelfPoints.push(point);
-        } else if (point.id.includes('_docking') || point.id.includes('_Docking')) {
+        } else if (point.id.includes('_docking')) {
           console.log(`✅ Found docking point: ${point.id}`);
           dockingPoints.push(point);
           
@@ -1157,7 +1157,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffDockingPoint.x,
       floorPoints.dropoffDockingPoint.y,
       floorPoints.dropoffDockingPoint.ori,
-      'Drop-off_Load_docking'
+      'drop-off_load_docking'
     );
     
     // STEP 5: Move to dropoff point with to_unload_point
@@ -1168,7 +1168,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffPoint.x,
       floorPoints.dropoffPoint.y,
       floorPoints.dropoffPoint.ori,
-      'Drop-off_Load'
+      'drop-off_load'
     );
     
     // STEP 6: Execute jack_down to lower bin
