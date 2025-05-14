@@ -91,10 +91,15 @@ export class MissionQueueManager {
     this.isProcessing = true;
     
     try {
+      // Debug log for mission queue processing
+      console.log(`[MISSION-QUEUE] Processing mission queue - ${new Date().toISOString()}`);
+      
       // Get all pending or in-progress missions
       const activeMissions = this.missions.filter(m => 
         m.status === 'pending' || m.status === 'in_progress'
       );
+      
+      console.log(`[MISSION-QUEUE] Found ${activeMissions.length} active missions`);
       
       for (const mission of activeMissions) {
         if (mission.status === 'pending') {
