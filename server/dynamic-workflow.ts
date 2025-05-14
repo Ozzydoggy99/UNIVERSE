@@ -69,18 +69,6 @@ interface WorkflowState {
   lastMessage?: string;
 }
 
-/**
- * Helper function to clean point IDs and prevent duplicate "_load" suffixes
- * This ensures consistency when dealing with point IDs from different sources
- */
-function cleanShelfId(shelfId: string): string {
-  // If the ID already ends with "_load", remove it to prevent duplication
-  if (shelfId.toLowerCase().endsWith('_load')) {
-    return shelfId.substring(0, shelfId.length - 5);
-  }
-  return shelfId;
-}
-
 // In-memory state - would be replaced with database in production
 const workflowStates: { [id: string]: WorkflowState } = {};
 
@@ -374,12 +362,9 @@ async function getMapPoints(): Promise<MapPoints> {
  * Only uses actual data from the robot API, no virtual points
  */
 function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string], floorId?: string): Point | null {
-  // Clean the shelf ID first to prevent duplicate "_load" suffixes
-  const cleanedShelfId = cleanShelfId(shelfId);
-  
-  // Now create the proper docking point IDs
-  const dockingId = `${cleanedShelfId}_load_docking`;
-  const altDockingId = `${cleanedShelfId}_docking`;
+  // First try the standard naming convention with load_docking suffix (case insensitive)
+  const dockingId = `${shelfId}_load_docking`;
+  const altDockingId = `${shelfId}_docking`;
   
   // Try to find matching points with case-insensitive comparison
   let dockingPoint = floorPoints.dockingPoints.find(p => 
@@ -391,8 +376,8 @@ function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string]
     console.log(`📝 Could not find exact docking point match for shelf ${shelfId}, trying alternate formats`);
     
     // If it's a numeric shelf ID (like "104"), try with the standard format
-    if (/^\d+$/.test(cleanedShelfId)) {
-      const numericDockingId = `${cleanedShelfId}_load_docking`;
+    if (/^\d+$/.test(shelfId)) {
+      const numericDockingId = `${shelfId}_load_docking`;
       dockingPoint = floorPoints.dockingPoints.find(p => 
         p.id.toLowerCase().includes(numericDockingId.toLowerCase())
       );
@@ -1869,13 +1854,15 @@ export async function executeWorkflow(
             // Replace {pickupShelf} with the actual shelf ID
             const originalPointId = stepParams.pointId;
             
-            // Clean the shelf ID to prevent duplicate "_load" suffixes
-            const shelfIdValue = cleanShelfId(templateParams.pickupShelf);
-            if (shelfIdValue !== templateParams.pickupShelf) {
-              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.pickupShelf} → ${shelfIdValue}`);
+            // Check if shelfId already contains "_load"
+            let cleanShelfId = templateParams.pickupShelf;
+            if (cleanShelfId.endsWith('_load')) {
+              // Remove the "_load" suffix to prevent duplication
+              cleanShelfId = cleanShelfId.replace('_load', '');
+              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.pickupShelf} → ${cleanShelfId}`);
             }
             
-            stepParams.pointId = stepParams.pointId.replace('{pickupShelf}', shelfIdValue);
+            stepParams.pointId = stepParams.pointId.replace('{pickupShelf}', cleanShelfId);
             logWorkflow(workflowId, `Processed point ID: ${originalPointId} → ${stepParams.pointId}`);
           }
           
@@ -2039,13 +2026,15 @@ export async function executeWorkflow(
             // Replace {dropoffShelf} with the actual shelf ID
             const originalPointId = stepParams.pointId;
             
-            // Clean the shelf ID to prevent duplicate "_load" suffixes
-            const shelfIdValue = cleanShelfId(templateParams.dropoffShelf);
-            if (shelfIdValue !== templateParams.dropoffShelf) {
-              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.dropoffShelf} → ${shelfIdValue}`);
+            // Check if shelfId already contains "_load"
+            let cleanShelfId = templateParams.dropoffShelf;
+            if (cleanShelfId.endsWith('_load')) {
+              // Remove the "_load" suffix to prevent duplication
+              cleanShelfId = cleanShelfId.replace('_load', '');
+              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.dropoffShelf} → ${cleanShelfId}`);
             }
             
-            stepParams.pointId = stepParams.pointId.replace('{dropoffShelf}', shelfIdValue);
+            stepParams.pointId = stepParams.pointId.replace('{dropoffShelf}', cleanShelfId);
             logWorkflow(workflowId, `Processed point ID: ${originalPointId} → ${stepParams.pointId}`);
           }
           

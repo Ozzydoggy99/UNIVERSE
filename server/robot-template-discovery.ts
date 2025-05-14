@@ -16,18 +16,6 @@ const logger = {
   warn: (message: string) => console.warn(message)
 };
 
-/**
- * Helper function to clean point IDs and prevent duplicate "_load" suffixes
- * This ensures consistency when dealing with point IDs from different sources
- */
-function cleanShelfId(shelfId: string): string {
-  // If the ID already ends with "_load", remove it to prevent duplication
-  if (shelfId && typeof shelfId === 'string' && shelfId.toLowerCase().endsWith('_load')) {
-    return shelfId.substring(0, shelfId.length - 5);
-  }
-  return shelfId;
-}
-
 // Helper function to get display name for points
 function getPointDisplayName(pointId: any): string {
   // Safe handling for null, undefined, or non-string values
@@ -36,11 +24,8 @@ function getPointDisplayName(pointId: any): string {
   // Always convert to string to handle numeric IDs
   const id = String(pointId);
   
-  // Clean the shelf ID to prevent duplicate "_load" suffixes
-  const cleanedId = cleanShelfId(id);
-  
   // Debug log
-  logger.info(`Getting display name for point: ${id} (cleaned: ${cleanedId})`);
+  logger.info(`Getting display name for point: ${id}`);
   
   // Special case for central pickup/dropoff points from AutoX robots
   if (id === 'pick-up_load' || id.toLowerCase() === 'pickup_load') {
@@ -56,35 +41,34 @@ function getPointDisplayName(pointId: any): string {
   }
   
   // Try multiple patterns to extract a clean display name
-  // Use the cleaned ID to avoid issues with duplicate "_load" suffixes
   
   // Pattern 1: Extract number from start of string followed by underscore (e.g., "104_load" → "104")
-  let match = cleanedId.match(/^(\d+)_/);
+  let match = id.match(/^(\d+)_/);
   if (match) {
     return match[1];
   }
   
   // Pattern 2: Extract number from anywhere in string with "shelf" or "load" (e.g., "shelf_104" → "104")
-  match = cleanedId.match(/(?:shelf|load)[_-]?(\d+)/i);
+  match = id.match(/(?:shelf|load)[_-]?(\d+)/i);
   if (match) {
     return match[1];
   }
   
   // Pattern 3: Extract number from string ending with "shelf" or "load" (e.g., "104_shelf" → "104")
-  match = cleanedId.match(/(\d+)[_-]?(?:shelf|load)/i);
+  match = id.match(/(\d+)[_-]?(?:shelf|load)/i);
   if (match) {
     return match[1];
   }
   
   // Pattern 4: Just extract any number sequence as a last resort
-  match = cleanedId.match(/(\d+)/);
+  match = id.match(/(\d+)/);
   if (match) {
     return match[1];
   }
   
   // If no pattern matches, clean up the ID by removing common suffixes
-  // We've already cleaned _load with cleanShelfId, now handle other suffixes
-  let cleanId = cleanedId
+  let cleanId = id
+    .replace(/_load$/i, '')
     .replace(/_docking$/i, '')
     .replace(/_shelf$/i, '')
     .replace(/-load$/i, '')
@@ -497,14 +481,11 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
           const pointId = point.id || point.name || point.point_id || '';
           
           // Check if there's a corresponding docking point with various naming patterns
-          // Clean the point ID first to prevent duplicate "_load" suffixes
-          const cleanedPointId = cleanShelfId(pointId);
-          
           const possibleDockingIds = [
             `${pointId}_docking`,
             `${pointId}-docking`,
             `${pointId} docking`,
-            `${cleanedPointId}_docking`,  // Use the cleaned ID (already has _load suffix removed)
+            `${pointId.replace('_load', '')}_docking`,
             `${pointId}_dock`,
             `${pointId}-dock`
           ];
