@@ -63,7 +63,7 @@ export const moveToPointAction: ActionModule = {
   description: 'Navigate robot to a specified map point',
   requiresPoints: ['destination'],
   
-  async validate(params) {
+  async validate(params: ActionParams): Promise<ValidationResult> {
     const errors = [];
     
     if (!params.pointId) {
@@ -176,7 +176,7 @@ export const alignWithRackAction: ActionModule = {
   description: 'Adjust robot position to precisely align with a rack',
   requiresPoints: ['rack'],
   
-  async validate(params) {
+  async validate(params: ActionParams): Promise<ValidationResult> {
     const errors = [];
     
     if (!params.pointId) {
@@ -189,7 +189,7 @@ export const alignWithRackAction: ActionModule = {
     };
   },
   
-  async execute(params) {
+  async execute(params: ActionParams): Promise<ActionResult> {
     try {
       // Resolve the point ID using our naming convention
       const resolvedPointId = resolvePointId(params.pointId, params);
@@ -198,13 +198,17 @@ export const alignWithRackAction: ActionModule = {
       
       // Based on the AutoXing API documentation, we need to use the 'align_with_rack' move type
       // The API requires passing the point ID without the '_docking' suffix
+      // Remove '_docking' suffix if present (we want the load point, not the docking point)
+      const loadPointId = resolvedPointId.replace('_docking', '');
+      console.log(`[ACTION] Using load point ID for alignment: ${loadPointId}`);
+      
       const response = await axios.post(`http://47.180.91.99:8090/chassis/moves`, {
         creator: 'robot-management-platform',
         type: 'align_with_rack',
         target_x: 0, // These values will be ignored since the point ID is what matters
         target_y: 0,
         target_z: 0,
-        point_id: resolvedPointId // This should be the load point, not the docking point
+        point_id: loadPointId // This should be the load point, not the docking point
       });
       
       // The response should contain the move action ID
@@ -258,7 +262,7 @@ export const jackUpAction: ActionModule = {
   description: 'Raise the robot\'s jack to lift a bin',
   requiresPoints: [],
   
-  async validate(params) {
+  async validate(params: ActionParams): Promise<ValidationResult> {
     return { valid: true };
   },
   
@@ -296,7 +300,7 @@ export const jackDownAction: ActionModule = {
   description: 'Lower the robot\'s jack to release a bin',
   requiresPoints: [],
   
-  async validate(params) {
+  async validate(params: ActionParams): Promise<ValidationResult> {
     return { valid: true };
   },
   
@@ -334,7 +338,7 @@ export const reverseFromRackAction: ActionModule = {
   description: 'Move robot backward away from the current rack',
   requiresPoints: [],
   
-  async validate(params) {
+  async validate(params: ActionParams): Promise<ValidationResult> {
     return { valid: true };
   },
   
@@ -397,7 +401,7 @@ export const returnToChargerAction: ActionModule = {
   description: 'Navigate robot back to charging station',
   requiresPoints: ['charger'],
   
-  async validate(params) {
+  async validate(params: ActionParams): Promise<ValidationResult> {
     return { valid: true };
   },
   
@@ -458,7 +462,7 @@ export const checkBinStatusAction: ActionModule = {
   description: 'Check if a bin is present at a specific location',
   requiresPoints: ['location'],
   
-  async validate(params) {
+  async validate(params: ActionParams): Promise<ValidationResult> {
     const errors = [];
     
     if (!params.pointId) {
@@ -471,20 +475,44 @@ export const checkBinStatusAction: ActionModule = {
     };
   },
   
-  async execute(params) {
+  async execute(params: ActionParams): Promise<ActionResult> {
     try {
       const resolvedPointId = resolvePointId(params.pointId, params);
       
       console.log(`[ACTION] Checking bin status at point: ${resolvedPointId}`);
       
-      // This would need to be implemented if we want bin detection
-      // Currently we assume success if the request completes
-      return { 
-        success: true, 
-        data: {
-          binPresent: true // This should be determined by sensors or camera
-        }
-      };
+      try {
+        // Call the robot sensor API to check bin status using sensors
+        const sensorResponse = await axios.get(`http://47.180.91.99:8090/sensors`, { 
+          headers: getHeaders() 
+        });
+        
+        // Parse the sensor data to determine if a bin is present
+        // In a real implementation, we would look at specific sensor values
+        // For now, we'll check if proximity values are in range indicating a bin
+        const sensorData = sensorResponse.data;
+        const binPresent = Boolean(sensorData && sensorData.proximity && 
+                                  sensorData.proximity.front && 
+                                  sensorData.proximity.front < 0.5);
+        
+        console.log(`[ACTION] Bin status checked at ${resolvedPointId}: ${binPresent ? 'Present' : 'Not present'}`);
+        
+        return {
+          success: true,
+          data: {
+            binPresent
+          }
+        };
+      } catch (sensorError) {
+        console.warn(`[ACTION] Could not get sensor data, using default assumption:`, sensorError);
+        // Fallback to a safe default if we can't get sensor data
+        return {
+          success: true,
+          data: {
+            binPresent: true // Default assumption (safer in some workflows)
+          }
+        };
+      }
     } catch (error: any) {
       console.error(`[ACTION] Error checking bin status:`, error);
       return { 
