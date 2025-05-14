@@ -162,7 +162,7 @@ export const toUnloadPointAction: Action = {
         console.error(`[ACTION] Timed out waiting for move action ${moveActionId} to complete`);
         return {
           success: false,
-          errors: ['Timed out waiting for move to complete']
+          error: 'Timed out waiting for move to complete'
         };
         
       } catch (error: any) {
@@ -172,14 +172,14 @@ export const toUnloadPointAction: Action = {
           
         return {
           success: false,
-          errors: [`API error: ${error.message}`]
+          error: `API error: ${error.message}`
         };
       }
     } catch (error: any) {
       console.error(`[ACTION] Error in toUnloadPoint action:`, error);
       return {
         success: false,
-        errors: [error.message || 'Unknown error']
+        error: error.message || 'Unknown error'
       };
     }
   },
