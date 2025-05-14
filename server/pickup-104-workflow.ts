@@ -104,25 +104,72 @@ export async function executePickup104Workflow() {
   try {
     const headers = getAuthHeaders();
     
-    // Get real points from map if available, otherwise use hardcoded fallbacks
-    const shelfPoint = robotPointsMap.getPoint('104_load') || SHELF_104_COORDINATES;
-    const shelfDocking = robotPointsMap.getPoint('104_load_docking') || SHELF_104_DOCKING;
-    const dropoffPoint = robotPointsMap.getPoint('Drop-off_Load') || DROPOFF_COORDINATES;
-    const dropoffDocking = robotPointsMap.getPoint('Drop-off_Load_docking') || DROPOFF_DOCKING;
+    // Default floor for this operation is Floor 1 (ID: 1)
+    const floorId = 1;
     
-    // Create a mission in our queue
-    const missionId = await missionQueue.createMission({
-      name: `Pickup-104-to-Dropoff-${Date.now()}`,
-      steps: [
-        { name: 'Move to 104 docking', completed: false, retryCount: 0 },
-        { name: 'Align with 104 rack', completed: false, retryCount: 0 },
-        { name: 'Jack up to lift bin', completed: false, retryCount: 0 },
-        { name: 'Move to drop-off docking', completed: false, retryCount: 0 },
-        { name: 'Align with drop-off rack', completed: false, retryCount: 0 },
-        { name: 'Jack down to release bin', completed: false, retryCount: 0 },
-        { name: 'Return to charger', completed: false, retryCount: 0 }
-      ]
-    });
+    // Get real points from map if available, otherwise use hardcoded fallbacks
+    const shelfPoint = robotPointsMap.getPoint(floorId, '104_load') || SHELF_104_COORDINATES;
+    const shelfDocking = robotPointsMap.getPoint(floorId, '104_load_docking') || SHELF_104_DOCKING;
+    const dropoffPoint = robotPointsMap.getPoint(floorId, 'Drop-off_Load') || DROPOFF_COORDINATES;
+    const dropoffDocking = robotPointsMap.getPoint(floorId, 'Drop-off_Load_docking') || DROPOFF_DOCKING;
+    
+    // Create a mission in our queue with proper step format
+    const mission = missionQueue.createMission(
+      `Pickup-104-to-Dropoff-${Date.now()}`,
+      [
+        {
+          type: 'move',
+          params: {
+            x: shelfDocking.x,
+            y: shelfDocking.y,
+            theta: shelfDocking.theta,
+            label: 'Move to 104 docking point'
+          }
+        },
+        {
+          type: 'align_with_rack',
+          params: {
+            x: shelfPoint.x,
+            y: shelfPoint.y,
+            theta: shelfPoint.theta,
+            label: 'Align with 104 rack'
+          }
+        },
+        {
+          type: 'jack_up',
+          params: {}
+        },
+        {
+          type: 'move',
+          params: {
+            x: dropoffDocking.x,
+            y: dropoffDocking.y,
+            theta: dropoffDocking.theta,
+            label: 'Move to drop-off docking point'
+          }
+        },
+        {
+          type: 'align_with_rack',
+          params: {
+            x: dropoffPoint.x,
+            y: dropoffPoint.y,
+            theta: dropoffPoint.theta,
+            label: 'Align with drop-off rack'
+          }
+        },
+        {
+          type: 'jack_down',
+          params: {}
+        },
+        {
+          type: 'return_to_charger',
+          params: {}
+        }
+      ],
+      'L382502104987ir' // Robot serial number
+    );
+    
+    const missionId = mission.id;
     
     appendLog(`Created mission with ID: ${missionId}`);
     
