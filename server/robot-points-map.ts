@@ -189,10 +189,11 @@ export function getShelfPoint(shelfId: string): Point | null {
   }
   
   // Check various case combinations to be more forgiving about casing
+  // But prioritize lowercase versions which is what the robot actually uses
   const pointNameVariations = [
-    `${shelfId}_load`,       // lowercase
-    `${shelfId}_Load`,       // uppercase L
-    `${shelfId.toLowerCase()}_load`,  // all lowercase
+    `${shelfId.toLowerCase()}_load`,  // all lowercase (ROBOT'S ACTUAL FORMAT)
+    `${shelfId}_load`,       // preserve original case with lowercase load
+    `${shelfId}_Load`,       // uppercase L (old assumption)
     `${shelfId.toLowerCase()}_Load`   // lowercase ID with uppercase L
   ];
   
@@ -228,12 +229,13 @@ export function getShelfDockingPoint(shelfId: string): Point | null {
   }
   
   // Check various case combinations to be more forgiving about casing
+  // But prioritize lowercase versions which is what the robot actually uses
   const pointNameVariations = [
-    `${shelfId}_load_docking`,       // lowercase
+    `${shelfId.toLowerCase()}_load_docking`,  // all lowercase (ROBOT'S ACTUAL FORMAT)
+    `${shelfId}_load_docking`,       // preserve original case with lowercase load/docking
     `${shelfId}_Load_docking`,       // uppercase L
     `${shelfId}_load_Docking`,       // uppercase D
     `${shelfId}_Load_Docking`,       // uppercase L and D
-    `${shelfId.toLowerCase()}_load_docking`,  // all lowercase
     `${shelfId.toLowerCase()}_Load_docking`,  // lowercase ID with uppercase L
     `${shelfId.toLowerCase()}_Load_Docking`   // lowercase ID with uppercase L and D
   ];

@@ -102,11 +102,12 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       // Log all available point IDs to aid in debugging
       logRobotTask(`Available point IDs: ${allPoints.map(p => p.id).join(', ')}`);
       
-      // Find specifically needed points using exact IDs (case-sensitive)
-      const pickupPoint = allPoints.find(p => p.id === '104_Load');
-      const pickupDockingPoint = allPoints.find(p => p.id === '104_Load_docking');
-      const dropoffPoint = allPoints.find(p => p.id === 'Drop-off_Load');
-      const dropoffDockingPoint = allPoints.find(p => p.id === 'Drop-off_Load_docking');
+      // Find specifically needed points using case-insensitive matching
+      // We now know that robot uses lowercase IDs like "104_load" not "104_Load"
+      const pickupPoint = allPoints.find(p => p.id.toLowerCase() === '104_load');
+      const pickupDockingPoint = allPoints.find(p => p.id.toLowerCase() === '104_load_docking');
+      const dropoffPoint = allPoints.find(p => p.id.toLowerCase() === 'drop-off_load');
+      const dropoffDockingPoint = allPoints.find(p => p.id.toLowerCase() === 'drop-off_load_docking');
       // Get the charger point using two methods:
       // 1. First try to get from the robot API directly (most accurate)
       // 2. Fall back to map points if API method fails
