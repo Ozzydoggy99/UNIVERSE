@@ -17,11 +17,15 @@ const logger = {
 };
 
 // Helper function to get display name for points
-function getPointDisplayName(pointId: string): string {
+function getPointDisplayName(pointId: any): string {
+  // Safe handling for null, undefined, or non-string values
   if (!pointId) return '';
   
-  // Ensure we're working with a string
+  // Always convert to string to handle numeric IDs
   const id = String(pointId);
+  
+  // Debug log
+  logger.info(`Getting display name for point: ${id}`);
   
   // Try multiple patterns to extract a clean display name
   
@@ -58,6 +62,7 @@ function getPointDisplayName(pointId: string): string {
     .replace(/-docking$/i, '')
     .replace(/-shelf$/i, '');
     
+  logger.info(`Cleaned point ID: ${cleanId}`);
   return cleanId;
 }
 
@@ -98,11 +103,17 @@ export interface ServiceType {
 /**
  * Determines if a point ID represents a shelf point
  */
-function isShelfPoint(pointId: string): boolean {
+function isShelfPoint(pointId: any): boolean {
+  // Handle null, undefined, or non-string values
   if (!pointId) return false;
   
+  // Ensure pointId is a string
+  const pointIdStr = String(pointId);
+  
   // Convert to lowercase for case-insensitive matching
-  const id = pointId.toLowerCase();
+  const id = pointIdStr.toLowerCase();
+  
+  logger.info(`Checking if point is shelf point: ${id}`);
   
   // Shelf points might follow various conventions:
   // - <number>_load (e.g., 104_load)
