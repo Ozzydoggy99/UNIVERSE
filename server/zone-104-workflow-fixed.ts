@@ -900,7 +900,7 @@ async function executeZone104Workflow(): Promise<any> {
     
     // For dropoff, we MUST use the special 'to_unload_point' move type
     // This is specifically designed for dropping off racks/bins with the jack in up state
-    logWorkflow(`📦 Creating special 'to_unload_point' move for bin dropoff at Drop-off_Load`);
+    logWorkflow(`📦 Creating special 'to_unload_point' move for bin dropoff at drop-off_load`);
     
     try {
       // Stop robot first for safety
@@ -915,7 +915,7 @@ async function executeZone104Workflow(): Promise<any> {
       const unloadCommand = {
         creator: 'robot-api',
         type: 'to_unload_point', // Special move type for unloading/dropping bins
-        target_x: -3.067, // These are the dropoff coordinates (Drop-off_Load)
+        target_x: -3.067, // These are the dropoff coordinates (drop-off_load)
         target_y: 2.579,
         target_ori: 0
       };
