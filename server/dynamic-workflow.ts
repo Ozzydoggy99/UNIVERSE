@@ -66,6 +66,7 @@ interface WorkflowState {
   totalSteps: number;
   error?: string;
   lastMoveId?: number;
+  lastMessage?: string;
 }
 
 // In-memory state - would be replaced with database in production
@@ -79,11 +80,17 @@ function logWorkflow(workflowId: string, message: string): void {
   const logMessage = `[${timestamp}] [WORKFLOW-${workflowId}] ${message}`;
   
   console.log(logMessage);
-  fs.appendFileSync(LOG_PATH, logMessage + '\n');
+  
+  try {
+    fs.appendFileSync(LOG_PATH, logMessage + '\n');
+  } catch (error) {
+    console.error(`Could not write to log file: ${error}`);
+  }
   
   // If this is associated with a workflow, update its state
   if (workflowStates[workflowId]) {
     // Only update message in a real implementation - here we just log
+    workflowStates[workflowId].lastMessage = message;
   }
 }
 
