@@ -84,26 +84,71 @@ export const moveToPointAction: ActionModule = {
       
       console.log(`[ACTION] Moving to point: ${resolvedPointId}`);
       
-      // Using our actual API call pattern from existing workflows
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/point`, {
-        point_id: resolvedPointId,
-        velocity: speed
-      });
+      // Check if this is a shelf unload point (for dropping bins)
+      const isUnloadPoint = !resolvedPointId.includes('_docking') && 
+                            resolvedPointId.includes('_load') && 
+                            params.forDropoff === true;
       
-      // Wait for completion as our existing code does
-      const maxRetries = params.maxRetries || 60;
+      let response;
+      let moveActionId;
+      
+      if (isUnloadPoint) {
+        // For dropping bins at a shelf, use 'to_unload_point' move type from the AutoXing API
+        console.log(`[ACTION] Using to_unload_point move type for dropoff at: ${resolvedPointId}`);
+        response = await axios.post(`http://47.180.91.99:8090/chassis/moves`, {
+          creator: 'robot-management-platform',
+          type: 'to_unload_point',
+          target_x: 0, // These values will be ignored since the point ID is what matters
+          target_y: 0,
+          target_z: 0,
+          point_id: resolvedPointId
+        });
+        
+        // The response should contain the move action ID
+        moveActionId = response.data.id;
+        console.log(`[ACTION] Created to_unload_point action with ID: ${moveActionId}`);
+      } else {
+        // For regular movement, use the standard point-based movement
+        response = await axios.post(`http://47.180.91.99:8090/api/v2/move/point`, {
+          point_id: resolvedPointId,
+          velocity: speed
+        });
+      }
+      
+      // Wait for completion
+      const maxRetries = params.maxRetries || (isUnloadPoint ? 90 : 60); // Give more time for unload operations
       let retries = 0;
       
       while (retries < maxRetries) {
-        const statusResponse = await axios.get('http://47.180.91.99:8090/api/v2/move/status');
-        const status = statusResponse.data.status;
+        let status;
         
-        if (status === 'idle') {
-          console.log(`[ACTION] Successfully reached point: ${resolvedPointId}`);
-          return { success: true };
-        } else if (status === 'error') {
-          console.error(`[ACTION] Error moving to point: ${resolvedPointId}`, statusResponse.data);
-          return { success: false, error: `Failed to reach point: ${statusResponse.data.message || 'Unknown error'}` };
+        if (isUnloadPoint && moveActionId) {
+          // Check move action status for unload operations
+          const actionResponse = await axios.get(`http://47.180.91.99:8090/chassis/moves/${moveActionId}`);
+          const state = actionResponse.data.state;
+          
+          if (state === 'succeeded') {
+            console.log(`[ACTION] Successfully unloaded at point: ${resolvedPointId}`);
+            return { success: true };
+          } else if (state === 'failed' || state === 'cancelled') {
+            console.error(`[ACTION] Error unloading at point:`, actionResponse.data);
+            return { 
+              success: false, 
+              error: `Failed to unload at point: ${actionResponse.data.fail_reason_str || 'Unknown error'}`
+            };
+          }
+        } else {
+          // Check move status for regular movements
+          const statusResponse = await axios.get('http://47.180.91.99:8090/api/v2/move/status');
+          status = statusResponse.data.status;
+          
+          if (status === 'idle') {
+            console.log(`[ACTION] Successfully reached point: ${resolvedPointId}`);
+            return { success: true };
+          } else if (status === 'error') {
+            console.error(`[ACTION] Error moving to point: ${resolvedPointId}`, statusResponse.data);
+            return { success: false, error: `Failed to reach point: ${statusResponse.data.message || 'Unknown error'}` };
+          }
         }
         
         await sleep(1000);
@@ -111,7 +156,7 @@ export const moveToPointAction: ActionModule = {
       }
       
       return { success: false, error: 'Timeout waiting for move completion' };
-    } catch (error) {
+    } catch (error: any) { // Handle with any to access error.message
       console.error(`[ACTION] Error in moveToPoint:`, error);
       return { 
         success: false, 
@@ -151,31 +196,47 @@ export const alignWithRackAction: ActionModule = {
       
       console.log(`[ACTION] Aligning with rack at point: ${resolvedPointId}`);
       
-      // Based on our actual implementation
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/point/fine_adjust`, {
-        point_id: resolvedPointId
+      // Based on the AutoXing API documentation, we need to use the 'align_with_rack' move type
+      // The API requires passing the point ID without the '_docking' suffix
+      const response = await axios.post(`http://47.180.91.99:8090/chassis/moves`, {
+        creator: 'robot-management-platform',
+        type: 'align_with_rack',
+        target_x: 0, // These values will be ignored since the point ID is what matters
+        target_y: 0,
+        target_z: 0,
+        point_id: resolvedPointId // This should be the load point, not the docking point
       });
       
+      // The response should contain the move action ID
+      const moveActionId = response.data.id;
+      console.log(`[ACTION] Created align_with_rack action with ID: ${moveActionId}`);
+      
       // Wait for alignment to complete
-      const maxRetries = params.maxRetries || 30;
+      const maxRetries = params.maxRetries || 60; // Increase timeout for rack alignment
       let retries = 0;
       
       while (retries < maxRetries) {
-        const statusResponse = await axios.get('http://47.180.91.99:8090/api/v2/move/status');
-        const status = statusResponse.data.status;
+        // Check move action status
+        const statusResponse = await axios.get(`http://47.180.91.99:8090/chassis/moves/${moveActionId}`);
+        const state = statusResponse.data.state;
         
-        if (status === 'idle') {
+        if (state === 'succeeded') {
           console.log(`[ACTION] Successfully aligned with rack at: ${resolvedPointId}`);
           return { success: true };
-        } else if (status === 'error') {
+        } else if (state === 'failed' || state === 'cancelled') {
           console.error(`[ACTION] Error aligning with rack:`, statusResponse.data);
-          return { success: false, error: `Failed to align with rack: ${statusResponse.data.message || 'Unknown error'}` };
+          return { 
+            success: false, 
+            error: `Failed to align with rack: ${statusResponse.data.fail_reason_str || 'Unknown error'}`
+          };
         }
         
+        // Still in progress, wait and check again
         await sleep(1000);
         retries++;
       }
       
+      // If we reach here, the operation timed out
       return { success: false, error: 'Timeout waiting for alignment completion' };
     } catch (error) {
       console.error(`[ACTION] Error in alignWithRack:`, error);
