@@ -344,6 +344,14 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
           // Central pickup to a shelf operation
           workflowType = 'zone-104-workflow';
         }
+      } else if (operationType === 'transfer') {
+        // Shelf to shelf transfer operation
+        workflowType = 'shelf-to-shelf';
+        
+        // We need a source shelf and a target shelf
+        if (!req.body.sourceShelfId) {
+          return res.status(400).json({ error: 'Missing sourceShelfId parameter for transfer operation' });
+        }
       }
       
       // To avoid circular dependencies, we'll use the dynamic import

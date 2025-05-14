@@ -518,7 +518,59 @@ export function ShelfSelectionPage() {
     setIsExecuting(true);
     
     try {
-      // Execute the workflow
+      // For transfer operations, we need to select a source shelf and target shelf
+      if (operationType === 'transfer') {
+        // Select source shelf first
+        if (!localStorage.getItem('sourceShelfId')) {
+          // Store the current shelf as source shelf (ensuring it's not undefined)
+          localStorage.setItem('sourceShelfId', selectedShelf || '');
+          localStorage.setItem('sourceFloorId', floorId);
+          
+          toast({
+            title: "Source Shelf Selected",
+            description: "Now please select the destination shelf.",
+            variant: "default"
+          });
+          
+          // Return to floor selection to select destination
+          navigate(`/simplified-workflow/${serviceType}/${operationType}`);
+          return;
+        } else {
+          // We already have a source shelf, so this is the target shelf
+          const sourceShelfId = localStorage.getItem('sourceShelfId');
+          const sourceFloorId = localStorage.getItem('sourceFloorId');
+          
+          // Execute the workflow with both source and target
+          // Make sure sourceShelfId and sourceFloorId are not undefined
+          const sourceShelf = localStorage.getItem('sourceShelfId') || '';
+          const sourceFloor = localStorage.getItem('sourceFloorId') || '';
+          
+          const response = await axios.post('/api/simplified-workflow/execute', {
+            serviceType,
+            operationType,
+            floorId,  // Target floor
+            shelfId: selectedShelf,  // Target shelf
+            sourceShelfId: sourceShelf,
+            sourceFloorId: sourceFloor
+          });
+          
+          // Clear stored shelves
+          localStorage.removeItem('sourceShelfId');
+          localStorage.removeItem('sourceFloorId');
+          
+          toast({
+            title: "Workflow Started",
+            description: `Robot mission started with ID: ${response.data.missionId}`,
+            variant: "default"
+          });
+          
+          // Return to the dashboard
+          navigate('/');
+          return;
+        }
+      }
+      
+      // Regular (non-transfer) workflow execution
       const response = await axios.post('/api/simplified-workflow/execute', {
         serviceType,
         operationType,
@@ -546,11 +598,48 @@ export function ShelfSelectionPage() {
     }
   };
   
+  // For transfer operations, check if we have a source shelf already
+  const isTransferOperation = operationType === 'transfer';
+  const hasSourceShelf = isTransferOperation && localStorage.getItem('sourceShelfId');
+  
+  // Function to clear source shelf selection
+  const handleClearSourceShelf = () => {
+    localStorage.removeItem('sourceShelfId');
+    localStorage.removeItem('sourceFloorId');
+    
+    toast({
+      title: "Source Shelf Cleared",
+      description: "You can now select a new source shelf.",
+      variant: "default"
+    });
+    
+    // Reset selected shelf
+    setSelectedShelf(null);
+  };
+  
   return (
     <div className="container mx-auto p-4">
       <Card className="shadow-lg border-0">
         <CardContent className="p-6">
-          <h1 className="text-2xl font-bold mb-6 text-center">Select Shelf</h1>
+          <h1 className="text-2xl font-bold mb-6 text-center">
+            {hasSourceShelf ? 'Select Destination Shelf' : 'Select Shelf'}
+          </h1>
+          
+          {hasSourceShelf && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                You've selected a source shelf. Now choose a destination shelf to complete the transfer.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleClearSourceShelf}
+                className="mt-2 text-blue-600 border-blue-300"
+              >
+                Clear Source Selection
+              </Button>
+            </div>
+          )}
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {sortedShelves.map((shelf: ShelfPoint) => (
@@ -580,7 +669,7 @@ export function ShelfSelectionPage() {
                 </>
               ) : (
                 <>
-                  Start Robot Mission
+                  {hasSourceShelf ? 'Complete Transfer' : 'Start Robot Mission'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}
