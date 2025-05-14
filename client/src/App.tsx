@@ -17,11 +17,6 @@ import RobotHub from "@/pages/robot-hub";
 import FixedRobotDetails from "@/pages/fixed-robot-details";
 import RobotDetails from "@/pages/robot-details";
 import UnassignedRobots from "@/pages/unassigned-robots";
-import NumberedBoxes from "@/pages/numbered-boxes";
-import LaundryBoxes from "@/pages/laundry-boxes";
-import TrashBoxes from "@/pages/trash-boxes";
-import PickupDropoffPage from "@/pages/pickup-dropoff-page";
-import UnitBoxes from "@/pages/unit-boxes";
 import AIAssistantPage from "@/pages/ai-assistant";
 import RobotTasks from "@/pages/robot-tasks";
 import MapTestPage from "@/pages/map-test-page";
@@ -36,12 +31,6 @@ import RobotMapsPage from "@/pages/robot-maps-page";
 import RobotMissionPage from "@/pages/robot-mission-page";
 import RobotDashboardPage from "@/pages/robot-dashboard";
 import WsDebugPage from "@/pages/ws-debug";
-import WorkflowPage, { 
-  OperationPage,
-  FloorSelectionPage, 
-  ShelfSelectionPage, 
-  WorkflowConfirmationPage 
-} from "@/pages/workflow-page";
 import ServiceSelectionPage, {
   OperationSelectionPage,
   FloorSelectionPage as SimplifiedFloorPage,
@@ -256,126 +245,11 @@ function Router() {
         )} 
       />
       
-      <ProtectedRoute 
-        path="/numbered-boxes" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <NumberedBoxes user={user} />
-          </div>
-        )} 
-      />
-      
-      {/* First Level UI Pages */}
-      <ProtectedRoute 
-        path="/laundry-boxes" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <LaundryBoxes user={user} />
-          </div>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/trash-boxes" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <TrashBoxes user={user} />
-          </div>
-        )} 
-      />
-
-      {/* Pickup/Dropoff Pages */}
-      <ProtectedRoute 
-        path="/laundry/pickup-dropoff" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <PickupDropoffPage user={user} type="laundry" />
-          </div>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/trash/pickup-dropoff" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <PickupDropoffPage user={user} type="trash" />
-          </div>
-        )} 
-      />
-
-      {/* Service-specific Numbered Box Pages */}
-      <ProtectedRoute 
-        path="/laundry/pickup/numbers" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <NumberedBoxes user={user} serviceType="laundry" actionType="pickup" />
-          </div>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/laundry/dropoff/numbers" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <NumberedBoxes user={user} serviceType="laundry" actionType="dropoff" />
-          </div>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/trash/pickup/numbers" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <NumberedBoxes user={user} serviceType="trash" actionType="pickup" />
-          </div>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/trash/dropoff/numbers" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <NumberedBoxes user={user} serviceType="trash" actionType="dropoff" />
-          </div>
-        )} 
-      />
-      
-      {/* Unit Boxes Pages - for floor-specific units in the hundreds */}
-      <ProtectedRoute 
-        path="/laundry/pickup/floor/:floorNumber/units" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <UnitBoxes user={user} />
-          </div>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/laundry/dropoff/floor/:floorNumber/units" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <UnitBoxes user={user} />
-          </div>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/trash/pickup/floor/:floorNumber/units" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <UnitBoxes user={user} />
-          </div>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/trash/dropoff/floor/:floorNumber/units" 
-        component={({ user }) => (
-          <div className="h-full min-h-screen">
-            <UnitBoxes user={user} />
-          </div>
-        )} 
-      />
+      {/* All legacy numbered-boxes, laundry-boxes, trash-boxes routes removed
+       * All service-specific routes for laundry/pickup-dropoff, trash/pickup-dropoff removed
+       * All service-specific numbered box pages removed
+       * All unit boxes pages removed
+       */}
       
 
       {/* AI Assistant */}
@@ -508,11 +382,7 @@ function Router() {
         )} 
       />
 
-      {/* Dynamic Workflow UI Routes */}
-      <Route path="/workflow/:serviceType" component={OperationPage} />
-      <Route path="/workflow/:serviceType/:operationType" component={FloorSelectionPage} />
-      <Route path="/workflow/:serviceType/:operationType/:floorId" component={ShelfSelectionPage} />
-      <Route path="/workflow/confirm/:serviceType/:operationType/:floorId/:shelfId" component={WorkflowConfirmationPage} />
+      {/* Legacy Dynamic Workflow UI Routes removed - now using simplified workflow */}
       
       {/* Simplified Workflow UI Routes - new user interface with automatic discovery */}
       <ProtectedRoute 

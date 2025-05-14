@@ -77,41 +77,11 @@ export default function MyTemplatePage() {
         </div>
       </div>
       
-      {/* Main dashboard card for Phil */}
-      <Card className="p-6 bg-white shadow-md border-t-4 border-t-blue-500">
-        <h2 className="text-xl font-semibold text-blue-700 mb-4">Robot Control Dashboard</h2>
-        
-        <div className="mb-6">
-          <p className="text-sm text-gray-600 mb-2">
-            Welcome to the new simplified robot control interface. Select a service type to begin.
-          </p>
-          
-          {!robotStatus.connected && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md mb-4 text-sm">
-              <AlertCircle className="h-4 w-4 inline mr-1" />
-              Robot appears to be offline. Please check the connection.
-            </div>
-          )}
-        </div>
-        
-        <div className="grid grid-cols-1 gap-4">
-          <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-green-100 bg-green-50" 
-                onClick={() => navigate('/simplified-workflow')}>
-            <div className="flex flex-col items-center">
-              <div className="bg-green-100 p-4 rounded-full mb-3">
-                <ShowerHead className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="text-lg font-medium text-green-700">Robot Service</h3>
-              <p className="text-sm text-center text-gray-600 mt-2">
-                Dynamic workflow with automatic maps and points
-              </p>
-              <Button className="mt-4 w-full bg-green-600 hover:bg-green-700">
-                Start Task
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </Card>
+      {/* Redirect directly to the simplified workflow since it's the only option */}
+      {useEffect(() => {
+        // Automatically redirect to simplified workflow
+        navigate('/simplified-workflow');
+      }, [])}
       
       <div className="text-center text-sm text-gray-500 mt-8">
         <p>Robot ready for operations • {robotStatus.connected ? 'Online' : 'Offline'}</p>
