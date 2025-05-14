@@ -141,14 +141,7 @@ export const pickupToDropoffWorkflow: WorkflowTemplate = {
       },
       description: 'Jack down to release bin'
     },
-    {
-      actionId: 'reverseFromRack',
-      params: {
-        distance: 0.5,
-        speed: 0.2
-      },
-      description: 'Reverse from rack for safety'
-    },
+    /* Removed redundant reverseFromRack action as toUnloadPoint already handles proper positioning */
     {
       actionId: 'returnToCharger',
       params: {
@@ -228,14 +221,7 @@ export const dynamicShelfToShelfWorkflow: WorkflowTemplate = {
       },
       description: 'Jack down to release bin'
     },
-    {
-      actionId: 'reverseFromRack',
-      params: {
-        distance: 0.5,
-        speed: 0.2
-      },
-      description: 'Back away from rack for safety'
-    },
+    /* Removed redundant reverseFromRack action as toUnloadPoint already handles proper positioning */
     {
       actionId: 'returnToCharger',
       params: {
@@ -308,14 +294,7 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
       },
       description: 'Jack down to release bin'
     },
-    {
-      actionId: 'reverseFromRack',
-      params: {
-        distance: 0.5,
-        speed: 0.2
-      },
-      description: 'Back away from rack for safety'
-    },
+    /* Removed redundant reverseFromRack action as toUnloadPoint already handles proper positioning */
     {
       actionId: 'returnToCharger',
       params: {
@@ -388,14 +367,7 @@ export const dynamicShelfToCentralWorkflow: WorkflowTemplate = {
       },
       description: 'Jack down to release bin'
     },
-    {
-      actionId: 'reverseFromRack',
-      params: {
-        distance: 0.5,
-        speed: 0.2
-      },
-      description: 'Back away from rack for safety'
-    },
+    /* Removed redundant reverseFromRack action as toUnloadPoint already handles proper positioning */
     {
       actionId: 'returnToCharger',
       params: {
