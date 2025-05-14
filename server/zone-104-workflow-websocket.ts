@@ -9,12 +9,12 @@
  * subscriptions to the '/tracked_pose' topic.
  * 
  * Based on the documentation from the AutoXing SDK, this workflow:
- * 1. Moves to docking position for pickup point (104_Load_docking)
- * 2. Moves to the actual pickup point (104_Load)  
+ * 1. Moves to docking position for pickup point (104_load_docking)
+ * 2. Moves to the actual pickup point (104_load)  
  * 3. Performs a small backup movement for proper bin alignment
  * 4. Performs the jack_up operation to lift the bin
- * 5. Moves to docking position for dropoff (Drop-off_Load_docking)
- * 6. Moves to the actual dropoff point (Drop-off_Load)
+ * 5. Moves to docking position for dropoff (drop-off_load_docking)
+ * 6. Moves to the actual dropoff point (drop-off_load)
  * 7. Performs the jack_down operation to lower the bin
  * 8. Returns to the charging station using the proper "charge" move type
  */
@@ -581,13 +581,13 @@ async function executeZone104Workflow(): Promise<any> {
   logWorkflow(`🚀 Starting Zone 104 workflow ${workflowId}`);
   
   try {
-    // STEP 1: Move to docking position for pickup (104_Load_docking)
-    logWorkflow(`📍 STEP 1/8: Moving to 104_Load_docking`);
-    await moveToPoint(-15.409467385438802, 6.403540839556854, 178.97, '104_Load_docking');
+    // STEP 1: Move to docking position for pickup (104_load_docking)
+    logWorkflow(`📍 STEP 1/8: Moving to 104_load_docking`);
+    await moveToPoint(-15.409467385438802, 6.403540839556854, 178.97, '104_load_docking');
     
-    // STEP 2: Move to actual pickup point (104_Load)
-    logWorkflow(`📍 STEP 2/8: Moving to 104_Load`);
-    await moveToPoint(-15.478, 6.43, 178.75, '104_Load');
+    // STEP 2: Move to actual pickup point (104_load)
+    logWorkflow(`📍 STEP 2/8: Moving to 104_load`);
+    await moveToPoint(-15.478, 6.43, 178.75, '104_load');
     
     // STEP 3: Backup slightly for proper bin alignment (handled in jack_up)
     logWorkflow(`📍 STEP 3/8: Performing precise backing movement for bin alignment`);
@@ -596,13 +596,13 @@ async function executeZone104Workflow(): Promise<any> {
     logWorkflow(`📍 STEP 4/8: Executing jack_up operation to lift bin`);
     await executeJackUp();
     
-    // STEP 5: Move to docking position for dropoff (Drop-off_Load_docking)
-    logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking`);
-    await moveToPoint(-17.879301628443036, 0.04639236955095483, 269.73, 'Drop-off_Load_docking');
+    // STEP 5: Move to docking position for dropoff (drop-off_load_docking)
+    logWorkflow(`📍 STEP 5/8: Moving to drop-off_load_docking`);
+    await moveToPoint(-17.879301628443036, 0.04639236955095483, 269.73, 'drop-off_load_docking');
     
-    // STEP 6: Move to actual dropoff point (Drop-off_Load)
-    logWorkflow(`📍 STEP 6/8: Moving to Drop-off_Load`);
-    await moveToPoint(-17.882, 0.037, 269.73, 'Drop-off_Load');
+    // STEP 6: Move to actual dropoff point (drop-off_load)
+    logWorkflow(`📍 STEP 6/8: Moving to drop-off_load`);
+    await moveToPoint(-17.882, 0.037, 269.73, 'drop-off_load');
     
     // STEP 7: Execute jack_down to lower bin
     logWorkflow(`📍 STEP 7/8: Executing jack_down operation to lower bin`);
