@@ -6,7 +6,8 @@ export interface Point {
   x: number;
   y: number;
   z?: number;
-  ori?: number;
+  ori?: number;  // Original orientation property
+  theta?: number; // Added theta for compatibility with robot API
   robotId?: string;
   type?: string;
   floor?: string;

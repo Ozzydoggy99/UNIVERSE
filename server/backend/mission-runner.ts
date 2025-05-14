@@ -65,12 +65,15 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   for (const point of sequence) {
     try {
       appendLog(`➡️ Sending robot to: ${point.id} (${point.x}, ${point.y})`);
+      // Get orientation from either theta or ori property, defaulting to 0
+      const orientation = point.theta || point.ori || 0;
+      
       const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
         creator: "robot-mission-runner",
         type: "standard",
         target_x: point.x,
         target_y: point.y,
-        target_ori: point.theta || 0,
+        target_ori: orientation,
         properties: {
           max_trans_vel: 0.5,  // Medium speed
           max_rot_vel: 0.5,

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { sleep } from './utilities';
+import { sleep } from './utilities';  // Utility for adding delays
 
 // Types based on our actual implementation
 export type ActionResult = {
@@ -84,10 +84,30 @@ export const moveToPointAction: ActionModule = {
       
       console.log(`[ACTION] Moving to point: ${resolvedPointId}`);
       
-      // Using our actual API call pattern from existing workflows
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/point`, {
-        point_id: resolvedPointId,
-        velocity: speed
+      // Use the correct API endpoint from documentation
+      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
+      const headers = {
+        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
+      };
+      
+      // If we have coordinates for the point, use them directly
+      if (params.x !== undefined && params.y !== undefined) {
+        const ori = params.theta || params.ori || 0;
+        
+        // According to the documentation, we should use the chassis/moves endpoint
+        const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+          creator: "robot-move-action",
+          type: "standard",
+          target_x: params.x,
+          target_y: params.y,
+          target_ori: ori,
+          properties: {
+            max_trans_vel: speed,
+            max_rot_vel: speed,
+            acc_lim_x: 0.3,
+            acc_lim_theta: 0.3
+          }
+        }, { headers });
       });
       
       // Wait for completion as our existing code does
