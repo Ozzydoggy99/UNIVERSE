@@ -18,12 +18,47 @@ const logger = {
 
 // Helper function to get display name for points
 function getPointDisplayName(pointId: string): string {
-  // Extract display name (e.g., "104" from "104_load")
-  const match = pointId.match(/^(\d+)_/);
+  if (!pointId) return '';
+  
+  // Ensure we're working with a string
+  const id = String(pointId);
+  
+  // Try multiple patterns to extract a clean display name
+  
+  // Pattern 1: Extract number from start of string followed by underscore (e.g., "104_load" → "104")
+  let match = id.match(/^(\d+)_/);
   if (match) {
     return match[1];
   }
-  return pointId;
+  
+  // Pattern 2: Extract number from anywhere in string with "shelf" or "load" (e.g., "shelf_104" → "104")
+  match = id.match(/(?:shelf|load)[_-]?(\d+)/i);
+  if (match) {
+    return match[1];
+  }
+  
+  // Pattern 3: Extract number from string ending with "shelf" or "load" (e.g., "104_shelf" → "104")
+  match = id.match(/(\d+)[_-]?(?:shelf|load)/i);
+  if (match) {
+    return match[1];
+  }
+  
+  // Pattern 4: Just extract any number sequence as a last resort
+  match = id.match(/(\d+)/);
+  if (match) {
+    return match[1];
+  }
+  
+  // If no pattern matches, clean up the ID by removing common suffixes
+  let cleanId = id
+    .replace(/_load$/i, '')
+    .replace(/_docking$/i, '')
+    .replace(/_shelf$/i, '')
+    .replace(/-load$/i, '')
+    .replace(/-docking$/i, '')
+    .replace(/-shelf$/i, '');
+    
+  return cleanId;
 }
 
 // Types for discovered robot capabilities
@@ -94,21 +129,57 @@ async function getMaps(): Promise<any[]> {
       }
     });
     
-    // Handle two different response formats:
-    // 1. Array directly in response.data 
-    // 2. Array in response.data.maps
+    // Handle various response formats with improved handling
     let maps = [];
     
     if (response.data) {
+      // Format 1: Direct array
       if (Array.isArray(response.data)) {
         maps = response.data;
-      } else if (Array.isArray(response.data.maps)) {
+        logger.info(`Found maps in direct array format: ${maps.length}`);
+      } 
+      // Format 2: Array in maps property
+      else if (response.data.maps && Array.isArray(response.data.maps)) {
         maps = response.data.maps;
-      } else if (response.data.id) {
-        // Single map returned as an object
+        logger.info(`Found maps in 'maps' property: ${maps.length}`);
+      } 
+      // Format 3: Single map object
+      else if (response.data.id !== undefined) {
         maps = [response.data];
+        logger.info(`Found single map object`);
+      }
+      // Format 4: Try other common properties
+      else {
+        const propertiesToCheck = ['map', 'data', 'items', 'results'];
+        for (const prop of propertiesToCheck) {
+          if (response.data[prop]) {
+            if (Array.isArray(response.data[prop])) {
+              maps = response.data[prop];
+              logger.info(`Found maps in '${prop}' property: ${maps.length}`);
+              break;
+            } else if (response.data[prop].id !== undefined) {
+              maps = [response.data[prop]];
+              logger.info(`Found single map in '${prop}' property`);
+              break;
+            }
+          }
+        }
       }
     }
+    
+    // Process maps to ensure consistent ID format (convert numeric to string)
+    maps = maps.map((map: any) => {
+      if (map && map.id !== undefined) {
+        // Ensure map ID is a string
+        map.id = String(map.id);
+        logger.info(`Processed map ID: ${map.id}`);
+      } else if (map && map.map_id !== undefined) {
+        // Some APIs return map_id instead of id
+        map.id = String(map.map_id);
+        logger.info(`Mapped map_id to id: ${map.id}`);
+      }
+      return map;
+    });
     
     if (maps.length > 0) {
       logger.info(`Successfully retrieved ${maps.length} maps from robot`);
