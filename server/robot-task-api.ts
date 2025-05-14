@@ -521,8 +521,8 @@ async function executeZone104Task(taskId: string): Promise<boolean> {
       task.totalSteps = 8;
     }
     
-    // STEP 1: Move to docking position for pickup (104_Load_docking)
-    logTask(taskId, '📍 STEP 1/8: Moving to 104_Load_docking');
+    // STEP 1: Move to docking position for pickup (104_load_docking)
+    logTask(taskId, '📍 STEP 1/8: Moving to 104_load_docking');
     if (task) task.currentStep = 1;
     
     const moveToPickupDockingSuccess = await moveToPoint(
@@ -530,15 +530,15 @@ async function executeZone104Task(taskId: string): Promise<boolean> {
       -15.409467385438802, 
       6.403540839556854, 
       178.97, 
-      '104_Load_docking'
+      '104_load_docking'
     );
     
     if (!moveToPickupDockingSuccess) {
-      throw new Error('Failed to move to 104_Load_docking');
+      throw new Error('Failed to move to 104_load_docking');
     }
     
     // STEP 2: Align with rack at pickup point using align_with_rack special move type
-    logTask(taskId, '📍 STEP 2/8: Aligning with rack at 104_Load');
+    logTask(taskId, '📍 STEP 2/8: Aligning with rack at 104_load');
     if (task) task.currentStep = 2;
     
     const alignWithRackSuccess = await alignWithRack(
@@ -546,11 +546,11 @@ async function executeZone104Task(taskId: string): Promise<boolean> {
       -15.478,
       6.43,
       178.75,
-      '104_Load'
+      '104_load'
     );
     
     if (!alignWithRackSuccess) {
-      throw new Error('Failed to align with rack at 104_Load');
+      throw new Error('Failed to align with rack at 104_load');
     }
     
     // STEP 3: Execute jack_up to lift bin
