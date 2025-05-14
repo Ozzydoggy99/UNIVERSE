@@ -8,7 +8,7 @@
 
 import axios from 'axios';
 import { ROBOT_API_URL } from './robot-constants';
-import { robotPointsMap } from './robot-points-map';
+import robotPointsMap from './robot-points-map';
 import { appendLog } from './debug-log';
 import { missionQueue } from './mission-queue';
 

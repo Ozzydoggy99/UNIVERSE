@@ -29,6 +29,8 @@ import { registerZone104WorkflowHandler as registerFixedWorkflowHandler } from '
 import { registerPickupTo104WorkflowRoute } from './pickup-to-104-workflow';
 // Specific workflow for picking up at 104 and dropping at main dropoff
 import { registerPickupFrom104WorkflowRoute } from './pickup-from-104-workflow';
+// New implementation with correct AutoXing API endpoints
+import { registerPickup104WorkflowHandler } from './pickup-104-workflow';
 // Robot settings API for retrieving rack specifications
 import { registerRobotSettingsRoutes } from './robot-settings-api';
 // Direct charger docking implementation for testing
@@ -96,6 +98,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register the dynamic workflow system for multi-floor robot operations
   registerDynamicWorkflowRoutes(app);
+  
+  // Register new 104 pickup workflow with correct API endpoints
+  registerPickup104WorkflowHandler(app);
   
   // Register robot capabilities API for dynamic template configuration
   registerRobotCapabilitiesAPI(app);
