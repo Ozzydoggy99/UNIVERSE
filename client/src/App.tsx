@@ -342,6 +342,14 @@ function Router() {
         )} 
       />
       <ProtectedRoute 
+        path="/simplified-workflow/operations" 
+        component={() => (
+          <AppLayout>
+            <OperationSelectionPage />
+          </AppLayout>
+        )} 
+      />
+      <ProtectedRoute 
         path="/simplified-workflow/operations/:operationType" 
         component={() => (
           <AppLayout>
