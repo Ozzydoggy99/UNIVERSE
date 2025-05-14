@@ -5,7 +5,7 @@
  * to verify that the rack_area_id is correctly extracted in both cases
  */
 
-const axios = require('axios');
+import axios from 'axios';
 
 async function testUnloadPoint() {
   try {
@@ -13,27 +13,33 @@ async function testUnloadPoint() {
     
     // First, test a regular shelf point (e.g., 104_load)
     console.log('\n--- Testing shelf point (104_load) ---');
-    const shelfResponse = await axios.post('http://localhost:5000/api/dynamic-workflow/execute-step', {
+    const shelfPayload = {
       robotId: 'L382502104987ir',
       actionId: 'toUnloadPoint',
       params: {
         pointId: '104_load'
       }
-    });
+    };
+    console.log('Request payload:', JSON.stringify(shelfPayload, null, 2));
     
-    console.log('Shelf point test response:', shelfResponse.data);
+    const shelfResponse = await axios.post('http://localhost:5000/api/dynamic-workflow/execute-step', shelfPayload);
+    
+    console.log('Shelf point test response:', JSON.stringify(shelfResponse.data, null, 2));
     
     // Then, test the drop-off point
     console.log('\n--- Testing drop-off point (drop-off_load) ---');
-    const dropOffResponse = await axios.post('http://localhost:5000/api/dynamic-workflow/execute-step', {
+    const dropOffPayload = {
       robotId: 'L382502104987ir',
       actionId: 'toUnloadPoint',
       params: {
         pointId: 'drop-off_load'
       }
-    });
+    };
+    console.log('Request payload:', JSON.stringify(dropOffPayload, null, 2));
     
-    console.log('Drop-off point test response:', dropOffResponse.data);
+    const dropOffResponse = await axios.post('http://localhost:5000/api/dynamic-workflow/execute-step', dropOffPayload);
+    
+    console.log('Drop-off point test response:', JSON.stringify(dropOffResponse.data, null, 2));
     
     console.log('\nTest completed successfully!');
   } catch (error) {
@@ -41,4 +47,7 @@ async function testUnloadPoint() {
   }
 }
 
-testUnloadPoint();
+// Self-executing async function for ESM
+(async () => {
+  await testUnloadPoint();
+})();
