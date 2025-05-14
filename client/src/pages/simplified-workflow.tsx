@@ -121,7 +121,7 @@ export default function ServiceSelectionPage() {
           </div>
           
           <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={() => navigate("/my-template"))}>
+            <Button variant="outline" onClick={() => navigate("/my-template")}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
             </Button>
           </div>
@@ -270,7 +270,7 @@ export function OperationSelectionPage() {
           </div>
           
           <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={() => navigate("/my-template"))}>
+            <Button variant="outline" onClick={() => navigate("/my-template")}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
             </Button>
           </div>
@@ -523,98 +523,70 @@ export function ShelfSelectionPage() {
       // For transfer operations, we need to select a source shelf and target shelf
       if (operationType === 'transfer') {
         // Select source shelf first
-        if (!localStorage.getItem('sourceShelfId')) {
-          // Store the current shelf as source shelf (ensuring it's not undefined)
-          localStorage.setItem('sourceShelfId', selectedShelf || '');
-          localStorage.setItem('sourceFloorId', floorId);
+        if (!localStorage.getItem('sourceShelf')) {
+          localStorage.setItem('sourceShelf', selectedShelf);
           
           toast({
             title: "Source Shelf Selected",
-            description: "Now please select the destination shelf.",
+            description: "Now select the target shelf.",
             variant: "default"
           });
           
-          // Return to floor selection to select destination
-          navigate(`/simplified-workflow/operations/${operationType}`);
+          // Clear the selection and stay on the same page
+          setSelectedShelf(null);
+          setIsExecuting(false);
           return;
         } else {
-          // We already have a source shelf, so this is the target shelf
-          const sourceShelfId = localStorage.getItem('sourceShelfId');
-          const sourceFloorId = localStorage.getItem('sourceFloorId');
+          // We have both source and target
+          const sourceShelf = localStorage.getItem('sourceShelf');
+          const targetShelf = selectedShelf;
           
-          // Execute the workflow with both source and target
-          // Make sure sourceShelfId and sourceFloorId are not undefined
-          const sourceShelf = localStorage.getItem('sourceShelfId') || '';
-          const sourceFloor = localStorage.getItem('sourceFloorId') || '';
+          // Clean up
+          localStorage.removeItem('sourceShelf');
           
-          const response = await axios.post('/api/simplified-workflow/execute', {
+          // Make the API call with both shelves
+          await axios.post(`/api/simplified-workflow/execute`, {
             operationType,
-            floorId,  // Target floor
-            shelfId: selectedShelf,  // Target shelf
-            sourceShelfId: sourceShelf,
-            sourceFloorId: sourceFloor
+            floorId,
+            sourceShelf,
+            targetShelf
           });
           
-          // Clear stored shelves
-          localStorage.removeItem('sourceShelfId');
-          localStorage.removeItem('sourceFloorId');
-          
           toast({
-            title: "Workflow Started",
-            description: `Robot mission started with ID: ${response.data.missionId}`,
+            title: "Transfer Mission Initiated",
+            description: "The robot is moving to execute the transfer mission.",
             variant: "default"
           });
           
-          // Return to the dashboard
-          navigate('/');
-          return;
+          navigate('/my-template');
         }
+      } else {
+        // Regular pickup or dropoff operation
+        await axios.post(`/api/simplified-workflow/execute`, {
+          operationType,
+          floorId,
+          shelfId: selectedShelf
+        });
+        
+        toast({
+          title: "Mission Initiated",
+          description: `The robot is moving to execute the ${operationType} mission.`,
+          variant: "default"
+        });
+        
+        navigate('/my-template');
       }
-      
-      // Regular (non-transfer) workflow execution
-      const response = await axios.post('/api/simplified-workflow/execute', {
-        operationType,
-        floorId,
-        shelfId: selectedShelf
-      });
+    } catch (err) {
+      console.error("Error executing workflow:", err);
       
       toast({
-        title: "Workflow Started",
-        description: `Robot mission started with ID: ${response.data.missionId}`,
-        variant: "default"
-      });
-      
-      // Return to the dashboard
-      navigate('/');
-    } catch (error) {
-      console.error('Error executing workflow:', error);
-      toast({
-        title: "Workflow Error",
-        description: "Failed to start the robot workflow. Please try again later.",
+        title: "Error Executing Mission",
+        description: "There was an error starting the mission. Please try again.",
         variant: "destructive"
       });
-    } finally {
+      
       setIsExecuting(false);
     }
-  };
-  
-  // For transfer operations, check if we have a source shelf already
-  const isTransferOperation = operationType === 'transfer';
-  const hasSourceShelf = isTransferOperation && localStorage.getItem('sourceShelfId');
-  
-  // Function to clear source shelf selection
-  const handleClearSourceShelf = () => {
-    localStorage.removeItem('sourceShelfId');
-    localStorage.removeItem('sourceFloorId');
-    
-    toast({
-      title: "Source Shelf Cleared",
-      description: "You can now select a new source shelf.",
-      variant: "default"
-    });
-    
-    // Reset selected shelf
-    setSelectedShelf(null);
   };
   
   return (
@@ -622,58 +594,58 @@ export function ShelfSelectionPage() {
       <Card className="shadow-lg border-0">
         <CardContent className="p-6">
           <h1 className="text-2xl font-bold mb-6 text-center">
-            {hasSourceShelf ? 'Select Destination Shelf' : 'Select Shelf'}
+            {operationType === 'transfer' && localStorage.getItem('sourceShelf') 
+              ? "Select Target Shelf" 
+              : "Select Shelf"}
           </h1>
-          
-          {hasSourceShelf && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800">
-                You've selected a source shelf. Now choose a destination shelf to complete the transfer.
-              </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleClearSourceShelf}
-                className="mt-2 text-blue-600 border-blue-300"
-              >
-                Clear Source Selection
-              </Button>
-            </div>
-          )}
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {sortedShelves.map((shelf: ShelfPoint) => (
               <ShelfCard 
                 key={shelf.id}
                 shelf={shelf}
-                onSelect={() => handleSelect(shelf)}
                 isSelected={selectedShelf === shelf.id}
+                onSelect={() => handleSelect(shelf)}
               />
             ))}
           </div>
           
           <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={() => navigate(`/simplified-workflow/operations/${operationType}`)}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // Clean up any source shelf selection if going back
+                if (operationType === 'transfer') {
+                  localStorage.removeItem('sourceShelf');
+                }
+                navigate(`/simplified-workflow/operations/${operationType}`)
+              }}
+            >
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Floors
             </Button>
             
-            <Button 
-              disabled={!selectedShelf || isExecuting}
-              onClick={handleExecute}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isExecuting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Starting...
-                </>
-              ) : (
-                <>
-                  {hasSourceShelf ? 'Complete Transfer' : 'Start Robot Mission'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </>
-              )}
-            </Button>
+            {selectedShelf && (
+              <Button 
+                disabled={isExecuting}
+                onClick={handleExecute}
+              >
+                {isExecuting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                    Starting Mission...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="mr-2 h-4 w-4" /> 
+                    {operationType === 'transfer' && !localStorage.getItem('sourceShelf') 
+                      ? "Select Source Shelf" 
+                      : operationType === 'transfer' 
+                        ? "Start Transfer" 
+                        : `Start ${operationType}`}
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -705,11 +677,11 @@ function ShelfCard({
       className={`${baseClasses} ${colorClasses}`}
       onClick={onSelect}
     >
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center py-2">
         <h3 className={`text-lg font-medium ${isSelected ? 'text-gray-700' : 'text-white'}`}>{shelf.displayName}</h3>
         
         {isSelected && (
-          <div className="mt-3 text-green-600 flex items-center">
+          <div className="mt-2 text-green-600 flex items-center">
             <Check className="h-5 w-5 mr-1" /> Selected
           </div>
         )}
