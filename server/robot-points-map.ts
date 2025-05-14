@@ -175,8 +175,8 @@ const robotPointsMap: RobotPointsMap = {
 // Utility functions for easier access to common point operations
 
 /**
- * Get a shelf point by ID (e.g., "104")
- * @param shelfId The shelf ID (e.g., "104")
+ * Get a shelf point by ID (e.g., "104" or "pick-up" or "drop-off")
+ * @param shelfId The shelf ID (e.g., "104", "pick-up", "drop-off")
  * @returns The point object if found, null otherwise
  */
 export function getShelfPoint(shelfId: string): Point | null {
@@ -188,35 +188,36 @@ export function getShelfPoint(shelfId: string): Point | null {
     return null;
   }
   
-  // Check various case combinations to be more forgiving about casing
-  // But prioritize lowercase versions which is what the robot actually uses
-  const pointNameVariations = [
-    `${shelfId.toLowerCase()}_load`,  // all lowercase (ROBOT'S ACTUAL FORMAT)
-    `${shelfId}_load`,       // preserve original case with lowercase load
-    `${shelfId}_Load`,       // uppercase L (old assumption)
-    `${shelfId.toLowerCase()}_Load`   // lowercase ID with uppercase L
-  ];
+  // Use EXACT format from robot API - all lowercase with correct format
+  // For shelf points: "104_load", "115_load", etc.
+  // For pickup/dropoff: "pick-up_load", "drop-off_load"
+  let pointName: string;
   
-  // Try each variation
-  for (const pointName of pointNameVariations) {
-    if (robotPointsMap.floors[floorId].points[pointName]) {
-      console.log(`Found shelf point using variation: ${pointName}`);
-      const point = robotPointsMap.floors[floorId].points[pointName];
-      return {
-        x: point.x,
-        y: point.y,
-        theta: point.theta
-      };
-    }
+  // Special handling for pickup and dropoff points which have hyphens
+  if (shelfId === 'pick-up' || shelfId === 'drop-off') {
+    pointName = `${shelfId}_load`;
+  } else {
+    // For numeric shelf IDs like 104, 115, etc.
+    pointName = `${shelfId.toLowerCase()}_load`;
   }
   
-  console.error(`No shelf point variations found for ID ${shelfId} on floor ${floorId}`);
+  if (robotPointsMap.floors[floorId].points[pointName]) {
+    console.log(`Found shelf point: ${pointName}`);
+    const point = robotPointsMap.floors[floorId].points[pointName];
+    return {
+      x: point.x,
+      y: point.y,
+      theta: point.theta
+    };
+  }
+  
+  console.error(`Shelf point not found: ${pointName} on floor ${floorId}`);
   return null;
 }
 
 /**
- * Get a shelf docking point by ID (e.g., "104")
- * @param shelfId The shelf ID (e.g., "104")
+ * Get a shelf docking point by ID (e.g., "104" or "pick-up" or "drop-off")
+ * @param shelfId The shelf ID (e.g., "104", "pick-up", "drop-off")
  * @returns The point object if found, null otherwise
  */
 export function getShelfDockingPoint(shelfId: string): Point | null {
@@ -228,32 +229,30 @@ export function getShelfDockingPoint(shelfId: string): Point | null {
     return null;
   }
   
-  // Check various case combinations to be more forgiving about casing
-  // But prioritize lowercase versions which is what the robot actually uses
-  const pointNameVariations = [
-    `${shelfId.toLowerCase()}_load_docking`,  // all lowercase (ROBOT'S ACTUAL FORMAT)
-    `${shelfId}_load_docking`,       // preserve original case with lowercase load/docking
-    `${shelfId}_Load_docking`,       // uppercase L
-    `${shelfId}_load_Docking`,       // uppercase D
-    `${shelfId}_Load_Docking`,       // uppercase L and D
-    `${shelfId.toLowerCase()}_Load_docking`,  // lowercase ID with uppercase L
-    `${shelfId.toLowerCase()}_Load_Docking`   // lowercase ID with uppercase L and D
-  ];
+  // Use EXACT format from robot API - all lowercase with correct format
+  // For shelf points: "104_load_docking", "115_load_docking", etc.
+  // For pickup/dropoff: "pick-up_load_docking", "drop-off_load_docking"
+  let pointName: string;
   
-  // Try each variation
-  for (const pointName of pointNameVariations) {
-    if (robotPointsMap.floors[floorId].points[pointName]) {
-      console.log(`Found shelf docking point using variation: ${pointName}`);
-      const point = robotPointsMap.floors[floorId].points[pointName];
-      return {
-        x: point.x,
-        y: point.y,
-        theta: point.theta
-      };
-    }
+  // Special handling for pickup and dropoff points which have hyphens
+  if (shelfId === 'pick-up' || shelfId === 'drop-off') {
+    pointName = `${shelfId}_load_docking`;
+  } else {
+    // For numeric shelf IDs like 104, 115, etc.
+    pointName = `${shelfId.toLowerCase()}_load_docking`;
   }
   
-  console.error(`No shelf docking point variations found for ID ${shelfId} on floor ${floorId}`);
+  if (robotPointsMap.floors[floorId].points[pointName]) {
+    console.log(`Found shelf docking point: ${pointName}`);
+    const point = robotPointsMap.floors[floorId].points[pointName];
+    return {
+      x: point.x,
+      y: point.y,
+      theta: point.theta
+    };
+  }
+  
+  console.error(`Shelf docking point not found: ${pointName} on floor ${floorId}`);
   return null;
 }
 
