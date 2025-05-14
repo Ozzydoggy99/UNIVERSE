@@ -1185,7 +1185,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffDockingPoint.x,
       floorPoints.dropoffDockingPoint.y,
       floorPoints.dropoffDockingPoint.ori,
-      'Drop-off_Load_docking (safe position)'
+      'drop-off_load_docking (safe position)'
     );
     
     // STEP 8: Return to charger (if available)
@@ -1324,7 +1324,7 @@ async function executeDropoffWorkflow(
       floorPoints.pickupDockingPoint.x,
       floorPoints.pickupDockingPoint.y,
       floorPoints.pickupDockingPoint.ori,
-      'Pickup_Load_docking'
+      'pick-up_load_docking'
     );
     
     // Allow a brief pause for stability
@@ -1338,7 +1338,7 @@ async function executeDropoffWorkflow(
       floorPoints.pickupPoint.x,
       floorPoints.pickupPoint.y,
       floorPoints.pickupPoint.ori,
-      'Pickup_Load'
+      'pick-up_load'
     );
     
     // STEP 3: Execute jack_up to lift bin
@@ -1578,8 +1578,8 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
               
               // Check for different ID patterns:
               
-              // Case 1: If ID contains '_Load', extract the number before it (e.g. "104_Load" -> "104")
-              if (p.id.includes('_Load')) {
+              // Case 1: If ID contains '_load', extract the number before it (e.g. "104_load" -> "104")
+              if (p.id.includes('_load')) {
                 displayName = p.id.split('_')[0];
               } 
               // Case 2: If it's a simple numeric ID, use it directly
