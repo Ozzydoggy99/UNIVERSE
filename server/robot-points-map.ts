@@ -193,13 +193,21 @@ export function getShelfPoint(shelfId: string): Point | null {
   // For pickup/dropoff: "pick-up_load", "drop-off_load"
   let pointName: string;
   
+  // First check if the shelfId is already a fully formatted ID (ends with _load)
+  if (shelfId.toLowerCase().endsWith('_load')) {
+    // Already formatted, just ensure lowercase
+    pointName = shelfId.toLowerCase();
+    console.log(`Using already formatted shelf ID: ${pointName}`);
+  }
   // Special handling for pickup and dropoff points which have hyphens
-  if (shelfId === 'pick-up' || shelfId === 'drop-off') {
+  else if (shelfId === 'pick-up' || shelfId === 'drop-off') {
     pointName = `${shelfId}_load`;
   } else {
     // For numeric shelf IDs like 104, 115, etc.
     pointName = `${shelfId.toLowerCase()}_load`;
   }
+  
+  console.log(`Looking for shelf point with ID: ${pointName}`);
   
   if (robotPointsMap.floors[floorId].points[pointName]) {
     console.log(`Found shelf point: ${pointName}`);
@@ -234,13 +242,27 @@ export function getShelfDockingPoint(shelfId: string): Point | null {
   // For pickup/dropoff: "pick-up_load_docking", "drop-off_load_docking"
   let pointName: string;
   
+  // First check if the shelfId is already a fully formatted docking ID (ends with _load_docking)
+  if (shelfId.toLowerCase().endsWith('_load_docking')) {
+    // Already formatted, just ensure lowercase
+    pointName = shelfId.toLowerCase();
+    console.log(`Using already formatted docking ID: ${pointName}`);
+  }
+  // Check if it's a fully formatted load point (ends with _load)
+  else if (shelfId.toLowerCase().endsWith('_load')) {
+    // Convert load point to docking point
+    pointName = `${shelfId.toLowerCase()}_docking`;
+    console.log(`Converting load point to docking point: ${pointName}`);
+  }
   // Special handling for pickup and dropoff points which have hyphens
-  if (shelfId === 'pick-up' || shelfId === 'drop-off') {
+  else if (shelfId === 'pick-up' || shelfId === 'drop-off') {
     pointName = `${shelfId}_load_docking`;
   } else {
     // For numeric shelf IDs like 104, 115, etc.
     pointName = `${shelfId.toLowerCase()}_load_docking`;
   }
+  
+  console.log(`Looking for shelf docking point with ID: ${pointName}`);
   
   if (robotPointsMap.floors[floorId].points[pointName]) {
     console.log(`Found shelf docking point: ${pointName}`);
