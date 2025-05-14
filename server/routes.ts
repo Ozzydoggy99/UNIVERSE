@@ -100,6 +100,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register robot capabilities API for dynamic template configuration
   registerRobotCapabilitiesAPI(app);
   
+  // Test endpoint for the toUnloadPoint action
+  app.post('/api/robot/test-unload-action', async (req: Request, res: Response) => {
+    try {
+      const { pointId } = req.body;
+      
+      if (!pointId) {
+        return res.status(400).json({ success: false, error: 'pointId is required' });
+      }
+      
+      // Test the rack_area_id extraction logic
+      // This doesn't actually call the robot API
+      const loadPointId = pointId.replace('_docking', '');
+      
+      let rackAreaId;
+      
+      // Check if this is a drop-off point
+      if (loadPointId.startsWith('drop-off')) {
+        rackAreaId = 'drop-off';
+      } else {
+        // For all other points, use everything before the first underscore
+        const areaMatch = loadPointId.match(/^([^_]+)/);
+        rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
+      }
+      
+      return res.json({
+        success: true,
+        pointId,
+        loadPointId,
+        rackAreaId
+      });
+    } catch (error) {
+      console.error('[TEST-UNLOAD-ACTION] Error testing unload action:', error);
+      return res.status(500).json({ success: false, error: formatError(error) });
+    }
+  });
+  
   // Register the robot settings API for rack specifications
   registerRobotSettingsRoutes(app);
   

@@ -91,38 +91,25 @@ export const toUnloadPointAction: Action = {
       const loadPointId = resolvedPointId.replace('_docking', '');
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
-      // Extract the area ID from the point ID (everything before the underscore)
+      // Extract the area ID from the point ID
       // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
       
-      // Identify if this is a point ID with a hyphen in it
-      const hasHyphen = loadPointId.includes('-');
-      
-      // Use different patterns based on whether we have a hyphen
-      if (hasHyphen && loadPointId.startsWith('drop-off')) {
-        // Special handling for drop-off points - always use 'drop-off' as the rack area ID
+      // Check if this is a drop-off point (handles both drop-off_load and drop-off_load_docking)
+      if (loadPointId.startsWith('drop-off')) {
+        // For drop-off points, always use 'drop-off' as the rack area ID
         rackAreaId = 'drop-off';
+        console.log(`[UNLOAD-POINT-ACTION] DETECTED DROP-OFF POINT: "${loadPointId}"`);
+        console.log(`[UNLOAD-POINT-ACTION] Using fixed rack_area_id = "drop-off" for this point`);
       } else {
         // For all other points, use everything before the first underscore
         const areaMatch = loadPointId.match(/^([^_]+)/);
         rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
+        console.log(`[UNLOAD-POINT-ACTION] Regular point "${loadPointId}", extracted rack_area_id = "${rackAreaId}"`);
       }
       
-      // Log exactly what was extracted
-      console.log(`[UNLOAD-POINT-ACTION] Extracted rack area ID "${rackAreaId}" from point "${loadPointId}"`);
-      
-      // Double-check if we're dealing with a hyphenated point ID
-      if (rackAreaId.includes('-')) {
-        console.log(`[UNLOAD-POINT-ACTION] DETECTED HYPHENATED POINT ID: ${loadPointId}`);
-      }
-      
-      // Extra logging for debugging
-      if (loadPointId.includes('drop-off')) {
-        console.log(`[UNLOAD-POINT-ACTION] EXPLICIT HANDLING FOR ${loadPointId}`);
-        console.log(`[UNLOAD-POINT-ACTION] Confirming rack_area_id: ${rackAreaId}`);
-      }
-      
-      console.log(`[ACTION] FINAL rack area ID for unloading: ${rackAreaId}`);
+      // Final confirmation of rack_area_id
+      console.log(`[UNLOAD-POINT-ACTION] FINAL rack_area_id = "${rackAreaId}" for point "${loadPointId}"`);
       
       const payload = {
         creator: 'robot-management-platform',
