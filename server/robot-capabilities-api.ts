@@ -665,20 +665,41 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       };
       
       // For transfer operations, add source shelf and floor information
-      if (operationType === 'transfer' && req.body.sourceShelfId) {
-        workflowParams.pickupShelf = req.body.sourceShelfId;
+      if (operationType === 'transfer') {
+        // Check for both possible parameter names: sourceShelf (from older code) or sourceShelfId (from new UI)
+        const sourceShelfId = req.body.sourceShelfId || req.body.sourceShelf;
+        
+        if (!sourceShelfId) {
+          logger.error('Missing sourceShelfId parameter for transfer operation');
+          return res.status(400).json({ error: 'Missing sourceShelfId parameter for transfer operation' });
+        }
+        
+        workflowParams.pickupShelf = sourceShelfId;
         workflowParams.dropoffShelf = shelfId;
-        logger.info(`Transfer operation from ${req.body.sourceShelfId} to ${shelfId}`);
+        logger.info(`Transfer operation from ${sourceShelfId} to ${shelfId}`);
       }
       
-      // Execute the workflow directly
-      const workflowResult = await dynamicWorkflow.executeWorkflow(workflowType, workflowParams);
+      logger.info(`Executing workflow type: ${workflowType} with params:`, workflowParams);
       
-      res.status(200).json({
-        success: workflowResult.success,
-        missionId: workflowResult.missionId || 'unknown',
-        message: workflowResult.message || 'Workflow execution started'
-      });
+      // Execute the workflow directly
+      try {
+        const workflowResult = await dynamicWorkflow.executeWorkflow(workflowType, workflowParams);
+        
+        logger.info(`Workflow execution result:`, { 
+          success: workflowResult.success,
+          missionId: workflowResult.missionId || 'unknown',
+          message: workflowResult.message || 'Workflow execution started'
+        });
+        
+        res.status(200).json({
+          success: workflowResult.success,
+          missionId: workflowResult.missionId || 'unknown',
+          message: workflowResult.message || 'Workflow execution started'
+        });
+      } catch (workflowError) {
+        logger.error(`Error in dynamic workflow execution:`, workflowError);
+        throw workflowError; // Let the outer catch handle it
+      }
     } catch (error) {
       logger.error(`Error executing workflow: ${error}`);
       res.status(500).json({ error: 'Failed to execute workflow' });

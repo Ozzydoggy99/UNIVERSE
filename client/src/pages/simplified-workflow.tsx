@@ -572,13 +572,22 @@ export function ShelfSelectionPage() {
           // Clean up
           localStorage.removeItem('sourceShelf');
           
-          // Make the API call with both shelves
-          await axios.post(`/api/simplified-workflow/execute`, {
+          // Make the API call with both shelves - use sourceShelfId for consistency with API
+          console.log('Executing transfer workflow:', {
             operationType,
             floorId,
-            sourceShelf,
-            targetShelf
+            sourceShelfId: sourceShelf,
+            shelfId: targetShelf
           });
+          
+          const response = await axios.post(`/api/simplified-workflow/execute`, {
+            operationType,
+            floorId,
+            sourceShelfId: sourceShelf,
+            shelfId: targetShelf  // Use shelfId instead of targetShelf to match API expectations
+          });
+          
+          console.log('Transfer workflow response:', response.data);
           
           toast({
             title: "Transfer Mission Initiated",
@@ -590,11 +599,19 @@ export function ShelfSelectionPage() {
         }
       } else {
         // Regular pickup or dropoff operation
-        await axios.post(`/api/simplified-workflow/execute`, {
+        console.log('Executing workflow:', {
           operationType,
           floorId,
           shelfId: selectedShelf
         });
+        
+        const response = await axios.post(`/api/simplified-workflow/execute`, {
+          operationType,
+          floorId,
+          shelfId: selectedShelf
+        });
+        
+        console.log('Workflow response:', response.data);
         
         toast({
           title: "Mission Initiated",
@@ -604,12 +621,25 @@ export function ShelfSelectionPage() {
         
         navigate('/my-template');
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Detailed error logging
       console.error("Error executing workflow:", err);
+      
+      if (err.response) {
+        // The request was made and the server responded with an error status
+        console.error("Server response error:", err.response.data);
+        console.error("Status code:", err.response.status);
+      } else if (err.request) {
+        // The request was made but no response was received
+        console.error("No response received:", err.request);
+      } else {
+        // Something happened in setting up the request
+        console.error("Request error:", err.message);
+      }
       
       toast({
         title: "Error Executing Mission",
-        description: "There was an error starting the mission. Please try again.",
+        description: err.response?.data?.error || "There was an error starting the mission. Please try again.",
         variant: "destructive"
       });
       
