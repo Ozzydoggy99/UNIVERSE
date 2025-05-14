@@ -198,9 +198,10 @@ export function OperationSelectionPage() {
   const { serviceType } = params;
   const { toast } = useToast();
   
-  // Fetch operations for the selected service type
+  // Fetch operations directly from the operations endpoint
+  // This way the component works with or without a service type in the URL
   const { data, isLoading, error } = useQuery<unknown, Error, { operations: OperationType[] }>({
-    queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations`],
+    queryKey: ['/api/simplified-workflow/operations'],
     retry: 1,
     select: (data: any) => data as { operations: OperationType[] }
   });
@@ -248,7 +249,8 @@ export function OperationSelectionPage() {
       return;
     }
     
-    navigate(`/simplified-workflow/${serviceType}/${operation.id}`);
+    // Navigate to the next step using the operations ID directly, without requiring a serviceType
+    navigate(`/simplified-workflow/operations/${operation.id}`);
   };
   
   return (
@@ -326,12 +328,12 @@ function OperationCard({
 export function FloorSelectionPage() {
   const [, navigate] = useLocation();
   const params = useParams();
-  const { serviceType, operationType } = params;
+  const { operationType } = params;
   const { toast } = useToast();
   
-  // Fetch floors for the selected operation and service type
+  // Fetch floors for the selected operation
   const { data, isLoading, error } = useQuery<unknown, Error, { floors: Floor[] }>({
-    queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations/${operationType}/floors`],
+    queryKey: [`/api/simplified-workflow/operations/${operationType}/floors`],
     retry: 1,
     select: (data: any) => data as { floors: Floor[] }
   });
@@ -373,7 +375,7 @@ export function FloorSelectionPage() {
   const sortedFloors = [...floors].sort((a, b) => a.floorNumber - b.floorNumber);
   
   const handleSelect = (floor: Floor) => {
-    navigate(`/simplified-workflow/${serviceType}/${operationType}/${floor.id}`);
+    navigate(`/simplified-workflow/operations/${operationType}/${floor.id}`);
   };
   
   return (
@@ -449,14 +451,14 @@ function FloorCard({
 export function ShelfSelectionPage() {
   const [, navigate] = useLocation();
   const params = useParams();
-  const { serviceType, operationType, floorId } = params;
+  const { operationType, floorId } = params;
   const { toast } = useToast();
   const [isExecuting, setIsExecuting] = useState(false);
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
   
-  // Fetch shelves for the selected floor, operation, and service type
+  // Fetch shelves for the selected floor and operation
   const { data, isLoading, error } = useQuery<unknown, Error, { shelves: ShelfPoint[] }>({
-    queryKey: [`/api/simplified-workflow/service-types/${serviceType}/operations/${operationType}/floors/${floorId}/shelves`],
+    queryKey: [`/api/simplified-workflow/operations/${operationType}/floors/${floorId}/shelves`],
     retry: 1,
     select: (data: any) => data as { shelves: ShelfPoint[] }
   });

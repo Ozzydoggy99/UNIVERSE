@@ -332,32 +332,17 @@ function Router() {
       {/* Legacy Dynamic Workflow UI Routes removed - now using simplified workflow */}
       
       {/* Simplified Workflow UI Routes - new user interface with automatic discovery */}
+      {/* Completely removed the service type selection page - with redirect from main URL */}
       <ProtectedRoute 
         path="/simplified-workflow" 
         component={() => (
           <AppLayout>
-            <ServiceSelectionPage />
-          </AppLayout>
-        )} 
-      />
-      <ProtectedRoute 
-        path="/simplified-workflow/operations" 
-        component={() => (
-          <AppLayout>
             <OperationSelectionPage />
           </AppLayout>
         )} 
       />
       <ProtectedRoute 
-        path="/simplified-workflow/:serviceType" 
-        component={() => (
-          <AppLayout>
-            <OperationSelectionPage />
-          </AppLayout>
-        )} 
-      />
-      <ProtectedRoute 
-        path="/simplified-workflow/:serviceType/:operationType" 
+        path="/simplified-workflow/operations/:operationType" 
         component={() => (
           <AppLayout>
             <SimplifiedFloorPage />
@@ -365,7 +350,7 @@ function Router() {
         )} 
       />
       <ProtectedRoute 
-        path="/simplified-workflow/:serviceType/:operationType/:floorId" 
+        path="/simplified-workflow/operations/:operationType/:floorId" 
         component={() => (
           <AppLayout>
             <SimplifiedShelfPage />
