@@ -270,8 +270,8 @@ export function OperationSelectionPage() {
           </div>
           
           <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={() => navigate('/simplified-workflow')}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Service Types
+            <Button variant="outline" onClick={() => navigate('/')}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
             </Button>
           </div>
         </CardContent>
