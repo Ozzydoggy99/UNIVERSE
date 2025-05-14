@@ -10,7 +10,7 @@ import { useLocation, useParams, Link, useRoute } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShowerHead, Trash2, ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { ShowerHead, Trash2, ArrowLeft, ArrowRight, Check, Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
 
@@ -295,6 +295,12 @@ export function OperationSelectionPage() {
             <Button variant="outline" onClick={() => navigate("/my-template")}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
             </Button>
+            
+            {operations.length === 0 && (
+              <Button onClick={clearCacheAndRefresh}>
+                <RefreshCw className="mr-2 h-4 w-4" /> Refresh Robot Data
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
