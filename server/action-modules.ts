@@ -2,6 +2,12 @@ import axios from 'axios';
 import { sleep } from './utilities';
 import { getAuthHeaders } from './robot-constants';
 
+// Create a custom Axios instance with authentication headers
+const robotApi = axios.create({
+  baseURL: 'http://47.180.91.99:8090',
+  headers: getAuthHeaders()
+});
+
 // Types based on our actual implementation
 export type ActionResult = {
   success: boolean;
@@ -328,7 +334,7 @@ export const toUnloadPointAction: ActionModule = {
       const loadPointId = resolvedPointId.replace('_docking', '');
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
-      const response = await axios.post(`http://47.180.91.99:8090/chassis/moves`, {
+      const response = await robotApi.post(`/chassis/moves`, {
         creator: 'robot-management-platform',
         type: 'to_unload_point',  // Use to_unload_point specifically for unloading operations
         target_x: 0, // These values will be ignored since the point ID is what matters
