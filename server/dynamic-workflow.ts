@@ -28,8 +28,8 @@ import { getRackSpecifications } from './robot-settings-api';
 const LOG_PATH = 'robot-dynamic-workflow.log';
 
 // Types for workflows
-type ServiceType = 'laundry' | 'trash';
-type OperationType = 'pickup' | 'dropoff';
+type ServiceType = 'robot';  // We've simplified to a single service type
+type OperationType = 'pickup' | 'dropoff' | 'transfer';  // Added transfer operation
 type Point = {
   id: string;
   x: number;

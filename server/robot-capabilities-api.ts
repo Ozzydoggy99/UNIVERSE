@@ -357,13 +357,23 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       // To avoid circular dependencies, we'll use the dynamic import
       const dynamicWorkflow = await import('./dynamic-workflow');
       
-      // Execute the workflow directly
-      const workflowResult = await dynamicWorkflow.executeWorkflow(workflowType, {
+      // Prepare parameters based on operation type
+      const workflowParams: any = {
         serviceType,
         operationType,
         floorId,
         shelfId
-      });
+      };
+      
+      // For transfer operations, add source shelf and floor information
+      if (operationType === 'transfer' && req.body.sourceShelfId) {
+        workflowParams.pickupShelf = req.body.sourceShelfId;
+        workflowParams.dropoffShelf = shelfId;
+        logger.info(`Transfer operation from ${req.body.sourceShelfId} to ${shelfId}`);
+      }
+      
+      // Execute the workflow directly
+      const workflowResult = await dynamicWorkflow.executeWorkflow(workflowType, workflowParams);
       
       res.status(200).json({
         success: workflowResult.success,
