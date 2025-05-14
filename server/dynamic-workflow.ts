@@ -1775,11 +1775,16 @@ export async function executeWorkflow(
   }
 ): Promise<{
   success: boolean,
+  workflowId: string,
   missionId: string,
   message: string
 }> {
+  // Generate a workflow ID outside the try/catch so it's available in both scopes
+  const workflowId = uuidv4();
+  
   try {
-    console.log(`[DYNAMIC-WORKFLOW] Executing workflow ${workflowType} with params:`, JSON.stringify(params, null, 2));
+    console.log(`[DYNAMIC-WORKFLOW] Executing workflow ${workflowType} with workflow ID ${workflowId}`);
+    console.log(`[DYNAMIC-WORKFLOW] Parameters:`, JSON.stringify(params, null, 2));
     
     // Validate input parameters
     if (!workflowType) {
@@ -1797,9 +1802,7 @@ export async function executeWorkflow(
       throw new Error('Missing floorId parameter');
     }
     
-    // Create a unique workflow ID
-    const workflowId = uuidv4();
-    console.log(`[DYNAMIC-WORKFLOW] Created workflow ID: ${workflowId}`);
+    console.log(`[DYNAMIC-WORKFLOW] Input validation successful for workflow ${workflowId}`);
     
     // Initialize workflow state
     workflowStates[workflowId] = {
@@ -2009,8 +2012,9 @@ export async function executeWorkflow(
     
     return {
       success: true,
+      workflowId,
       missionId,
-      message: `Workflow ${workflowType} execution started with ID ${missionId}`
+      message: `Workflow ${workflowType} execution started with workflow ID ${workflowId}, mission ID ${missionId}`
     };
   } catch (error: any) {
     // Detailed error logging for better debugging
@@ -2033,6 +2037,7 @@ export async function executeWorkflow(
     
     return {
       success: false,
+      workflowId: workflowId, // We already defined workflowId outside the try/catch scope
       missionId: 'error',
       message: `Error executing workflow: ${errorDetails}`
     };

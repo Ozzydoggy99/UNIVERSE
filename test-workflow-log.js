@@ -34,8 +34,9 @@ async function testGenericWorkflow(shelfId = '104') {
       }
     });
     
-    const workflowId = response.data.id || response.data.workflowId || 'unknown';
-    logWithTimestamp(`✅ Workflow execution started successfully with ID: ${workflowId}`);
+    const workflowId = response.data.workflowId || 'unknown';
+    const missionId = response.data.missionId || 'unknown';
+    logWithTimestamp(`✅ Workflow execution started successfully with workflow ID: ${workflowId}, mission ID: ${missionId}`);
     
     // Log the full API response for debugging
     logWithTimestamp(`API Response: ${JSON.stringify(response.data, null, 2)}`);
