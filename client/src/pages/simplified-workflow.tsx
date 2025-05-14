@@ -145,9 +145,18 @@ function ServiceCard({
   onSelect: () => void,
   isSelected?: boolean
 }) {
-  const iconComponent = serviceType.icon === 'shower' 
-    ? <ShowerHead className="h-8 w-8" /> 
-    : <Trash2 className="h-8 w-8" />;
+  // Use a dynamic icon based on the icon property
+  // Default to a generic icon if the specific one isn't available
+  let iconComponent;
+  
+  if (serviceType.icon === 'shower') {
+    iconComponent = <ShowerHead className="h-8 w-8" />;
+  } else if (serviceType.icon === 'trash') {
+    iconComponent = <Trash2 className="h-8 w-8" />;
+  } else {
+    // Default icon for robot service
+    iconComponent = <ArrowRight className="h-8 w-8" />;
+  }
   
   const baseClasses = "p-4 hover:shadow-lg transition-shadow cursor-pointer flex flex-col items-center";
   const colorClasses = serviceType.enabled

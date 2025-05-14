@@ -165,10 +165,11 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       const robotId = ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
-      // For any service type, create operations based on robot capabilities
-      // with no hardcoded service type names
+      // For our unified robot service type, create operations based on robot capabilities
+      // with no hardcoded service type assumptions
       
-      // Check if we have central pickup and dropoff
+      // Check if we have central pickup, central dropoff, or shelf points
+      // Only show these operations if the robot has the capabilities for them
       if (capabilities.hasCentralPickup) {
         operations.push({
           id: 'pickup',
@@ -181,6 +182,16 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         operations.push({
           id: 'dropoff',
           displayName: 'Drop Off',
+          enabled: true
+        });
+      }
+      
+      // If we have multiple shelves on any map, allow shelf-to-shelf transfers
+      const hasMultipleShelves = capabilities.maps.some(map => map.shelfPoints.length >= 2);
+      if (hasMultipleShelves) {
+        operations.push({
+          id: 'transfer',
+          displayName: 'Transfer Between Shelves',
           enabled: true
         });
       }

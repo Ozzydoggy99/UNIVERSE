@@ -231,25 +231,17 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
     // Define service types based on available capabilities
     const serviceTypes = [];
     
-    // Only add service types if the robot has the necessary capabilities
-    if (hasCentralPickup || hasCentralDropoff) {
-      if (hasCentralPickup) {
-        serviceTypes.push({
-          id: 'laundry',
-          displayName: 'Laundry',
-          icon: 'shower',
-          enabled: true
-        });
-      }
-      
-      if (hasCentralDropoff) {
-        serviceTypes.push({
-          id: 'trash',
-          displayName: 'Trash',
-          icon: 'trash',
-          enabled: true
-        });
-      }
+    // Define a single universal "robot" service type when we have pickup or dropoff capabilities
+    // This removes the hardcoded service types (laundry, trash) and uses a unified approach
+    // Also consider if we have any shelf points available
+    const hasShelfPoints = maps.some(map => map.shelfPoints.length > 0);
+    if (hasCentralPickup || hasCentralDropoff || hasShelfPoints) {
+      serviceTypes.push({
+        id: 'robot',
+        displayName: 'Robot Service',
+        icon: 'robot',
+        enabled: true
+      });
     }
     
     logger.info(`Discovered ${serviceTypes.length} service types based on robot capabilities`);
