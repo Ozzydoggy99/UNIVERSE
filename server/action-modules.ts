@@ -151,10 +151,23 @@ export const alignWithRackAction: ActionModule = {
       
       console.log(`[ACTION] Aligning with rack at point: ${resolvedPointId}`);
       
-      // Based on our actual implementation
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/point/fine_adjust`, {
-        point_id: resolvedPointId
-      });
+      // Use the correct API endpoint from documentation
+      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
+      const headers = {
+        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
+      };
+      
+      // According to the documentation, for aligning with a rack we should use a move action with type "align_with_rack"
+      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+        creator: "robot-align-action",
+        type: "align_with_rack",
+        // If we have x,y coordinates for the point, use those
+        ...(params.x && params.y ? { 
+          target_x: params.x,
+          target_y: params.y,
+          target_ori: params.theta || 0
+        } : {})
+      }, { headers });
       
       // Wait for alignment to complete
       const maxRetries = params.maxRetries || 30;
@@ -250,12 +263,19 @@ export const jackDownAction: ActionModule = {
     try {
       console.log(`[ACTION] Lowering jack to release bin`);
       
-      // Based on our actual implementation
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/forks/down`);
+      // Use the correct API endpoint from documentation
+      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
+      const headers = {
+        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
+      };
       
-      // Our existing code uses a fixed sleep here
+      // According to the robot documentation, we should use /services/jack_down
+      const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
+      
+      // Extended wait time for more reliable operation
       // Make it configurable while maintaining backward compatibility
-      const waitTime = params.waitTime || 3000;
+      const waitTime = params.waitTime || 8000; // Longer wait time (8 seconds) for the operation to complete
+      console.log(`[ACTION] Waiting ${waitTime}ms for jack operation to complete...`);
       await sleep(waitTime);
       
       console.log(`[ACTION] Jack lowered successfully`);
@@ -351,14 +371,30 @@ export const returnToChargerAction: ActionModule = {
     try {
       console.log(`[ACTION] Returning to charger`);
       
-      // Based on our actual implementation with hardcoded coordinates
-      // This is our special case that uses exact coordinates not a point
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/coordinate`, {
-        x: 0.034,
-        y: 0.498,
-        theta: 266.11,
-        isCharger: true
-      });
+      // Use the correct API endpoint from documentation
+      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
+      const headers = {
+        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
+      };
+      
+      // According to the robot documentation, we should use the services/return_to_charger endpoint
+      // or create a move action with type "charge"
+      try {
+        // Method 1: Use services API (preferred)
+        const serviceResponse = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { headers });
+        console.log(`[ACTION] Return to charger command sent via services API`);
+      } catch (serviceError) {
+        console.log(`[ACTION] Services API for charger failed, trying move action instead: ${serviceError.message}`);
+        
+        // Method 2: Use move action with type "charge"
+        const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+          creator: "robot-charger-action",
+          type: "charge",
+          charge_retry_count: 3
+        }, { headers });
+        
+        console.log(`[ACTION] Return to charger command sent via move action (ID: ${moveResponse.data?.id})`);
+      }
       
       // Wait for completion
       const maxRetries = params.maxRetries || 90; // Longer timeout for charger return

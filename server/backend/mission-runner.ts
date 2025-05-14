@@ -20,13 +20,17 @@ async function waitForMoveComplete(): Promise<void> {
   let retries = 0;
   while (retries < 60) { // 60 * 2s = 2 minutes max
     try {
-      const res = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
-      const { state } = res.data;
-      appendLog(`🔄 Robot move status: ${state}`);
+      const res = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { 
+        headers,
+        timeout: 5000 // Add timeout to avoid hanging
+      });
+      const { state, fail_reason_str } = res.data;
+      appendLog(`🔄 Robot move status: ${state}${fail_reason_str ? ` (${fail_reason_str})` : ''}`);
       if (state === "succeeded") return;
-      if (state === "failed") throw new Error("❌ Robot move failed");
+      if (state === "failed") throw new Error(`❌ Robot move failed: ${fail_reason_str || 'Unknown reason'}`);
     } catch (err: any) {
       appendLog(`⚠️ Status check error: ${err.message}`);
+      // Continue retrying despite errors - the robot might just be transitioning states
     }
     await wait(2000); // poll every 2 seconds
     retries++;
