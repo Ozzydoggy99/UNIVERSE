@@ -359,7 +359,7 @@ export function FloorSelectionPage() {
           </p>
           <Button 
             className="mt-4 bg-primary" 
-            onClick={() => navigate(`/simplified-workflow/${serviceType}`)}
+            onClick={() => navigate(`/simplified-workflow/operations`)}
           >
             Back to Operations
           </Button>
@@ -395,7 +395,7 @@ export function FloorSelectionPage() {
           </div>
           
           <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={() => navigate(`/simplified-workflow/${serviceType}`)}>
+            <Button variant="outline" onClick={() => navigate(`/simplified-workflow/operations`)}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Operations
             </Button>
           </div>
@@ -653,7 +653,7 @@ export function ShelfSelectionPage() {
           </div>
           
           <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={() => navigate(`/simplified-workflow/${serviceType}/${operationType}`)}>
+            <Button variant="outline" onClick={() => navigate(`/simplified-workflow/operations/${operationType}`)}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Floors
             </Button>
             
