@@ -112,14 +112,13 @@ export function getShelfPointsByFloor(points: Point[]): Record<string, Point[]> 
   for (const p of points) {
     // More flexible shelf detection with multiple patterns:
     // 1. Pure numeric IDs (like "104")
-    // 2. IDs starting with numbers followed by underscore (like "104_Load")
-    // 3. IDs containing "_Load" or "_load" anywhere
+    // 2. IDs starting with numbers followed by underscore (like "104_load")
+    // 3. IDs containing "_load" (case-insensitive)
     // 4. Long IDs that might be UUIDs with no clear pattern (but excluding _docking points)
     const isShelf = (
       /^\d+$/.test(p.id) || 
       /^\d+_/.test(p.id) ||
-      p.id.includes('_Load') || 
-      p.id.includes('_load') ||
+      p.id.toLowerCase().includes('_load') ||
       (p.id.length > 20 && !p.id.includes('_docking') && !p.id.toLowerCase().includes('charger'))
     );
     if (!isShelf) continue;
@@ -138,11 +137,11 @@ export function getShelfPointsByFloor(points: Point[]): Record<string, Point[]> 
 /**
  * Extract special labeled points using the new naming convention
  * Special points now use the format:
- * - Load points: "number_Load" (the actual shelf points where bins will be picked up)
- * - Load docking points: "number_Load_docking" (positions before the actual shelf)
- * - Dropoff: "Dropoff" (where bins are dropped off)
- * - Dropoff docking: "Dropoff_docking" (position before the dropoff)
- * - Charger: "Charging Station" (robot charging station)
+ * - Load points: "number_load" (the actual shelf points where bins will be picked up)
+ * - Load docking points: "number_load_docking" (positions before the actual shelf)
+ * - Dropoff: "drop-off_load" (where bins are dropped off)
+ * - Dropoff docking: "drop-off_load_docking" (position before the dropoff)
+ * - Charger: "charging station" (robot charging station)
  */
 export function getSpecialPoints(points: Point[]) {
   const match = (label: string, target: string) => label.toLowerCase().includes(target.toLowerCase());
@@ -237,8 +236,7 @@ export function getShelfPoints(points: Point[]): Point[] {
     return (
       /^\d+$/.test(id) || 
       /^\d+_/.test(id) ||
-      id.includes('_Load') || 
-      id.includes('_load') ||
+      id.toLowerCase().includes('_load') ||
       (id.length > 20 && !id.includes('_docking') && !id.toLowerCase().includes('charger'))
     );
   });
