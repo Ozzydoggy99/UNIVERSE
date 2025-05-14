@@ -589,13 +589,26 @@ export function ShelfSelectionPage() {
           
           console.log('Transfer workflow response:', response.data);
           
-          toast({
-            title: "Transfer Mission Initiated",
-            description: "The robot is moving to execute the transfer mission.",
-            variant: "default"
-          });
-          
-          navigate('/my-template');
+          // Use the success status from the response
+          if (response.data && response.data.success) {
+            toast({
+              title: "Transfer Mission Initiated",
+              description: `The robot is moving to execute the transfer mission. Mission ID: ${response.data.missionId}`,
+              variant: "default"
+            });
+            
+            // Navigate after a short delay to ensure toast is visible
+            setTimeout(() => {
+              navigate('/my-template');
+            }, 1000);
+          } else {
+            toast({
+              title: "Transfer Mission Execution Issue",
+              description: response.data?.message || "The transfer mission could not be executed properly.",
+              variant: "destructive"
+            });
+            setIsExecuting(false);
+          }
         }
       } else {
         // Regular pickup or dropoff operation
@@ -613,13 +626,26 @@ export function ShelfSelectionPage() {
         
         console.log('Workflow response:', response.data);
         
-        toast({
-          title: "Mission Initiated",
-          description: `The robot is moving to execute the ${operationType} mission.`,
-          variant: "default"
-        });
-        
-        navigate('/my-template');
+        // Use the success status from the response
+        if (response.data && response.data.success) {
+          toast({
+            title: "Mission Initiated",
+            description: `The robot is moving to execute the ${operationType} mission. Mission ID: ${response.data.missionId}`,
+            variant: "default"
+          });
+          
+          // Navigate after a short delay to ensure toast is visible
+          setTimeout(() => {
+            navigate('/my-template');
+          }, 1000);
+        } else {
+          toast({
+            title: "Mission Execution Issue",
+            description: response.data?.message || "The mission could not be executed properly.",
+            variant: "destructive"
+          });
+          setIsExecuting(false);
+        }
       }
     } catch (err: any) {
       // Detailed error logging

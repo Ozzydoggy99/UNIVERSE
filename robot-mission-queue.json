@@ -5116,5 +5116,28 @@
     "createdAt": "2025-05-13T21:10:29.033Z",
     "updatedAt": "2025-05-13T21:13:48.834Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747201089751_07taw68",
+    "name": "Pickup to 104 Workflow (104_load)",
+    "steps": [
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Return to charger initiated with coordinate-based navigation",
+          "moveId": 4575,
+          "method": "coordinate_based_with_charging"
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-14T05:38:09.751Z",
+    "updatedAt": "2025-05-14T05:38:13.288Z",
+    "robotSn": "L382502104987ir"
   }
 ]
