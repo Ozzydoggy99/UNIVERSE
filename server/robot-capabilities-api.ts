@@ -730,10 +730,10 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         details: error.message || String(error),
         // Include the workflow parameters in the error response to help with debugging
         params: {
-          workflowType: workflowType,
-          shelfId: shelfId,
-          floorId: floorId,
-          operationType: operationType
+          workflowType: req.body.workflowType,
+          shelfId: req.body.params?.shelfId,
+          floorId: req.body.params?.floorId,
+          operationType: req.body.params?.operationType
         }
       });
     }

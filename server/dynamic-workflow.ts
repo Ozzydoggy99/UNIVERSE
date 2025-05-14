@@ -1853,7 +1853,16 @@ export async function executeWorkflow(
           if (stepParams.pointId && typeof stepParams.pointId === 'string') {
             // Replace {pickupShelf} with the actual shelf ID
             const originalPointId = stepParams.pointId;
-            stepParams.pointId = stepParams.pointId.replace('{pickupShelf}', templateParams.pickupShelf);
+            
+            // Check if shelfId already contains "_load"
+            let cleanShelfId = templateParams.pickupShelf;
+            if (cleanShelfId.endsWith('_load')) {
+              // Remove the "_load" suffix to prevent duplication
+              cleanShelfId = cleanShelfId.replace('_load', '');
+              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.pickupShelf} → ${cleanShelfId}`);
+            }
+            
+            stepParams.pointId = stepParams.pointId.replace('{pickupShelf}', cleanShelfId);
             logWorkflow(workflowId, `Processed point ID: ${originalPointId} → ${stepParams.pointId}`);
           }
           
@@ -2016,7 +2025,16 @@ export async function executeWorkflow(
           if (stepParams.pointId && typeof stepParams.pointId === 'string') {
             // Replace {dropoffShelf} with the actual shelf ID
             const originalPointId = stepParams.pointId;
-            stepParams.pointId = stepParams.pointId.replace('{dropoffShelf}', templateParams.dropoffShelf);
+            
+            // Check if shelfId already contains "_load"
+            let cleanShelfId = templateParams.dropoffShelf;
+            if (cleanShelfId.endsWith('_load')) {
+              // Remove the "_load" suffix to prevent duplication
+              cleanShelfId = cleanShelfId.replace('_load', '');
+              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.dropoffShelf} → ${cleanShelfId}`);
+            }
+            
+            stepParams.pointId = stepParams.pointId.replace('{dropoffShelf}', cleanShelfId);
             logWorkflow(workflowId, `Processed point ID: ${originalPointId} → ${stepParams.pointId}`);
           }
           
@@ -2125,7 +2143,8 @@ export async function executeWorkflow(
         const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
         missionId = mission.id;
         logWorkflow(workflowId, `✅ Created central-to-shelf mission with ID: ${missionId}`);
-      } catch (stepError) {
+      } catch (error) {
+        const stepError = error as Error;
         const errorMsg = `❌ Error creating central-to-shelf workflow: ${stepError.message}`;
         logWorkflow(workflowId, errorMsg, 'failed');
         throw new Error(errorMsg);
@@ -2186,6 +2205,9 @@ export async function executeWorkflow(
       errorDetails = `Could not find the shelf point for ID: ${params.shelfId}. Make sure it exists on the robot map.`;
     } else if (errorDetails.includes('docking point')) {
       errorDetails = `Could not find docking point. Make sure all required points exist on the robot map.`;
+    } else if (errorDetails.includes('_load_load_docking')) {
+      // This is a common issue with duplicate _load suffixes
+      errorDetails = `Invalid point ID format detected (duplicate '_load' suffix). This has been fixed in the system, please try again.`;
     }
     
     return {

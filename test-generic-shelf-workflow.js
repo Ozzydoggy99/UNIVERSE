@@ -7,16 +7,22 @@
 
 import axios from 'axios';
 
-async function testGenericShelfWorkflow(shelfId = '104') {
+async function testGenericShelfWorkflow(shelfId = '104', direction = 'shelf-to-central') {
   try {
-    console.log(`Testing shelf-to-central workflow with shelf ID: ${shelfId}`);
+    console.log(`Testing ${direction} workflow with shelf ID: ${shelfId}`);
+    
+    // Set operationType based on the direction
+    let operationType = 'pickup';
+    if (direction === 'central-to-shelf') {
+      operationType = 'dropoff';
+    }
     
     const response = await axios.post('http://localhost:5000/api/workflows/execute', {
-      workflowType: 'shelf-to-central', // Use the new generic workflow type
+      workflowType: direction, // Use the specified workflow direction
       params: {
         serviceType: 'robot',
-        operationType: 'pickup',
-        floorId: '1',
+        operationType: operationType,
+        floorId: '1', // Floor1 - where all our shelf points are located
         shelfId: shelfId
       }
     });
@@ -24,34 +30,55 @@ async function testGenericShelfWorkflow(shelfId = '104') {
     console.log('Workflow execution response:');
     console.log(JSON.stringify(response.data, null, 2));
     
-    console.log('✅ Workflow execution started successfully!');
+    console.log(`✅ ${direction} workflow execution started successfully!`);
     return response.data;
   } catch (error) {
-    console.error('Error executing workflow:');
+    console.error(`Error executing ${direction} workflow:`);
     console.error(error.response?.data || error.message);
     return null;
   }
 }
 
-// Test all shelf IDs on Floor1
+// Test shelf IDs with specified workflow direction
 async function testAllShelfPoints() {
   const shelfIds = ['104', '112', '115']; // All shelf points on Floor1
   
   console.log('------------------------------------------------------');
-  console.log('TESTING GENERIC WORKFLOW WITH ALL SHELF POINTS');
+  console.log('TESTING GENERIC WORKFLOW WITH SHELF POINTS');
   console.log('------------------------------------------------------');
   
-  // Only test the first shelf (104) by default
-  // SAFETY: Don't test all shelves at once as it would cause multiple robot missions
-  // To test other shelves, specify the shelf ID as a command line argument
-  const testShelfId = process.argv[2] || shelfIds[0];
+  // Get command line arguments
+  const testShelfId = process.argv[2] || shelfIds[0]; // Default to 104
+  const direction = process.argv[3] || 'shelf-to-central'; // Default direction
   
-  console.log(`Testing shelf point: ${testShelfId}`);
-  await testGenericShelfWorkflow(testShelfId);
+  // Validate direction
+  if (direction !== 'shelf-to-central' && direction !== 'central-to-shelf') {
+    console.error(`Invalid direction: ${direction}. Must be 'shelf-to-central' or 'central-to-shelf'`);
+    return;
+  }
+  
+  console.log(`Testing ${direction} workflow with shelf point: ${testShelfId}`);
+  await testGenericShelfWorkflow(testShelfId, direction);
 }
 
 // Main function to run the test
 async function main() {
+  // Command line arguments format: node test-generic-shelf-workflow.js [shelfId] [direction]
+  // Example: node test-generic-shelf-workflow.js 104 shelf-to-central
+  // Example: node test-generic-shelf-workflow.js 115 central-to-shelf
+  
+  console.log(`
+Usage:
+  node test-generic-shelf-workflow.js [shelfId] [direction]
+  
+  [shelfId]    - Shelf ID to test with (default: 104)
+  [direction]  - Workflow direction: 'shelf-to-central' or 'central-to-shelf' (default: shelf-to-central)
+  
+  Examples:
+    node test-generic-shelf-workflow.js 104 shelf-to-central
+    node test-generic-shelf-workflow.js 115 central-to-shelf
+  `);
+  
   await testAllShelfPoints();
 }
 
