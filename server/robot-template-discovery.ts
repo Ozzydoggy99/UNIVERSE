@@ -116,51 +116,91 @@ async function getMaps(): Promise<any[]> {
  * Get all points for a specific map
  */
 async function getMapPoints(mapId: string | number): Promise<any[]> {
-  try {
-    logger.info(`Fetching points for map ${mapId} from robot API: ${ROBOT_API_URL}/maps/${mapId}/points`);
-    const response = await axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, {
-      headers: {
-        'X-Robot-Serial': ROBOT_SERIAL,
-        'X-Robot-Secret': ROBOT_SECRET
-      }
-    });
-    
-    // Handle different response formats
-    let points = [];
-    
-    // Log the full response for debugging
-    logger.info(`Raw points response for map ${mapId}: ${JSON.stringify(response.data)}`);
-    
-    if (response.data) {
-      if (Array.isArray(response.data)) {
-        // Direct array response
-        points = response.data;
-      } else if (response.data.points && Array.isArray(response.data.points)) {
-        // Objects with points array
-        points = response.data.points;
-      } else if (response.data.id || response.data.name) {
-        // Single point returned as object
-        points = [response.data];
-      }
-    }
-    
-    if (points.length > 0) {
-      logger.info(`Retrieved ${points.length} points for map ${mapId}`);
-      // Map the point IDs, handling different property names
-      const pointIds = points.map((p: any) => p.id || p.point_id || p.name || 'unknown');
-      logger.info(`Point IDs for map ${mapId}: ${JSON.stringify(pointIds)}`);
+  // Try several different endpoint patterns
+  const endpoints = [
+    `/maps/${mapId}/points`,
+    `/maps/${mapId}/point`,
+    `/maps/${mapId}`,
+    `/points?map_id=${mapId}`,
+    `/point?map_id=${mapId}`
+  ];
+  
+  let points: any[] = [];
+  
+  for (const endpoint of endpoints) {
+    try {
+      logger.info(`Fetching points for map ${mapId} from robot API: ${ROBOT_API_URL}${endpoint}`);
+      const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
+        headers: {
+          'X-Robot-Serial': ROBOT_SERIAL,
+          'X-Robot-Secret': ROBOT_SECRET
+        }
+      });
       
-      // Full details for debugging
-      logger.info(`First point full data: ${JSON.stringify(points[0])}`);
-      
-      return points;
+      // Handle different response formats
+      if (response.data) {
+        // Try to parse points from response based on different formats
+        if (Array.isArray(response.data)) {
+          // Direct array response
+          points = response.data;
+        } else if (response.data.points && Array.isArray(response.data.points)) {
+          // Objects with points array
+          points = response.data.points;
+        } else if (response.data.id || response.data.name) {
+          // Single point returned as object
+          points = [response.data];
+        } else if (typeof response.data === 'object') {
+          // Maybe the data contains point information directly
+          // Check if this is a map object with point information
+          if (response.data.points_url) {
+            // Try to get points from the points_url
+            try {
+              const pointsUrl = response.data.points_url;
+              logger.info(`Found points_url: ${pointsUrl}`);
+              
+              // Make a separate API call to fetch points
+              const pointsResponse = await axios.get(pointsUrl, {
+                headers: {
+                  'X-Robot-Serial': ROBOT_SERIAL,
+                  'X-Robot-Secret': ROBOT_SECRET
+                }
+              });
+              
+              if (pointsResponse.data && Array.isArray(pointsResponse.data)) {
+                points = pointsResponse.data;
+              } else if (pointsResponse.data && pointsResponse.data.points && 
+                         Array.isArray(pointsResponse.data.points)) {
+                points = pointsResponse.data.points;
+              }
+            } catch (pointsError) {
+              logger.warn(`Error fetching points from points_url: ${pointsError}`);
+            }
+          }
+        }
+        
+        // If we found points, break out of the loop
+        if (points.length > 0) {
+          logger.info(`Retrieved ${points.length} points for map ${mapId} using endpoint ${endpoint}`);
+          const pointIds = points.map((p: any) => p.id || p.point_id || p.name || 'unknown');
+          logger.info(`Point IDs for map ${mapId}: ${JSON.stringify(pointIds)}`);
+          logger.info(`First point full data: ${JSON.stringify(points[0])}`);
+          break;
+        }
+      }
+    } catch (error) {
+      logger.error(`Error fetching points for map ${mapId} using endpoint ${endpoint}: ${error}`);
+      // Continue trying other endpoints
     }
-    logger.warn(`No points found in robot response for map ${mapId}: ${JSON.stringify(response.data)}`);
-    return [];
-  } catch (error) {
-    logger.error(`Error fetching points for map ${mapId}: ${error}`);
-    return [];
   }
+  
+  // Debug log whether we found points
+  if (points.length === 0) {
+    logger.warn(`MAP POINTS DEBUG - Map ${mapId} has 0 points: ${JSON.stringify(points)}`);
+  } else {
+    logger.info(`Map ${mapId} has ${points.length} points: ${points.map(p => p.id || p.name).join(', ')}`);
+  }
+  
+  return points;
 }
 
 /**
@@ -299,8 +339,10 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
     // Define a single universal "robot" service type when we have pickup or dropoff capabilities
     // This removes the hardcoded service types (laundry, trash) and uses a unified approach
     // Also consider if we have any shelf points available
-    const hasShelfPoints = maps.some(map => map.shelfPoints.length > 0);
-    if (hasCentralPickup || hasCentralDropoff || hasShelfPoints) {
+    const hasShelfPoints = maps.some(map => map.shelfPoints && map.shelfPoints.length > 0);
+    // Always include the robot service type regardless of what capabilities are available
+    // This ensures the UI works even when we're still discovering capabilities
+    {
       serviceTypes.push({
         id: 'robot',
         displayName: 'Robot Service',
