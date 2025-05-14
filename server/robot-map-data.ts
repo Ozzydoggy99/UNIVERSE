@@ -52,6 +52,15 @@ export async function fetchRobotMapPoints(): Promise<Point[]> {
     const features = overlays.features || [];
     console.log(`✅ Found ${features.length} features in map overlays`);
 
+    // DEBUG: Let's see what point IDs we're actually getting from the robot
+    console.log('------ POINT IDS FROM ROBOT API ------');
+    features.forEach((f: any) => {
+      if (f && f.properties && f.properties.name) {
+        console.log(`Point ID from robot: "${f.properties.name}"`);
+      }
+    });
+    console.log('------ END POINT IDS ------');
+
     // Filter to only point features and extract data
     const points: Point[] = features
       .filter((f: any) => f.geometry?.type === 'Point' && f.properties)
