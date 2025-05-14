@@ -1756,6 +1756,14 @@ export async function executeWorkflow(
         throw new Error(`Could not find shelf point or docking point for ${params.shelfId}`);
       }
       
+      // Find specifically needed central dropoff points
+      const dropoffPoint = allPoints.find(p => p.id === 'drop-off_load');
+      const dropoffDockingPoint = allPoints.find(p => p.id === 'drop-off_load_docking');
+      
+      if (!dropoffPoint || !dropoffDockingPoint) {
+        throw new Error(`Could not find central dropoff points`);
+      }
+
       // Build standard Zone 104 workflow steps
       workflowSteps = [
         {
@@ -1788,7 +1796,40 @@ export async function executeWorkflow(
           completed: false,
           retryCount: 0
         },
-        // Add other steps like moving to dropoff point, etc.
+        // Move to central dropoff location with the bin
+        {
+          type: 'move',
+          params: {
+            x: dropoffDockingPoint.x,
+            y: dropoffDockingPoint.y,
+            ori: dropoffDockingPoint.theta,
+            label: 'Moving to central dropoff'
+          },
+          completed: false,
+          retryCount: 0
+        },
+        // Align with the dropoff rack
+        {
+          type: 'align_with_rack',
+          params: {
+            x: dropoffPoint.x,
+            y: dropoffPoint.y,
+            ori: dropoffPoint.theta,
+            label: 'Aligning with dropoff rack'
+          },
+          completed: false,
+          retryCount: 0
+        },
+        // Lower the jack to release the bin
+        {
+          type: 'jack_down',
+          params: {
+            waitComplete: true
+          },
+          completed: false,
+          retryCount: 0
+        },
+        // Return to charger when done
         {
           type: 'return_to_charger',
           params: {},
