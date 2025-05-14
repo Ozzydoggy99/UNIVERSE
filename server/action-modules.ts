@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { sleep } from './utilities';
+import { getAuthHeaders } from './robot-constants';
 
 // Types based on our actual implementation
 export type ActionResult = {
@@ -291,9 +292,92 @@ export const jackUpAction: ActionModule = {
 };
 
 /**
- * Jack Down
- * Lowers the robot's jack to release a bin
+ * To Unload Point
+ * Moves the robot to the unload position at a shelf or rack for unloading a bin
+ * This is different from alignWithRack which is used for pickup
  */
+export const toUnloadPointAction: ActionModule = {
+  id: 'toUnloadPoint',
+  name: 'To Unload Point',
+  description: 'Move to unload position at a shelf or rack for unloading a bin',
+  requiresPoints: ['location'],
+  
+  async validate(params: ActionParams): Promise<ValidationResult> {
+    const errors = [];
+    
+    if (!params.pointId) {
+      errors.push('Point ID is required');
+    }
+    
+    return { 
+      valid: errors.length === 0,
+      errors
+    };
+  },
+  
+  async execute(params: ActionParams): Promise<ActionResult> {
+    try {
+      // Resolve the point ID using our naming convention
+      const resolvedPointId = resolvePointId(params.pointId, params);
+      
+      console.log(`[ACTION] Moving to unload point at: ${resolvedPointId}`);
+      
+      // Based on the AutoXing API documentation, we need to use the 'to_unload_point' move type
+      // The API requires passing the point ID without the '_docking' suffix
+      // Remove '_docking' suffix if present (we want the load point, not the docking point)
+      const loadPointId = resolvedPointId.replace('_docking', '');
+      console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
+      
+      const response = await axios.post(`http://47.180.91.99:8090/chassis/moves`, {
+        creator: 'robot-management-platform',
+        type: 'to_unload_point',  // Use to_unload_point specifically for unloading operations
+        target_x: 0, // These values will be ignored since the point ID is what matters
+        target_y: 0,
+        target_z: 0,
+        point_id: loadPointId // This should be the load point, not the docking point
+      });
+      
+      // The response should contain the move action ID
+      const moveActionId = response.data.id;
+      console.log(`[ACTION] Created to_unload_point action with ID: ${moveActionId}`);
+      
+      // Wait for the move to complete
+      const maxRetries = params.maxRetries || 60; // Increase timeout for unload point positioning
+      let retries = 0;
+      
+      while (retries < maxRetries) {
+        // Check move action status
+        const statusResponse = await axios.get(`http://47.180.91.99:8090/chassis/moves/${moveActionId}`);
+        const state = statusResponse.data.state;
+        
+        if (state === 'succeeded') {
+          console.log(`[ACTION] Successfully moved to unload point at: ${resolvedPointId}`);
+          return { success: true };
+        } else if (state === 'failed' || state === 'cancelled') {
+          console.error(`[ACTION] Failed to move to unload point, state: ${state}`);
+          return { 
+            success: false, 
+            error: `Failed to move to unload point: ${statusResponse.data.message || state}` 
+          };
+        }
+        
+        // Wait before checking again
+        await sleep(1000);
+        retries++;
+      }
+      
+      // If we reach here, the operation timed out
+      return { success: false, error: 'Timeout waiting for unload point positioning completion' };
+    } catch (error: any) {
+      console.error(`[ACTION] Error in toUnloadPoint:`, error);
+      return { 
+        success: false, 
+        error: `Failed to move to unload point: ${error.message || 'Unknown error'}`
+      };
+    }
+  }
+};
+
 export const jackDownAction: ActionModule = {
   id: 'jackDown',
   name: 'Jack Down',
@@ -484,7 +568,7 @@ export const checkBinStatusAction: ActionModule = {
       try {
         // Call the robot sensor API to check bin status using sensors
         const sensorResponse = await axios.get(`http://47.180.91.99:8090/sensors`, { 
-          headers: getHeaders() 
+          headers: getAuthHeaders() 
         });
         
         // Parse the sensor data to determine if a bin is present
