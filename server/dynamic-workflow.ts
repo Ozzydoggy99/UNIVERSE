@@ -638,13 +638,31 @@ async function moveToUnloadPoint(workflowId: string, x: number, y: number, ori: 
       // Continue anyway since we're fairly confident the jack is up based on the workflow steps
     }
     
-    // Create to_unload_point move command
+    // Get the point_id and rack_area_id for the target coordinates
+    // This is REQUIRED for the to_unload_point move type to work correctly
+    const pointId = label.includes('_') ? label : `${label}_load`; // Ensure load suffix
+    
+    // Handle special case for drop-off points with hyphens
+    let rackAreaId;
+    if (pointId.startsWith('drop-off')) {
+      rackAreaId = 'drop-off';
+      logWorkflow(workflowId, `⚠️ CRITICAL: Using special rack_area_id="${rackAreaId}" for drop-off point`);
+    } else {
+      // For regular shelf points, extract the area ID (everything before first underscore)
+      const areaMatch = pointId.match(/^([^_]+)/);
+      rackAreaId = areaMatch ? areaMatch[1] : pointId;
+      logWorkflow(workflowId, `⚠️ Using extracted rack_area_id="${rackAreaId}" for point "${pointId}"`);
+    }
+    
+    // Create to_unload_point move command with ALL REQUIRED PARAMETERS
     const unloadCommand = {
       creator: 'workflow-service',
       type: 'to_unload_point', // Special move type for dropping off bins
       target_x: x,
       target_y: y,
-      target_ori: ori
+      target_ori: ori,
+      point_id: pointId,     // REQUIRED: The point ID for the unload location
+      rack_area_id: rackAreaId  // REQUIRED: The rack area ID for proper alignment
     };
     
     logWorkflow(workflowId, `⚠️ UNLOAD OPERATION: Creating to_unload_point move: ${JSON.stringify(unloadCommand)}`);
