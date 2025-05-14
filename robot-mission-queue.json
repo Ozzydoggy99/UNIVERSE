@@ -6284,8 +6284,9 @@
         "params": {
           "waitComplete": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -6295,8 +6296,13 @@
           "ori": 0,
           "label": "Move to dropoff shelf docking position"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to dropoff shelf docking position completed successfully",
+          "moveId": 4636
+        }
       },
       {
         "type": "to_unload_point",
@@ -6307,8 +6313,13 @@
           "point_id": "115_load",
           "label": "Move to unload point at dropoff shelf"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4637,
+          "message": "Move to unload point completed successfully"
+        }
       },
       {
         "type": "jack_down",
@@ -6336,9 +6347,9 @@
       }
     ],
     "status": "in_progress",
-    "currentStepIndex": 2,
+    "currentStepIndex": 5,
     "createdAt": "2025-05-14T21:09:51.443Z",
-    "updatedAt": "2025-05-14T21:10:51.532Z",
+    "updatedAt": "2025-05-14T21:12:10.279Z",
     "robotSn": "L382502104987ir"
   }
 ]
