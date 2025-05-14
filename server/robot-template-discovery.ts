@@ -38,8 +38,10 @@ export interface RobotCapabilities {
 export interface MapData {
   id: string;  // Map ID (e.g., "Floor1")
   name: string; // Display name (e.g., "Floor 1")
+  displayName?: string; // Alternate display name
   floorNumber: number; // Numeric floor number
   shelfPoints: ShelfPoint[]; // Available shelf points on this map
+  points?: any[]; // Raw points data from the robot API
 }
 
 export interface ShelfPoint {

@@ -409,17 +409,76 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       const robotId = ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
-      // Find the specified map
-      const map = capabilities.maps.find(m => m.id === floorId);
+      // Debug log the maps
+      logger.info(`Available maps: ${JSON.stringify(capabilities.maps.map(m => ({ id: m.id, displayName: m.displayName })))}`);
+      
+      // Convert floorId to string for comparison since map IDs could be numbers
+      const floorMapId = String(floorId);
+      
+      // Find the specified map - match by either ID or display name
+      const map = capabilities.maps.find(m => 
+        String(m.id) === floorMapId || 
+        String(m.displayName) === floorMapId
+      );
       
       if (map) {
-        // Get shelf points for the map
-        shelves = map.shelfPoints.map(point => ({
-          id: point.id,
-          displayName: point.displayName,
-          x: point.x,
-          y: point.y
-        }));
+        logger.info(`Found map for floor ${floorId}: ${JSON.stringify(map)}`);
+        
+        // Check if we have shelf points
+        if (map.shelfPoints && map.shelfPoints.length > 0) {
+          // Get shelf points for the map
+          shelves = map.shelfPoints.map(point => ({
+            id: point.id,
+            displayName: point.displayName,
+            x: point.x,
+            y: point.y
+          }));
+        } else {
+          // If no specific shelf points exist, try to retrieve points from the full points array
+          logger.info(`No shelf points found, extracting from full points array for floor ${floorId}`);
+          
+          if (map.points && Array.isArray(map.points)) {
+            const filteredPoints = map.points.filter((point: any) => {
+              const name = (point.name || '').toLowerCase();
+              if (operationType === 'pickup') {
+                return name.includes('pickup') || name.includes('shelf') || name.includes('load');
+              } else if (operationType === 'dropoff') {
+                return name.includes('dropoff') || name.includes('shelf') || name.includes('dock');
+              }
+              return true; // Include all points for other operation types
+            });
+            
+            // Map the filtered points to the expected shelf format
+            shelves = filteredPoints.map((point: any) => {
+              // Extract position information from different possible structures
+              let x = 0, y = 0;
+              if (point.pose?.position) {
+                x = point.pose.position.x || 0;
+                y = point.pose.position.y || 0;
+              } else if (point.x !== undefined && point.y !== undefined) {
+                x = point.x;
+                y = point.y;
+              } else if (point.coord && point.coord.length >= 2) {
+                x = point.coord[0] || 0;
+                y = point.coord[1] || 0;
+              } else if (point.position) {
+                x = point.position.x || 0;
+                y = point.position.y || 0;
+              }
+              
+              // Format display name
+              const name = point.name || point.id || `Point ${point.id}`;
+              const displayName = name.replace(/_/g, ' ').replace(/(\d+)_(\w+)/, '$1 $2');
+              
+              return {
+                id: String(point.id || point.name),
+                displayName,
+                x,
+                y
+              };
+            });
+          }
+        }
       } else {
         logger.warn(`Floor ${floorId} not found in robot capabilities`);
         throw new Error(`Floor ${floorId} not found in robot capabilities`);
@@ -460,17 +519,76 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       const robotId = ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
-      // Find the specified map
-      const map = capabilities.maps.find(m => m.id === floorId);
+      // Debug log the maps
+      logger.info(`Available maps: ${JSON.stringify(capabilities.maps.map(m => ({ id: m.id, displayName: m.displayName })))}`);
+      
+      // Convert floorId to string for comparison since map IDs could be numbers
+      const floorMapId = String(floorId);
+      
+      // Find the specified map - match by either ID or display name
+      const map = capabilities.maps.find(m => 
+        String(m.id) === floorMapId || 
+        String(m.displayName) === floorMapId
+      );
       
       if (map) {
-        // Get shelf points for the map
-        shelves = map.shelfPoints.map(point => ({
-          id: point.id,
-          displayName: point.displayName,
-          x: point.x,
-          y: point.y
-        }));
+        logger.info(`Found map for floor ${floorId}: ${JSON.stringify(map)}`);
+        
+        // Check if we have shelf points
+        if (map.shelfPoints && map.shelfPoints.length > 0) {
+          // Get shelf points for the map
+          shelves = map.shelfPoints.map(point => ({
+            id: point.id,
+            displayName: point.displayName,
+            x: point.x,
+            y: point.y
+          }));
+        } else {
+          // If no specific shelf points exist, try to retrieve points from the full points array
+          logger.info(`No shelf points found, extracting from full points array for floor ${floorId}`);
+          
+          if (map.points && Array.isArray(map.points)) {
+            const filteredPoints = map.points.filter((point: any) => {
+              const name = (point.name || '').toLowerCase();
+              if (operationType === 'pickup') {
+                return name.includes('pickup') || name.includes('shelf') || name.includes('load');
+              } else if (operationType === 'dropoff') {
+                return name.includes('dropoff') || name.includes('shelf') || name.includes('dock');
+              }
+              return true; // Include all points for other operation types
+            });
+            
+            // Map the filtered points to the expected shelf format
+            shelves = filteredPoints.map((point: any) => {
+              // Extract position information from different possible structures
+              let x = 0, y = 0;
+              if (point.pose?.position) {
+                x = point.pose.position.x || 0;
+                y = point.pose.position.y || 0;
+              } else if (point.x !== undefined && point.y !== undefined) {
+                x = point.x;
+                y = point.y;
+              } else if (point.coord && point.coord.length >= 2) {
+                x = point.coord[0] || 0;
+                y = point.coord[1] || 0;
+              } else if (point.position) {
+                x = point.position.x || 0;
+                y = point.position.y || 0;
+              }
+              
+              // Format display name
+              const name = point.name || point.id || `Point ${point.id}`;
+              const displayName = name.replace(/_/g, ' ').replace(/(\d+)_(\w+)/, '$1 $2');
+              
+              return {
+                id: String(point.id || point.name),
+                displayName,
+                x,
+                y
+              };
+            });
+          }
+        }
       } else {
         logger.warn(`Floor ${floorId} not found in robot capabilities (direct endpoint)`);
         throw new Error(`Floor ${floorId} not found in robot capabilities`);
