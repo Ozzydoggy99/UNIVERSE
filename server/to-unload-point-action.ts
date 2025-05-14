@@ -95,21 +95,30 @@ export const toUnloadPointAction: Action = {
       // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
       
-      // Special handling for the drop-off area - including both drop-off_load and drop-off_unload variants
-      if (loadPointId.startsWith('drop-off_')) {
+      // Identify if this is a point ID with a hyphen in it
+      const hasHyphen = loadPointId.includes('-');
+      
+      // Use different patterns based on whether we have a hyphen
+      if (hasHyphen && loadPointId.startsWith('drop-off')) {
+        // Special handling for drop-off points - always use 'drop-off' as the rack area ID
         rackAreaId = 'drop-off';
-        console.log(`[UNLOAD-POINT-ACTION] DETECTED DROP-OFF POINT: ${loadPointId}`);
-        console.log(`[UNLOAD-POINT-ACTION] Using special rack area ID for drop-off: ${rackAreaId}`);
       } else {
-        // For other areas, extract everything before the first underscore
+        // For all other points, use everything before the first underscore
         const areaMatch = loadPointId.match(/^([^_]+)/);
         rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
-        console.log(`[ACTION] Using standard rack area ID: ${rackAreaId}`);
+      }
+      
+      // Log exactly what was extracted
+      console.log(`[UNLOAD-POINT-ACTION] Extracted rack area ID "${rackAreaId}" from point "${loadPointId}"`);
+      
+      // Double-check if we're dealing with a hyphenated point ID
+      if (rackAreaId.includes('-')) {
+        console.log(`[UNLOAD-POINT-ACTION] DETECTED HYPHENATED POINT ID: ${loadPointId}`);
       }
       
       // Extra logging for debugging
-      if (loadPointId === 'drop-off_unload') {
-        console.log(`[UNLOAD-POINT-ACTION] EXPLICIT HANDLING FOR drop-off_unload`);
+      if (loadPointId.includes('drop-off')) {
+        console.log(`[UNLOAD-POINT-ACTION] EXPLICIT HANDLING FOR ${loadPointId}`);
         console.log(`[UNLOAD-POINT-ACTION] Confirming rack_area_id: ${rackAreaId}`);
       }
       
