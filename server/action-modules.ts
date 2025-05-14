@@ -619,5 +619,6 @@ export const actionModules = {
   jackDown: jackDownAction,
   reverseFromRack: reverseFromRackAction,
   returnToCharger: returnToChargerAction,
-  checkBinStatus: checkBinStatusAction
+  checkBinStatus: checkBinStatusAction,
+  toUnloadPoint: toUnloadPointAction
 };
