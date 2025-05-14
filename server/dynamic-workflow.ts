@@ -194,10 +194,10 @@ async function getMapPoints(): Promise<MapPoints> {
         const hasSpecialObjectIdFormat = point.id.length === 24 && /^[0-9a-f]{24}$/i.test(point.id);
         
         // Process based on naming convention with more flexible detection
-        if (point.id.includes('_load') && !point.id.includes('_docking')) {
+        if (point.id.toLowerCase().includes('_load') && !point.id.toLowerCase().includes('_docking')) {
           console.log(`✅ Found shelf point: ${point.id}`);
           shelfPoints.push(point);
-        } else if (point.id.includes('_docking')) {
+        } else if (point.id.toLowerCase().includes('_docking')) {
           console.log(`✅ Found docking point: ${point.id}`);
           dockingPoints.push(point);
           
@@ -206,14 +206,14 @@ async function getMapPoints(): Promise<MapPoints> {
           if (lowerCaseId.includes('drop-off_load_docking') || lowerCaseId.includes('dropoff_load_docking')) {
             console.log(`✅ Found dropoff docking point: ${point.id}`);
             dropoffDockingPoint = point;
-          } else if (lowerCaseId.includes('pickup_load_docking')) {
+          } else if (lowerCaseId.includes('pick-up_load_docking')) {
             console.log(`✅ Found pickup docking point: ${point.id}`);
             pickupDockingPoint = point;
           }
         } else if (point.id.toLowerCase().includes('drop-off_load') || point.id.toLowerCase().includes('dropoff_load')) {
           console.log(`✅ Found dropoff point: ${point.id}`);
           dropoffPoint = point;
-        } else if (point.id.toLowerCase().includes('pickup_load')) {
+        } else if (point.id.toLowerCase().includes('pick-up_load')) {
           console.log(`✅ Found pickup point: ${point.id}`);
           pickupPoint = point;
         } else if (point.id.toLowerCase().includes('charger')) {
@@ -323,9 +323,31 @@ async function getMapPoints(): Promise<MapPoints> {
  * Only uses actual data from the robot API, no virtual points
  */
 function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string], floorId?: string): Point | null {
-  // First try the standard naming convention
-  const dockingId = `${shelfId}_docking`;
-  let dockingPoint = floorPoints.dockingPoints.find(p => p.id === dockingId);
+  // First try the standard naming convention with load_docking suffix (case insensitive)
+  const dockingId = `${shelfId}_load_docking`;
+  const altDockingId = `${shelfId}_docking`;
+  
+  // Try to find matching points with case-insensitive comparison
+  let dockingPoint = floorPoints.dockingPoints.find(p => 
+    p.id.toLowerCase() === dockingId.toLowerCase() || 
+    p.id.toLowerCase() === altDockingId.toLowerCase()
+  );
+  
+  if (!dockingPoint) {
+    console.log(`📝 Could not find exact docking point match for shelf ${shelfId}, trying alternate formats`);
+    
+    // If it's a numeric shelf ID (like "104"), try with the standard format
+    if (/^\d+$/.test(shelfId)) {
+      const numericDockingId = `${shelfId}_load_docking`;
+      dockingPoint = floorPoints.dockingPoints.find(p => 
+        p.id.toLowerCase().includes(numericDockingId.toLowerCase())
+      );
+      
+      if (dockingPoint) {
+        console.log(`✅ Found docking point for shelf ${shelfId} using numeric format: ${dockingPoint.id}`);
+      }
+    }
+  }
   
   // If no point is found with standard naming convention and the shelf ID is a MongoDB ObjectId
   if (!dockingPoint && shelfId.length === 24 && /^[0-9a-f]{24}$/i.test(shelfId)) {
