@@ -200,11 +200,33 @@ export function OperationSelectionPage() {
   
   // Fetch operations directly from the operations endpoint
   // This way the component works with or without a service type in the URL
-  const { data, isLoading, error } = useQuery<unknown, Error, { operations: OperationType[] }>({
+  const { data, isLoading, error, refetch } = useQuery<unknown, Error, { operations: OperationType[] }>({
     queryKey: ['/api/simplified-workflow/operations'],
     retry: 1,
     select: (data: any) => data as { operations: OperationType[] }
   });
+  
+  // Function to clear robot capabilities cache and refetch operations
+  const clearCacheAndRefresh = async () => {
+    try {
+      await fetch('/api/robot-capabilities/clear-cache', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      toast({
+        title: "Cache Cleared",
+        description: "Robot capabilities cache has been cleared. Refreshing data...",
+        variant: "default"
+      });
+      refetch();
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to clear cache. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
   
   if (isLoading) {
     return (

@@ -32,6 +32,22 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
   logger.info('Registering robot capabilities API routes');
 
   /**
+   * Clear robot capabilities cache
+   * This forces a refresh of robot capabilities data
+   */
+  app.post('/api/robot-capabilities/clear-cache', async (req: Request, res: Response) => {
+    try {
+      const robotId = ROBOT_SERIAL;
+      await storage.clearRobotCapabilities(robotId);
+      logger.info(`Cleared robot capabilities cache for robot ${robotId}`);
+      res.status(200).json({ success: true, message: `Cleared capabilities cache for robot ${robotId}` });
+    } catch (error) {
+      logger.error(`Error clearing robot capabilities cache: ${error}`);
+      res.status(500).json({ error: 'Failed to clear robot capabilities cache' });
+    }
+  });
+
+  /**
    * Get available operations based on robot capabilities
    * 
    * This endpoint analyzes the current robot maps and point configurations 
