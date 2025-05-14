@@ -62,9 +62,17 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
     try {
       appendLog(`➡️ Sending robot to: ${point.id} (${point.x}, ${point.y})`);
       const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-        action: "move_to",
+        creator: "robot-mission-runner",
+        type: "standard",
         target_x: point.x,
-        target_y: point.y
+        target_y: point.y,
+        target_ori: point.theta || 0,
+        properties: {
+          max_trans_vel: 0.5,  // Medium speed
+          max_rot_vel: 0.5,
+          acc_lim_x: 0.3,
+          acc_lim_theta: 0.3
+        }
       }, { headers });
 
       appendLog(`✅ Move to ${point.id} started (MoveID: ${response.data?.id})`);

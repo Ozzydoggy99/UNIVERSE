@@ -205,12 +205,19 @@ export const jackUpAction: ActionModule = {
     try {
       console.log(`[ACTION] Raising jack to pick up bin`);
       
-      // Based on our actual implementation
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/forks/up`);
+      // Use the correct API endpoint from documentation
+      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
+      const headers = {
+        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
+      };
       
-      // Our existing code uses a fixed sleep here
+      // According to the robot documentation, we should use /services/jack_up
+      const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
+      
+      // Extended wait time for more reliable operation
       // Make it configurable while maintaining backward compatibility
-      const waitTime = params.waitTime || 3000;
+      const waitTime = params.waitTime || 8000; // Longer wait time (8 seconds) for the operation to complete
+      console.log(`[ACTION] Waiting ${waitTime}ms for jack operation to complete...`);
       await sleep(waitTime);
       
       console.log(`[ACTION] Jack raised successfully`);
