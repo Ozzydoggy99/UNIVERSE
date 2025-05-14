@@ -25,6 +25,7 @@ import {
 import { getRackSpecifications } from './robot-settings-api';
 import { missionQueue, MissionStep } from './mission-queue';
 import robotPointsMap, { getShelfPoint, getShelfDockingPoint } from './robot-points-map';
+import { workflowTemplates } from './workflow-templates';
 
 // Configuration
 const LOG_PATH = 'robot-dynamic-workflow.log';
@@ -1745,99 +1746,108 @@ export async function executeWorkflow(
     logWorkflow(workflowId, `✅ Cancelled any existing active missions`);
     
     if (workflowType === 'zone-104-workflow' || workflowType === 'shelf-to-central') {
-      // Create a mission with steps to pick up from any shelf point and move to central dropoff
-      const missionName = `Shelf to Central Workflow (${params.shelfId}) - Dynamic execution`;
+      // Use the standardized shelf-to-central workflow template
+      const workflowTemplate = workflowTemplates['shelf-to-central'];
+      const missionName = `${workflowTemplate.name} (${params.shelfId}) - Dynamic execution`;
       
-      // Get coordinates for the shelf points - works for any shelf point (104, 115, etc.)
-      const shelfPoint = await getShelfPoint(params.shelfId);
-      const dockingPoint = await getShelfDockingPoint(params.shelfId);
+      // Map the user's shelf ID to the template's expected pickupShelf input
+      const templateParams = {
+        pickupShelf: params.shelfId
+      };
       
-      if (!shelfPoint || !dockingPoint) {
-        throw new Error(`Could not find shelf point or docking point for ${params.shelfId}`);
-      }
+      logWorkflow(workflowId, `Using template ${workflowTemplate.id} with pickupShelf=${params.shelfId}`);
       
-      // Find central dropoff points using the same utility functions we used for shelf points
-      // This ensures consistent handling for all points
-      const dropoffPoint = getShelfPoint('drop-off');
-      const dropoffDockingPoint = getShelfDockingPoint('drop-off');
+      // Build steps from the template
+      workflowSteps = [];
       
-      if (!dropoffPoint || !dropoffDockingPoint) {
-        throw new Error(`Could not find central dropoff points`);
-      }
-
-      // Build generic shelf-to-central workflow steps
-      workflowSteps = [
-        {
-          type: 'move',
-          params: {
-            x: dockingPoint.x,
-            y: dockingPoint.y,
-            ori: dockingPoint.theta, 
-            label: `Docking at shelf point ${params.shelfId}`
-          },
-          completed: false,
-          retryCount: 0
-        },
-        {
-          type: 'align_with_rack',
-          params: {
-            x: shelfPoint.x,
-            y: shelfPoint.y,
-            ori: shelfPoint.theta,
-            label: `Aligning with shelf ${params.shelfId}`
-          },
-          completed: false,
-          retryCount: 0
-        },
-        {
-          type: 'jack_up',
-          params: {
-            waitComplete: true
-          },
-          completed: false,
-          retryCount: 0
-        },
-        // Move to central dropoff location with the bin
-        {
-          type: 'move',
-          params: {
-            x: dropoffDockingPoint.x,
-            y: dropoffDockingPoint.y,
-            ori: dropoffDockingPoint.theta,
-            label: 'Moving to central dropoff'
-          },
-          completed: false,
-          retryCount: 0
-        },
-        // Align with the dropoff rack
-        {
-          type: 'align_with_rack',
-          params: {
-            x: dropoffPoint.x,
-            y: dropoffPoint.y,
-            ori: dropoffPoint.theta,
-            label: 'Aligning with dropoff rack'
-          },
-          completed: false,
-          retryCount: 0
-        },
-        // Lower the jack to release the bin
-        {
-          type: 'jack_down',
-          params: {
-            waitComplete: true
-          },
-          completed: false,
-          retryCount: 0
-        },
-        // Return to charger when done
-        {
-          type: 'return_to_charger',
-          params: {},
-          completed: false,
-          retryCount: 0
+      // Convert template sequence to concrete workflow steps with real coordinates
+      for (const step of workflowTemplate.sequence) {
+        // Get parameters with placeholders replaced by actual values
+        const stepParams = { ...step.params };
+        
+        // Process any placeholders in pointId fields (like {pickupShelf})
+        if (stepParams.pointId && typeof stepParams.pointId === 'string') {
+          // Replace {pickupShelf} with the actual shelf ID
+          stepParams.pointId = stepParams.pointId.replace('{pickupShelf}', templateParams.pickupShelf);
         }
-      ];
+        
+        // Convert template step to actual workflow step with coordinates
+        if (step.actionId === 'moveToPoint') {
+          // Get real coordinates for the point
+          const pointId = stepParams.pointId;
+          const point = await getShelfDockingPoint(pointId);
+          
+          if (!point) {
+            throw new Error(`Could not find coordinates for point ${pointId}`);
+          }
+          
+          workflowSteps.push({
+            type: 'move',
+            params: {
+              x: point.x,
+              y: point.y,
+              ori: point.theta,
+              label: step.description || `Moving to ${pointId}`
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'alignWithRack') {
+          // Get real coordinates for the point
+          const pointId = stepParams.pointId;
+          const point = await getShelfPoint(pointId);
+          
+          if (!point) {
+            throw new Error(`Could not find coordinates for point ${pointId}`);
+          }
+          
+          workflowSteps.push({
+            type: 'align_with_rack',
+            params: {
+              x: point.x,
+              y: point.y,
+              ori: point.theta,
+              label: step.description || `Aligning with ${pointId}`
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'jackUp') {
+          workflowSteps.push({
+            type: 'jack_up',
+            params: {
+              waitComplete: true
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'jackDown') {
+          workflowSteps.push({
+            type: 'jack_down',
+            params: {
+              waitComplete: true
+            },
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'returnToCharger') {
+          workflowSteps.push({
+            type: 'return_to_charger',
+            params: {},
+            completed: false,
+            retryCount: 0
+          });
+        }
+        else if (step.actionId === 'reverseFromRack') {
+          // We don't have a direct equivalent for this in our mission steps,
+          // so we'll skip it for now - it's handled by the align_with_rack action
+          continue;
+        }
+      }
       
       // Create the mission directly
       const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);

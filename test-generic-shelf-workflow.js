@@ -5,7 +5,7 @@
  * it properly works for any shelf point, not just 104.
  */
 
-const axios = require('axios');
+import axios from 'axios';
 
 async function testGenericShelfWorkflow() {
   try {
@@ -37,4 +37,14 @@ async function testGenericShelfWorkflow() {
   }
 }
 
-testGenericShelfWorkflow();
+// Main function to run the test
+async function main() {
+  const result = await testGenericShelfWorkflow();
+  console.log(result);
+}
+
+// Execute the main function
+main().catch(console.error);
+
+// Export the function for use elsewhere
+export { testGenericShelfWorkflow };
