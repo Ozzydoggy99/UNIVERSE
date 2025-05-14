@@ -16,6 +16,18 @@ const logger = {
   warn: (message: string) => console.warn(message)
 };
 
+/**
+ * Helper function to clean point IDs and prevent duplicate "_load" suffixes
+ * This ensures consistency when dealing with point IDs from different sources
+ */
+function cleanShelfId(shelfId: string): string {
+  // If the ID already ends with "_load", remove it to prevent duplication
+  if (shelfId && typeof shelfId === 'string' && shelfId.toLowerCase().endsWith('_load')) {
+    return shelfId.substring(0, shelfId.length - 5);
+  }
+  return shelfId;
+}
+
 // Helper function to get display name for points
 function getPointDisplayName(pointId: any): string {
   // Safe handling for null, undefined, or non-string values

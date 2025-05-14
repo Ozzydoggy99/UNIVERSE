@@ -374,9 +374,12 @@ async function getMapPoints(): Promise<MapPoints> {
  * Only uses actual data from the robot API, no virtual points
  */
 function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string], floorId?: string): Point | null {
-  // First try the standard naming convention with load_docking suffix (case insensitive)
-  const dockingId = `${shelfId}_load_docking`;
-  const altDockingId = `${shelfId}_docking`;
+  // Clean the shelf ID first to prevent duplicate "_load" suffixes
+  const cleanedShelfId = cleanShelfId(shelfId);
+  
+  // Now create the proper docking point IDs
+  const dockingId = `${cleanedShelfId}_load_docking`;
+  const altDockingId = `${cleanedShelfId}_docking`;
   
   // Try to find matching points with case-insensitive comparison
   let dockingPoint = floorPoints.dockingPoints.find(p => 
@@ -388,8 +391,8 @@ function getDockingPointForShelf(shelfId: string, floorPoints: MapPoints[string]
     console.log(`📝 Could not find exact docking point match for shelf ${shelfId}, trying alternate formats`);
     
     // If it's a numeric shelf ID (like "104"), try with the standard format
-    if (/^\d+$/.test(shelfId)) {
-      const numericDockingId = `${shelfId}_load_docking`;
+    if (/^\d+$/.test(cleanedShelfId)) {
+      const numericDockingId = `${cleanedShelfId}_load_docking`;
       dockingPoint = floorPoints.dockingPoints.find(p => 
         p.id.toLowerCase().includes(numericDockingId.toLowerCase())
       );
