@@ -23,6 +23,7 @@ import {
   getAuthHeaders 
 } from './robot-constants';
 import { getRackSpecifications } from './robot-settings-api';
+import { missionQueue, MissionStep } from './mission-queue';
 
 // Configuration
 const LOG_PATH = 'robot-dynamic-workflow.log';
