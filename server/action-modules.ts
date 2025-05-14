@@ -334,13 +334,23 @@ export const toUnloadPointAction: ActionModule = {
       const loadPointId = resolvedPointId.replace('_docking', '');
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
-      // Extract the area ID from the point ID (before the underscore)
+      // Extract the area ID from the point ID (everything before the underscore)
       // For example, from "drop-off_load" we would extract "drop-off"
-      const areaMatch = loadPointId.match(/^([^_]+)/);
-      const rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
+      // Use a more inclusive pattern to ensure we capture hyphenated IDs like "drop-off" properly
+      let rackAreaId;
+      
+      // Special handling for the drop-off area
+      if (loadPointId.startsWith('drop-off_')) {
+        rackAreaId = 'drop-off';
+      } else {
+        // For other areas, extract everything before the first underscore
+        const areaMatch = loadPointId.match(/^([^_]+)/);
+        rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
+      }
+      
       console.log(`[ACTION] Using rack area ID for unloading: ${rackAreaId}`);
       
-      const response = await robotApi.post(`/chassis/moves`, {
+      const payload = {
         creator: 'robot-management-platform',
         type: 'to_unload_point',  // Use to_unload_point specifically for unloading operations
         target_x: 0, // These values will be ignored since the point ID is what matters
@@ -348,19 +358,67 @@ export const toUnloadPointAction: ActionModule = {
         target_z: 0,
         point_id: loadPointId, // This should be the load point, not the docking point
         rack_area_id: rackAreaId // Required for to_unload_point to work properly
-      });
+      };
       
-      // The response should contain the move action ID
-      const moveActionId = response.data.id;
-      console.log(`[ACTION] Created to_unload_point action with ID: ${moveActionId}`);
+      console.log(`[ACTION] Sending toUnloadPoint API call with payload:`, JSON.stringify(payload, null, 2));
       
-      // Wait for the move to complete
-      const maxRetries = params.maxRetries || 60; // Increase timeout for unload point positioning
-      let retries = 0;
+      let moveActionId;
       
-      while (retries < maxRetries) {
-        // Check move action status
-        const statusResponse = await robotApi.get(`/chassis/moves/${moveActionId}`);
+      try {
+        const response = await robotApi.post(`/chassis/moves`, payload);
+        console.log(`[ACTION] toUnloadPoint API call succeeded with response:`, response.status, response.statusText);
+        
+        // The response should contain the move action ID
+        moveActionId = response.data.id;
+        console.log(`[ACTION] Created to_unload_point action with ID: ${moveActionId}`);
+        
+        // Wait for the move to complete
+        const maxRetries = params.maxRetries || 60; // Increase timeout for unload point positioning
+        let retries = 0;
+        
+        while (retries < maxRetries) {
+          // Check move action status
+          const statusResponse = await robotApi.get(`/chassis/moves/${moveActionId}`);
+          
+          const status = statusResponse.data.status;
+          
+          if (status === 'completed') {
+            console.log(`[ACTION] Move action ${moveActionId} completed successfully`);
+            return {
+              success: true,
+              errors: []
+            };
+          } else if (status === 'failed') {
+            const failReason = statusResponse.data.fail_reason;
+            console.error(`[ACTION] Move action ${moveActionId} failed with reason: ${failReason}`);
+            return {
+              success: false,
+              errors: [`Move failed: ${failReason}`]
+            };
+          }
+          
+          // Still in progress, wait and retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          retries++;
+        }
+        
+        // Timed out waiting for move to complete
+        console.error(`[ACTION] Timed out waiting for move action ${moveActionId} to complete`);
+        return {
+          success: false,
+          errors: ['Timed out waiting for move to complete']
+        };
+        
+      } catch (error: any) {
+        console.error(`[ACTION] toUnloadPoint API call failed:`, 
+          error.response?.status, 
+          error.response?.data || error.message);
+          
+        return {
+          success: false,
+          errors: [`API error: ${error.message}`]
+        };
+      }
         const state = statusResponse.data.state;
         
         if (state === 'succeeded') {
