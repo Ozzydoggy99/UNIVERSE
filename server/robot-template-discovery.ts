@@ -72,6 +72,7 @@ function isShelfPoint(pointId: string): boolean {
  */
 async function getMaps(): Promise<any[]> {
   try {
+    logger.info(`Fetching maps from robot API: ${ROBOT_API_URL}/maps with robot ID: ${ROBOT_SERIAL}`);
     const response = await axios.get(`${ROBOT_API_URL}/maps`, {
       headers: {
         'X-Robot-Serial': ROBOT_SERIAL,
@@ -79,9 +80,29 @@ async function getMaps(): Promise<any[]> {
       }
     });
     
-    if (response.data && Array.isArray(response.data.maps)) {
-      return response.data.maps;
+    // Handle two different response formats:
+    // 1. Array directly in response.data 
+    // 2. Array in response.data.maps
+    let maps = [];
+    
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        maps = response.data;
+      } else if (Array.isArray(response.data.maps)) {
+        maps = response.data.maps;
+      } else if (response.data.id) {
+        // Single map returned as an object
+        maps = [response.data];
+      }
     }
+    
+    if (maps.length > 0) {
+      logger.info(`Successfully retrieved ${maps.length} maps from robot`);
+      logger.info(`Map IDs: ${JSON.stringify(maps.map((m: any) => m.id || m.map_name || m.name))}`);
+      return maps;
+    }
+    
+    logger.warn(`No maps found in robot response: ${JSON.stringify(response.data)}`);
     return [];
   } catch (error) {
     logger.error(`Error fetching maps: ${error}`);
@@ -94,6 +115,7 @@ async function getMaps(): Promise<any[]> {
  */
 async function getMapPoints(mapId: string): Promise<any[]> {
   try {
+    logger.info(`Fetching points for map ${mapId} from robot API: ${ROBOT_API_URL}/maps/${mapId}/points`);
     const response = await axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, {
       headers: {
         'X-Robot-Serial': ROBOT_SERIAL,
@@ -102,8 +124,12 @@ async function getMapPoints(mapId: string): Promise<any[]> {
     });
     
     if (response.data && Array.isArray(response.data.points)) {
+      logger.info(`Retrieved ${response.data.points.length} points for map ${mapId}`);
+      const pointIds = response.data.points.map((p: any) => p.id || p.name || 'unknown');
+      logger.info(`Point IDs for map ${mapId}: ${JSON.stringify(pointIds)}`);
       return response.data.points;
     }
+    logger.warn(`No points found in robot response for map ${mapId}: ${JSON.stringify(response.data)}`);
     return [];
   } catch (error) {
     logger.error(`Error fetching points for map ${mapId}: ${error}`);
