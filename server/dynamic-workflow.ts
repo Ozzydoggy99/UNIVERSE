@@ -69,6 +69,18 @@ interface WorkflowState {
   lastMessage?: string;
 }
 
+/**
+ * Helper function to clean point IDs and prevent duplicate "_load" suffixes
+ * This ensures consistency when dealing with point IDs from different sources
+ */
+function cleanShelfId(shelfId: string): string {
+  // If the ID already ends with "_load", remove it to prevent duplication
+  if (shelfId.toLowerCase().endsWith('_load')) {
+    return shelfId.substring(0, shelfId.length - 5);
+  }
+  return shelfId;
+}
+
 // In-memory state - would be replaced with database in production
 const workflowStates: { [id: string]: WorkflowState } = {};
 
@@ -1854,15 +1866,13 @@ export async function executeWorkflow(
             // Replace {pickupShelf} with the actual shelf ID
             const originalPointId = stepParams.pointId;
             
-            // Check if shelfId already contains "_load"
-            let cleanShelfId = templateParams.pickupShelf;
-            if (cleanShelfId.endsWith('_load')) {
-              // Remove the "_load" suffix to prevent duplication
-              cleanShelfId = cleanShelfId.replace('_load', '');
-              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.pickupShelf} → ${cleanShelfId}`);
+            // Clean the shelf ID to prevent duplicate "_load" suffixes
+            const shelfIdValue = cleanShelfId(templateParams.pickupShelf);
+            if (shelfIdValue !== templateParams.pickupShelf) {
+              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.pickupShelf} → ${shelfIdValue}`);
             }
             
-            stepParams.pointId = stepParams.pointId.replace('{pickupShelf}', cleanShelfId);
+            stepParams.pointId = stepParams.pointId.replace('{pickupShelf}', shelfIdValue);
             logWorkflow(workflowId, `Processed point ID: ${originalPointId} → ${stepParams.pointId}`);
           }
           
@@ -2026,15 +2036,13 @@ export async function executeWorkflow(
             // Replace {dropoffShelf} with the actual shelf ID
             const originalPointId = stepParams.pointId;
             
-            // Check if shelfId already contains "_load"
-            let cleanShelfId = templateParams.dropoffShelf;
-            if (cleanShelfId.endsWith('_load')) {
-              // Remove the "_load" suffix to prevent duplication
-              cleanShelfId = cleanShelfId.replace('_load', '');
-              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.dropoffShelf} → ${cleanShelfId}`);
+            // Clean the shelf ID to prevent duplicate "_load" suffixes
+            const shelfIdValue = cleanShelfId(templateParams.dropoffShelf);
+            if (shelfIdValue !== templateParams.dropoffShelf) {
+              logWorkflow(workflowId, `Removed duplicate '_load' suffix from shelf ID: ${templateParams.dropoffShelf} → ${shelfIdValue}`);
             }
             
-            stepParams.pointId = stepParams.pointId.replace('{dropoffShelf}', cleanShelfId);
+            stepParams.pointId = stepParams.pointId.replace('{dropoffShelf}', shelfIdValue);
             logWorkflow(workflowId, `Processed point ID: ${originalPointId} → ${stepParams.pointId}`);
           }
           
