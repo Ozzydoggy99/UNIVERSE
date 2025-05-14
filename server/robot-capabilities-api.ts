@@ -238,7 +238,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       
       // Strict policy: Only show operations discovered from robot capabilities
       // No fallbacks or default operations if none are found
-      let operations = [];
+      const operations = [];
       
       const robotId = ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
@@ -261,7 +261,11 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       }
       
       // If we have multiple shelves on any map, allow shelf-to-shelf transfers
-      const hasMultipleShelves = capabilities.maps.some(map => map.shelfPoints.length >= 2);
+      // Added null check to handle when shelfPoints might be undefined
+      const hasMultipleShelves = capabilities.maps.some(map => 
+        map.shelfPoints && Array.isArray(map.shelfPoints) && map.shelfPoints.length >= 2
+      );
+      
       if (hasMultipleShelves) {
         operations.push({
           id: 'transfer',

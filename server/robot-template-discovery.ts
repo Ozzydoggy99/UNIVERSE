@@ -64,9 +64,21 @@ export interface ServiceType {
  * Determines if a point ID represents a shelf point
  */
 function isShelfPoint(pointId: string): boolean {
-  // Shelf points follow the convention: <number>_load
-  // For example: 104_load, 112_load, etc.
-  return /^\d+_load$/.test(pointId);
+  if (!pointId) return false;
+  
+  // Convert to lowercase for case-insensitive matching
+  const id = pointId.toLowerCase();
+  
+  // Shelf points might follow various conventions:
+  // - <number>_load (e.g., 104_load)
+  // - shelf_<number> (e.g., shelf_104)
+  // - <number>_shelf (e.g., 104_shelf)
+  // - Just contain 'shelf' or 'load' along with a number
+  return /^\d+_load/.test(id) || 
+         /shelf_\d+/.test(id) || 
+         /\d+_shelf/.test(id) ||
+         (id.includes('shelf') && /\d+/.test(id)) ||
+         (id.includes('load') && /\d+/.test(id));
 }
 
 /**
