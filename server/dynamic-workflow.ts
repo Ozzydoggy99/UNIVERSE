@@ -73,9 +73,19 @@ interface WorkflowState {
 const workflowStates: { [id: string]: WorkflowState } = {};
 
 /**
- * Helper function to log workflow steps with timestamps
+ * Helper function to log workflow steps with timestamps and update workflow state
+ * 
+ * @param workflowId The ID of the workflow
+ * @param message The message to log
+ * @param status Optional workflow status update
+ * @param stepInfo Optional step information to update
  */
-function logWorkflow(workflowId: string, message: string): void {
+function logWorkflow(
+  workflowId: string, 
+  message: string, 
+  status?: WorkflowState['status'],
+  stepInfo?: { currentStep?: number, totalSteps?: number }
+): void {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] [WORKFLOW-${workflowId}] ${message}`;
   
@@ -89,8 +99,29 @@ function logWorkflow(workflowId: string, message: string): void {
   
   // If this is associated with a workflow, update its state
   if (workflowStates[workflowId]) {
-    // Only update message in a real implementation - here we just log
-    workflowStates[workflowId].lastMessage = message;
+    // Update the workflow state with all provided information
+    const workflow = workflowStates[workflowId];
+    workflow.lastMessage = message;
+    
+    // Update status if provided
+    if (status) {
+      workflow.status = status;
+      
+      // If status is completed or failed, set the end time
+      if (status === 'completed' || status === 'failed') {
+        workflow.endTime = new Date();
+      }
+    }
+    
+    // Update step information if provided
+    if (stepInfo) {
+      if (stepInfo.currentStep !== undefined) {
+        workflow.currentStep = stepInfo.currentStep;
+      }
+      if (stepInfo.totalSteps !== undefined) {
+        workflow.totalSteps = stepInfo.totalSteps;
+      }
+    }
   }
 }
 
@@ -1091,7 +1122,8 @@ async function executePickupWorkflow(
   shelfId: string
 ): Promise<any> {
   try {
-    // Initialize workflow state
+    // Initialize workflow state with more detailed steps
+    const totalSteps = 8; // Total steps in this workflow
     const workflow: WorkflowState = {
       id: workflowId,
       serviceType,
@@ -1099,47 +1131,88 @@ async function executePickupWorkflow(
       floorId,
       shelfId,
       startTime: new Date(),
-      status: 'in-progress',
-      currentStep: 1,
-      totalSteps: 8
+      status: 'queued',
+      currentStep: 0,
+      totalSteps,
+      lastMessage: 'Workflow initialized'
     };
     
     workflowStates[workflowId] = workflow;
     
+    // Log the start of the workflow with status update
+    logWorkflow(
+      workflowId, 
+      `🚀 Starting pickup workflow for shelf ${shelfId} on floor ${floorId}`,
+      'in-progress',
+      { currentStep: 1, totalSteps }
+    );
+    
     // Load map data
+    logWorkflow(workflowId, `📊 Loading map data for floor ${floorId}...`);
     const mapPoints = await getMapPoints();
     const floorPoints = mapPoints[floorId];
     
     if (!floorPoints) {
+      logWorkflow(workflowId, `❌ ERROR: Floor "${floorId}" not found in available maps`, 'failed');
       throw new Error(`Floor "${floorId}" not found in available maps`);
     }
     
     // Find the shelf point
+    logWorkflow(workflowId, `🔍 Locating shelf point "${shelfId}" on floor "${floorId}"...`);
     const shelfPoint = floorPoints.shelfPoints.find(p => p.id.includes(shelfId));
     if (!shelfPoint) {
+      logWorkflow(workflowId, `❌ ERROR: Shelf point "${shelfId}" not found on floor "${floorId}"`, 'failed');
       throw new Error(`Shelf point "${shelfId}" not found on floor "${floorId}"`);
     }
     
-    // For Map ID "3" (Phil's Map), add special handling for MongoDB ObjectIds
-    // Process points for this map
-    if (floorId) {
-      logWorkflow(workflowId, `📝 Processing points for map ${floorId}`);
-    }
+    logWorkflow(
+      workflowId, 
+      `✅ Found shelf point "${shelfPoint.id}" at coordinates (${shelfPoint.x}, ${shelfPoint.y})`,
+      undefined,
+      { currentStep: 2 }
+    );
     
     // Find the corresponding docking point for this shelf using our enhanced function
+    logWorkflow(workflowId, `🔍 Locating docking point for shelf "${shelfId}"...`);
     let shelfDockingPoint = getDockingPointForShelf(shelfId, floorPoints, floorId);
     if (!shelfDockingPoint) {
+      logWorkflow(workflowId, `❌ ERROR: Docking point for shelf "${shelfId}" not found`, 'failed');
       throw new Error(`Docking point for shelf "${shelfId}" not found and could not be created`);
     }
     
+    logWorkflow(
+      workflowId, 
+      `✅ Found docking point "${shelfDockingPoint.id}" at coordinates (${shelfDockingPoint.x}, ${shelfDockingPoint.y})`,
+      undefined,
+      { currentStep: 3 }
+    );
+    
     // Ensure we have required dropoff points
+    logWorkflow(workflowId, `🔍 Verifying dropoff point on floor "${floorId}"...`);
     if (!floorPoints.dropoffPoint) {
+      logWorkflow(workflowId, `❌ ERROR: Dropoff point not found on floor "${floorId}"`, 'failed');
       throw new Error(`Dropoff point not found on floor "${floorId}"`);
     }
     
+    logWorkflow(
+      workflowId, 
+      `✅ Found dropoff point "${floorPoints.dropoffPoint.id}" at coordinates (${floorPoints.dropoffPoint.x}, ${floorPoints.dropoffPoint.y})`,
+      undefined,
+      { currentStep: 4 }
+    );
+    
+    logWorkflow(workflowId, `🔍 Verifying dropoff docking point on floor "${floorId}"...`);
     if (!floorPoints.dropoffDockingPoint) {
+      logWorkflow(workflowId, `❌ ERROR: Dropoff docking point not found on floor "${floorId}"`, 'failed');
       throw new Error(`Dropoff docking point not found on floor "${floorId}"`);
     }
+    
+    logWorkflow(
+      workflowId, 
+      `✅ Found dropoff docking point "${floorPoints.dropoffDockingPoint.id}" at coordinates (${floorPoints.dropoffDockingPoint.x}, ${floorPoints.dropoffDockingPoint.y})`,
+      undefined,
+      { currentStep: 4 }
+    );
     
     // Check for charger point - but make it optional
     if (!floorPoints.chargerPoint) {
