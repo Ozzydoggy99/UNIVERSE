@@ -148,19 +148,19 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       
       // Validate all required points exist
       if (!pickupPoint) {
-        throw new Error('Could not find pickup point "104_Load" in map data');
+        throw new Error('Could not find pickup point "104_load" in map data');
       }
       
       if (!pickupDockingPoint) {
-        throw new Error('Could not find pickup docking point "104_Load_docking" in map data');
+        throw new Error('Could not find pickup docking point "104_load_docking" in map data');
       }
       
       if (!dropoffPoint) {
-        throw new Error('Could not find dropoff point "Drop-off_Load" in map data');
+        throw new Error('Could not find dropoff point "drop-off_load" in map data');
       }
       
       if (!dropoffDockingPoint) {
-        throw new Error('Could not find dropoff docking point "Drop-off_Load_docking" in map data');
+        throw new Error('Could not find dropoff docking point "drop-off_load_docking" in map data');
       }
       
       if (!chargerPoint) {

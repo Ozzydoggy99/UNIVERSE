@@ -871,14 +871,14 @@ async function executeZone104Workflow(): Promise<any> {
     logWorkflow(`📍 STEP 4/8: Executing jack_up operation to lift bin`);
     await executeJackUp();
     
-    // STEP 5: Move to docking position for dropoff (Drop-off_Load_docking)
+    // STEP 5: Move to docking position for dropoff (drop-off_load_docking)
     // Using the CORRECT coordinates from the physical robot map, converted to match scale
-    logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load_docking (with correct coordinates from physical map)`);
-    await moveToPoint(-2.314, 2.543, 0, 'Drop-off_Load_docking');
+    logWorkflow(`📍 STEP 5/8: Moving to drop-off_load_docking (with correct coordinates from physical map)`);
+    await moveToPoint(-2.314, 2.543, 0, 'drop-off_load_docking');
     
     // STEP 6: For dropoff, we CANNOT use align_with_rack because the jack is already up
-    // Instead, we need to use a regular move command to the exact Drop-off_Load coordinates
-    logWorkflow(`📍 STEP 6/8: Moving to Drop-off_Load for bin dropoff (cannot use align_with_rack with jack up)`);
+    // Instead, we need to use a regular move command to the exact drop-off_load coordinates
+    logWorkflow(`📍 STEP 6/8: Moving to drop-off_load for bin dropoff (cannot use align_with_rack with jack up)`);
     
     // CRITICAL: Confirm jack is already up - needed for dropoff
     logWorkflow(`⚠️ SAFETY CHECK: Verifying jack state before dropoff...`);
