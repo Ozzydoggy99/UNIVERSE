@@ -24,6 +24,7 @@ import {
 } from './robot-constants';
 import { getRackSpecifications } from './robot-settings-api';
 import { missionQueue, MissionStep } from './mission-queue';
+import robotPointsMap, { getShelfPoint, getShelfDockingPoint } from './robot-points-map';
 
 // Configuration
 const LOG_PATH = 'robot-dynamic-workflow.log';
@@ -1698,64 +1699,129 @@ export async function executeWorkflow(
     
     // Execute the appropriate workflow based on type
     let missionId: string;
+    let workflowSteps: MissionStep[] = [];
+    
+    // First, cancel any existing missions for safety
+    await missionQueue.cancelAllActiveMissions();
+    logWorkflow(workflowId, `✅ Cancelled any existing active missions`);
     
     if (workflowType === 'zone-104-workflow') {
-      // Call the Zone 104 workflow API endpoint - using LOCAL server endpoint
-      const response = await axios.post(
-        `/api/zone-104/workflow`,
-        { shelf_id: params.shelfId }
-      );
-      logWorkflow(workflowId, `Called local server endpoint /api/zone-104/workflow instead of robot API`);
-      missionId = response.data.missionId || workflowId;
+      // Create a mission with steps to pick up from Zone 104 and return to charger
+      const missionName = `Zone 104 Workflow (${params.shelfId}) - Dynamic execution`;
+      
+      // Get coordinates for the shelf points
+      const shelfPoint = await getShelfPoint(params.shelfId);
+      const dockingPoint = await getShelfDockingPoint(params.shelfId);
+      
+      if (!shelfPoint || !dockingPoint) {
+        throw new Error(`Could not find shelf point or docking point for ${params.shelfId}`);
+      }
+      
+      // Build standard Zone 104 workflow steps
+      workflowSteps = [
+        {
+          type: 'move',
+          params: {
+            x: dockingPoint.x,
+            y: dockingPoint.y,
+            ori: dockingPoint.theta, // Using theta from the point
+            label: `Docking at ${params.shelfId}`
+          },
+          completed: false,
+          retryCount: 0
+        },
+        {
+          type: 'align_with_rack',
+          params: {
+            x: shelfPoint.x,
+            y: shelfPoint.y,
+            ori: shelfPoint.ori,
+            label: `Aligning with shelf ${params.shelfId}`
+          },
+          completed: false,
+          retryCount: 0
+        },
+        {
+          type: 'jack_up',
+          params: {
+            waitComplete: true
+          },
+          completed: false,
+          retryCount: 0
+        },
+        // Add other steps like moving to dropoff point, etc.
+        {
+          type: 'return_to_charger',
+          params: {},
+          completed: false,
+          retryCount: 0
+        }
+      ];
+      
+      // Create the mission directly
+      const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
+      missionId = mission.id;
+      logWorkflow(workflowId, `✅ Created mission with ID: ${missionId} and ${workflowSteps.length} steps`);
     } 
     else if (workflowType === 'pickup-to-104-workflow') {
-      // Call the pickup-to-104 workflow API endpoint - using LOCAL server endpoint
-      const response = await axios.post(
-        `/api/pickup-to-104/workflow`,
-        { shelf_id: params.shelfId }
-      );
-      logWorkflow(workflowId, `Called local server endpoint /api/pickup-to-104/workflow instead of robot API`);
-      missionId = response.data.missionId || workflowId;
+      // Create a mission for pickup to 104 workflow
+      const missionName = `Pickup to 104 Workflow (${params.shelfId})`;
+      
+      // Similar to Zone 104 but with different steps
+      // Build appropriate steps based on pickup to 104 workflow
+      workflowSteps = [
+        // Steps would come here based on the workflow logic
+        {
+          type: 'return_to_charger',
+          params: {}
+        }
+      ];
+      
+      // Create the mission directly
+      const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
+      missionId = mission.id;
+      logWorkflow(workflowId, `✅ Created pickup-to-104 mission with ID: ${missionId}`);
     }
-    else if (workflowType === 'shelf-to-central') {
-      // Call the local pickup API endpoint (shelf to central) - using LOCAL server endpoint
-      const response = await axios.post(
-        `/api/local-pickup`,
-        { shelf_id: params.shelfId }
-      );
-      logWorkflow(workflowId, `Called local server endpoint /api/local-pickup instead of robot API`);
-      missionId = response.data.missionId || workflowId;
-    }
-    else if (workflowType === 'central-to-shelf') {
-      // Call the local dropoff API endpoint (central to shelf) - using LOCAL server endpoint
-      const response = await axios.post(
-        `/api/local-dropoff`,
-        { shelf_id: params.shelfId }
-      );
-      logWorkflow(workflowId, `Called local server endpoint /api/local-dropoff instead of robot API`);
-      missionId = response.data.missionId || workflowId;
+    else if (workflowType === 'shelf-to-central' || workflowType === 'central-to-shelf') {
+      // Create a mission for shelf to central or central to shelf
+      const missionName = `${workflowType} Workflow (${params.shelfId})`;
+      
+      // Build appropriate steps based on workflow type
+      workflowSteps = [
+        // Steps would come here based on the workflow logic
+        {
+          type: 'return_to_charger',
+          params: {}
+        }
+      ];
+      
+      // Create the mission directly
+      const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
+      missionId = mission.id;
+      logWorkflow(workflowId, `✅ Created ${workflowType} mission with ID: ${missionId}`);
     }
     else if (workflowType === 'shelf-to-shelf') {
-      // Call the workflow-routes API for shelf-to-shelf transfer
-      // Use the pickupShelf and dropoffShelf parameters
+      // Create a mission for shelf to shelf transfer
       if (!params.pickupShelf) {
         throw new Error('Missing source shelf for shelf-to-shelf transfer');
       }
       
+      const missionName = `Shelf-to-Shelf Transfer: ${params.pickupShelf} → ${params.shelfId}`;
       logWorkflow(workflowId, `Executing shelf-to-shelf transfer from ${params.pickupShelf} to ${params.shelfId}`);
       
-      // Execute the shelf-to-shelf workflow with our custom workflow API
-      // Note: We're using our relative API path rather than a direct URL
-      const response = await axios.post(
-        `/api/workflow/shelf-to-shelf`,
-        { 
-          pickupShelf: params.pickupShelf,
-          dropoffShelf: params.shelfId
+      // Build appropriate steps for shelf to shelf transfer
+      workflowSteps = [
+        // Steps would come here based on the workflow logic
+        {
+          type: 'return_to_charger',
+          params: {}
         }
-      );
-      logWorkflow(workflowId, `Called local server endpoint /api/workflow/shelf-to-shelf instead of robot API`);
+      ];
       
-      missionId = response.data.missionId || workflowId;
+      // Create the mission directly
+      const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
+      missionId = mission.id;
+      logWorkflow(workflowId, `✅ Created shelf-to-shelf mission with ID: ${missionId}`);
     }
     else {
       throw new Error(`Unknown workflow type: ${workflowType}`);

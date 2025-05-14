@@ -172,4 +172,64 @@ const robotPointsMap: RobotPointsMap = {
   }
 };
 
+// Utility functions for easier access to common point operations
+
+/**
+ * Get a shelf point by ID (e.g., "104")
+ * @param shelfId The shelf ID (e.g., "104")
+ * @returns The point object if found, null otherwise
+ */
+export function getShelfPoint(shelfId: string): Point | null {
+  // The default floor is 1 unless specified otherwise
+  const floorId = 1;
+  
+  if (!robotPointsMap.floors[floorId]) {
+    console.error(`Floor ${floorId} not found in robot points map`);
+    return null;
+  }
+  
+  // Check if point exists directly
+  const pointName = `${shelfId}_load`;
+  if (robotPointsMap.floors[floorId].points[pointName]) {
+    const point = robotPointsMap.floors[floorId].points[pointName];
+    return {
+      x: point.x,
+      y: point.y,
+      theta: point.theta
+    };
+  }
+  
+  console.error(`Shelf point ${pointName} not found on floor ${floorId}`);
+  return null;
+}
+
+/**
+ * Get a shelf docking point by ID (e.g., "104")
+ * @param shelfId The shelf ID (e.g., "104")
+ * @returns The point object if found, null otherwise
+ */
+export function getShelfDockingPoint(shelfId: string): Point | null {
+  // The default floor is 1 unless specified otherwise
+  const floorId = 1;
+  
+  if (!robotPointsMap.floors[floorId]) {
+    console.error(`Floor ${floorId} not found in robot points map`);
+    return null;
+  }
+  
+  // Check if point exists directly
+  const pointName = `${shelfId}_load_docking`;
+  if (robotPointsMap.floors[floorId].points[pointName]) {
+    const point = robotPointsMap.floors[floorId].points[pointName];
+    return {
+      x: point.x,
+      y: point.y,
+      theta: point.theta
+    };
+  }
+  
+  console.error(`Shelf docking point ${pointName} not found on floor ${floorId}`);
+  return null;
+}
+
 export default robotPointsMap;
