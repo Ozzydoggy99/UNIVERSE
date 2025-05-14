@@ -78,6 +78,7 @@ export const toUnloadPointAction: Action = {
   },
   
   async execute(params: ActionParams): Promise<ActionResult> {
+    console.log('[UNLOAD-POINT-ACTION] Starting execute() with params:', JSON.stringify(params, null, 2));
     try {
       // Resolve the point ID using our naming convention
       const resolvedPointId = resolvePointId(params.pointId, params);
@@ -97,7 +98,8 @@ export const toUnloadPointAction: Action = {
       // Special handling for the drop-off area
       if (loadPointId.startsWith('drop-off_')) {
         rackAreaId = 'drop-off';
-        console.log(`[ACTION] Using special rack area ID for drop-off: ${rackAreaId}`);
+        console.log(`[UNLOAD-POINT-ACTION] DETECTED DROP-OFF POINT: ${loadPointId}`);
+        console.log(`[UNLOAD-POINT-ACTION] Using special rack area ID for drop-off: ${rackAreaId}`);
       } else {
         // For other areas, extract everything before the first underscore
         const areaMatch = loadPointId.match(/^([^_]+)/);

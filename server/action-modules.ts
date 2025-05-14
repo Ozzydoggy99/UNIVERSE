@@ -3,6 +3,9 @@ import { sleep } from './utilities';
 import { getAuthHeaders, ROBOT_API_URL } from './robot-constants';
 import { toUnloadPointAction } from './to-unload-point-action';
 
+// Add a console log to verify that this file is using the imported action
+console.log('[ACTION-MODULES] Imported toUnloadPointAction from separate file');
+
 // Create a custom Axios instance with authentication headers
 const robotApi = axios.create({
   baseURL: ROBOT_API_URL,
