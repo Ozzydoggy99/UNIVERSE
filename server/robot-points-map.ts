@@ -56,6 +56,11 @@ const robotPointsMap: RobotPointsMap = {
           y: 3.383,
           theta: 0.0
         },
+        'drop-off_unload': {
+          x: -2.861,  // Same position as drop-off_load
+          y: 3.383,
+          theta: 0.0
+        },
         'drop-off_load_docking': {
           x: -1.850,
           y: 3.366,

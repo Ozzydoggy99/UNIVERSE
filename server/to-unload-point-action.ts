@@ -95,7 +95,7 @@ export const toUnloadPointAction: Action = {
       // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
       
-      // Special handling for the drop-off area
+      // Special handling for the drop-off area - including both drop-off_load and drop-off_unload variants
       if (loadPointId.startsWith('drop-off_')) {
         rackAreaId = 'drop-off';
         console.log(`[UNLOAD-POINT-ACTION] DETECTED DROP-OFF POINT: ${loadPointId}`);
@@ -105,6 +105,12 @@ export const toUnloadPointAction: Action = {
         const areaMatch = loadPointId.match(/^([^_]+)/);
         rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
         console.log(`[ACTION] Using standard rack area ID: ${rackAreaId}`);
+      }
+      
+      // Extra logging for debugging
+      if (loadPointId === 'drop-off_unload') {
+        console.log(`[UNLOAD-POINT-ACTION] EXPLICIT HANDLING FOR drop-off_unload`);
+        console.log(`[UNLOAD-POINT-ACTION] Confirming rack_area_id: ${rackAreaId}`);
       }
       
       console.log(`[ACTION] FINAL rack area ID for unloading: ${rackAreaId}`);
