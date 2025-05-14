@@ -1,10 +1,10 @@
 import axios from 'axios';
 import { sleep } from './utilities';
-import { getAuthHeaders } from './robot-constants';
+import { getAuthHeaders, ROBOT_API_URL } from './robot-constants';
 
 // Create a custom Axios instance with authentication headers
 const robotApi = axios.create({
-  baseURL: 'http://47.180.91.99:8090',
+  baseURL: ROBOT_API_URL,
   headers: getAuthHeaders()
 });
 
