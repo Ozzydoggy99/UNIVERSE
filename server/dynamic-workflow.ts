@@ -1735,7 +1735,7 @@ export async function executeWorkflow(
           params: {
             x: shelfPoint.x,
             y: shelfPoint.y,
-            ori: shelfPoint.ori,
+            ori: shelfPoint.theta, // Using theta from the point
             label: `Aligning with shelf ${params.shelfId}`
           },
           completed: false,
@@ -1773,7 +1773,9 @@ export async function executeWorkflow(
         // Steps would come here based on the workflow logic
         {
           type: 'return_to_charger',
-          params: {}
+          params: {},
+          completed: false,
+          retryCount: 0
         }
       ];
       
@@ -1791,7 +1793,9 @@ export async function executeWorkflow(
         // Steps would come here based on the workflow logic
         {
           type: 'return_to_charger',
-          params: {}
+          params: {},
+          completed: false,
+          retryCount: 0
         }
       ];
       
