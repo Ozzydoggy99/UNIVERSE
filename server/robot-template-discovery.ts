@@ -274,7 +274,54 @@ async function getMapPoints(mapId: string | number): Promise<any[]> {
         }
       });
       
-      // Handle different response formats
+      // Parse overlays first since this is the most common case for AutoX robots
+      if (response.data && typeof response.data === 'object' && response.data.overlays && typeof response.data.overlays === 'string') {
+        logger.info(`Found overlays JSON string in response for map ${mapId}`);
+        try {
+          // Parse the overlays JSON string into an object
+          const overlaysData = JSON.parse(response.data.overlays);
+          
+          // Check if it has GeoJSON features
+          if (overlaysData.features && Array.isArray(overlaysData.features)) {
+            // Filter for points (not LineStrings)
+            const pointFeatures = overlaysData.features.filter((feature: any) => {
+              return feature.geometry && feature.geometry.type === 'Point';
+            });
+            
+            logger.info(`Found ${pointFeatures.length} point features in overlays data`);
+            
+            // Convert GeoJSON features to point objects
+            points = pointFeatures.map((feature: any) => {
+              // Create standardized point object with properties from the feature
+              return {
+                id: feature.properties?.name || feature.id,
+                name: feature.properties?.name || '',
+                properties: feature.properties || {},
+                pose: {
+                  position: {
+                    x: feature.geometry.coordinates[0],
+                    y: feature.geometry.coordinates[1]
+                  },
+                  orientation: {
+                    z: feature.properties?.yaw || 0
+                  }
+                }
+              };
+            });
+            
+            // If we found points in overlays, continue to next step
+            if (points.length > 0) {
+              logger.info(`Successfully extracted ${points.length} points from overlays data`);
+              logger.info(`First point: ${JSON.stringify(points[0])}`);
+              break;
+            }
+          }
+        } catch (error) {
+          logger.error(`Error parsing overlays JSON: ${error}`);
+        }
+      }
+      
+      // Handle different response formats if overlays didn't work
       if (response.data) {
         // Try to parse points from response based on different formats
         if (Array.isArray(response.data)) {
@@ -289,62 +336,7 @@ async function getMapPoints(mapId: string | number): Promise<any[]> {
         } else if (typeof response.data === 'object') {
           // Maybe the data contains point information directly
           
-          // CHECK FOR OVERLAYS - many robots store points in the overlays field as a GeoJSON string
-          if (response.data.overlays && typeof response.data.overlays === 'string') {
-            try {
-              logger.info('Found overlays property containing JSON string, attempting to parse...');
-              const overlaysData = JSON.parse(response.data.overlays);
-              
-              // Extract points from GeoJSON format in overlays
-              if (overlaysData.features && Array.isArray(overlaysData.features)) {
-                // Get all point features from the overlays
-                const pointFeatures = overlaysData.features.filter((feature: any) => {
-                  return feature.geometry && 
-                         (feature.geometry.type === 'Point' || 
-                          (feature.properties && feature.properties.name));
-                });
-                
-                // Convert the features to point objects with our expected format
-                points = pointFeatures.map((feature: any) => {
-                  // Create a point object with data from the feature
-                  const pointObject: any = {
-                    id: feature.properties?.name || feature.id,
-                    name: feature.properties?.name || feature.id
-                  };
-                  
-                  // Add coordinates if available
-                  if (feature.geometry && feature.geometry.coordinates) {
-                    pointObject.pose = {
-                      position: {
-                        x: feature.geometry.coordinates[0],
-                        y: feature.geometry.coordinates[1]
-                      },
-                      orientation: {
-                        z: feature.properties?.yaw || 0
-                      }
-                    };
-                  }
-                  
-                  return pointObject;
-                });
-                
-                logger.info(`Extracted ${points.length} point features from overlays`);
-                
-                // Log some sample points to verify structure
-                if (points.length > 0) {
-                  logger.info(`Sample point from overlays: ${JSON.stringify(points[0])}`);
-                  
-                  // Check for shelf points specifically
-                  const shelfPointsCount = points.filter(p => isShelfPoint(p.id || p.name)).length;
-                  logger.info(`Found ${shelfPointsCount} shelf points in overlays`);
-                }
-              }
-            } catch (overlaysError) {
-              logger.error(`Error parsing overlays JSON: ${overlaysError}`);
-            }
-          }
-          
-          // FALLBACK: Check if there's a points_url to fetch points
+          // Check if there's a points_url to fetch points
           if (points.length === 0 && response.data.points_url) {
             // Try to get points from the points_url
             try {
@@ -464,8 +456,19 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
             return false;
           }
           
-          // Check if this is a shelf point
-          const isShelf = isShelfPoint(pointId);
+          // Check both ID and properties.name for shelf points
+          let isShelf = isShelfPoint(pointId);
+          
+          // Also check properties.name for AutoX robots
+          if (!isShelf && point.properties && point.properties.name) {
+            isShelf = isShelfPoint(point.properties.name);
+          }
+          
+          // Also check type=34 which is the "rack" type in AutoX robots
+          if (!isShelf && point.properties && point.properties.type === '34') {
+            logger.info(`✅ Found rack point via type=34: ${pointId}`);
+            isShelf = true;
+          }
           
           if (isShelf) {
             logger.info(`✅ Found shelf point: ${pointId}`);
@@ -531,62 +534,62 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       // Check for special points
       for (const point of allPoints) {
         // Skip invalid points
-        if (!point || !point.id) {
-          logger.warn(`Skipping point with missing ID: ${JSON.stringify(point)}`);
+        if (!point) {
+          logger.warn(`Skipping null point`);
           continue;
         }
         
-        // Convert point ID to lowercase for case-insensitive comparison
-        // Handle edge cases where ID is a number or other non-string
+        // Get point ID with fall backs
         const pointId = String(point.id || point.name || '').toLowerCase();
-        logger.info(`Checking point ID: ${pointId}`);
         
-        // Check for charger - broader pattern matching
+        // Get point properties directly or from the properties field
+        const properties = point.properties || {};
+        const propName = properties.name ? String(properties.name).toLowerCase() : '';
+        const propType = properties.type ? String(properties.type) : '';
+        
+        logger.info(`Checking point: ${pointId}, name: ${propName}, type: ${propType}`);
+        
+        // Check for charger - handle the AutoX robot's charging station (type 9)
         if (pointId === 'charger' || 
             pointId.includes('charger') || 
             pointId.includes('charging') ||
             pointId === 'charge' ||
-            // AutoX robot specific - properties.name contains "Charging Station"
-            (point.properties && point.properties.name === 'Charging Station') ||
-            // Look for type=9 (charging station in AutoX robots)
-            (point.properties && point.properties.type === '9') ||
-            (point.properties && point.properties.type === 9)) {
+            propName.includes('charging') ||
+            propName === 'charging station' ||
+            propType === '9') {
           hasCharger = true;
-          logger.info(`✅ Found charger point: ${JSON.stringify(point)}`);
+          logger.info(`✅ Found charger point: ${propName || pointId}`);
         } 
-        // Check for pickup points - support various naming conventions
+        // Check for pickup points - handle AutoX robot's pick-up_load point
         else if (
           pointId === 'pick-up_load' || 
           pointId === 'pickup_load' || 
-          pointId === 'pickup' || 
-          pointId === 'central_pickup' || 
-          pointId === 'central-pickup' ||
-          pointId === 'pick-up' ||
-          pointId.includes('pickup_load') ||
-          pointId.includes('pick-up_load') ||
-          (pointId.includes('pick') && pointId.includes('up')) ||
-          // AutoX robot specific properties
-          (point.properties && String(point.properties.name).toLowerCase() === 'pick-up_load')
+          pointId.includes('pickup') || 
+          pointId.includes('pick-up') ||
+          propName === 'pick-up_load' ||
+          propName.includes('pick-up') ||
+          propName.includes('pickup')
         ) {
           hasCentralPickup = true;
-          logger.info(`✅ Found central pickup point: ${JSON.stringify(point.id || point.properties?.name)}`);
+          logger.info(`✅ Found central pickup point: ${propName || pointId}`);
         } 
-        // Check for dropoff points - support various naming conventions
+        // Check for dropoff points - handle AutoX robot's drop-off_load point
         else if (
           pointId === 'drop-off_load' || 
           pointId === 'dropoff_load' || 
-          pointId === 'dropoff' || 
-          pointId === 'central_dropoff' || 
-          pointId === 'central-dropoff' ||
-          pointId === 'drop-off' ||
-          pointId.includes('dropoff_load') ||
-          pointId.includes('drop-off_load') ||
-          (pointId.includes('drop') && pointId.includes('off')) ||
-          // AutoX robot specific properties
-          (point.properties && String(point.properties.name).toLowerCase() === 'drop-off_load')
+          pointId.includes('dropoff') || 
+          pointId.includes('drop-off') ||
+          propName === 'drop-off_load' ||
+          propName.includes('drop-off') ||
+          propName.includes('dropoff')
         ) {
           hasCentralDropoff = true;
-          logger.info(`✅ Found central dropoff point: ${JSON.stringify(point.id || point.properties?.name)}`);
+          logger.info(`✅ Found central dropoff point: ${propName || pointId}`);
+        }
+        
+        // Also check for shelf points explicitly
+        if (isShelfPoint(pointId) || isShelfPoint(propName)) {
+          logger.info(`✅ Found shelf point: ${propName || pointId}`);
         }
       }
       
