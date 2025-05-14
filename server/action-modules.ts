@@ -353,7 +353,7 @@ export const toUnloadPointAction: ActionModule = {
       
       while (retries < maxRetries) {
         // Check move action status
-        const statusResponse = await axios.get(`http://47.180.91.99:8090/chassis/moves/${moveActionId}`);
+        const statusResponse = await robotApi.get(`/chassis/moves/${moveActionId}`);
         const state = statusResponse.data.state;
         
         if (state === 'succeeded') {
@@ -399,7 +399,7 @@ export const jackDownAction: ActionModule = {
       console.log(`[ACTION] Lowering jack to release bin`);
       
       // Based on our actual implementation
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/forks/down`);
+      const response = await robotApi.post('/api/v2/forks/down');
       
       // Our existing code uses a fixed sleep here
       // Make it configurable while maintaining backward compatibility
