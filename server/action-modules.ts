@@ -238,7 +238,7 @@ export const alignWithRackAction: ActionModule = {
       
       // If we reach here, the operation timed out
       return { success: false, error: 'Timeout waiting for alignment completion' };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[ACTION] Error in alignWithRack:`, error);
       return { 
         success: false, 
@@ -276,7 +276,7 @@ export const jackUpAction: ActionModule = {
       
       console.log(`[ACTION] Jack raised successfully`);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[ACTION] Error raising jack:`, error);
       return { 
         success: false, 
@@ -314,7 +314,7 @@ export const jackDownAction: ActionModule = {
       
       console.log(`[ACTION] Jack lowered successfully`);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[ACTION] Error lowering jack:`, error);
       return { 
         success: false, 
@@ -377,7 +377,7 @@ export const reverseFromRackAction: ActionModule = {
       }
       
       return { success: false, error: 'Timeout waiting for reverse completion' };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[ACTION] Error in reverseFromRack:`, error);
       return { 
         success: false, 
@@ -438,7 +438,7 @@ export const returnToChargerAction: ActionModule = {
       }
       
       return { success: false, error: 'Timeout waiting for charger return completion' };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[ACTION] Error in returnToCharger:`, error);
       return { 
         success: false, 
@@ -485,7 +485,7 @@ export const checkBinStatusAction: ActionModule = {
           binPresent: true // This should be determined by sensors or camera
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[ACTION] Error checking bin status:`, error);
       return { 
         success: false, 
