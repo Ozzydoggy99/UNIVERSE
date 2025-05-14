@@ -36,11 +36,11 @@ function validateWorkflowTemplates() {
       console.log(`\n🔍 Analyzing template: ${templateName} (${templateId})`);
       
       // Find toUnloadPoint usage
-      const hasToUnloadPoint = template.includes("'toUnloadPoint'");
+      const hasToUnloadPoint = template.includes("actionId: 'toUnloadPoint'");
       console.log(`- Has toUnloadPoint action: ${hasToUnloadPoint ? '✅ Yes' : '❌ No'}`);
       
       // Find jackDown actions
-      const hasJackDown = template.includes("'jackDown'");
+      const hasJackDown = template.includes("actionId: 'jackDown'");
       console.log(`- Has jackDown action: ${hasJackDown ? '✅ Yes' : '❌ No'}`);
       
       // Check if reverseFromRack is used after jackDown
