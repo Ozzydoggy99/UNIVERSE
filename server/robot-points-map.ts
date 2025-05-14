@@ -209,7 +209,7 @@ export function getShelfPoint(shelfId: string): Point | null {
     }
   }
   
-  console.error(`Shelf point ${pointName} not found on floor ${floorId}`);
+  console.error(`No shelf point variations found for ID ${shelfId} on floor ${floorId}`);
   return null;
 }
 
@@ -227,18 +227,31 @@ export function getShelfDockingPoint(shelfId: string): Point | null {
     return null;
   }
   
-  // Check if point exists directly
-  const pointName = `${shelfId}_load_docking`;
-  if (robotPointsMap.floors[floorId].points[pointName]) {
-    const point = robotPointsMap.floors[floorId].points[pointName];
-    return {
-      x: point.x,
-      y: point.y,
-      theta: point.theta
-    };
+  // Check various case combinations to be more forgiving about casing
+  const pointNameVariations = [
+    `${shelfId}_load_docking`,       // lowercase
+    `${shelfId}_Load_docking`,       // uppercase L
+    `${shelfId}_load_Docking`,       // uppercase D
+    `${shelfId}_Load_Docking`,       // uppercase L and D
+    `${shelfId.toLowerCase()}_load_docking`,  // all lowercase
+    `${shelfId.toLowerCase()}_Load_docking`,  // lowercase ID with uppercase L
+    `${shelfId.toLowerCase()}_Load_Docking`   // lowercase ID with uppercase L and D
+  ];
+  
+  // Try each variation
+  for (const pointName of pointNameVariations) {
+    if (robotPointsMap.floors[floorId].points[pointName]) {
+      console.log(`Found shelf docking point using variation: ${pointName}`);
+      const point = robotPointsMap.floors[floorId].points[pointName];
+      return {
+        x: point.x,
+        y: point.y,
+        theta: point.theta
+      };
+    }
   }
   
-  console.error(`Shelf docking point ${pointName} not found on floor ${floorId}`);
+  console.error(`No shelf docking point variations found for ID ${shelfId} on floor ${floorId}`);
   return null;
 }
 
