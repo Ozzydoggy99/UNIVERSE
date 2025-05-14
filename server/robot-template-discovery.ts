@@ -245,8 +245,64 @@ async function getMapPoints(mapId: string | number): Promise<any[]> {
           points = [response.data];
         } else if (typeof response.data === 'object') {
           // Maybe the data contains point information directly
-          // Check if this is a map object with point information
-          if (response.data.points_url) {
+          
+          // CHECK FOR OVERLAYS - many robots store points in the overlays field as a GeoJSON string
+          if (response.data.overlays && typeof response.data.overlays === 'string') {
+            try {
+              logger.info('Found overlays property containing JSON string, attempting to parse...');
+              const overlaysData = JSON.parse(response.data.overlays);
+              
+              // Extract points from GeoJSON format in overlays
+              if (overlaysData.features && Array.isArray(overlaysData.features)) {
+                // Get all point features from the overlays
+                const pointFeatures = overlaysData.features.filter((feature: any) => {
+                  return feature.geometry && 
+                         (feature.geometry.type === 'Point' || 
+                          (feature.properties && feature.properties.name));
+                });
+                
+                // Convert the features to point objects with our expected format
+                points = pointFeatures.map((feature: any) => {
+                  // Create a point object with data from the feature
+                  const pointObject: any = {
+                    id: feature.properties?.name || feature.id,
+                    name: feature.properties?.name || feature.id
+                  };
+                  
+                  // Add coordinates if available
+                  if (feature.geometry && feature.geometry.coordinates) {
+                    pointObject.pose = {
+                      position: {
+                        x: feature.geometry.coordinates[0],
+                        y: feature.geometry.coordinates[1]
+                      },
+                      orientation: {
+                        z: feature.properties?.yaw || 0
+                      }
+                    };
+                  }
+                  
+                  return pointObject;
+                });
+                
+                logger.info(`Extracted ${points.length} point features from overlays`);
+                
+                // Log some sample points to verify structure
+                if (points.length > 0) {
+                  logger.info(`Sample point from overlays: ${JSON.stringify(points[0])}`);
+                  
+                  // Check for shelf points specifically
+                  const shelfPointsCount = points.filter(p => isShelfPoint(p.id || p.name)).length;
+                  logger.info(`Found ${shelfPointsCount} shelf points in overlays`);
+                }
+              }
+            } catch (overlaysError) {
+              logger.error(`Error parsing overlays JSON: ${overlaysError}`);
+            }
+          }
+          
+          // FALLBACK: Check if there's a points_url to fetch points
+          if (points.length === 0 && response.data.points_url) {
             // Try to get points from the points_url
             try {
               const pointsUrl = response.data.points_url;
