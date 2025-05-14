@@ -1818,7 +1818,9 @@ export async function executeWorkflow(
         // Steps would come here based on the workflow logic
         {
           type: 'return_to_charger',
-          params: {}
+          params: {},
+          completed: false,
+          retryCount: 0
         }
       ];
       
