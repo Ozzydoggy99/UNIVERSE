@@ -334,13 +334,20 @@ export const toUnloadPointAction: ActionModule = {
       const loadPointId = resolvedPointId.replace('_docking', '');
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
+      // Extract the area ID from the point ID (before the underscore)
+      // For example, from "drop-off_load" we would extract "drop-off"
+      const areaMatch = loadPointId.match(/^([^_]+)/);
+      const rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
+      console.log(`[ACTION] Using rack area ID for unloading: ${rackAreaId}`);
+      
       const response = await robotApi.post(`/chassis/moves`, {
         creator: 'robot-management-platform',
         type: 'to_unload_point',  // Use to_unload_point specifically for unloading operations
         target_x: 0, // These values will be ignored since the point ID is what matters
         target_y: 0,
         target_z: 0,
-        point_id: loadPointId // This should be the load point, not the docking point
+        point_id: loadPointId, // This should be the load point, not the docking point
+        rack_area_id: rackAreaId // Required for to_unload_point to work properly
       });
       
       // The response should contain the move action ID
