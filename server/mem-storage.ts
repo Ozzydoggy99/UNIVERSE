@@ -831,18 +831,10 @@ export class MemStorage implements IStorage {
       ...capabilities,
       lastUpdated: new Date()
     });
-    console.log(`Stored robot capabilities for ${robotId}: hasCentralPickup=${capabilities.hasCentralPickup}, hasCentralDropoff=${capabilities.hasCentralDropoff}`);
   }
   
   async getRobotCapabilities(robotId: string): Promise<any | undefined> {
-    const capabilities = this.robotCapabilities.get(robotId);
-    if (capabilities) {
-      console.log(`Using cached robot capabilities for ${robotId}: hasCentralPickup=${capabilities.hasCentralPickup}, hasCentralDropoff=${capabilities.hasCentralDropoff}`);
-    }
-    // Comment out return to force cache refresh for debugging
-    // return capabilities;
-    console.log('Forcing robot capabilities cache refresh');
-    return undefined; // Force refresh by returning undefined
+    return this.robotCapabilities.get(robotId);
   }
 }
 

@@ -72,7 +72,6 @@ function isShelfPoint(pointId: string): boolean {
  */
 async function getMaps(): Promise<any[]> {
   try {
-    logger.info(`Fetching maps from robot at ${ROBOT_API_URL}/maps`);
     const response = await axios.get(`${ROBOT_API_URL}/maps`, {
       headers: {
         'X-Robot-Serial': ROBOT_SERIAL,
@@ -81,28 +80,12 @@ async function getMaps(): Promise<any[]> {
     });
     
     if (response.data && Array.isArray(response.data.maps)) {
-      logger.info(`Successfully fetched ${response.data.maps.length} maps from robot`);
-      logger.info(`Map IDs: ${response.data.maps.map(m => m.id).join(', ')}`);
       return response.data.maps;
     }
-    
-    logger.warn(`No maps array found in response from robot API`);
     return [];
   } catch (error) {
     logger.error(`Error fetching maps: ${error}`);
-    
-    // For testing, return a mock map with common point IDs
-    logger.info(`Using test map data for development`);
-    return [{
-      id: 'Floor1',
-      name: 'Floor 1',
-      points: [
-        { id: 'charger', pose: { position: { x: 1, y: 1 } } },
-        { id: 'pickup', pose: { position: { x: 2, y: 2 } } },
-        { id: 'dropoff', pose: { position: { x: 3, y: 3 } } },
-        { id: '104_load', pose: { position: { x: 4, y: 4 } } }
-      ]
-    }];
+    return [];
   }
 }
 
@@ -111,28 +94,6 @@ async function getMaps(): Promise<any[]> {
  */
 async function getMapPoints(mapId: string): Promise<any[]> {
   try {
-    logger.info(`Fetching points for map ${mapId} from robot at ${ROBOT_API_URL}/maps/${mapId}/points`);
-    
-    // Check if we're working with test data
-    const mockMaps = [{
-      id: 'Floor1',
-      name: 'Floor 1',
-      points: [
-        { id: 'charger', pose: { position: { x: 1, y: 1 } } },
-        { id: 'pickup', pose: { position: { x: 2, y: 2 } } },
-        { id: 'dropoff', pose: { position: { x: 3, y: 3 } } },
-        { id: '104_load', pose: { position: { x: 4, y: 4 } } }
-      ]
-    }];
-    
-    // If we have a mock map with this ID, return its points
-    const mockMap = mockMaps.find(m => m.id === mapId);
-    if (mockMap) {
-      logger.info(`Using test points data for map ${mapId}`);
-      return mockMap.points;
-    }
-    
-    // Otherwise try to get real points from the robot
     const response = await axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, {
       headers: {
         'X-Robot-Serial': ROBOT_SERIAL,
@@ -141,23 +102,12 @@ async function getMapPoints(mapId: string): Promise<any[]> {
     });
     
     if (response.data && Array.isArray(response.data.points)) {
-      logger.info(`Successfully fetched ${response.data.points.length} points for map ${mapId}`);
       return response.data.points;
     }
-    
-    logger.warn(`No points array found in response from robot API for map ${mapId}`);
     return [];
   } catch (error) {
     logger.error(`Error fetching points for map ${mapId}: ${error}`);
-    
-    // For testing, provide some default points if we had an error
-    logger.info(`Using fallback test points for development`);
-    return [
-      { id: 'charger', pose: { position: { x: 1, y: 1 } } },
-      { id: 'pickup', pose: { position: { x: 2, y: 2 } } },
-      { id: 'dropoff', pose: { position: { x: 3, y: 3 } } },
-      { id: '104_load', pose: { position: { x: 4, y: 4 } } }
-    ];
+    return [];
   }
 }
 
@@ -276,11 +226,6 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       
       // Debug log for all points to help diagnose naming issues
       logger.info(`Map ${map.id} has ${allPoints.length} points: ${allPoints.map(p => p.id).join(', ')}`);
-      
-      // More detailed debugging of point data to understand what's available
-      for (const point of allPoints) {
-        logger.info(`Point detail - ID: ${point.id}, Type: ${point.type || 'unknown'}, Position: ${JSON.stringify(point.pose?.position || {})}`);
-      }
     }
     
     // Define service types based on available capabilities
