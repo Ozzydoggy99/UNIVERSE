@@ -221,6 +221,11 @@ async function getMapPoints(mapId: string | number): Promise<any[]> {
  */
 export async function discoverRobotCapabilities(robotId: string): Promise<RobotCapabilities> {
   try {
+    // Force refresh every time for testing
+    logger.info(`Refreshing robot capabilities for robot ${robotId}`);
+    
+    // Uncomment this section when ready to use caching again
+    /*
     // Check if we have cached capabilities
     const cachedCapabilities = await storage.getRobotCapabilities(robotId);
     
@@ -231,6 +236,7 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       logger.info(`Using cached robot capabilities for robot ${robotId}`);
       return cachedCapabilities;
     }
+    */
     
     logger.info(`Discovering robot capabilities for robot ${robotId}`);
     const maps = await getMaps();
@@ -263,17 +269,57 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       // Debug log to show all actual point IDs from the robot
       logger.info(`MAP POINTS DEBUG - Map ${mapId} has ${points.length} points: ${JSON.stringify(points.map(p => p.id || p.name))}`);
       
-      // Filter for shelf points and format them
+      // Filter for shelf points and format them - with robust checking
       const shelfPoints = points
-        .filter((point: any) => isShelfPoint(point.id))
+        .filter((point: any) => {
+          if (!point) return false;
+          
+          // Use id property or fallback to name if id is missing
+          const pointId = point.id || point.name || point.point_id || '';
+          
+          // Skip if we can't determine a valid ID
+          if (!pointId) {
+            logger.warn(`Point missing ID: ${JSON.stringify(point)}`);
+            return false;
+          }
+          
+          // Check if this is a shelf point
+          const isShelf = isShelfPoint(pointId);
+          
+          if (isShelf) {
+            logger.info(`✅ Found shelf point: ${pointId}`);
+          }
+          
+          return isShelf;
+        })
         .map((point: any) => {
-          // Check if there's a corresponding docking point
-          const dockingPointId = `${point.id}_docking`;
-          const hasDockingPoint = points.some((p: any) => p.id === dockingPointId);
+          // Get point ID with fallback
+          const pointId = point.id || point.name || point.point_id || '';
+          
+          // Check if there's a corresponding docking point with various naming patterns
+          const possibleDockingIds = [
+            `${pointId}_docking`,
+            `${pointId}-docking`,
+            `${pointId} docking`,
+            `${pointId.replace('_load', '')}_docking`,
+            `${pointId}_dock`,
+            `${pointId}-dock`
+          ];
+          
+          // Check if any of the possible docking point IDs exist
+          const hasDockingPoint = points.some((p: any) => {
+            if (!p || !p.id) return false;
+            const pId = String(p.id).toLowerCase();
+            return possibleDockingIds.some(id => pId === id.toLowerCase());
+          });
+          
+          if (hasDockingPoint) {
+            logger.info(`✅ Found docking point for shelf: ${pointId}`);
+          }
           
           return {
-            id: point.id,
-            displayName: getPointDisplayName(point.id),
+            id: pointId,
+            displayName: getPointDisplayName(pointId),
             x: point.pose?.position?.x || 0,
             y: point.pose?.position?.y || 0,
             orientation: point.pose?.orientation?.z || 0,
@@ -303,13 +349,24 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       
       // Check for special points
       for (const point of allPoints) {
-        // Convert point ID to lowercase for case-insensitive comparison
-        const pointId = point.id.toLowerCase();
+        // Skip invalid points
+        if (!point || !point.id) {
+          logger.warn(`Skipping point with missing ID: ${JSON.stringify(point)}`);
+          continue;
+        }
         
-        // Check for charger
-        if (pointId === 'charger') {
+        // Convert point ID to lowercase for case-insensitive comparison
+        // Handle edge cases where ID is a number or other non-string
+        const pointId = String(point.id || point.name || '').toLowerCase();
+        logger.info(`Checking point ID: ${pointId}`);
+        
+        // Check for charger - broader pattern matching
+        if (pointId === 'charger' || 
+            pointId.includes('charger') || 
+            pointId.includes('charging') ||
+            pointId === 'charge') {
           hasCharger = true;
-          logger.info(`Found charger point: ${point.id}`);
+          logger.info(`✅ Found charger point: ${point.id}`);
         } 
         // Check for pickup points - support various naming conventions
         else if (
@@ -320,10 +377,11 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
           pointId === 'central-pickup' ||
           pointId === 'pick-up' ||
           pointId.includes('pickup_load') ||
-          pointId.includes('pick-up_load')
+          pointId.includes('pick-up_load') ||
+          (pointId.includes('pick') && pointId.includes('up'))
         ) {
           hasCentralPickup = true;
-          logger.info(`Found central pickup point: ${point.id}`);
+          logger.info(`✅ Found central pickup point: ${point.id}`);
         } 
         // Check for dropoff points - support various naming conventions
         else if (
@@ -334,10 +392,11 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
           pointId === 'central-dropoff' ||
           pointId === 'drop-off' ||
           pointId.includes('dropoff_load') ||
-          pointId.includes('drop-off_load')
+          pointId.includes('drop-off_load') ||
+          (pointId.includes('drop') && pointId.includes('off'))
         ) {
           hasCentralDropoff = true;
-          logger.info(`Found central dropoff point: ${point.id}`);
+          logger.info(`✅ Found central dropoff point: ${point.id}`);
         }
       }
       
