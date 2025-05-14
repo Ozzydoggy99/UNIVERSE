@@ -19,8 +19,8 @@ router.get('/api/workflows', (req, res) => {
   res.json(templates);
 });
 
-// Endpoint to execute a workflow
-router.post('/api/workflows/execute', async (req, res) => {
+// Endpoint to execute a workflow using the workflow templates builder
+router.post('/api/workflows/template', async (req, res) => {
   try {
     const { workflowId, inputs } = req.body;
     
@@ -122,6 +122,37 @@ router.get('/api/workflows/:id', (req, res) => {
   }
   
   res.json(template);
+});
+
+// Direct endpoint for the dynamic workflow system 
+// This is used by the test-workflow-log.js script
+router.post('/api/workflows/execute', async (req, res) => {
+  try {
+    const { workflowType, params } = req.body;
+    
+    if (!workflowType) {
+      return res.status(400).json({ error: 'workflowType is required' });
+    }
+    
+    if (!params) {
+      return res.status(400).json({ error: 'params are required' });
+    }
+    
+    console.log(`[WORKFLOW-ROUTES] Executing dynamic workflow ${workflowType}`, params);
+    
+    // Import dynamically to prevent circular dependencies
+    const { executeWorkflow } = await import('./dynamic-workflow');
+    const result = await executeWorkflow(workflowType, params);
+    
+    console.log(`[WORKFLOW-ROUTES] Dynamic workflow result:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('[WORKFLOW-ROUTES] Error executing dynamic workflow:', error);
+    res.status(500).json({ 
+      error: 'Failed to execute workflow', 
+      message: error.message 
+    });
+  }
 });
 
 // Debug endpoint to check actual point IDs in the map
