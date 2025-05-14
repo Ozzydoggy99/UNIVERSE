@@ -1699,39 +1699,39 @@ export async function executeWorkflow(
     let missionId: string;
     
     if (workflowType === 'zone-104-workflow') {
-      // Call the Zone 104 workflow API endpoint
+      // Call the Zone 104 workflow API endpoint - using LOCAL server endpoint
       const response = await axios.post(
-        `${ROBOT_API_URL}/zone-104-workflow`,
-        { shelf_id: params.shelfId },
-        { headers: getHeaders() }
+        `/api/zone-104/workflow`,
+        { shelf_id: params.shelfId }
       );
+      logWorkflow(workflowId, `Called local server endpoint /api/zone-104/workflow instead of robot API`);
       missionId = response.data.missionId || workflowId;
     } 
     else if (workflowType === 'pickup-to-104-workflow') {
-      // Call the pickup-to-104 workflow API endpoint
+      // Call the pickup-to-104 workflow API endpoint - using LOCAL server endpoint
       const response = await axios.post(
-        `${ROBOT_API_URL}/pickup-to-104-workflow`,
-        { shelf_id: params.shelfId },
-        { headers: getHeaders() }
+        `/api/pickup-to-104/workflow`,
+        { shelf_id: params.shelfId }
       );
+      logWorkflow(workflowId, `Called local server endpoint /api/pickup-to-104/workflow instead of robot API`);
       missionId = response.data.missionId || workflowId;
     }
     else if (workflowType === 'shelf-to-central') {
-      // Call the local pickup API endpoint (shelf to central)
+      // Call the local pickup API endpoint (shelf to central) - using LOCAL server endpoint
       const response = await axios.post(
-        `${ROBOT_API_URL}/local-pickup`,
-        { shelf_id: params.shelfId },
-        { headers: getHeaders() }
+        `/api/local-pickup`,
+        { shelf_id: params.shelfId }
       );
+      logWorkflow(workflowId, `Called local server endpoint /api/local-pickup instead of robot API`);
       missionId = response.data.missionId || workflowId;
     }
     else if (workflowType === 'central-to-shelf') {
-      // Call the local dropoff API endpoint (central to shelf)
+      // Call the local dropoff API endpoint (central to shelf) - using LOCAL server endpoint
       const response = await axios.post(
-        `${ROBOT_API_URL}/local-dropoff`,
-        { shelf_id: params.shelfId },
-        { headers: getHeaders() }
+        `/api/local-dropoff`,
+        { shelf_id: params.shelfId }
       );
+      logWorkflow(workflowId, `Called local server endpoint /api/local-dropoff instead of robot API`);
       missionId = response.data.missionId || workflowId;
     }
     else if (workflowType === 'shelf-to-shelf') {
@@ -1744,14 +1744,15 @@ export async function executeWorkflow(
       logWorkflow(workflowId, `Executing shelf-to-shelf transfer from ${params.pickupShelf} to ${params.shelfId}`);
       
       // Execute the shelf-to-shelf workflow with our custom workflow API
-      // Note: We're using our local API rather than the robot's API
+      // Note: We're using our relative API path rather than a direct URL
       const response = await axios.post(
-        `http://localhost:5000/api/workflow/shelf-to-shelf`,
+        `/api/workflow/shelf-to-shelf`,
         { 
           pickupShelf: params.pickupShelf,
           dropoffShelf: params.shelfId
         }
       );
+      logWorkflow(workflowId, `Called local server endpoint /api/workflow/shelf-to-shelf instead of robot API`);
       
       missionId = response.data.missionId || workflowId;
     }
