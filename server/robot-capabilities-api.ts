@@ -257,29 +257,9 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       // Log what we found from robot
       logger.info(`Found ${operations.length} operations from robot (direct endpoint)`);
       
-      // FOR TESTING ONLY: Add test operations if we didn't find any
+      // No fallback - only show operations that actually exist on the robot
       if (operations.length === 0) {
         logger.warn(`No operations found from robot API (direct endpoint)`);
-        
-        // Add test operations to ensure the UI works
-        logger.info('Adding test operations for development');
-        operations = [
-          {
-            id: 'pickup',
-            displayName: 'Pick Up',
-            enabled: true
-          },
-          {
-            id: 'dropoff',
-            displayName: 'Drop Off',
-            enabled: true
-          },
-          {
-            id: 'transfer',
-            displayName: 'Transfer Between Shelves',
-            enabled: true
-          }
-        ];
       }
       
       logger.info(`Returning operations: ${JSON.stringify(operations)}`);
@@ -378,24 +358,9 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         }))
         .sort((a, b) => a.floorNumber - b.floorNumber);
       
-      // FOR TESTING ONLY: Add test floors if we didn't find any
+      // No fallback - only show floors that actually exist on the robot
       if (floors.length === 0) {
         logger.info('No floors found on robot (direct endpoint)');
-        
-        // Add test floors to ensure the UI works
-        logger.info('Adding test floors for development');
-        floors = [
-          {
-            id: 'Floor1',
-            displayName: 'Floor 1',
-            floorNumber: 1
-          },
-          {
-            id: 'Floor2',
-            displayName: 'Floor 2',
-            floorNumber: 2
-          }
-        ];
       }
       
       logger.info(`Returning floors: ${JSON.stringify(floors)}`);
@@ -525,80 +490,12 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         }));
       } else {
         logger.warn(`Floor ${floorId} not found in robot capabilities (direct endpoint)`);
-        // Instead of throwing an error, use test data for this floor
-        logger.info('Adding test shelves for floor ' + floorId);
-        
-        if (floorId === 'Floor1') {
-          shelves = [
-            {
-              id: '104_load',
-              displayName: '104',
-              x: 1.5,
-              y: 2.5
-            },
-            {
-              id: '105_load',
-              displayName: '105',
-              x: 3.5,
-              y: 4.5
-            }
-          ];
-        } else if (floorId === 'Floor2') {
-          shelves = [
-            {
-              id: '201_load',
-              displayName: '201',
-              x: 1.5,
-              y: 2.5
-            },
-            {
-              id: '202_load',
-              displayName: '202',
-              x: 3.5,
-              y: 4.5
-            }
-          ];
-        }
+        throw new Error(`Floor ${floorId} not found in robot capabilities`);
       }
       
-      // FOR TESTING ONLY: Add test shelves if we didn't find any
+      // No fallback - only show shelves that actually exist on the robot
       if (shelves.length === 0) {
         logger.info(`No shelves found for floor ${floorId} (direct endpoint)`);
-        
-        // Add test shelves to ensure the UI works
-        logger.info('Adding test shelves for development');
-        
-        if (floorId === 'Floor1') {
-          shelves = [
-            {
-              id: '104_load',
-              displayName: '104',
-              x: 1.5,
-              y: 2.5
-            },
-            {
-              id: '105_load',
-              displayName: '105',
-              x: 3.5,
-              y: 4.5
-            }
-          ];
-        } else if (floorId === 'Floor2') {
-          shelves = [
-            {
-              id: '201_load',
-              displayName: '201',
-              x: 1.5,
-              y: 2.5
-            },
-            {
-              id: '202_load',
-              displayName: '202',
-              x: 3.5,
-              y: 4.5
-            }
-          ];
-        }
       }
       
       logger.info(`Returning shelves: ${JSON.stringify(shelves)}`);
