@@ -232,8 +232,10 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       return {
         id: mapId,
         name: mapName,
+        displayName: mapName,  // Set displayName to be the same as name initially
         floorNumber,
-        shelfPoints
+        shelfPoints,
+        points: points  // Store the raw points data
       };
     });
     
