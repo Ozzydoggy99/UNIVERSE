@@ -5139,5 +5139,69 @@
     "createdAt": "2025-05-14T05:38:09.751Z",
     "updatedAt": "2025-05-14T05:38:13.288Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747201889691_8p4hc0d",
+    "name": "Zone 104 Workflow (104_load) - Dynamic execution",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -14.801,
+          "y": 6.768,
+          "ori": 0,
+          "label": "Docking at 104_load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Docking at 104_load completed successfully",
+          "moveId": 4576
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -15.88,
+          "y": 6.768,
+          "ori": 0,
+          "label": "Aligning with shelf 104_load"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4577,
+          "message": "Align with rack completed successfully"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Return to charger initiated with coordinate-based navigation",
+          "moveId": 4578,
+          "method": "coordinate_based_with_charging"
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 4,
+    "createdAt": "2025-05-14T05:51:29.691Z",
+    "updatedAt": "2025-05-14T05:53:00.025Z",
+    "robotSn": "L382502104987ir"
   }
 ]
