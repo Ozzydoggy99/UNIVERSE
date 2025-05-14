@@ -113,7 +113,7 @@ async function getMaps(): Promise<any[]> {
 /**
  * Get all points for a specific map
  */
-async function getMapPoints(mapId: string): Promise<any[]> {
+async function getMapPoints(mapId: string | number): Promise<any[]> {
   try {
     logger.info(`Fetching points for map ${mapId} from robot API: ${ROBOT_API_URL}/maps/${mapId}/points`);
     const response = await axios.get(`${ROBOT_API_URL}/maps/${mapId}/points`, {
@@ -123,11 +123,35 @@ async function getMapPoints(mapId: string): Promise<any[]> {
       }
     });
     
-    if (response.data && Array.isArray(response.data.points)) {
-      logger.info(`Retrieved ${response.data.points.length} points for map ${mapId}`);
-      const pointIds = response.data.points.map((p: any) => p.id || p.name || 'unknown');
+    // Handle different response formats
+    let points = [];
+    
+    // Log the full response for debugging
+    logger.info(`Raw points response for map ${mapId}: ${JSON.stringify(response.data)}`);
+    
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        // Direct array response
+        points = response.data;
+      } else if (response.data.points && Array.isArray(response.data.points)) {
+        // Objects with points array
+        points = response.data.points;
+      } else if (response.data.id || response.data.name) {
+        // Single point returned as object
+        points = [response.data];
+      }
+    }
+    
+    if (points.length > 0) {
+      logger.info(`Retrieved ${points.length} points for map ${mapId}`);
+      // Map the point IDs, handling different property names
+      const pointIds = points.map((p: any) => p.id || p.point_id || p.name || 'unknown');
       logger.info(`Point IDs for map ${mapId}: ${JSON.stringify(pointIds)}`);
-      return response.data.points;
+      
+      // Full details for debugging
+      logger.info(`First point full data: ${JSON.stringify(points[0])}`);
+      
+      return points;
     }
     logger.warn(`No points found in robot response for map ${mapId}: ${JSON.stringify(response.data)}`);
     return [];
@@ -159,15 +183,23 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
     
     // Process each map to extract its data and points
     const mapDataPromises = maps.map(async (map: any) => {
-      const mapId = map.id || '';
-      const mapName = map.name || mapId;
+      // Make sure mapId is a string for string operations
+      const mapId = String(map.id || map.map_id || '');
+      
+      // Handle map name - check various properties since the API format varies
+      const mapName = map.name || map.map_name || `Map ${mapId}`;
+      
+      // Debug log full map object
+      logger.info(`Processing map: ${JSON.stringify(map)}`);
+      
       let floorNumber = 1;
       
-      // Try to extract floor number from map ID (e.g., "Floor1" -> 1)
-      const floorMatch = mapId.match(/Floor(\d+)/);
+      // Try to extract floor number from map name or ID (e.g., "Floor1" -> 1)
+      const nameToCheck = mapName || mapId;
+      const floorMatch = String(nameToCheck).match(/Floor(\d+)/);
       if (floorMatch) {
         floorNumber = parseInt(floorMatch[1], 10);
-      } else if (mapId.includes('Basement')) {
+      } else if (String(nameToCheck).includes('Basement')) {
         floorNumber = 0; // Basement is floor 0
       }
       
