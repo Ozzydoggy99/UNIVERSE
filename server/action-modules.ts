@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { sleep } from './utilities';  // Utility for adding delays
+import { sleep } from './utilities';
 
 // Types based on our actual implementation
 export type ActionResult = {
@@ -84,104 +84,29 @@ export const moveToPointAction: ActionModule = {
       
       console.log(`[ACTION] Moving to point: ${resolvedPointId}`);
       
-      // Use the correct API endpoint from documentation
-      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
-      const headers = {
-        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
-      };
+      // Using our actual API call pattern from existing workflows
+      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/point`, {
+        point_id: resolvedPointId,
+        velocity: speed
+      });
       
-      // If we have coordinates for the point, use them directly
-      if (params.x !== undefined && params.y !== undefined) {
-        const ori = params.theta || params.ori || 0;
-        
-        // According to the documentation, we should use the chassis/moves endpoint
-        const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-          creator: "robot-move-action",
-          type: "standard",
-          target_x: params.x,
-          target_y: params.y,
-          target_ori: ori,
-          properties: {
-            max_trans_vel: speed,
-            max_rot_vel: speed,
-            acc_lim_x: 0.3,
-            acc_lim_theta: 0.3
-          }
-        }, { headers });
-      } else {
-        // Fall back to using the point ID if coordinates aren't provided
-        // This assumes the AutoXing robot API has a method to move to a named point
-        // Note: This may need to be updated if the robot doesn't support moving to named points
-        console.log(`[ACTION] Looking up map point: ${resolvedPointId}`);
-        
-        // First, try to get the point coordinates from the robot's map
-        try {
-          const pointsResponse = await axios.get(`${ROBOT_API_URL}/map_points`, { headers });
-          const pointData = pointsResponse.data?.find((p: any) => p.name === resolvedPointId);
-          
-          if (pointData) {
-            console.log(`[ACTION] Found coordinates for point ${resolvedPointId}: (${pointData.x}, ${pointData.y})`);
-            
-            // Now use the coordinates to create a move action
-            const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-              creator: "robot-move-action",
-              type: "standard",
-              target_x: pointData.x,
-              target_y: pointData.y,
-              target_ori: pointData.ori || 0,
-              properties: {
-                max_trans_vel: speed,
-                max_rot_vel: speed,
-                acc_lim_x: 0.3,
-                acc_lim_theta: 0.3
-              }
-            }, { headers });
-          } else {
-            throw new Error(`Point not found: ${resolvedPointId}`);
-          }
-        } catch (pointError) {
-          console.error(`[ACTION] Error finding point: ${pointError.message}`);
-          throw new Error(`Could not find or move to point: ${resolvedPointId}`);
-        }
-      }
-      
-      // Wait for completion using the chassis/moves/latest endpoint
+      // Wait for completion as our existing code does
       const maxRetries = params.maxRetries || 60;
       let retries = 0;
       
       while (retries < maxRetries) {
-        try {
-          const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { 
-            headers,
-            timeout: 5000
-          });
-          
-          const { state, fail_reason_str } = statusResponse.data;
-          console.log(`[ACTION] Move status: ${state}${fail_reason_str ? ` (${fail_reason_str})` : ''}`);
-          
-          if (state === 'succeeded') {
-            console.log(`[ACTION] Successfully reached point: ${resolvedPointId}`);
-            return { success: true };
-          } else if (state === 'failed') {
-            console.error(`[ACTION] Error moving to point: ${resolvedPointId} - ${fail_reason_str || 'Unknown error'}`);
-            return { 
-              success: false, 
-              error: `Failed to reach point: ${fail_reason_str || 'Unknown error'}` 
-            };
-          } else if (state === 'cancelled') {
-            console.warn(`[ACTION] Move was cancelled`);
-            return {
-              success: false,
-              error: 'Move cancelled'
-            };
-          }
-          // If state is 'moving' or 'idle', continue waiting
-        } catch (statusError) {
-          console.warn(`[ACTION] Error checking move status: ${statusError.message}`);
-          // Continue retrying despite errors - the robot might just be transitioning states
+        const statusResponse = await axios.get('http://47.180.91.99:8090/api/v2/move/status');
+        const status = statusResponse.data.status;
+        
+        if (status === 'idle') {
+          console.log(`[ACTION] Successfully reached point: ${resolvedPointId}`);
+          return { success: true };
+        } else if (status === 'error') {
+          console.error(`[ACTION] Error moving to point: ${resolvedPointId}`, statusResponse.data);
+          return { success: false, error: `Failed to reach point: ${statusResponse.data.message || 'Unknown error'}` };
         }
         
-        await sleep(2000); // Poll every 2 seconds
+        await sleep(1000);
         retries++;
       }
       
@@ -226,23 +151,10 @@ export const alignWithRackAction: ActionModule = {
       
       console.log(`[ACTION] Aligning with rack at point: ${resolvedPointId}`);
       
-      // Use the correct API endpoint from documentation
-      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
-      const headers = {
-        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
-      };
-      
-      // According to the documentation, for aligning with a rack we should use a move action with type "align_with_rack"
-      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-        creator: "robot-align-action",
-        type: "align_with_rack",
-        // If we have x,y coordinates for the point, use those
-        ...(params.x && params.y ? { 
-          target_x: params.x,
-          target_y: params.y,
-          target_ori: params.theta || 0
-        } : {})
-      }, { headers });
+      // Based on our actual implementation
+      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/point/fine_adjust`, {
+        point_id: resolvedPointId
+      });
       
       // Wait for alignment to complete
       const maxRetries = params.maxRetries || 30;
@@ -293,19 +205,12 @@ export const jackUpAction: ActionModule = {
     try {
       console.log(`[ACTION] Raising jack to pick up bin`);
       
-      // Use the correct API endpoint from documentation
-      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
-      const headers = {
-        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
-      };
+      // Based on our actual implementation
+      const response = await axios.post(`http://47.180.91.99:8090/api/v2/forks/up`);
       
-      // According to the robot documentation, we should use /services/jack_up
-      const response = await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
-      
-      // Extended wait time for more reliable operation
+      // Our existing code uses a fixed sleep here
       // Make it configurable while maintaining backward compatibility
-      const waitTime = params.waitTime || 8000; // Longer wait time (8 seconds) for the operation to complete
-      console.log(`[ACTION] Waiting ${waitTime}ms for jack operation to complete...`);
+      const waitTime = params.waitTime || 3000;
       await sleep(waitTime);
       
       console.log(`[ACTION] Jack raised successfully`);
@@ -338,19 +243,12 @@ export const jackDownAction: ActionModule = {
     try {
       console.log(`[ACTION] Lowering jack to release bin`);
       
-      // Use the correct API endpoint from documentation
-      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
-      const headers = {
-        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
-      };
+      // Based on our actual implementation
+      const response = await axios.post(`http://47.180.91.99:8090/api/v2/forks/down`);
       
-      // According to the robot documentation, we should use /services/jack_down
-      const response = await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
-      
-      // Extended wait time for more reliable operation
+      // Our existing code uses a fixed sleep here
       // Make it configurable while maintaining backward compatibility
-      const waitTime = params.waitTime || 8000; // Longer wait time (8 seconds) for the operation to complete
-      console.log(`[ACTION] Waiting ${waitTime}ms for jack operation to complete...`);
+      const waitTime = params.waitTime || 3000;
       await sleep(waitTime);
       
       console.log(`[ACTION] Jack lowered successfully`);
@@ -446,30 +344,14 @@ export const returnToChargerAction: ActionModule = {
     try {
       console.log(`[ACTION] Returning to charger`);
       
-      // Use the correct API endpoint from documentation
-      const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090';
-      const headers = {
-        'Secret': process.env.ROBOT_SECRET_KEY || 'APPCODE 667a51a4d948433081a272c78d10a8a4'
-      };
-      
-      // According to the robot documentation, we should use the services/return_to_charger endpoint
-      // or create a move action with type "charge"
-      try {
-        // Method 1: Use services API (preferred)
-        const serviceResponse = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { headers });
-        console.log(`[ACTION] Return to charger command sent via services API`);
-      } catch (serviceError) {
-        console.log(`[ACTION] Services API for charger failed, trying move action instead: ${serviceError.message}`);
-        
-        // Method 2: Use move action with type "charge"
-        const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-          creator: "robot-charger-action",
-          type: "charge",
-          charge_retry_count: 3
-        }, { headers });
-        
-        console.log(`[ACTION] Return to charger command sent via move action (ID: ${moveResponse.data?.id})`);
-      }
+      // Based on our actual implementation with hardcoded coordinates
+      // This is our special case that uses exact coordinates not a point
+      const response = await axios.post(`http://47.180.91.99:8090/api/v2/move/coordinate`, {
+        x: 0.034,
+        y: 0.498,
+        theta: 266.11,
+        isCharger: true
+      });
       
       // Wait for completion
       const maxRetries = params.maxRetries || 90; // Longer timeout for charger return

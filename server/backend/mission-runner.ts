@@ -20,17 +20,13 @@ async function waitForMoveComplete(): Promise<void> {
   let retries = 0;
   while (retries < 60) { // 60 * 2s = 2 minutes max
     try {
-      const res = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { 
-        headers,
-        timeout: 5000 // Add timeout to avoid hanging
-      });
-      const { state, fail_reason_str } = res.data;
-      appendLog(`🔄 Robot move status: ${state}${fail_reason_str ? ` (${fail_reason_str})` : ''}`);
+      const res = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
+      const { state } = res.data;
+      appendLog(`🔄 Robot move status: ${state}`);
       if (state === "succeeded") return;
-      if (state === "failed") throw new Error(`❌ Robot move failed: ${fail_reason_str || 'Unknown reason'}`);
+      if (state === "failed") throw new Error("❌ Robot move failed");
     } catch (err: any) {
       appendLog(`⚠️ Status check error: ${err.message}`);
-      // Continue retrying despite errors - the robot might just be transitioning states
     }
     await wait(2000); // poll every 2 seconds
     retries++;
@@ -65,21 +61,10 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   for (const point of sequence) {
     try {
       appendLog(`➡️ Sending robot to: ${point.id} (${point.x}, ${point.y})`);
-      // Get orientation from either theta or ori property, defaulting to 0
-      const orientation = point.theta || point.ori || 0;
-      
       const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-        creator: "robot-mission-runner",
-        type: "standard",
+        action: "move_to",
         target_x: point.x,
-        target_y: point.y,
-        target_ori: orientation,
-        properties: {
-          max_trans_vel: 0.5,  // Medium speed
-          max_rot_vel: 0.5,
-          acc_lim_x: 0.3,
-          acc_lim_theta: 0.3
-        }
+        target_y: point.y
       }, { headers });
 
       appendLog(`✅ Move to ${point.id} started (MoveID: ${response.data?.id})`);
