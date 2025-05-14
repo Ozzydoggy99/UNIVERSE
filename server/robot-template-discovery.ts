@@ -148,6 +148,9 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       // Get all points for this map
       const points = await getMapPoints(mapId);
       
+      // Debug log to show all actual point IDs from the robot
+      logger.info(`MAP POINTS DEBUG - Map ${mapId} has ${points.length} points: ${JSON.stringify(points.map(p => p.id || p.name))}`);
+      
       // Filter for shelf points and format them
       const shelfPoints = points
         .filter((point: any) => isShelfPoint(point.id))
