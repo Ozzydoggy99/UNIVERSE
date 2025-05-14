@@ -625,6 +625,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       }
       
       // Determine which workflow template to use based on operation type
+      // Making this generic for any shelf ID
       let workflowType = '';
       
       if (operationType === 'pickup') {
@@ -632,19 +633,21 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
           // Central pickup to a shelf operation
           workflowType = 'central-to-shelf';
         } else {
-          // Shelf to central dropoff operation
-          workflowType = 'pickup-to-104-workflow';
+          // This is the universal "shelf-to-central" workflow that works with ANY shelf ID
+          // It no longer has a hardcoded dependency on '104'
+          workflowType = 'shelf-to-central';
         }
       } else if (operationType === 'dropoff') {
         if (shelfId === 'dropoff_load' || shelfId === 'drop-off_load') {
-          // Shelf to central dropoff operation
+          // Shelf to central dropoff operation - this shouldn't happen since dropoff_load is a destination
           workflowType = 'shelf-to-central';
         } else {
-          // Central pickup to a shelf operation
-          workflowType = 'zone-104-workflow';
+          // This is the universal "central-to-shelf" workflow that works with ANY shelf ID
+          // We're now using the generic template instead of the hardcoded 104 workflow
+          workflowType = 'central-to-shelf';
         }
       } else if (operationType === 'transfer') {
-        // Shelf to shelf transfer operation
+        // Shelf to shelf transfer operation - already generic
         workflowType = 'shelf-to-shelf';
         
         // We need a source shelf and a target shelf
@@ -681,30 +684,57 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       
       logger.info(`Executing workflow type: ${workflowType} with params: ${JSON.stringify(workflowParams)}`);
       
-      // Execute the workflow directly
+      // Execute the workflow directly using our universal workflow module 
       try {
+        logger.info(`Executing generic workflow of type: ${workflowType}`);
+        logger.info(`Parameters: ${JSON.stringify(workflowParams)}`);
+        
+        // Call the dynamic workflow module to execute the workflow with the given parameters
+        // This will work with ANY shelf ID, not just hardcoded values
         const workflowResult = await dynamicWorkflow.executeWorkflow(workflowType, workflowParams);
         
-        logger.info(`Workflow execution result: ${JSON.stringify({ 
+        // Log successful execution
+        logger.info(`Workflow execution initiated successfully: ${JSON.stringify({ 
           success: workflowResult.success,
           missionId: workflowResult.missionId || 'unknown',
           message: workflowResult.message || 'Workflow execution started'
         })}`);
         
+        // Return success response - focusing on core functionality only
         res.status(200).json({
           success: workflowResult.success,
           missionId: workflowResult.missionId || 'unknown',
-          message: workflowResult.message || 'Workflow execution started'
+          message: workflowResult.message || 'Workflow execution started',
+          // Include shelf ID for frontend reference
+          shelfId: shelfId
         });
       } catch (workflowError: any) {
-        logger.error(`Error in dynamic workflow execution: ${workflowError.message || workflowError}`);
-        throw workflowError; // Let the outer catch handle it
+        // Log detailed error for debugging
+        logger.error(`Error in workflow execution: ${workflowError.message || workflowError}`);
+        if (workflowError.stack) {
+          logger.error(`Stack trace: ${workflowError.stack}`);
+        }
+        throw workflowError; // Let the outer catch handle it for consistent error responses
       }
     } catch (error: any) {
+      // Comprehensive error logging for easier debugging
       logger.error(`Error executing workflow: ${error.message || String(error)}`);
+      if (error.stack) {
+        logger.error(`Stack trace: ${error.stack}`);
+      }
+      
+      // Return a structured error response with useful details
       res.status(500).json({ 
+        success: false,
         error: 'Failed to execute workflow', 
-        details: error.message || String(error)
+        details: error.message || String(error),
+        // Include the workflow parameters in the error response to help with debugging
+        params: {
+          workflowType: workflowType,
+          shelfId: shelfId,
+          floorId: floorId,
+          operationType: operationType
+        }
       });
     }
   });
