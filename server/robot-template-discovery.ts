@@ -27,6 +27,19 @@ function getPointDisplayName(pointId: any): string {
   // Debug log
   logger.info(`Getting display name for point: ${id}`);
   
+  // Special case for central pickup/dropoff points from AutoX robots
+  if (id === 'pick-up_load' || id.toLowerCase() === 'pickup_load') {
+    return 'Central Pickup';
+  }
+  if (id === 'drop-off_load' || id.toLowerCase() === 'dropoff_load') {
+    return 'Central Dropoff';
+  }
+  
+  // Special case for charging station
+  if (id.toLowerCase().includes('charging') || id.toLowerCase().includes('charger')) {
+    return 'Charger';
+  }
+  
   // Try multiple patterns to extract a clean display name
   
   // Pattern 1: Extract number from start of string followed by underscore (e.g., "104_load" → "104")
@@ -61,6 +74,17 @@ function getPointDisplayName(pointId: any): string {
     .replace(/-load$/i, '')
     .replace(/-docking$/i, '')
     .replace(/-shelf$/i, '');
+  
+  // Make display names more user-friendly by adding spaces and capitalizing words
+  cleanId = cleanId
+    .replace(/([A-Z])/g, ' $1') // Add space before capitals in camelCase
+    .replace(/[-_]/g, ' ')      // Replace dashes and underscores with spaces
+    .trim();                    // Trim extra spaces
+  
+  // Capitalize first letter of each word
+  cleanId = cleanId.split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
     
   logger.info(`Cleaned point ID: ${cleanId}`);
   return cleanId;
@@ -120,11 +144,30 @@ function isShelfPoint(pointId: any): boolean {
   // - shelf_<number> (e.g., shelf_104)
   // - <number>_shelf (e.g., 104_shelf)
   // - Just contain 'shelf' or 'load' along with a number
-  return /^\d+_load/.test(id) || 
-         /shelf_\d+/.test(id) || 
-         /\d+_shelf/.test(id) ||
-         (id.includes('shelf') && /\d+/.test(id)) ||
-         (id.includes('load') && /\d+/.test(id));
+  // - Robot-specific convention (pick-up_load, drop-off_load)
+  
+  // Special handling for robot-specific naming (with dashes instead of underscores)
+  if (id === 'pick-up_load' || id === 'drop-off_load') {
+    logger.info(`✅ Detected special shelf point: ${id}`);
+    return true;
+  }
+  
+  // Skip points that are clearly not shelf points
+  if (id.includes('docking') || id.includes('charger') || id.includes('station')) {
+    return false;
+  }
+  
+  // Check for standard naming patterns
+  const isStandardPattern = /^\d+_load/.test(id) || 
+                           /shelf_\d+/.test(id) || 
+                           /\d+_shelf/.test(id) ||
+                           (id.includes('shelf') && /\d+/.test(id)) ||
+                           (id.includes('load') && /\d+/.test(id));
+  
+  // Additional patterns for AutoX robots
+  const isAutoXPattern = /^([a-z0-9]+)_load$/i.test(id);
+  
+  return isStandardPattern || isAutoXPattern;
 }
 
 /**
@@ -502,9 +545,14 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
         if (pointId === 'charger' || 
             pointId.includes('charger') || 
             pointId.includes('charging') ||
-            pointId === 'charge') {
+            pointId === 'charge' ||
+            // AutoX robot specific - properties.name contains "Charging Station"
+            (point.properties && point.properties.name === 'Charging Station') ||
+            // Look for type=9 (charging station in AutoX robots)
+            (point.properties && point.properties.type === '9') ||
+            (point.properties && point.properties.type === 9)) {
           hasCharger = true;
-          logger.info(`✅ Found charger point: ${point.id}`);
+          logger.info(`✅ Found charger point: ${JSON.stringify(point)}`);
         } 
         // Check for pickup points - support various naming conventions
         else if (
@@ -516,10 +564,12 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
           pointId === 'pick-up' ||
           pointId.includes('pickup_load') ||
           pointId.includes('pick-up_load') ||
-          (pointId.includes('pick') && pointId.includes('up'))
+          (pointId.includes('pick') && pointId.includes('up')) ||
+          // AutoX robot specific properties
+          (point.properties && String(point.properties.name).toLowerCase() === 'pick-up_load')
         ) {
           hasCentralPickup = true;
-          logger.info(`✅ Found central pickup point: ${point.id}`);
+          logger.info(`✅ Found central pickup point: ${JSON.stringify(point.id || point.properties?.name)}`);
         } 
         // Check for dropoff points - support various naming conventions
         else if (
@@ -531,10 +581,12 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
           pointId === 'drop-off' ||
           pointId.includes('dropoff_load') ||
           pointId.includes('drop-off_load') ||
-          (pointId.includes('drop') && pointId.includes('off'))
+          (pointId.includes('drop') && pointId.includes('off')) ||
+          // AutoX robot specific properties
+          (point.properties && String(point.properties.name).toLowerCase() === 'drop-off_load')
         ) {
           hasCentralDropoff = true;
-          logger.info(`✅ Found central dropoff point: ${point.id}`);
+          logger.info(`✅ Found central dropoff point: ${JSON.stringify(point.id || point.properties?.name)}`);
         }
       }
       
