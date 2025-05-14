@@ -77,6 +77,41 @@ router.post('/api/workflows/execute', async (req, res) => {
   }
 });
 
+// Endpoint to specifically handle shelf-to-shelf transfers
+router.post('/api/workflow/shelf-to-shelf', async (req, res) => {
+  try {
+    const { pickupShelf, dropoffShelf } = req.body;
+    
+    if (!pickupShelf || !dropoffShelf) {
+      return res.status(400).json({ 
+        error: 'Both pickupShelf and dropoffShelf are required for shelf-to-shelf transfer'
+      });
+    }
+    
+    console.log(`Executing shelf-to-shelf workflow: ${pickupShelf} -> ${dropoffShelf}`);
+    
+    // Get the shelf-to-shelf workflow template
+    const template = workflowTemplates['shelf-to-shelf'];
+    if (!template) {
+      return res.status(404).json({ error: 'Shelf-to-shelf workflow template not found' });
+    }
+    
+    // Execute the workflow with the proper inputs
+    const result = await createWorkflow(template, {
+      pickupShelf,
+      dropoffShelf
+    });
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error executing shelf-to-shelf workflow:', error);
+    res.status(500).json({ 
+      error: 'Failed to execute shelf-to-shelf workflow',
+      message: error.message 
+    });
+  }
+});
+
 // Endpoint to get details of a specific workflow template
 router.get('/api/workflows/:id', (req, res) => {
   const templateId = req.params.id;

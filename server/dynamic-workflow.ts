@@ -1663,7 +1663,10 @@ export async function executeWorkflow(
     serviceType: string,
     operationType: string,
     floorId: string,
-    shelfId: string
+    shelfId: string,
+    pickupShelf?: string,  // For transfer operations: source shelf
+    dropoffShelf?: string, // For transfer operations: destination shelf (same as shelfId)
+    sourceFloorId?: string // For transfer operations: floor of the source shelf
   }
 ): Promise<{
   success: boolean,
@@ -1729,6 +1732,27 @@ export async function executeWorkflow(
         { shelf_id: params.shelfId },
         { headers: getHeaders() }
       );
+      missionId = response.data.missionId || workflowId;
+    }
+    else if (workflowType === 'shelf-to-shelf') {
+      // Call the workflow-routes API for shelf-to-shelf transfer
+      // Use the pickupShelf and dropoffShelf parameters
+      if (!params.pickupShelf) {
+        throw new Error('Missing source shelf for shelf-to-shelf transfer');
+      }
+      
+      logWorkflow(workflowId, `Executing shelf-to-shelf transfer from ${params.pickupShelf} to ${params.shelfId}`);
+      
+      // Execute the shelf-to-shelf workflow with our custom workflow API
+      // Note: We're using our local API rather than the robot's API
+      const response = await axios.post(
+        `http://localhost:5000/api/workflow/shelf-to-shelf`,
+        { 
+          pickupShelf: params.pickupShelf,
+          dropoffShelf: params.shelfId
+        }
+      );
+      
       missionId = response.data.missionId || workflowId;
     }
     else {
