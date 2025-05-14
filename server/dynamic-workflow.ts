@@ -1744,11 +1744,11 @@ export async function executeWorkflow(
     await missionQueue.cancelAllActiveMissions();
     logWorkflow(workflowId, `✅ Cancelled any existing active missions`);
     
-    if (workflowType === 'zone-104-workflow') {
-      // Create a mission with steps to pick up from Zone 104 and return to charger
-      const missionName = `Zone 104 Workflow (${params.shelfId}) - Dynamic execution`;
+    if (workflowType === 'zone-104-workflow' || workflowType === 'shelf-to-central') {
+      // Create a mission with steps to pick up from any shelf point and move to central dropoff
+      const missionName = `Shelf to Central Workflow (${params.shelfId}) - Dynamic execution`;
       
-      // Get coordinates for the shelf points
+      // Get coordinates for the shelf points - works for any shelf point (104, 115, etc.)
       const shelfPoint = await getShelfPoint(params.shelfId);
       const dockingPoint = await getShelfDockingPoint(params.shelfId);
       
@@ -1756,23 +1756,24 @@ export async function executeWorkflow(
         throw new Error(`Could not find shelf point or docking point for ${params.shelfId}`);
       }
       
-      // Find specifically needed central dropoff points
-      const dropoffPoint = allPoints.find(p => p.id === 'drop-off_load');
-      const dropoffDockingPoint = allPoints.find(p => p.id === 'drop-off_load_docking');
+      // Find central dropoff points using the same utility functions we used for shelf points
+      // This ensures consistent handling for all points
+      const dropoffPoint = getShelfPoint('drop-off');
+      const dropoffDockingPoint = getShelfDockingPoint('drop-off');
       
       if (!dropoffPoint || !dropoffDockingPoint) {
         throw new Error(`Could not find central dropoff points`);
       }
 
-      // Build standard Zone 104 workflow steps
+      // Build generic shelf-to-central workflow steps
       workflowSteps = [
         {
           type: 'move',
           params: {
             x: dockingPoint.x,
             y: dockingPoint.y,
-            ori: dockingPoint.theta, // Using theta from the point
-            label: `Docking at ${params.shelfId}`
+            ori: dockingPoint.theta, 
+            label: `Docking at shelf point ${params.shelfId}`
           },
           completed: false,
           retryCount: 0
@@ -1782,7 +1783,7 @@ export async function executeWorkflow(
           params: {
             x: shelfPoint.x,
             y: shelfPoint.y,
-            ori: shelfPoint.theta, // Using theta from the point
+            ori: shelfPoint.theta,
             label: `Aligning with shelf ${params.shelfId}`
           },
           completed: false,
