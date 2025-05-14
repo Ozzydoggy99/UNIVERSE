@@ -102,7 +102,7 @@ export const moveToPointAction: ActionModule = {
       if (isUnloadPoint) {
         // For dropping bins at a shelf, use 'to_unload_point' move type from the AutoXing API
         console.log(`[ACTION] Using to_unload_point move type for dropoff at: ${resolvedPointId}`);
-        response = await axios.post(`http://47.180.91.99:8090/chassis/moves`, {
+        response = await robotApi.post('/chassis/moves', {
           creator: 'robot-management-platform',
           type: 'to_unload_point',
           target_x: 0, // These values will be ignored since the point ID is what matters
@@ -116,7 +116,7 @@ export const moveToPointAction: ActionModule = {
         console.log(`[ACTION] Created to_unload_point action with ID: ${moveActionId}`);
       } else {
         // For regular movement, use the standard point-based movement
-        response = await axios.post(`http://47.180.91.99:8090/api/v2/move/point`, {
+        response = await robotApi.post('/api/v2/move/point', {
           point_id: resolvedPointId,
           velocity: speed
         });
@@ -131,7 +131,7 @@ export const moveToPointAction: ActionModule = {
         
         if (isUnloadPoint && moveActionId) {
           // Check move action status for unload operations
-          const actionResponse = await axios.get(`http://47.180.91.99:8090/chassis/moves/${moveActionId}`);
+          const actionResponse = await robotApi.get(`/chassis/moves/${moveActionId}`);
           const state = actionResponse.data.state;
           
           if (state === 'succeeded') {
@@ -146,7 +146,7 @@ export const moveToPointAction: ActionModule = {
           }
         } else {
           // Check move status for regular movements
-          const statusResponse = await axios.get('http://47.180.91.99:8090/api/v2/move/status');
+          const statusResponse = await robotApi.get('/api/v2/move/status');
           status = statusResponse.data.status;
           
           if (status === 'idle') {
@@ -209,7 +209,7 @@ export const alignWithRackAction: ActionModule = {
       const loadPointId = resolvedPointId.replace('_docking', '');
       console.log(`[ACTION] Using load point ID for alignment: ${loadPointId}`);
       
-      const response = await axios.post(`http://47.180.91.99:8090/chassis/moves`, {
+      const response = await robotApi.post('/chassis/moves', {
         creator: 'robot-management-platform',
         type: 'align_with_rack',
         target_x: 0, // These values will be ignored since the point ID is what matters
@@ -573,9 +573,7 @@ export const checkBinStatusAction: ActionModule = {
       
       try {
         // Call the robot sensor API to check bin status using sensors
-        const sensorResponse = await axios.get(`http://47.180.91.99:8090/sensors`, { 
-          headers: getAuthHeaders() 
-        });
+        const sensorResponse = await robotApi.get('/sensors');
         
         // Parse the sensor data to determine if a bin is present
         // In a real implementation, we would look at specific sensor values
