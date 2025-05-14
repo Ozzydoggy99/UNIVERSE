@@ -63,11 +63,11 @@ export const zoneToPickupWorkflow: WorkflowTemplate = {
       description: 'Move to Zone 104 docking position'
     },
     {
-      actionId: 'alignWithRack',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '104_load'
       },
-      description: 'Align with rack at Zone 104'
+      description: 'Move to unload point at Zone 104'
     },
     {
       actionId: 'jackDown',
@@ -135,11 +135,11 @@ export const pickupToDropoffWorkflow: WorkflowTemplate = {
       description: 'Move to dropoff docking position'
     },
     {
-      actionId: 'alignWithRack',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: 'drop-off_load'
       },
-      description: 'Align with rack at dropoff'
+      description: 'Move to unload point at dropoff'
     },
     {
       actionId: 'jackDown',
