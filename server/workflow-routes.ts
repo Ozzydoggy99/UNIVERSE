@@ -124,4 +124,24 @@ router.get('/api/workflows/:id', (req, res) => {
   res.json(template);
 });
 
+// Debug endpoint to check actual point IDs in the map
+router.get('/api/debug/map-points', async (req, res) => {
+  try {
+    const { fetchRobotMapPoints } = await import('./robot-map-data');
+    const points = await fetchRobotMapPoints();
+    res.json({ 
+      totalPoints: points.length,
+      points: points.map(p => ({ 
+        id: p.id, 
+        floorId: p.floorId,
+        x: p.x,
+        y: p.y
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching map points for debug:', error);
+    res.status(500).json({ error: 'Failed to fetch map points' });
+  }
+});
+
 export default router;
