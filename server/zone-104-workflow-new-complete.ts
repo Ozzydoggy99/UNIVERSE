@@ -601,25 +601,25 @@ async function executeZone104Workflow(): Promise<any> {
     await moveToPoint(-15.409467385438802, 6.403540839556854, 178.97, '104_load_docking');
     logWorkflow(`✅ STEP 1/8 COMPLETE: Reached 104_load_docking`);
     
-    // STEP 2: Move to 104_Load (pickup point)
-    logWorkflow(`📍 STEP 2/8: Moving to 104_Load`);
-    await moveToPoint(-16.253106853127974, 6.419632917129547, 0, '104_Load');
-    logWorkflow(`✅ STEP 2/8 COMPLETE: Reached 104_Load`);
+    // STEP 2: Move to 104_load (pickup point)
+    logWorkflow(`📍 STEP 2/8: Moving to 104_load`);
+    await moveToPoint(-16.253106853127974, 6.419632917129547, 0, '104_load');
+    logWorkflow(`✅ STEP 2/8 COMPLETE: Reached 104_load`);
     
     // STEP 3: Perform jack_up with backup for alignment
     logWorkflow(`⚠️ STEP 3/8: Executing jack_up to pick up bin`);
     await executeJackUp();
     logWorkflow(`✅ STEP 3/8 COMPLETE: Bin picked up successfully`);
     
-    // STEP 4: Move to Drop-off_Load_docking (approach point for dropoff)
-    logWorkflow(`📍 STEP 4/8: Moving to Drop-off_Load_docking`);
-    await moveToPoint(-2.3143658339108697, 2.543396298051448, 177.73, 'Drop-off_Load_docking');
-    logWorkflow(`✅ STEP 4/8 COMPLETE: Reached Drop-off_Load_docking`);
+    // STEP 4: Move to drop-off_load_docking (approach point for dropoff)
+    logWorkflow(`📍 STEP 4/8: Moving to drop-off_load_docking`);
+    await moveToPoint(-2.3143658339108697, 2.543396298051448, 177.73, 'drop-off_load_docking');
+    logWorkflow(`✅ STEP 4/8 COMPLETE: Reached drop-off_load_docking`);
     
-    // STEP 5: Move to Drop-off_Load (dropoff point)
-    logWorkflow(`📍 STEP 5/8: Moving to Drop-off_Load`);
-    await moveToPoint(-3.067094531843395, 2.5788015960870325, 0, 'Drop-off_Load');
-    logWorkflow(`✅ STEP 5/8 COMPLETE: Reached Drop-off_Load`);
+    // STEP 5: Move to drop-off_load (dropoff point)
+    logWorkflow(`📍 STEP 5/8: Moving to drop-off_load`);
+    await moveToPoint(-3.067094531843395, 2.5788015960870325, 0, 'drop-off_load');
+    logWorkflow(`✅ STEP 5/8 COMPLETE: Reached drop-off_load`);
     
     // STEP 6: Perform jack_down
     logWorkflow(`⚠️ STEP 6/8: Executing jack_down to release bin`);
@@ -627,9 +627,9 @@ async function executeZone104Workflow(): Promise<any> {
     logWorkflow(`✅ STEP 6/8 COMPLETE: Bin dropped off successfully`);
     
     // STEP 7: Back up slightly from the drop-off point to clear the area
-    logWorkflow(`📍 STEP 7/8: Backing away from Drop-off_Load`);
+    logWorkflow(`📍 STEP 7/8: Backing away from drop-off_load`);
     // Create a point ~1 meter away from dropoff in the opposite direction
-    await moveToPoint(-1.5, 2.5788015960870325, 0, 'Dropoff clearance point');
+    await moveToPoint(-1.5, 2.5788015960870325, 0, 'dropoff_clearance_point');
     logWorkflow(`✅ STEP 7/8 COMPLETE: Backed away from dropoff point`);
     
     // STEP 8: Return to charging station using the proper 'charge' move type
