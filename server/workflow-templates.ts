@@ -76,14 +76,7 @@ export const zoneToPickupWorkflow: WorkflowTemplate = {
       },
       description: 'Jack down to release bin'
     },
-    {
-      actionId: 'reverseFromRack',
-      params: {
-        distance: 0.5,
-        speed: 0.2
-      },
-      description: 'Reverse from rack for safety'
-    },
+    /* Removed redundant reverseFromRack action as toUnloadPoint already handles proper positioning */
     {
       actionId: 'returnToCharger',
       params: {

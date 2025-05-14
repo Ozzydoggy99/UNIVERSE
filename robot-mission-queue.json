@@ -6326,8 +6326,9 @@
         "params": {
           "waitComplete": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -6336,20 +6337,31 @@
           "speed": 0.2,
           "label": "Reversing from rack for safety"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Reversing from rack for safety completed successfully",
+          "moveId": 4638
+        }
       },
       {
         "type": "return_to_charger",
         "params": {},
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Return to charger initiated with coordinate-based navigation",
+          "moveId": 4639,
+          "method": "coordinate_based_with_charging"
+        }
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 5,
+    "status": "completed",
+    "currentStepIndex": 8,
     "createdAt": "2025-05-14T21:09:51.443Z",
-    "updatedAt": "2025-05-14T21:12:10.279Z",
+    "updatedAt": "2025-05-14T21:12:57.494Z",
     "robotSn": "L382502104987ir"
   }
 ]
