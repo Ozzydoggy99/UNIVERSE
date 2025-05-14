@@ -108,25 +108,80 @@ export const moveToPointAction: ActionModule = {
             acc_lim_theta: 0.3
           }
         }, { headers });
-      });
+      } else {
+        // Fall back to using the point ID if coordinates aren't provided
+        // This assumes the AutoXing robot API has a method to move to a named point
+        // Note: This may need to be updated if the robot doesn't support moving to named points
+        console.log(`[ACTION] Looking up map point: ${resolvedPointId}`);
+        
+        // First, try to get the point coordinates from the robot's map
+        try {
+          const pointsResponse = await axios.get(`${ROBOT_API_URL}/map_points`, { headers });
+          const pointData = pointsResponse.data?.find((p: any) => p.name === resolvedPointId);
+          
+          if (pointData) {
+            console.log(`[ACTION] Found coordinates for point ${resolvedPointId}: (${pointData.x}, ${pointData.y})`);
+            
+            // Now use the coordinates to create a move action
+            const moveResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+              creator: "robot-move-action",
+              type: "standard",
+              target_x: pointData.x,
+              target_y: pointData.y,
+              target_ori: pointData.ori || 0,
+              properties: {
+                max_trans_vel: speed,
+                max_rot_vel: speed,
+                acc_lim_x: 0.3,
+                acc_lim_theta: 0.3
+              }
+            }, { headers });
+          } else {
+            throw new Error(`Point not found: ${resolvedPointId}`);
+          }
+        } catch (pointError) {
+          console.error(`[ACTION] Error finding point: ${pointError.message}`);
+          throw new Error(`Could not find or move to point: ${resolvedPointId}`);
+        }
+      }
       
-      // Wait for completion as our existing code does
+      // Wait for completion using the chassis/moves/latest endpoint
       const maxRetries = params.maxRetries || 60;
       let retries = 0;
       
       while (retries < maxRetries) {
-        const statusResponse = await axios.get('http://47.180.91.99:8090/api/v2/move/status');
-        const status = statusResponse.data.status;
-        
-        if (status === 'idle') {
-          console.log(`[ACTION] Successfully reached point: ${resolvedPointId}`);
-          return { success: true };
-        } else if (status === 'error') {
-          console.error(`[ACTION] Error moving to point: ${resolvedPointId}`, statusResponse.data);
-          return { success: false, error: `Failed to reach point: ${statusResponse.data.message || 'Unknown error'}` };
+        try {
+          const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { 
+            headers,
+            timeout: 5000
+          });
+          
+          const { state, fail_reason_str } = statusResponse.data;
+          console.log(`[ACTION] Move status: ${state}${fail_reason_str ? ` (${fail_reason_str})` : ''}`);
+          
+          if (state === 'succeeded') {
+            console.log(`[ACTION] Successfully reached point: ${resolvedPointId}`);
+            return { success: true };
+          } else if (state === 'failed') {
+            console.error(`[ACTION] Error moving to point: ${resolvedPointId} - ${fail_reason_str || 'Unknown error'}`);
+            return { 
+              success: false, 
+              error: `Failed to reach point: ${fail_reason_str || 'Unknown error'}` 
+            };
+          } else if (state === 'cancelled') {
+            console.warn(`[ACTION] Move was cancelled`);
+            return {
+              success: false,
+              error: 'Move cancelled'
+            };
+          }
+          // If state is 'moving' or 'idle', continue waiting
+        } catch (statusError) {
+          console.warn(`[ACTION] Error checking move status: ${statusError.message}`);
+          // Continue retrying despite errors - the robot might just be transitioning states
         }
         
-        await sleep(1000);
+        await sleep(2000); // Poll every 2 seconds
         retries++;
       }
       
