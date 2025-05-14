@@ -262,7 +262,7 @@ async function getMapPoints(): Promise<MapPoints> {
         if (shelfPoints.length === 0) {
           // Look for points that have numeric identifiers as potential shelf points
           const numericMatch = point.id.match(/^(\d+)/);
-          if (numericMatch && !point.id.includes('_docking') && !point.id.toLowerCase().includes('charger')) {
+          if (numericMatch && !point.id.toLowerCase().includes('_docking') && !point.id.toLowerCase().includes('charger')) {
             console.log(`✅ Found potential shelf point by numeric ID: ${point.id}`);
             shelfPoints.push(point);
           }
@@ -1601,7 +1601,7 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
               // Check for different ID patterns:
               
               // Case 1: If ID contains '_load', extract the number before it (e.g. "104_load" -> "104")
-              if (p.id.includes('_load')) {
+              if (p.id.toLowerCase().includes('_load')) {
                 displayName = p.id.split('_')[0];
               } 
               // Case 2: If it's a simple numeric ID, use it directly
