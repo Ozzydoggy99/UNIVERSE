@@ -54,8 +54,8 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   appendLog("\n[MISSION START]");
   appendLog(`Mode: ${uiMode}`);
   appendLog(`Shelf: ${shelf.id} → (${shelf.x}, ${shelf.y})`);
-  appendLog(`Pickup: ${pickup.id} → (${pickup.x}, ${pickup.y})`);
-  appendLog(`Drop-off: ${dropoff.id} → (${dropoff.x}, ${dropoff.y})`);
+  appendLog(`pickup: ${pickup.id} → (${pickup.x}, ${pickup.y})`);
+  appendLog(`drop-off: ${dropoff.id} → (${dropoff.x}, ${dropoff.y})`);
   appendLog(`Standby: ${standby.id} → (${standby.x}, ${standby.y})`);
 
   for (const point of sequence) {
