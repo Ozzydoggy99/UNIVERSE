@@ -911,13 +911,21 @@ async function executeZone104Workflow(): Promise<any> {
         logWorkflow(`Warning: Failed to stop robot: ${stopError.message}`);
       }
       
-      // Use the special to_unload_point move type for dropoff (as per API documentation)
+      // FIXED: Use the special to_unload_point move type for dropoff with ALL REQUIRED PARAMETERS
+      // Must include point_id and rack_area_id for the movement to work correctly
+      const loadPointId = 'drop-off_load';
+      const rackAreaId = 'drop-off';
+      
+      logWorkflow(`⚠️ CRITICAL: Using loadPointId=${loadPointId} and rackAreaId=${rackAreaId} for proper dropoff`);
+      
       const unloadCommand = {
         creator: 'robot-api',
         type: 'to_unload_point', // Special move type for unloading/dropping bins
         target_x: -3.067, // These are the dropoff coordinates (drop-off_load)
         target_y: 2.579,
-        target_ori: 0
+        target_ori: 0,
+        point_id: loadPointId, // REQUIRED: The actual load point ID
+        rack_area_id: rackAreaId // REQUIRED: The rack area ID for proper alignment
       };
       
       logWorkflow(`⚠️ UNLOAD OPERATION: Creating to_unload_point move for dropoff: ${JSON.stringify(unloadCommand)}`);
