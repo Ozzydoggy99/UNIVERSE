@@ -1698,10 +1698,27 @@ export async function executeWorkflow(
   message: string
 }> {
   try {
-    console.log(`[DYNAMIC-WORKFLOW] Executing workflow ${workflowType} with params:`, params);
+    console.log(`[DYNAMIC-WORKFLOW] Executing workflow ${workflowType} with params:`, JSON.stringify(params, null, 2));
+    
+    // Validate input parameters
+    if (!workflowType) {
+      console.error('[DYNAMIC-WORKFLOW] Error: Missing workflowType parameter');
+      throw new Error('Missing workflowType parameter');
+    }
+    
+    if (!params.shelfId) {
+      console.error('[DYNAMIC-WORKFLOW] Error: Missing shelfId parameter');
+      throw new Error('Missing shelfId parameter');
+    }
+    
+    if (!params.floorId) {
+      console.error('[DYNAMIC-WORKFLOW] Error: Missing floorId parameter');
+      throw new Error('Missing floorId parameter');
+    }
     
     // Create a unique workflow ID
     const workflowId = uuidv4();
+    console.log(`[DYNAMIC-WORKFLOW] Created workflow ID: ${workflowId}`);
     
     // Initialize workflow state
     workflowStates[workflowId] = {
@@ -1864,11 +1881,28 @@ export async function executeWorkflow(
       message: `Workflow ${workflowType} execution started with ID ${missionId}`
     };
   } catch (error: any) {
-    console.error(`[DYNAMIC-WORKFLOW] Error executing workflow:`, error);
+    // Detailed error logging for better debugging
+    console.error(`[DYNAMIC-WORKFLOW] Error executing workflow ${workflowType}:`, error);
+    
+    // Log the stack trace if available
+    if (error.stack) {
+      console.error(`[DYNAMIC-WORKFLOW] Error stack trace:`, error.stack);
+    }
+    
+    // Try to determine more details about the specific error
+    let errorDetails = error.message || String(error);
+    
+    // Check for specific error types to provide more helpful error messages
+    if (errorDetails.includes('Could not find shelf point')) {
+      errorDetails = `Could not find the shelf point for ID: ${params.shelfId}. Make sure it exists on the robot map.`;
+    } else if (errorDetails.includes('docking point')) {
+      errorDetails = `Could not find docking point. Make sure all required points exist on the robot map.`;
+    }
+    
     return {
       success: false,
       missionId: 'error',
-      message: `Error executing workflow: ${error.message}`
+      message: `Error executing workflow: ${errorDetails}`
     };
   }
 }

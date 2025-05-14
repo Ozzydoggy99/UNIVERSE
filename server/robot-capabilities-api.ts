@@ -679,30 +679,33 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
         logger.info(`Transfer operation from ${sourceShelfId} to ${shelfId}`);
       }
       
-      logger.info(`Executing workflow type: ${workflowType} with params:`, workflowParams);
+      logger.info(`Executing workflow type: ${workflowType} with params: ${JSON.stringify(workflowParams)}`);
       
       // Execute the workflow directly
       try {
         const workflowResult = await dynamicWorkflow.executeWorkflow(workflowType, workflowParams);
         
-        logger.info(`Workflow execution result:`, { 
+        logger.info(`Workflow execution result: ${JSON.stringify({ 
           success: workflowResult.success,
           missionId: workflowResult.missionId || 'unknown',
           message: workflowResult.message || 'Workflow execution started'
-        });
+        })}`);
         
         res.status(200).json({
           success: workflowResult.success,
           missionId: workflowResult.missionId || 'unknown',
           message: workflowResult.message || 'Workflow execution started'
         });
-      } catch (workflowError) {
-        logger.error(`Error in dynamic workflow execution:`, workflowError);
+      } catch (workflowError: any) {
+        logger.error(`Error in dynamic workflow execution: ${workflowError.message || workflowError}`);
         throw workflowError; // Let the outer catch handle it
       }
-    } catch (error) {
-      logger.error(`Error executing workflow: ${error}`);
-      res.status(500).json({ error: 'Failed to execute workflow' });
+    } catch (error: any) {
+      logger.error(`Error executing workflow: ${error.message || String(error)}`);
+      res.status(500).json({ 
+        error: 'Failed to execute workflow', 
+        details: error.message || String(error)
+      });
     }
   });
 
