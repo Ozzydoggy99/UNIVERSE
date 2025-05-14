@@ -836,6 +836,10 @@ export class MemStorage implements IStorage {
   async getRobotCapabilities(robotId: string): Promise<any | undefined> {
     return this.robotCapabilities.get(robotId);
   }
+  
+  async clearRobotCapabilities(robotId: string): Promise<void> {
+    this.robotCapabilities.delete(robotId);
+  }
 }
 
 export const storage = new MemStorage();
