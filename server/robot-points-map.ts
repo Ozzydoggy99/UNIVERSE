@@ -188,15 +188,25 @@ export function getShelfPoint(shelfId: string): Point | null {
     return null;
   }
   
-  // Check if point exists directly
-  const pointName = `${shelfId}_load`;
-  if (robotPointsMap.floors[floorId].points[pointName]) {
-    const point = robotPointsMap.floors[floorId].points[pointName];
-    return {
-      x: point.x,
-      y: point.y,
-      theta: point.theta
-    };
+  // Check various case combinations to be more forgiving about casing
+  const pointNameVariations = [
+    `${shelfId}_load`,       // lowercase
+    `${shelfId}_Load`,       // uppercase L
+    `${shelfId.toLowerCase()}_load`,  // all lowercase
+    `${shelfId.toLowerCase()}_Load`   // lowercase ID with uppercase L
+  ];
+  
+  // Try each variation
+  for (const pointName of pointNameVariations) {
+    if (robotPointsMap.floors[floorId].points[pointName]) {
+      console.log(`Found shelf point using variation: ${pointName}`);
+      const point = robotPointsMap.floors[floorId].points[pointName];
+      return {
+        x: point.x,
+        y: point.y,
+        theta: point.theta
+      };
+    }
   }
   
   console.error(`Shelf point ${pointName} not found on floor ${floorId}`);
