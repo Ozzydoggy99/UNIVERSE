@@ -278,7 +278,7 @@ export const jackUpAction: ActionModule = {
       console.log(`[ACTION] Raising jack to pick up bin`);
       
       // Based on our actual implementation
-      const response = await axios.post(`http://47.180.91.99:8090/api/v2/forks/up`);
+      const response = await robotApi.post('/api/v2/forks/up');
       
       // Our existing code uses a fixed sleep here
       // Make it configurable while maintaining backward compatibility
