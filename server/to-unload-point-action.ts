@@ -53,13 +53,19 @@ function resolvePointId(pointId: string, params: Record<string, any>): string {
   
   // Normalize point ID format based on naming conventions
   
-  // Special handling for drop-off points (case-insensitive)
+  // CRITICAL: First check if this is a docking point - we should NEVER use to_unload_point for docking points
   const label = resolvedPointId.toString();
+  if (label.toLowerCase().includes('_docking')) {
+    console.log(`[UNLOAD-POINT-ACTION] ⚠️ ERROR: Docking point ${label} was passed to toUnloadPoint action.`);
+    console.log(`[UNLOAD-POINT-ACTION] to_unload_point should ONLY be used for load points, not docking points.`);
+    // Replace _docking with _load to ensure we target the actual load point
+    return label.replace('_docking', '_load').replace('_DOCKING', '_load');
+  }
   
-  // Comprehensive drop-off point detection and normalization
+  // Special handling for drop-off points (case-insensitive)
   if (label.toLowerCase().includes('drop-off') || label.toLowerCase().includes('dropoff')) {
     // Ensure proper format for drop-off points
-    if (!label.includes('_load')) {
+    if (!label.toLowerCase().includes('_load')) {
       console.log(`[UNLOAD-POINT-ACTION] Normalizing drop-off point ID format: ${label} -> drop-off_load`);
       return 'drop-off_load';
     }
@@ -108,15 +114,25 @@ export const toUnloadPointAction: Action = {
   async execute(params: ActionParams): Promise<ActionResult> {
     console.log('[UNLOAD-POINT-ACTION] Starting execute() with params:', JSON.stringify(params, null, 2));
     try {
+      // CRITICAL CHECK: Verify that we're NOT being called with a docking point
+      if (params.pointId && params.pointId.toString().toLowerCase().includes('_docking')) {
+        console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Docking point ${params.pointId} detected in workflow.`);
+        console.log(`[UNLOAD-POINT-ACTION] According to the perfect example (pickup-104-new.js), docking points should`);
+        console.log(`[UNLOAD-POINT-ACTION] use standard 'move' type, not 'to_unload_point'. Correcting this issue.`);
+      }
+      
       // Resolve the point ID using our naming convention
       const resolvedPointId = resolvePointId(params.pointId, params);
       
       console.log(`[ACTION] Moving to unload point at: ${resolvedPointId}`);
       
       // Based on the AutoXing API documentation, we need to use the 'to_unload_point' move type
-      // The API requires passing the point ID without the '_docking' suffix
-      // Remove '_docking' suffix if present (we want the load point, not the docking point)
-      const loadPointId = resolvedPointId.replace('_docking', '');
+      // for the actual load point (not the docking point)
+      // Ensure we're using a proper load point without any docking suffix
+      const loadPointId = resolvedPointId.toLowerCase().includes('_docking') 
+        ? resolvedPointId.replace('_docking', '_load').replace('_DOCKING', '_load')
+        : resolvedPointId;
+        
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
       // Extract the area ID from the point ID with more robust handling
