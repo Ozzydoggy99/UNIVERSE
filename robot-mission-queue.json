@@ -8317,8 +8317,13 @@
           "ori": 0,
           "label": "Move to dropoff shelf docking position"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to dropoff shelf docking position completed successfully",
+          "moveId": 4767
+        }
       },
       {
         "type": "to_unload_point",
@@ -8331,7 +8336,8 @@
           "label": "Move to unload point at dropoff shelf"
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 0,
+        "errorMessage": "Failed to move to unload point: Missing required pointId for to_unload_point operation"
       },
       {
         "type": "jack_down",
@@ -8348,10 +8354,10 @@
         "retryCount": 0
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 3,
+    "status": "failed",
+    "currentStepIndex": 4,
     "createdAt": "2025-05-15T03:01:37.482Z",
-    "updatedAt": "2025-05-15T03:02:29.522Z",
+    "updatedAt": "2025-05-15T03:03:26.910Z",
     "robotSn": "L382502104987ir"
   }
 ]
