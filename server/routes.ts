@@ -38,6 +38,7 @@ import { registerBinStatusRoutes } from './bin-status-routes';
 import { registerRobotCapabilitiesAPI } from './robot-capabilities-api';
 import { registerTaskApiRoutes } from './robot-task-api';
 import { registerDynamicWorkflowRoutes } from './dynamic-workflow';
+import actionTestRoutes from './action-test-routes';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -99,6 +100,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register robot capabilities API for dynamic template configuration
   registerRobotCapabilitiesAPI(app);
+  
+  // Register action test routes for individual action testing
+  app.use(actionTestRoutes);
   
   // Test endpoint for the toUnloadPoint action
   app.post('/api/robot/test-unload-action', async (req: Request, res: Response) => {

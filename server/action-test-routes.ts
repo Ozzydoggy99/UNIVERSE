@@ -6,7 +6,7 @@
  */
 
 import { Router } from 'express';
-import { actions } from './action-modules';
+import { actionModules } from './action-modules';
 
 const router = Router();
 
@@ -23,11 +23,11 @@ router.post('/api/execute-step', async (req, res) => {
     }
     
     // Validate that the action exists
-    const action = actions[actionId];
+    const action = actionModules[actionId];
     if (!action) {
       return res.status(404).json({ 
         error: `Action "${actionId}" not found`,
-        availableActions: Object.keys(actions)
+        availableActions: Object.keys(actionModules)
       });
     }
     
