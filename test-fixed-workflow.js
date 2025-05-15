@@ -18,8 +18,10 @@ async function startDynamicWorkflow(type, params = {}) {
     
     const response = await axios.post(`${API_BASE_URL}/api/dynamic-workflow/${type}`, params);
     
-    console.log(`Workflow started with ID: ${response.data.id}`);
-    return response.data.id;
+    // Get the workflowId from the response (not id)
+    const workflowId = response.data.workflowId;
+    console.log(`Workflow started with ID: ${workflowId}`);
+    return workflowId;
   } catch (error) {
     console.error('Failed to start workflow:', 
       error.response ? error.response.data : error.message);
