@@ -41,27 +41,27 @@ const robotPointsMap: RobotPointsMap = {
       mapName: 'Floor1',
       points: {
         // Central pickup and dropoff points
-        'pick-up_load': {
+        'pickup_load': {
           x: -2.847, 
           y: 2.311, 
           theta: 0.0
         },
-        'pick-up_load_docking': {
+        'pickup_load_docking': {
           x: -1.887,
           y: 2.311,
           theta: 0.0
         },
-        'drop-off_load': {
+        'dropoff_load': {
           x: -2.861,
           y: 3.383,
           theta: 0.0
         },
-        'drop-off_unload': {
-          x: -2.861,  // Same position as drop-off_load
+        'dropoff_unload': {
+          x: -2.861,  // Same position as dropoff_load
           y: 3.383,
           theta: 0.0
         },
-        'drop-off_load_docking': {
+        'dropoff_load_docking': {
           x: -1.850,
           y: 3.366,
           theta: 0.0
@@ -180,8 +180,8 @@ const robotPointsMap: RobotPointsMap = {
 // Utility functions for easier access to common point operations
 
 /**
- * Get a shelf point by ID (e.g., "104" or "pick-up" or "drop-off")
- * @param shelfId The shelf ID (e.g., "104", "pick-up", "drop-off")
+ * Get a shelf point by ID (e.g., "104" or "pickup" or "dropoff")
+ * @param shelfId The shelf ID (e.g., "104", "pickup", "dropoff")
  * @returns The point object if found, null otherwise
  */
 export function getShelfPoint(shelfId: string): Point | null {
@@ -195,7 +195,7 @@ export function getShelfPoint(shelfId: string): Point | null {
   
   // Use EXACT format from robot API - all lowercase with correct format
   // For shelf points: "104_load", "115_load", etc.
-  // For pickup/dropoff: "pick-up_load", "drop-off_load"
+  // For pickup/dropoff: "pickup_load", "dropoff_load"
   let pointName: string;
   
   // First check if the shelfId is already a fully formatted ID (ends with _load)
@@ -204,9 +204,10 @@ export function getShelfPoint(shelfId: string): Point | null {
     pointName = shelfId.toLowerCase();
     console.log(`Using already formatted shelf ID: ${pointName}`);
   }
-  // Special handling for pickup and dropoff points which have hyphens
+  // Special handling for pickup and dropoff points - convert legacy names
   else if (shelfId === 'pick-up' || shelfId === 'drop-off') {
-    pointName = `${shelfId}_load`;
+    // Convert old hyphenated names to new non-hyphenated format
+    pointName = `${shelfId.replace('-', '')}_load`;
   } else {
     // For numeric shelf IDs like 104, 115, etc.
     pointName = `${shelfId.toLowerCase()}_load`;
@@ -229,8 +230,8 @@ export function getShelfPoint(shelfId: string): Point | null {
 }
 
 /**
- * Get a shelf docking point by ID (e.g., "104" or "pick-up" or "drop-off")
- * @param shelfId The shelf ID (e.g., "104", "pick-up", "drop-off")
+ * Get a shelf docking point by ID (e.g., "104" or "pickup" or "dropoff")
+ * @param shelfId The shelf ID (e.g., "104", "pickup", "dropoff")
  * @returns The point object if found, null otherwise
  */
 export function getShelfDockingPoint(shelfId: string): Point | null {
@@ -244,7 +245,7 @@ export function getShelfDockingPoint(shelfId: string): Point | null {
   
   // Use EXACT format from robot API - all lowercase with correct format
   // For shelf points: "104_load_docking", "115_load_docking", etc.
-  // For pickup/dropoff: "pick-up_load_docking", "drop-off_load_docking"
+  // For pickup/dropoff: "pickup_load_docking", "dropoff_load_docking"
   let pointName: string;
   
   // First check if the shelfId is already a fully formatted docking ID (ends with _load_docking)
@@ -259,9 +260,10 @@ export function getShelfDockingPoint(shelfId: string): Point | null {
     pointName = `${shelfId.toLowerCase()}_docking`;
     console.log(`Converting load point to docking point: ${pointName}`);
   }
-  // Special handling for pickup and dropoff points which have hyphens
+  // Special handling for pickup and dropoff points - convert legacy names
   else if (shelfId === 'pick-up' || shelfId === 'drop-off') {
-    pointName = `${shelfId}_load_docking`;
+    // Convert old hyphenated names to new non-hyphenated format
+    pointName = `${shelfId.replace('-', '')}_load_docking`;
   } else {
     // For numeric shelf IDs like 104, 115, etc.
     pointName = `${shelfId.toLowerCase()}_load_docking`;
