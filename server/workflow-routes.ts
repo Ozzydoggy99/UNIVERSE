@@ -176,3 +176,28 @@ router.get('/api/debug/map-points', async (req, res) => {
 });
 
 export default router;
+  // Test endpoint for step execution
+  app.post('/api/test-step-execution', async (req, res) => {
+    try {
+      const { stepType, params } = req.body;
+      console.log(`STEP TEST: Executing ${stepType} step with params: ${JSON.stringify(params)}`);
+      
+      // Use the missionQueue to execute the step
+      let result;
+      if (stepType === 'to_unload_point') {
+        // Import the proper method
+        const { missionQueue } = require('./mission-queue');
+        result = await missionQueue.executeToUnloadPointStep(params);
+      } else {
+        throw new Error(`Step type ${stepType} not supported for testing`);
+      }
+      
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error('Error in test step execution:', error);
+      res.status(500).json({ 
+        error: 'Failed to execute test step',
+        message: error.message
+      });
+    }
+  });

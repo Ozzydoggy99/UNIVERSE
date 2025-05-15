@@ -959,13 +959,15 @@ export class MissionQueueManager {
     
     try {
       // CRITICAL FIX: We must validate that we have a pointId parameter
-      if (!params.pointId) {
-        console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR: No pointId provided for to_unload_point operation`);
+      // Check both camelCase (pointId) and snake_case (point_id) formats for compatibility
+      if (!params.pointId && !params.point_id) {
+        console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR: No pointId or point_id provided for to_unload_point operation`);
         throw new Error('Missing required pointId for to_unload_point operation');
       }
       
       // Extract the proper load point and rack area ID
-      let loadPointId = params.pointId;
+      // Support both parameter naming formats
+      let loadPointId = params.pointId || params.point_id;
       
       // Sanitize input - ensure we're using a load point, not a docking point
       if (loadPointId.toLowerCase().includes('_docking')) {
