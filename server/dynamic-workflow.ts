@@ -661,16 +661,30 @@ async function moveToUnloadPoint(workflowId: string, x: number, y: number, ori: 
       logWorkflow(workflowId, `📦 Converting shelf ID "${label}" to full point ID: "${pointId}"`);
     }
     
-    // Handle all points consistently using the full point ID as rack_area_id
-    // CRITICAL FIX: Always use the full point ID as the rack_area_id to ensure
-    // consistent behavior between this implementation and to-unload-point-action.ts
-    let rackAreaId = pointId;
-    
-    logWorkflow(workflowId, `CRITICAL FIX: Using full point ID "${pointId}" as rack_area_id instead of extracted prefix`);
-    logWorkflow(workflowId, `This ensures consistent behavior with to-unload-point-action.ts implementation`);
-    logWorkflow(workflowId, `FINAL rack_area_id = "${rackAreaId}" for point "${pointId}"`);
-    
-    // No special extraction or prefix handling - using the exact point ID
+    // Handle special case for drop-off points with hyphens
+    let rackAreaId;
+    if (pointId.toLowerCase().startsWith('drop-off') || pointId.toLowerCase().startsWith('dropoff')) {
+      // For all dropoff points, always use 'drop-off' as the rack area ID
+      rackAreaId = 'drop-off';
+      logWorkflow(workflowId, `⚠️ CRITICAL: Using special rack_area_id="${rackAreaId}" for drop-off point`);
+    } else {
+      // For regular shelf points, extract the area ID (everything before first underscore)
+      const areaMatch = pointId.match(/^([^_]+)/);
+      
+      if (!areaMatch) {
+        logWorkflow(workflowId, `⚠️ WARNING: Could not extract rack_area_id from "${pointId}", using full ID`);
+        rackAreaId = pointId;
+      } else {
+        rackAreaId = areaMatch[1];
+        // Verify rackAreaId is not empty
+        if (!rackAreaId || rackAreaId.trim() === '') {
+          logWorkflow(workflowId, `⚠️ WARNING: Extracted empty rack_area_id, using default "${pointId}"`);
+          rackAreaId = pointId;
+        } else {
+          logWorkflow(workflowId, `⚠️ Extracted rack_area_id="${rackAreaId}" from point "${pointId}"`);
+        }
+      }
+    }
     
     // Extra safety check
     if (!rackAreaId || rackAreaId.trim() === '') {
