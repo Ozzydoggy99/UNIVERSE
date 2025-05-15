@@ -8722,5 +8722,313 @@
     "createdAt": "2025-05-15T03:26:38.384Z",
     "updatedAt": "2025-05-15T03:28:40.494Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747333447772_5fmig48",
+    "name": "Central Pickup to Shelf (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.887,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Move to central pickup docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to central pickup docking position completed successfully",
+          "moveId": 4786
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.847,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Align with rack at central pickup"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -6.917,
+          "y": 6.721,
+          "ori": 0,
+          "label": "Move to dropoff shelf docking position"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -8.029,
+          "y": 6.704,
+          "ori": 0,
+          "point_id": "115_load",
+          "rack_area_id": "115_load",
+          "label": "Move to unload point at dropoff shelf"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-15T18:24:07.772Z",
+    "updatedAt": "2025-05-15T18:25:19.136Z",
+    "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747333519155_mtcvsi9",
+    "name": "Central Pickup to Shelf (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.887,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Move to central pickup docking position"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.847,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Align with rack at central pickup"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -6.917,
+          "y": 6.721,
+          "ori": 0,
+          "label": "Move to dropoff shelf docking position"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -8.029,
+          "y": 6.704,
+          "ori": 0,
+          "point_id": "115_load",
+          "rack_area_id": "115_load",
+          "label": "Move to unload point at dropoff shelf"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-15T18:25:19.155Z",
+    "updatedAt": "2025-05-15T18:26:45.003Z",
+    "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747333605013_y9k9e9f",
+    "name": "Central Pickup to Shelf (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.887,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Move to central pickup docking position"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.847,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Align with rack at central pickup"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -6.917,
+          "y": 6.721,
+          "ori": 0,
+          "label": "Move to dropoff shelf docking position"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -8.029,
+          "y": 6.704,
+          "ori": 0,
+          "point_id": "115_load",
+          "rack_area_id": "115_load",
+          "label": "Move to unload point at dropoff shelf"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-15T18:26:45.013Z",
+    "updatedAt": "2025-05-15T18:27:41.323Z",
+    "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747333661351_5qpsg2p",
+    "name": "Shelf to Central Dropoff (drop-off_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.85,
+          "y": 3.366,
+          "ori": 0,
+          "label": "Move to pickup shelf docking position"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.861,
+          "y": 3.383,
+          "ori": 0,
+          "label": "Align with rack at pickup shelf"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -1.85,
+          "y": 3.366,
+          "ori": 0,
+          "label": "Move to central dropoff docking position"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "in_progress",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-15T18:27:41.351Z",
+    "updatedAt": "2025-05-15T18:27:55.656Z",
+    "robotSn": "L382502104987ir"
   }
 ]
