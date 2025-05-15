@@ -2247,8 +2247,14 @@ export async function executeWorkflow(
             });
           }
           else if (step.actionId === 'toUnloadPoint') {
-            // Get real coordinates for the point
+            // CRITICAL CHECK: Verify that we're not dealing with a docking point
             const pointId = stepParams.pointId;
+            if (pointId && pointId.toString().toLowerCase().includes('_docking')) {
+              const errorMsg = `❌ ERROR: Cannot use toUnloadPoint action with docking point ${pointId}. Should use only with load points.`;
+              logWorkflow(workflowId, errorMsg);
+              throw new Error(errorMsg);
+            }
+            
             logWorkflow(workflowId, `Getting unload point coordinates for: ${pointId}`);
             
             // Get proper coordinates for this shelf point
@@ -2262,6 +2268,31 @@ export async function executeWorkflow(
             
             logWorkflow(workflowId, `Found unload point coordinates for ${pointId}: (${point.x}, ${point.y}, ${point.theta})`);
             
+            // Extract rack_area_id from the pointId following perfect example pattern
+            let rackAreaId;
+            
+            // More comprehensive case-insensitive check for drop-off points
+            if (pointId.toLowerCase().includes('drop-off') || pointId.toLowerCase().includes('dropoff')) {
+              // For drop-off points, always use 'drop-off' as the rack area ID
+              rackAreaId = 'drop-off';
+              logWorkflow(workflowId, `DETECTED DROP-OFF POINT: "${pointId}" (case-insensitive match)`);
+              logWorkflow(workflowId, `Using fixed rack_area_id = "drop-off" for this point`);
+            } else {
+              // For all other points, use everything before the first underscore
+              const areaMatch = pointId.match(/^([^_]+)/);
+              
+              if (!areaMatch || !areaMatch[1] || areaMatch[1].trim() === '') {
+                const errorMsg = `Failed to extract rack_area_id from "${pointId}"`;
+                logWorkflow(workflowId, `❌ ERROR: ${errorMsg}`);
+                throw new Error(errorMsg);
+              }
+              
+              rackAreaId = areaMatch[1];
+              logWorkflow(workflowId, `Regular point "${pointId}", extracted rack_area_id = "${rackAreaId}"`);
+            }
+            
+            logWorkflow(workflowId, `FINAL rack_area_id = "${rackAreaId}" for point "${pointId}"`);
+            
             workflowSteps.push({
               type: 'to_unload_point',
               params: {
@@ -2269,6 +2300,7 @@ export async function executeWorkflow(
                 y: point.y,
                 ori: point.theta,
                 point_id: pointId,
+                rack_area_id: rackAreaId, // ADDED THIS CRITICAL PARAMETER
                 label: step.description || `Moving to unload point ${pointId}`
               },
               completed: false,
