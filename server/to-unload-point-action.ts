@@ -161,34 +161,20 @@ export const toUnloadPointAction: Action = {
       // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
       
-      // More comprehensive case-insensitive check for drop-off points
-      // This handles variations like 'drop-off', 'DROP-off', 'dropoff', 'DropOff', etc.
-      if (loadPointId.toLowerCase().includes('drop-off') || loadPointId.toLowerCase().includes('dropoff')) {
-        // For drop-off points, always use 'drop-off' as the rack area ID
-        rackAreaId = 'drop-off';
-        console.log(`[UNLOAD-POINT-ACTION] DETECTED DROP-OFF POINT: "${loadPointId}" (case-insensitive match)`);
-        console.log(`[UNLOAD-POINT-ACTION] Using fixed rack_area_id = "drop-off" for this point`);
-      } else {
-        // For all other points, use everything before the first underscore
-        const areaMatch = loadPointId.match(/^([^_]+)/);
-        
-        // Enhanced validation with multiple checks
-        if (!areaMatch || !areaMatch[1] || areaMatch[1].trim() === '') {
-          // Fallback to the full point ID if regex extraction fails
-          console.log(`[UNLOAD-POINT-ACTION] ⚠️ WARNING: Failed to extract rack_area_id using regex from "${loadPointId}"`);
-          rackAreaId = loadPointId;
-        } else {
-          rackAreaId = areaMatch[1];
-        }
-        
-        // Final validation to ensure we have a non-empty rack_area_id
-        if (!rackAreaId || rackAreaId.trim() === '') {
-          console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Empty rack_area_id extracted from "${loadPointId}"`);
-          console.log(`[UNLOAD-POINT-ACTION] Using point ID as fallback for rack_area_id`);
-          rackAreaId = loadPointId;
-        }
-        
-        console.log(`[UNLOAD-POINT-ACTION] Regular point "${loadPointId}", extracted rack_area_id = "${rackAreaId}"`);
+      // CRITICAL FIX: We need to use the EXACT point ID as the rack_area_id 
+      // This ensures the robot can distinguish between drop-off_load and drop-off_load_docking
+      // Using just "drop-off" as the rack_area_id doesn't provide enough information
+      
+      // For proper targeting, use the FULL POINT ID as the rack_area_id
+      rackAreaId = loadPointId;
+      
+      console.log(`[UNLOAD-POINT-ACTION] CRITICAL FIX: Using exact point ID "${loadPointId}" as rack_area_id`);
+      console.log(`[UNLOAD-POINT-ACTION] This ensures the robot can distinguish between load points and docking points`);
+      
+      // Just in case, verify we're not left with an empty rack_area_id
+      if (!rackAreaId || rackAreaId.trim() === '') {
+        console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Empty rack_area_id, falling back to point ID`);
+        rackAreaId = loadPointId;
       }
       
       // Final confirmation of rack_area_id
