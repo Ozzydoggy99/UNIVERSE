@@ -6,7 +6,8 @@
  */
 
 import { Router } from 'express';
-import { actionModules } from './action-modules';
+import { actionModules, ActionModule } from './action-modules';
+import { Action } from './to-unload-point-action';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.post('/api/execute-step', async (req, res) => {
     }
     
     // Validate that the action exists
-    const action = actionModules[actionId];
+    const action: ActionModule | Action = actionModules[actionId as keyof typeof actionModules];
     if (!action) {
       return res.status(404).json({ 
         error: `Action "${actionId}" not found`,
@@ -48,11 +49,12 @@ router.post('/api/execute-step', async (req, res) => {
     // Return the result
     return res.json(result);
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[ACTION-TEST] Error executing action:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return res.status(500).json({
       error: 'Failed to execute action',
-      message: error.message
+      message: errorMessage
     });
   }
 });
@@ -61,10 +63,9 @@ router.post('/api/execute-step', async (req, res) => {
  * Get information about available actions
  */
 router.get('/api/actions', (req, res) => {
-  const actionInfo = Object.entries(actions).map(([id, action]) => ({
+  const actionInfo = Object.entries(actionModules).map(([id, action]: [string, ActionModule | Action]) => ({
     id,
     description: action.description,
-    params: action.params,
     requiresPoints: action.requiresPoints
   }));
   
