@@ -573,15 +573,17 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
           hasCentralPickup = true;
           logger.info(`✅ Found central pickup point: ${propName || pointId}`);
         } 
-        // Check for dropoff points - handle AutoX robot's drop-off_load point
+        // Check for dropoff points
         else if (
-          pointId === 'drop-off_load' || 
           pointId === 'dropoff_load' || 
-          pointId.includes('dropoff') || 
+          pointId.includes('dropoff') ||
+          propName === 'dropoff_load' ||
+          propName.includes('dropoff') ||
+          // Legacy format support (with hyphens)
+          pointId === 'drop-off_load' || 
           pointId.includes('drop-off') ||
           propName === 'drop-off_load' ||
-          propName.includes('drop-off') ||
-          propName.includes('dropoff')
+          propName.includes('drop-off')
         ) {
           hasCentralDropoff = true;
           logger.info(`✅ Found central dropoff point: ${propName || pointId}`);

@@ -106,8 +106,8 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       // DO NOT change the case - robot uses lowercase exactly as shown
       const pickupPoint = allPoints.find(p => p.id === '104_load');
       const pickupDockingPoint = allPoints.find(p => p.id === '104_load_docking');
-      const dropoffPoint = allPoints.find(p => p.id === 'drop-off_load');
-      const dropoffDockingPoint = allPoints.find(p => p.id === 'drop-off_load_docking');
+      const dropoffPoint = allPoints.find(p => p.id === 'dropoff_load' || p.id === 'drop-off_load');
+      const dropoffDockingPoint = allPoints.find(p => p.id === 'dropoff_load_docking' || p.id === 'drop-off_load_docking');
       // Get the charger point using two methods:
       // 1. First try to get from the robot API directly (most accurate)
       // 2. Fall back to map points if API method fails
@@ -156,11 +156,11 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       }
       
       if (!dropoffPoint) {
-        throw new Error('Could not find dropoff point "drop-off_load" in map data');
+        throw new Error('Could not find dropoff point "dropoff_load" in map data');
       }
       
       if (!dropoffDockingPoint) {
-        throw new Error('Could not find dropoff docking point "drop-off_load_docking" in map data');
+        throw new Error('Could not find dropoff docking point "dropoff_load_docking" in map data');
       }
       
       if (!chargerPoint) {
