@@ -9,7 +9,7 @@
  */
 export function getFloorFromShelfPoint(pointId: string): number | null {
   // Ensure it's a shelf point (not a pickup or dropoff)
-  if (pointId.startsWith('pickup') || pointId.startsWith('dropoff')) {
+  if (pointId.startsWith('pick-up') || pointId.startsWith('drop-off')) {
     return null;
   }
   
@@ -36,7 +36,7 @@ export function isShelfPoint(pointId: string): boolean {
  * @returns Boolean indicating if this is a pickup point
  */
 export function isPickupPoint(pointId: string): boolean {
-  return pointId.startsWith('pickup') && pointId.endsWith('_load');
+  return pointId.startsWith('pick-up') && pointId.endsWith('_load');
 }
 
 /**
@@ -45,7 +45,7 @@ export function isPickupPoint(pointId: string): boolean {
  * @returns Boolean indicating if this is a dropoff point
  */
 export function isDropoffPoint(pointId: string): boolean {
-  return pointId.startsWith('dropoff') && pointId.endsWith('_load');
+  return pointId.startsWith('drop-off') && pointId.endsWith('_load');
 }
 
 /**
@@ -99,7 +99,7 @@ export function validatePointId(pointId: string): { valid: boolean; errors: stri
   }
   
   // Validate pickup/dropoff points
-  if (pointId.startsWith('pickup') || pointId.startsWith('dropoff')) {
+  if (pointId.startsWith('pick-up') || pointId.startsWith('drop-off')) {
     if (!pointId.endsWith('_load') && !pointId.endsWith('_load_docking')) {
       errors.push('Pickup/dropoff points must end with "_load" or "_load_docking"');
     }

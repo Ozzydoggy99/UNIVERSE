@@ -134,15 +134,8 @@ async function main() {
     }
     
     try {
-      // Try the new format first
-      try {
-        const dropoffPoint = robotPointsMap.getPoint(floorId, 'dropoff_load');
-        console.log(`Dropoff point (new format): (${dropoffPoint.x.toFixed(3)}, ${dropoffPoint.y.toFixed(3)}, ${dropoffPoint.theta.toFixed(1)}°)`);
-      } catch (e) {
-        // Fall back to legacy format
-        const dropoffPoint = robotPointsMap.getPoint(floorId, 'drop-off_load');
-        console.log(`Dropoff point (legacy format): (${dropoffPoint.x.toFixed(3)}, ${dropoffPoint.y.toFixed(3)}, ${dropoffPoint.theta.toFixed(1)}°)`);
-      }
+      const dropoffPoint = robotPointsMap.getPoint(floorId, 'drop-off_load');
+      console.log(`Dropoff point: (${dropoffPoint.x.toFixed(3)}, ${dropoffPoint.y.toFixed(3)}, ${dropoffPoint.theta.toFixed(1)}°)`);
     } catch (error) {
       console.log('Dropoff point not defined for this floor.');
     }

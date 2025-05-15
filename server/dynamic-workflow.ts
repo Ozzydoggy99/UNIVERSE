@@ -242,17 +242,17 @@ async function getMapPoints(): Promise<MapPoints> {
           
           // Special docking points - use case insensitive comparison
           const lowerCaseId = point.id.toLowerCase();
-          if (lowerCaseId.includes('dropoff_load_docking')) {
+          if (lowerCaseId.includes('drop-off_load_docking') || lowerCaseId.includes('dropoff_load_docking')) {
             console.log(`✅ Found dropoff docking point: ${point.id}`);
             dropoffDockingPoint = point;
-          } else if (lowerCaseId.includes('pickup_load_docking')) {
+          } else if (lowerCaseId.includes('pick-up_load_docking')) {
             console.log(`✅ Found pickup docking point: ${point.id}`);
             pickupDockingPoint = point;
           }
-        } else if (point.id.toLowerCase().includes('dropoff_load')) {
+        } else if (point.id.toLowerCase().includes('drop-off_load') || point.id.toLowerCase().includes('dropoff_load')) {
           console.log(`✅ Found dropoff point: ${point.id}`);
           dropoffPoint = point;
-        } else if (point.id.toLowerCase().includes('pickup_load')) {
+        } else if (point.id.toLowerCase().includes('pick-up_load')) {
           console.log(`✅ Found pickup point: ${point.id}`);
           pickupPoint = point;
         } else if (point.id.toLowerCase().includes('charger')) {
@@ -646,7 +646,7 @@ async function moveToUnloadPoint(workflowId: string, x: number, y: number, ori: 
     if (label.toLowerCase().includes('drop-off') || label.toLowerCase().includes('dropoff')) {
       // For dropoff points, ensure consistent format
       if (!label.includes('_load')) {
-        pointId = 'dropoff_load';
+        pointId = 'drop-off_load';
       } else {
         pointId = label;
       }
@@ -661,12 +661,12 @@ async function moveToUnloadPoint(workflowId: string, x: number, y: number, ori: 
       logWorkflow(workflowId, `📦 Converting shelf ID "${label}" to full point ID: "${pointId}"`);
     }
     
-    // Handle special case for dropoff points
+    // Handle special case for drop-off points with hyphens
     let rackAreaId;
     if (pointId.toLowerCase().startsWith('drop-off') || pointId.toLowerCase().startsWith('dropoff')) {
-      // For all dropoff points, always use 'dropoff' as the rack area ID
-      rackAreaId = 'dropoff';
-      logWorkflow(workflowId, `⚠️ CRITICAL: Using special rack_area_id="${rackAreaId}" for dropoff point`);
+      // For all dropoff points, always use 'drop-off' as the rack area ID
+      rackAreaId = 'drop-off';
+      logWorkflow(workflowId, `⚠️ CRITICAL: Using special rack_area_id="${rackAreaId}" for drop-off point`);
     } else {
       // For regular shelf points, extract the area ID (everything before first underscore)
       const areaMatch = pointId.match(/^([^_]+)/);
@@ -1317,7 +1317,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffDockingPoint.x,
       floorPoints.dropoffDockingPoint.y,
       floorPoints.dropoffDockingPoint.ori,
-      'dropoff_load_docking'
+      'drop-off_load_docking'
     );
     
     // STEP 5: Move to dropoff point with to_unload_point
@@ -1328,7 +1328,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffPoint.x,
       floorPoints.dropoffPoint.y,
       floorPoints.dropoffPoint.ori,
-      'dropoff_load'
+      'drop-off_load'
     );
     
     // STEP 6: Execute jack_down to lower bin
@@ -1345,7 +1345,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffDockingPoint.x,
       floorPoints.dropoffDockingPoint.y,
       floorPoints.dropoffDockingPoint.ori,
-      'dropoff_load_docking (safe position)'
+      'drop-off_load_docking (safe position)'
     );
     
     // STEP 8: Return to charger (if available)

@@ -638,7 +638,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
           workflowType = 'shelf-to-central';
         }
       } else if (operationType === 'dropoff') {
-        if (shelfId === 'dropoff_load') {
+        if (shelfId === 'dropoff_load' || shelfId === 'drop-off_load') {
           // Shelf to central dropoff operation - this shouldn't happen since dropoff_load is a destination
           workflowType = 'shelf-to-central';
         } else {

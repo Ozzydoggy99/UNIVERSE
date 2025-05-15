@@ -14,22 +14,22 @@ const robotPointsMap = {
       mapName: 'Floor1',
       points: {
         // Central pickup and dropoff points
-        'pickup_load': {
+        'pick-up_load': {
           x: -2.847, 
           y: 2.311, 
           theta: 0.0
         },
-        'pickup_load_docking': {
+        'pick-up_load_docking': {
           x: -1.887,
           y: 2.311,
           theta: 0.0
         },
-        'dropoff_load': {
+        'drop-off_load': {
           x: -2.861,
           y: 3.383,
           theta: 0.0
         },
-        'dropoff_load_docking': {
+        'drop-off_load_docking': {
           x: -1.850,
           y: 3.366,
           theta: 0.0

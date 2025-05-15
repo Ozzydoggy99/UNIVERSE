@@ -38,8 +38,8 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   const normalize = (val: string) => String(val).trim().toLowerCase();
   const find = (id: string) => points.find(p => normalize(p.id) === normalize(id));
 
-  const pickup = find("pickup") || find("pick-up");
-  const dropoff = find("dropoff") || find("drop-off");
+  const pickup = find("pick-up");
+  const dropoff = find("drop-off");
   const standby = find("desk") || find("standby");
   const shelf = find(shelfId);
 
@@ -55,7 +55,7 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   appendLog(`Mode: ${uiMode}`);
   appendLog(`Shelf: ${shelf.id} → (${shelf.x}, ${shelf.y})`);
   appendLog(`pickup: ${pickup.id} → (${pickup.x}, ${pickup.y})`);
-  appendLog(`dropoff: ${dropoff.id} → (${dropoff.x}, ${dropoff.y})`);
+  appendLog(`drop-off: ${dropoff.id} → (${dropoff.x}, ${dropoff.y})`);
   appendLog(`Standby: ${standby.id} → (${standby.x}, ${standby.y})`);
 
   for (const point of sequence) {

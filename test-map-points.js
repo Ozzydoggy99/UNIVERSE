@@ -61,22 +61,12 @@ for (const floorId of floorIds) {
     const pickupDockingPoint = robotPointsMap.getPoint(floorId, 'pick-up_load_docking');
     console.log(`    Docking: pick-up_load_docking: (${pickupDockingPoint.x.toFixed(3)}, ${pickupDockingPoint.y.toFixed(3)}, ${pickupDockingPoint.theta.toFixed(1)}°)`);
     
-    // Dropoff - try both new "dropoff" format and legacy "drop-off" format
-    try {
-      const dropoffPoint = robotPointsMap.getPoint(floorId, 'dropoff_load');
-      console.log(`  dropoff_load: (${dropoffPoint.x.toFixed(3)}, ${dropoffPoint.y.toFixed(3)}, ${dropoffPoint.theta.toFixed(1)}°)`);
-      
-      const dropoffDockingPoint = robotPointsMap.getPoint(floorId, 'dropoff_load_docking');
-      console.log(`    Docking: dropoff_load_docking: (${dropoffDockingPoint.x.toFixed(3)}, ${dropoffDockingPoint.y.toFixed(3)}, ${dropoffDockingPoint.theta.toFixed(1)}°)`);
-    } catch (error) {
-      console.log(`  Trying legacy format...`);
-      // Fall back to legacy format
-      const dropoffPoint = robotPointsMap.getPoint(floorId, 'drop-off_load');
-      console.log(`  drop-off_load (legacy): (${dropoffPoint.x.toFixed(3)}, ${dropoffPoint.y.toFixed(3)}, ${dropoffPoint.theta.toFixed(1)}°)`);
-      
-      const dropoffDockingPoint = robotPointsMap.getPoint(floorId, 'drop-off_load_docking');
-      console.log(`    Docking: drop-off_load_docking (legacy): (${dropoffDockingPoint.x.toFixed(3)}, ${dropoffDockingPoint.y.toFixed(3)}, ${dropoffDockingPoint.theta.toFixed(1)}°)`);
-    }
+    // Dropoff
+    const dropoffPoint = robotPointsMap.getPoint(floorId, 'drop-off_load');
+    console.log(`  drop-off_load: (${dropoffPoint.x.toFixed(3)}, ${dropoffPoint.y.toFixed(3)}, ${dropoffPoint.theta.toFixed(1)}°)`);
+    
+    const dropoffDockingPoint = robotPointsMap.getPoint(floorId, 'drop-off_load_docking');
+    console.log(`    Docking: drop-off_load_docking: (${dropoffDockingPoint.x.toFixed(3)}, ${dropoffDockingPoint.y.toFixed(3)}, ${dropoffDockingPoint.theta.toFixed(1)}°)`);
   } catch (error) {
     console.log(`Error getting special points: ${error.message}`);
   }

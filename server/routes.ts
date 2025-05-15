@@ -115,9 +115,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let rackAreaId;
       
-      // Check if this is a dropoff point
-      if (loadPointId.startsWith('dropoff') || loadPointId.startsWith('drop-off')) {
-        rackAreaId = 'dropoff';
+      // Check if this is a drop-off point
+      if (loadPointId.startsWith('drop-off')) {
+        rackAreaId = 'drop-off';
       } else {
         // For all other points, use everything before the first underscore
         const areaMatch = loadPointId.match(/^([^_]+)/);

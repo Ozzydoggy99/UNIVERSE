@@ -81,8 +81,8 @@ export function registerPickupFrom104WorkflowRoute(app: express.Express) {
       const pickupDockingPoint = allPoints.find(p => p.id === '104_load_docking');
       
       // This is the main dropoff point where we'll deliver the bin
-      const dropoffPoint = allPoints.find(p => p.id === 'dropoff_load' || p.id === 'drop-off_load');
-      const dropoffDockingPoint = allPoints.find(p => p.id === 'dropoff_load_docking' || p.id === 'drop-off_load_docking');
+      const dropoffPoint = allPoints.find(p => p.id === 'drop-off_load');
+      const dropoffDockingPoint = allPoints.find(p => p.id === 'drop-off_load_docking');
       
       // Always use hardcoded charger coordinates instead of trying to get them from the API
       // This ensures return to charger always works
@@ -107,11 +107,11 @@ export function registerPickupFrom104WorkflowRoute(app: express.Express) {
       }
       
       if (!dropoffPoint) {
-        throw new Error('Could not find dropoff point "dropoff_load" in map data');
+        throw new Error('Could not find dropoff point "drop-off_load" in map data');
       }
       
       if (!dropoffDockingPoint) {
-        throw new Error('Could not find dropoff docking point "dropoff_load_docking" in map data');
+        throw new Error('Could not find dropoff docking point "drop-off_load_docking" in map data');
       }
       
       // Log the points we found

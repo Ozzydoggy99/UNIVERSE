@@ -62,18 +62,18 @@ function resolvePointId(pointId: string, params: Record<string, any>): string {
     return label.replace(/_docking/i, '_load'); // Case-insensitive replacement
   }
   
-  // Special handling for dropoff points (case-insensitive)
+  // Special handling for drop-off points (case-insensitive)
   if (label.toLowerCase().includes('drop-off') || label.toLowerCase().includes('dropoff')) {
-    // Ensure proper format for dropoff points
+    // Ensure proper format for drop-off points
     if (!label.toLowerCase().includes('_load')) {
-      console.log(`[UNLOAD-POINT-ACTION] Normalizing dropoff point ID format: ${label} -> dropoff_load`);
-      return 'dropoff_load';
+      console.log(`[UNLOAD-POINT-ACTION] Normalizing drop-off point ID format: ${label} -> drop-off_load`);
+      return 'drop-off_load';
     }
     
-    // If it has dropoff but wrong format, normalize to dropoff_load
-    if (label.toLowerCase() !== 'dropoff_load') {
-      console.log(`[UNLOAD-POINT-ACTION] Standardizing dropoff point format: ${label} -> dropoff_load`);
-      return 'dropoff_load';
+    // If it has drop-off but wrong format, normalize to drop-off_load
+    if (label.toLowerCase() !== 'drop-off_load') {
+      console.log(`[UNLOAD-POINT-ACTION] Standardizing drop-off point format: ${label} -> drop-off_load`);
+      return 'drop-off_load';
     }
   }
   
@@ -158,12 +158,12 @@ export const toUnloadPointAction: Action = {
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
       // Extract the area ID from the point ID with more robust handling
-      // Special handling for the dropoff area
+      // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
       
       // CRITICAL FIX: We need to use the EXACT point ID as the rack_area_id 
-      // This ensures the robot can distinguish between dropoff_load and dropoff_load_docking
-      // Using just "dropoff" as the rack_area_id doesn't provide enough information
+      // This ensures the robot can distinguish between drop-off_load and drop-off_load_docking
+      // Using just "drop-off" as the rack_area_id doesn't provide enough information
       
       // For proper targeting, use the FULL POINT ID as the rack_area_id
       rackAreaId = loadPointId;
