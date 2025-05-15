@@ -640,18 +640,56 @@ async function moveToUnloadPoint(workflowId: string, x: number, y: number, ori: 
     
     // Get the point_id and rack_area_id for the target coordinates
     // This is REQUIRED for the to_unload_point move type to work correctly
-    const pointId = label.includes('_') ? label : `${label}_load`; // Ensure load suffix
+    let pointId;
+    
+    // Ensure full point ID format with proper suffixes
+    if (label.toLowerCase().includes('drop-off') || label.toLowerCase().includes('dropoff')) {
+      // For dropoff points, ensure consistent format
+      if (!label.includes('_load')) {
+        pointId = 'drop-off_load';
+      } else {
+        pointId = label;
+      }
+      logWorkflow(workflowId, `📦 Using special dropoff point: "${pointId}"`);
+    } else if (label.includes('_load')) {
+      // If label already has _load suffix, use it directly
+      pointId = label;
+      logWorkflow(workflowId, `📦 Using full point ID: "${pointId}"`);
+    } else {
+      // For shelf points that are passed with just the number (e.g., "104")
+      pointId = `${label}_load`;
+      logWorkflow(workflowId, `📦 Converting shelf ID "${label}" to full point ID: "${pointId}"`);
+    }
     
     // Handle special case for drop-off points with hyphens
     let rackAreaId;
-    if (pointId.startsWith('drop-off')) {
+    if (pointId.toLowerCase().startsWith('drop-off') || pointId.toLowerCase().startsWith('dropoff')) {
+      // For all dropoff points, always use 'drop-off' as the rack area ID
       rackAreaId = 'drop-off';
       logWorkflow(workflowId, `⚠️ CRITICAL: Using special rack_area_id="${rackAreaId}" for drop-off point`);
     } else {
       // For regular shelf points, extract the area ID (everything before first underscore)
       const areaMatch = pointId.match(/^([^_]+)/);
-      rackAreaId = areaMatch ? areaMatch[1] : pointId;
-      logWorkflow(workflowId, `⚠️ Using extracted rack_area_id="${rackAreaId}" for point "${pointId}"`);
+      
+      if (!areaMatch) {
+        logWorkflow(workflowId, `⚠️ WARNING: Could not extract rack_area_id from "${pointId}", using full ID`);
+        rackAreaId = pointId;
+      } else {
+        rackAreaId = areaMatch[1];
+        // Verify rackAreaId is not empty
+        if (!rackAreaId || rackAreaId.trim() === '') {
+          logWorkflow(workflowId, `⚠️ WARNING: Extracted empty rack_area_id, using default "${pointId}"`);
+          rackAreaId = pointId;
+        } else {
+          logWorkflow(workflowId, `⚠️ Extracted rack_area_id="${rackAreaId}" from point "${pointId}"`);
+        }
+      }
+    }
+    
+    // Extra safety check
+    if (!rackAreaId || rackAreaId.trim() === '') {
+      logWorkflow(workflowId, `⚠️ CRITICAL ERROR: Empty rack_area_id! Using pointId as fallback.`);
+      rackAreaId = pointId;
     }
     
     // Create to_unload_point move command with ALL REQUIRED PARAMETERS
@@ -710,9 +748,10 @@ async function moveToUnloadPoint(workflowId: string, x: number, y: number, ori: 
       throw new Error(`Unload operation timed out after ${maxRetries} attempts`);
     }
     
-    // Wait 3 seconds after unload movement for stability
-    logWorkflow(workflowId, `Waiting 3 seconds after unload operation for stability...`);
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Increased delay for enhanced stability after unload movement
+    // This helps ensure the robot is completely stable before proceeding
+    logWorkflow(workflowId, `Waiting 5 seconds after unload operation for stability...`);
+    await new Promise(resolve => setTimeout(resolve, 5000));
     
     return moveId;
   } catch (error: any) {
@@ -763,9 +802,9 @@ async function executeJackUp(workflowId: string): Promise<void> {
       throw new Error(`Jack up operation did not complete after ${maxRetries} seconds`);
     }
     
-    // Wait an additional 3 seconds for stability
-    logWorkflow(workflowId, `Waiting 3 seconds after jack_up for stability...`);
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Wait an additional 5 seconds for stability
+    logWorkflow(workflowId, `Waiting 5 seconds after jack_up for stability...`);
+    await new Promise(resolve => setTimeout(resolve, 5000));
     
   } catch (error: any) {
     logWorkflow(workflowId, `❌ ERROR during jack_up operation: ${error.message}`);
@@ -815,9 +854,9 @@ async function executeJackDown(workflowId: string): Promise<void> {
       throw new Error(`Jack down operation did not complete after ${maxRetries} seconds`);
     }
     
-    // Wait an additional 3 seconds for stability
-    logWorkflow(workflowId, `Waiting 3 seconds after jack_down for stability...`);
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Wait an additional 5 seconds for stability
+    logWorkflow(workflowId, `Waiting 5 seconds after jack_down for stability...`);
+    await new Promise(resolve => setTimeout(resolve, 5000));
     
   } catch (error: any) {
     logWorkflow(workflowId, `❌ ERROR during jack_down operation: ${error.message}`);
