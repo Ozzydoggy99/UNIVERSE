@@ -5,7 +5,7 @@
  * in the dynamic workflow implementation.
  */
 
-const axios = require('axios');
+import axios from 'axios';
 
 // API base URL
 const API_BASE_URL = 'http://localhost:5000';
