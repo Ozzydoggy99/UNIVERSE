@@ -158,12 +158,12 @@ export const toUnloadPointAction: Action = {
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
       // Extract the area ID from the point ID with more robust handling
-      // Special handling for the drop-off area which contains a hyphen
+      // Special handling for the dropoff area
       let rackAreaId;
       
       // CRITICAL FIX: We need to use the EXACT point ID as the rack_area_id 
-      // This ensures the robot can distinguish between drop-off_load and drop-off_load_docking
-      // Using just "drop-off" as the rack_area_id doesn't provide enough information
+      // This ensures the robot can distinguish between dropoff_load and dropoff_load_docking
+      // Using just "dropoff" as the rack_area_id doesn't provide enough information
       
       // For proper targeting, use the FULL POINT ID as the rack_area_id
       rackAreaId = loadPointId;

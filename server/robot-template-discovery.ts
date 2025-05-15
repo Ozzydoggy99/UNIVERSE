@@ -31,7 +31,7 @@ function getPointDisplayName(pointId: any): string {
   if (id === 'pick-up_load' || id.toLowerCase() === 'pickup_load') {
     return 'Central Pickup';
   }
-  if (id === 'drop-off_load' || id.toLowerCase() === 'dropoff_load') {
+  if (id.toLowerCase() === 'dropoff_load') {
     return 'Central Dropoff';
   }
   
@@ -144,10 +144,10 @@ function isShelfPoint(pointId: any): boolean {
   // - shelf_<number> (e.g., shelf_104)
   // - <number>_shelf (e.g., 104_shelf)
   // - Just contain 'shelf' or 'load' along with a number
-  // - Robot-specific convention (pick-up_load, drop-off_load)
+  // - Robot-specific convention (pickup_load, dropoff_load)
   
-  // Special handling for robot-specific naming (with dashes instead of underscores)
-  if (id === 'pick-up_load' || id === 'drop-off_load') {
+  // Special handling for robot-specific naming
+  if (id === 'pickup_load' || id === 'dropoff_load' || id === 'pick-up_load' || id === 'drop-off_load') {
     logger.info(`✅ Detected special shelf point: ${id}`);
     return true;
   }
