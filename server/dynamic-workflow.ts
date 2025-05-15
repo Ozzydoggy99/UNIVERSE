@@ -1812,6 +1812,64 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
     });
   });
   
+  // Add specific endpoint for testing scripts that use /api/dynamic-workflow/:type
+  app.post('/api/dynamic-workflow/:type', async (req, res) => {
+    try {
+      const { type } = req.params;
+      const params = req.body;
+      
+      console.log(`[DYNAMIC-WORKFLOW] Executing workflow type ${type} via /api/dynamic-workflow/:type endpoint`);
+      console.log(`[DYNAMIC-WORKFLOW] Parameters:`, JSON.stringify(params, null, 2));
+      
+      // Create a unified params object with required fields
+      const workflowParams = {
+        serviceType: params.serviceType || 'robot', // Default to robot service type
+        operationType: params.operationType || (type === 'central-to-shelf' ? 'dropoff' : 'pickup'),
+        floorId: params.floorId || '3', // Default to map 3
+        shelfId: params.shelfId || params.pickupShelf || params.dropoffShelf || '104',
+        pickupShelf: params.pickupShelf,
+        dropoffShelf: params.dropoffShelf
+      };
+      
+      // Execute the workflow
+      const result = await executeWorkflow(type, workflowParams);
+      
+      return res.status(200).json({
+        success: result.success,
+        workflowId: result.workflowId,
+        message: result.message
+      });
+    } catch (error: any) {
+      console.error(`[DYNAMIC-WORKFLOW] Error executing workflow via /api/dynamic-workflow/:type endpoint:`, error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Unknown workflow error'
+      });
+    }
+  });
+  
+  // Route for getting specific workflow status for test scripts
+  app.get('/api/dynamic-workflow/:workflowId', (req, res) => {
+    const { workflowId } = req.params;
+    
+    if (!workflowId || !workflowStates[workflowId]) {
+      return res.status(404).json({
+        success: false,
+        error: `Workflow with ID ${workflowId} not found`
+      });
+    }
+    
+    // Format the response for test scripts
+    return res.status(200).json({
+      success: true,
+      status: workflowStates[workflowId].status,
+      currentStep: workflowStates[workflowId].currentStep,
+      totalSteps: workflowStates[workflowId].totalSteps,
+      lastMessage: workflowStates[workflowId].lastMessage,
+      error: workflowStates[workflowId].error
+    });
+  });
+  
   console.log('✅ Registered dynamic workflow API routes');
 }
 
