@@ -24,8 +24,15 @@ const robotApi = axios.create({
   headers: getAuthHeaders()
 });
 
-// Helper function to resolve point IDs with parameters
+// Enhanced helper function to resolve and normalize point IDs
 function resolvePointId(pointId: string, params: Record<string, any>): string {
+  if (!pointId) {
+    console.log(`[UNLOAD-POINT-ACTION] ⚠️ WARNING: Empty point ID provided`);
+    return 'unknown_point';
+  }
+  
+  let resolvedPointId = pointId;
+  
   // Check if this is a template with parameters like {shelfPoint}
   if (pointId.includes('{') && pointId.includes('}')) {
     // Extract parameter name
@@ -40,11 +47,32 @@ function resolvePointId(pointId: string, params: Record<string, any>): string {
     }
     
     // Replace the parameter with its value
-    return pointId.replace(`{${paramName}}`, paramValue);
+    resolvedPointId = pointId.replace(`{${paramName}}`, paramValue);
+    console.log(`[UNLOAD-POINT-ACTION] Resolved parameter ${paramName} to: ${resolvedPointId}`);
   }
   
-  // If it's a direct point ID, return as is
-  return pointId;
+  // Normalize point ID format based on naming conventions
+  
+  // Special handling for drop-off points (case-insensitive)
+  const label = resolvedPointId.toString();
+  
+  // Comprehensive drop-off point detection and normalization
+  if (label.toLowerCase().includes('drop-off') || label.toLowerCase().includes('dropoff')) {
+    // Ensure proper format for drop-off points
+    if (!label.includes('_load')) {
+      console.log(`[UNLOAD-POINT-ACTION] Normalizing drop-off point ID format: ${label} -> drop-off_load`);
+      return 'drop-off_load';
+    }
+  }
+  
+  // For numeric-only inputs (e.g., when just "104" is passed), append "_load"
+  if (/^\d+$/.test(label)) {
+    console.log(`[UNLOAD-POINT-ACTION] Numeric-only point ID detected: ${label}, appending "_load" suffix`);
+    return `${label}_load`;
+  }
+  
+  // If it's already a properly formatted point ID, return as is
+  return resolvedPointId;
 }
 
 // The toUnloadPoint action definition
@@ -91,20 +119,37 @@ export const toUnloadPointAction: Action = {
       const loadPointId = resolvedPointId.replace('_docking', '');
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
-      // Extract the area ID from the point ID
+      // Extract the area ID from the point ID with more robust handling
       // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
       
-      // Check if this is a drop-off point (handles both drop-off_load and drop-off_load_docking)
-      if (loadPointId.startsWith('drop-off')) {
+      // More comprehensive case-insensitive check for drop-off points
+      // This handles variations like 'drop-off', 'DROP-off', 'dropoff', 'DropOff', etc.
+      if (loadPointId.toLowerCase().includes('drop-off') || loadPointId.toLowerCase().includes('dropoff')) {
         // For drop-off points, always use 'drop-off' as the rack area ID
         rackAreaId = 'drop-off';
-        console.log(`[UNLOAD-POINT-ACTION] DETECTED DROP-OFF POINT: "${loadPointId}"`);
+        console.log(`[UNLOAD-POINT-ACTION] DETECTED DROP-OFF POINT: "${loadPointId}" (case-insensitive match)`);
         console.log(`[UNLOAD-POINT-ACTION] Using fixed rack_area_id = "drop-off" for this point`);
       } else {
         // For all other points, use everything before the first underscore
         const areaMatch = loadPointId.match(/^([^_]+)/);
-        rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
+        
+        // Enhanced validation with multiple checks
+        if (!areaMatch || !areaMatch[1] || areaMatch[1].trim() === '') {
+          // Fallback to the full point ID if regex extraction fails
+          console.log(`[UNLOAD-POINT-ACTION] ⚠️ WARNING: Failed to extract rack_area_id using regex from "${loadPointId}"`);
+          rackAreaId = loadPointId;
+        } else {
+          rackAreaId = areaMatch[1];
+        }
+        
+        // Final validation to ensure we have a non-empty rack_area_id
+        if (!rackAreaId || rackAreaId.trim() === '') {
+          console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Empty rack_area_id extracted from "${loadPointId}"`);
+          console.log(`[UNLOAD-POINT-ACTION] Using point ID as fallback for rack_area_id`);
+          rackAreaId = loadPointId;
+        }
+        
         console.log(`[UNLOAD-POINT-ACTION] Regular point "${loadPointId}", extracted rack_area_id = "${rackAreaId}"`);
       }
       
