@@ -52,14 +52,14 @@ function resolvePointId(pointId: string, params: Record<string, any>): string {
   }
   
   // Normalize point ID format based on naming conventions
-  
-  // CRITICAL: First check if this is a docking point - we should NEVER use to_unload_point for docking points
   const label = resolvedPointId.toString();
+
+  // CRITICAL: First check if this is a docking point - we should NEVER use to_unload_point for docking points
   if (label.toLowerCase().includes('_docking')) {
     console.log(`[UNLOAD-POINT-ACTION] ⚠️ ERROR: Docking point ${label} was passed to toUnloadPoint action.`);
     console.log(`[UNLOAD-POINT-ACTION] to_unload_point should ONLY be used for load points, not docking points.`);
     // Replace _docking with _load to ensure we target the actual load point
-    return label.replace('_docking', '_load').replace('_DOCKING', '_load');
+    return label.replace(/_docking/i, '_load'); // Case-insensitive replacement
   }
   
   // Special handling for drop-off points (case-insensitive)
@@ -69,11 +69,23 @@ function resolvePointId(pointId: string, params: Record<string, any>): string {
       console.log(`[UNLOAD-POINT-ACTION] Normalizing drop-off point ID format: ${label} -> drop-off_load`);
       return 'drop-off_load';
     }
+    
+    // If it has drop-off but wrong format, normalize to drop-off_load
+    if (label.toLowerCase() !== 'drop-off_load') {
+      console.log(`[UNLOAD-POINT-ACTION] Standardizing drop-off point format: ${label} -> drop-off_load`);
+      return 'drop-off_load';
+    }
   }
   
   // For numeric-only inputs (e.g., when just "104" is passed), append "_load"
   if (/^\d+$/.test(label)) {
     console.log(`[UNLOAD-POINT-ACTION] Numeric-only point ID detected: ${label}, appending "_load" suffix`);
+    return `${label}_load`;
+  }
+  
+  // For shelf IDs without _load suffix, append it
+  if (!label.toLowerCase().includes('_load') && !label.toLowerCase().includes('_docking')) {
+    console.log(`[UNLOAD-POINT-ACTION] Point ID without _load suffix: ${label}, appending "_load" suffix`);
     return `${label}_load`;
   }
   
@@ -119,6 +131,10 @@ export const toUnloadPointAction: Action = {
         console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Docking point ${params.pointId} detected in workflow.`);
         console.log(`[UNLOAD-POINT-ACTION] According to the perfect example (pickup-104-new.js), docking points should`);
         console.log(`[UNLOAD-POINT-ACTION] use standard 'move' type, not 'to_unload_point'. Correcting this issue.`);
+        
+        // Instead of just logging this, we should explicitly throw an error
+        // This will force workflow execution to fail early and prevent incorrect operations
+        throw new Error(`Cannot use to_unload_point with docking point ${params.pointId}. Use moveToPoint action for docking points.`);
       }
       
       // Resolve the point ID using our naming convention
@@ -132,6 +148,12 @@ export const toUnloadPointAction: Action = {
       const loadPointId = resolvedPointId.toLowerCase().includes('_docking') 
         ? resolvedPointId.replace('_docking', '_load').replace('_DOCKING', '_load')
         : resolvedPointId;
+        
+      // Second safety check - after resolving, if we still have a docking point, throw an error
+      if (loadPointId.toString().toLowerCase().includes('_docking')) {
+        console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: After resolving point ID, still have docking point: ${loadPointId}`);
+        throw new Error(`Cannot use to_unload_point with docking point ${loadPointId}. This should never happen - check the point naming.`);
+      }
         
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
