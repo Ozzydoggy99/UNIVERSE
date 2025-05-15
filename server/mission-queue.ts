@@ -957,58 +957,13 @@ export class MissionQueueManager {
     console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ Executing move to unload point`);
     
     try {
-      // Get the point_id from params or create it from label
-      let pointId = params.point_id;
-      
-      // If pointId not provided, try to derive it from label
-      if (!pointId && params.label) {
-        // Extract point ID from label if it contains a known format
-        const labelMatch = params.label.match(/Moving to unload point (.+)/);
-        if (labelMatch) {
-          pointId = labelMatch[1];
-        } else {
-          // Use label directly as pointId
-          pointId = params.label;
-        }
-      }
-      
-      // Ensure point ID has _load suffix if not already present
-      if (pointId && !pointId.includes('_load')) {
-        pointId = `${pointId}_load`;
-      }
-      
-      // Critical check - we need a point ID
-      if (!pointId) {
-        throw new Error('Missing required point_id for to_unload_point operation');
-      }
-      
-      console.log(`[${timestamp}] [TO-UNLOAD] Using point_id: ${pointId}`);
-      
-      // Extract rack_area_id from point_id - CRITICAL for to_unload_point to work
-      let rackAreaId;
-      
-      // Special handling for drop-off points with hyphens
-      // Use case-insensitive regex test to handle variations like "Drop-off_Load"
-      if (/^drop-off/i.test(pointId)) {
-        // For drop-off points, always use 'drop-off' as the rack area ID
-        rackAreaId = 'drop-off';
-        console.log(`[${timestamp}] [TO-UNLOAD] Using special rack_area_id="drop-off" for drop-off points`);
-      } else {
-        // For all other points, extract area ID (everything before first underscore)
-        const areaMatch = pointId.match(/^([^_]+)/);
-        rackAreaId = areaMatch ? areaMatch[1] : pointId;
-        console.log(`[${timestamp}] [TO-UNLOAD] Extracted rack_area_id="${rackAreaId}" from point_id="${pointId}"`);
-      }
-      
-      // Create move command with ALL required parameters
+      // Create a move with type=to_unload_point
       const moveCommand = {
         creator: 'robot-api',
         type: 'to_unload_point', // Special move type for rack unloading
         target_x: params.x,
         target_y: params.y,
-        target_ori: params.ori,
-        point_id: pointId,       // REQUIRED: The point ID for unloading
-        rack_area_id: rackAreaId // REQUIRED: The rack area ID for alignment
+        target_ori: params.ori
       };
       
       console.log(`[${timestamp}] [TO-UNLOAD] Creating to_unload_point move: ${JSON.stringify(moveCommand)}`);

@@ -6,34 +6,54 @@
  */
 
 import axios from 'axios';
-import fs from 'fs';
 
-// Configuration
+// API base URL
 const API_BASE_URL = 'http://localhost:5000';
-const LOG_FILE = 'unload-point-test.log';
 
-// Clean log file
-if (fs.existsSync(LOG_FILE)) {
-  fs.writeFileSync(LOG_FILE, '');
-}
+// Test both regular shelf points and drop-off points
+const TEST_POINTS = [
+  '104_load',           // Regular shelf point
+  'drop-off_load'       // Special hyphenated point
+];
 
 /**
  * Test the toUnloadPoint action by directly calling the execute-step endpoint
  */
 async function testDynamicUnloadPoint(pointId) {
-  console.log(`Testing toUnloadPoint action with point: ${pointId}`);
-
+  console.log(`\n----- Testing toUnloadPoint via Dynamic Workflow for: ${pointId} -----`);
+  
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/execute-step`, {
+    // This calls the dynamic workflow's executeWorkflowStep function
+    const payload = {
+      robotId: 'L382502104987ir',
       actionId: 'toUnloadPoint',
-      params: { pointId }
-    });
-
-    console.log(`✅ API Response (${pointId}):`, JSON.stringify(response.data));
-    return response.data;
+      params: {
+        pointId: pointId,
+        // Short timeout for testing
+        maxRetries: 3
+      }
+    };
+    
+    console.log('Request payload:', JSON.stringify(payload, null, 2));
+    
+    const response = await axios.post(
+      `${API_BASE_URL}/api/dynamic-workflow/execute-step`, 
+      payload
+    );
+    
+    console.log('Response:', JSON.stringify(response.data, null, 2));
+    return {
+      success: true,
+      data: response.data
+    };
   } catch (error) {
-    console.error(`❌ Error testing ${pointId}:`, error.response?.data || error.message);
-    return { success: false, error: error.response?.data?.error || error.message };
+    console.error(`Error testing ${pointId}:`, 
+      error.response ? JSON.stringify(error.response.data, null, 2) : error.message
+    );
+    return { 
+      success: false, 
+      error: error.response ? error.response.data : error.message 
+    };
   }
 }
 
@@ -41,31 +61,20 @@ async function testDynamicUnloadPoint(pointId) {
  * Main test function
  */
 async function runTests() {
-  console.log('=== TESTING UNLOAD POINT ACTION WITH DYNAMIC WORKFLOW ===');
+  console.log('=== TESTING DYNAMIC WORKFLOW UNLOAD POINT ACTION ===');
   
-  // Test different point types
-  const testPoints = [
-    // Regular shelf points
-    '104_load',
-    '115_load',
-    // Special drop-off points
-    'drop-off_load',
-    'Drop-off_Load' // testing with different casing
-  ];
-  
-  // Run tests sequentially
-  for (const pointId of testPoints) {
-    console.log(`\n--- Testing point: ${pointId} ---`);
-    await testDynamicUnloadPoint(pointId);
+  for (const pointId of TEST_POINTS) {
+    const result = await testDynamicUnloadPoint(pointId);
     
-    // Add a small delay between tests
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (result.success) {
+      console.log(`✅ SUCCESS: ${pointId}`);
+    } else {
+      console.log(`❌ FAILED: ${pointId} - ${result.error?.message || JSON.stringify(result.error)}`);
+    }
   }
-  
-  console.log('\n=== TESTS COMPLETED ===');
 }
 
 // Run the tests
-runTests().catch(error => {
-  console.error('Unexpected error during tests:', error);
+runTests().catch(err => {
+  console.error('Test script error:', err);
 });

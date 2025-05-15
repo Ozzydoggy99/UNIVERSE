@@ -96,8 +96,7 @@ export const toUnloadPointAction: Action = {
       let rackAreaId;
       
       // Check if this is a drop-off point (handles both drop-off_load and drop-off_load_docking)
-      // Use regexp match with case insensitivity flag 'i' to handle variations like 'Drop-off_Load'
-      if (/^drop-off/i.test(loadPointId)) {
+      if (loadPointId.startsWith('drop-off')) {
         // For drop-off points, always use 'drop-off' as the rack area ID
         rackAreaId = 'drop-off';
         console.log(`[UNLOAD-POINT-ACTION] DETECTED DROP-OFF POINT: "${loadPointId}"`);
