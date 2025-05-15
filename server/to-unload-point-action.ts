@@ -62,18 +62,18 @@ function resolvePointId(pointId: string, params: Record<string, any>): string {
     return label.replace(/_docking/i, '_load'); // Case-insensitive replacement
   }
   
-  // Special handling for drop-off points (case-insensitive)
+  // Special handling for dropoff points (case-insensitive)
   if (label.toLowerCase().includes('drop-off') || label.toLowerCase().includes('dropoff')) {
-    // Ensure proper format for drop-off points
+    // Ensure proper format for dropoff points
     if (!label.toLowerCase().includes('_load')) {
-      console.log(`[UNLOAD-POINT-ACTION] Normalizing drop-off point ID format: ${label} -> drop-off_load`);
-      return 'drop-off_load';
+      console.log(`[UNLOAD-POINT-ACTION] Normalizing dropoff point ID format: ${label} -> dropoff_load`);
+      return 'dropoff_load';
     }
     
-    // If it has drop-off but wrong format, normalize to drop-off_load
-    if (label.toLowerCase() !== 'drop-off_load') {
-      console.log(`[UNLOAD-POINT-ACTION] Standardizing drop-off point format: ${label} -> drop-off_load`);
-      return 'drop-off_load';
+    // If it has dropoff but wrong format, normalize to dropoff_load
+    if (label.toLowerCase() !== 'dropoff_load') {
+      console.log(`[UNLOAD-POINT-ACTION] Standardizing dropoff point format: ${label} -> dropoff_load`);
+      return 'dropoff_load';
     }
   }
   

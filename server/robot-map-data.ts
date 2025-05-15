@@ -139,8 +139,8 @@ export function getShelfPointsByFloor(points: Point[]): Record<string, Point[]> 
  * Special points now use the format:
  * - Load points: "number_load" (the actual shelf points where bins will be picked up)
  * - Load docking points: "number_load_docking" (positions before the actual shelf)
- * - Dropoff: "drop-off_load" (where bins are dropped off)
- * - Dropoff docking: "drop-off_load_docking" (position before the dropoff)
+ * - Dropoff: "dropoff_load" (where bins are dropped off)
+ * - Dropoff docking: "dropoff_load_docking" (position before the dropoff)
  * - Charger: "charging station" (robot charging station)
  */
 export function getSpecialPoints(points: Point[]) {
