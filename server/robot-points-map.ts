@@ -205,6 +205,11 @@ export function getShelfPoint(shelfId: string): Point | null {
     console.log(`Using already formatted shelf ID: ${pointName}`);
   }
   // Special handling for pickup and dropoff points - convert legacy names
+  else if (shelfId === 'pickup' || shelfId === 'dropoff') {
+    // Already in non-hyphenated format
+    pointName = `${shelfId}_load`;
+  }
+  // Handle legacy hyphenated names for backward compatibility
   else if (shelfId === 'pick-up' || shelfId === 'drop-off') {
     // Convert old hyphenated names to new non-hyphenated format
     pointName = `${shelfId.replace('-', '')}_load`;
@@ -261,6 +266,11 @@ export function getShelfDockingPoint(shelfId: string): Point | null {
     console.log(`Converting load point to docking point: ${pointName}`);
   }
   // Special handling for pickup and dropoff points - convert legacy names
+  else if (shelfId === 'pickup' || shelfId === 'dropoff') {
+    // Already in non-hyphenated format
+    pointName = `${shelfId}_load_docking`;
+  }
+  // Handle legacy hyphenated names for backward compatibility
   else if (shelfId === 'pick-up' || shelfId === 'drop-off') {
     // Convert old hyphenated names to new non-hyphenated format
     pointName = `${shelfId.replace('-', '')}_load_docking`;
