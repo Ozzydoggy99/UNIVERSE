@@ -1812,6 +1812,42 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
     });
   });
   
+  // Add direct endpoint for testing toUnloadPoint action
+  app.post('/api/dynamic-workflow/execute-step', async (req, res) => {
+    try {
+      const { robotId, actionId, params } = req.body;
+      
+      console.log(`[DYNAMIC-WORKFLOW] Executing individual action ${actionId} for robot ${robotId}`);
+      console.log(`[DYNAMIC-WORKFLOW] Action parameters:`, JSON.stringify(params, null, 2));
+      
+      // Currently we only support the toUnloadPoint action for testing
+      if (actionId === 'toUnloadPoint') {
+        // Import action modules dynamically to prevent circular dependencies
+        const { toUnloadPointAction } = await import('./to-unload-point-action');
+        
+        // Execute the action directly
+        const result = await toUnloadPointAction.execute(params);
+        
+        return res.status(200).json({
+          success: result.success,
+          message: result.success ? 'toUnloadPoint action executed successfully' : result.error || 'Action failed',
+          data: result.data
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: `Unsupported action: ${actionId}. Currently only toUnloadPoint is supported.`
+        });
+      }
+    } catch (error: any) {
+      console.error(`[DYNAMIC-WORKFLOW] Error executing action step:`, error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Unknown error executing action'
+      });
+    }
+  });
+  
   // Add specific endpoint for testing scripts that use /api/dynamic-workflow/:type
   app.post('/api/dynamic-workflow/:type', async (req, res) => {
     try {
