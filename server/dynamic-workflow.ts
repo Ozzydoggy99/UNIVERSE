@@ -2271,24 +2271,19 @@ export async function executeWorkflow(
             // Extract rack_area_id from the pointId following perfect example pattern
             let rackAreaId;
             
-            // More comprehensive case-insensitive check for drop-off points
+            // CRITICAL FIX: Use the full pointId as the rack_area_id for consistent behavior
+            // This matches the approach in to-unload-point-action.ts and ensures consistent behavior
+            rackAreaId = pointId;
+            
+            // Log the approach we're using for greater visibility
             if (pointId.toLowerCase().includes('drop-off') || pointId.toLowerCase().includes('dropoff')) {
-              // For drop-off points, always use 'drop-off' as the rack area ID
-              rackAreaId = 'drop-off';
               logWorkflow(workflowId, `DETECTED DROP-OFF POINT: "${pointId}" (case-insensitive match)`);
-              logWorkflow(workflowId, `Using fixed rack_area_id = "drop-off" for this point`);
+              logWorkflow(workflowId, `CRITICAL FIX: Using full point ID "${pointId}" as rack_area_id instead of just "drop-off"`);
+              logWorkflow(workflowId, `This ensures consistent behavior with to-unload-point-action.ts implementation`);
             } else {
-              // For all other points, use everything before the first underscore
-              const areaMatch = pointId.match(/^([^_]+)/);
-              
-              if (!areaMatch || !areaMatch[1] || areaMatch[1].trim() === '') {
-                const errorMsg = `Failed to extract rack_area_id from "${pointId}"`;
-                logWorkflow(workflowId, `❌ ERROR: ${errorMsg}`);
-                throw new Error(errorMsg);
-              }
-              
-              rackAreaId = areaMatch[1];
-              logWorkflow(workflowId, `Regular point "${pointId}", extracted rack_area_id = "${rackAreaId}"`);
+              // Note this is a different approach from before, but it's more consistent
+              logWorkflow(workflowId, `CRITICAL FIX: Using full point ID "${pointId}" as rack_area_id instead of extracted prefix`);
+              logWorkflow(workflowId, `This ensures consistent behavior with to-unload-point-action.ts implementation`);
             }
             
             logWorkflow(workflowId, `FINAL rack_area_id = "${rackAreaId}" for point "${pointId}"`);

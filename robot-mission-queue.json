@@ -8537,5 +8537,89 @@
     "createdAt": "2025-05-15T03:07:48.202Z",
     "updatedAt": "2025-05-15T03:09:50.151Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747279366769_25uccxp",
+    "name": "Central Pickup to Shelf (104)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.887,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Move to central pickup docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to central pickup docking position completed successfully",
+          "moveId": 4777
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.847,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Align with rack at central pickup"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -14.801,
+          "y": 6.768,
+          "ori": 0,
+          "label": "Move to dropoff shelf docking position"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -15.88,
+          "y": 6.768,
+          "ori": 0,
+          "point_id": "104_load",
+          "rack_area_id": "104_load",
+          "label": "Move to unload point at dropoff shelf"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "in_progress",
+    "currentStepIndex": 1,
+    "createdAt": "2025-05-15T03:22:46.769Z",
+    "updatedAt": "2025-05-15T03:23:05.341Z",
+    "robotSn": "L382502104987ir"
   }
 ]
