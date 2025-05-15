@@ -951,19 +951,48 @@ export class MissionQueueManager {
   /**
    * Execute a to_unload_point move step
    * Used after jack_up to move a rack to the unload destination
+   * CRITICAL FIX: Must use point_id and rack_area_id instead of coordinates
    */
   private async executeToUnloadPointStep(params: any): Promise<any> {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ Executing move to unload point`);
     
     try {
-      // Create a move with type=to_unload_point
+      // CRITICAL FIX: We must validate that we have a pointId parameter
+      if (!params.pointId) {
+        console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR: No pointId provided for to_unload_point operation`);
+        throw new Error('Missing required pointId for to_unload_point operation');
+      }
+      
+      // Extract the proper load point and rack area ID
+      let loadPointId = params.pointId;
+      
+      // Sanitize input - ensure we're using a load point, not a docking point
+      if (loadPointId.toLowerCase().includes('_docking')) {
+        console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ WARNING: Converting docking point ${loadPointId} to load point`);
+        loadPointId = loadPointId.replace(/_docking/i, '_load');
+      }
+      
+      // Safety check - ensure it's a load point now
+      if (loadPointId.toLowerCase().includes('_docking')) {
+        throw new Error(`Cannot use to_unload_point with docking point ${loadPointId}`);
+      }
+      
+      // For proper targeting, use the FULL POINT ID as the rack_area_id (CRITICAL FIX)
+      const rackAreaId = loadPointId;
+      
+      console.log(`[${timestamp}] [TO-UNLOAD] CRITICAL FIX: Using point_id=${loadPointId} and rack_area_id=${rackAreaId}`);
+      console.log(`[${timestamp}] [TO-UNLOAD] This ensures proper unloading at the exact designated point`);
+      
+      // Create a move with type=to_unload_point WITH PROPER PARAMETERS
       const moveCommand = {
         creator: 'robot-api',
         type: 'to_unload_point', // Special move type for rack unloading
-        target_x: params.x,
-        target_y: params.y,
-        target_ori: params.ori
+        point_id: loadPointId,   // CRITICAL FIX: Use point_id instead of coordinates
+        rack_area_id: rackAreaId, // CRITICAL FIX: Include rack_area_id for proper placement
+        target_x: 0, // Setting to 0 as these will be ignored when point_id is used
+        target_y: 0,
+        target_ori: 0
       };
       
       console.log(`[${timestamp}] [TO-UNLOAD] Creating to_unload_point move: ${JSON.stringify(moveCommand)}`);
