@@ -988,7 +988,8 @@ export class MissionQueueManager {
       let rackAreaId;
       
       // Special handling for drop-off points with hyphens
-      if (pointId.startsWith('drop-off')) {
+      // Use case-insensitive regex test to handle variations like "Drop-off_Load"
+      if (/^drop-off/i.test(pointId)) {
         // For drop-off points, always use 'drop-off' as the rack area ID
         rackAreaId = 'drop-off';
         console.log(`[${timestamp}] [TO-UNLOAD] Using special rack_area_id="drop-off" for drop-off points`);
