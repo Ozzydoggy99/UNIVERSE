@@ -8566,16 +8566,22 @@
           "ori": 0,
           "label": "Align with rack at central pickup"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4779,
+          "message": "Align with rack completed successfully"
+        }
       },
       {
         "type": "jack_up",
         "params": {
           "waitComplete": true
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
       },
       {
         "type": "move",
@@ -8585,8 +8591,13 @@
           "ori": 0,
           "label": "Move to dropoff shelf docking position"
         },
-        "completed": false,
-        "retryCount": 0
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to dropoff shelf docking position completed successfully",
+          "moveId": 4780
+        }
       },
       {
         "type": "to_unload_point",
@@ -8599,7 +8610,8 @@
           "label": "Move to unload point at dropoff shelf"
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 0,
+        "errorMessage": "Failed to move to unload point: Missing required pointId for to_unload_point operation"
       },
       {
         "type": "jack_down",
@@ -8616,10 +8628,99 @@
         "retryCount": 0
       }
     ],
-    "status": "in_progress",
-    "currentStepIndex": 1,
+    "status": "failed",
+    "currentStepIndex": 4,
     "createdAt": "2025-05-15T03:22:46.769Z",
-    "updatedAt": "2025-05-15T03:23:05.341Z",
+    "updatedAt": "2025-05-15T03:24:54.797Z",
+    "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747279598384_yq2exmr",
+    "name": "Shelf to Central Dropoff (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -6.917,
+          "y": 6.721,
+          "ori": 0,
+          "label": "Move to pickup shelf docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to pickup shelf docking position completed successfully",
+          "moveId": 4781
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -8.029,
+          "y": 6.704,
+          "ori": 0,
+          "label": "Align with rack at pickup shelf"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4782,
+          "message": "Align with rack completed successfully"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -1.85,
+          "y": 3.366,
+          "ori": 0,
+          "label": "Move to central dropoff docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to central dropoff docking position completed successfully",
+          "moveId": 4783
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Return to charger initiated with coordinate-based navigation",
+          "moveId": 4784,
+          "method": "coordinate_based_with_charging"
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 6,
+    "createdAt": "2025-05-15T03:26:38.384Z",
+    "updatedAt": "2025-05-15T03:28:40.494Z",
     "robotSn": "L382502104987ir"
   }
 ]
