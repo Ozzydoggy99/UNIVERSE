@@ -139,7 +139,7 @@ export const MapDigitalTwin: React.FC<MapDigitalTwinProps> = ({
       setMapData(mapJson);
       
       // Fetch LiDAR data
-      const lidarResponse = await fetch(`/api/robots/lidar/${robotSerial}?_preferTopic=/scan&_nocache=${Date.now()}`);
+      const lidarResponse = await fetch(`/api/robots/lidar/${robotSerial}?_preferTopic=/scan_matched_points2&_nocache=${Date.now()}`);
       if (!lidarResponse.ok) throw new Error('Failed to fetch LiDAR data');
       const lidarJson = await lidarResponse.json();
       setLidarData(lidarJson);
