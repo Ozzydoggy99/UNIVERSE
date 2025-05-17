@@ -20,21 +20,27 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Preferred topic: ${preferredTopic}`);
       
       try {
-        // First try to get live data
-        const lidarUrl = `${ROBOT_API_URL}/lidar?topic=${encodeURIComponent(preferredTopic)}`;
-        console.log(`Fetching LiDAR data from API: ${lidarUrl}`);
+        // For this robot model, we need to use the topics endpoint instead
+        // The correct endpoint format is /topics/TOPIC_NAME
+        const lidarUrl = `${ROBOT_API_URL}/topics${preferredTopic}`;
+        console.log(`Fetching LiDAR data from topics API: ${lidarUrl}`);
         
         const response = await axios.get(lidarUrl, {
           headers: getAuthHeaders(),
-          timeout: 2000 // Shorter timeout for faster user experience
+          timeout: 3000 // Slightly longer timeout for more reliable data
         });
         
-        return res.json(response.data);
+        if (response.data) {
+          console.log(`Successfully retrieved LiDAR data from ${preferredTopic}`);
+          return res.json(response.data);
+        } else {
+          throw new Error('Empty response from LiDAR topic');
+        }
       } catch (error) {
         console.error('Error in lidar fetch:', error);
         
-        // Return empty LiDAR data structure
-        return res.json({
+        // Return empty LiDAR data structure with more details in debug mode
+        const emptyData = {
           topic: preferredTopic,
           stamp: Date.now(),
           ranges: [],
@@ -43,8 +49,14 @@ export function registerRobotApiRoutes(app: Express) {
           angle_increment: 0.01,
           range_min: 0,
           range_max: 10,
-          points: [] // Empty points array for modern format
-        });
+          points: [], // Empty points array for modern format
+          debug_info: {
+            error: error.message,
+            endpoint_tried: `${ROBOT_API_URL}/topics${preferredTopic}`
+          }
+        };
+        
+        return res.json(emptyData);
       }
     } catch (error) {
       console.error('Error handling LiDAR request:', error);
