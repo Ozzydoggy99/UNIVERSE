@@ -328,6 +328,16 @@ function Router() {
           </AppLayout>
         )} 
       />
+      
+      {/* Robot Monitoring Hub */}
+      <ProtectedRoute 
+        path="/robot-hub" 
+        component={() => (
+          <AppLayout>
+            <RobotHub />
+          </AppLayout>
+        )} 
+      />
 
       {/* Legacy Dynamic Workflow UI Routes removed - now using simplified workflow */}
       
