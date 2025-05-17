@@ -184,12 +184,13 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching camera data from API: /api/robots/camera/${serialNumber}`);
       
       try {
-        // First try to get camera data from the robot's camera endpoint
-        console.log(`Attempting to fetch camera data from proxy: http://${process.env.ROBOT_IP}:8090/robot-camera/${serialNumber}`);
-        const cameraUrl = `${ROBOT_API_URL}/camera`;
+        // First try to get camera data from the robot's video API endpoint
+        // The robot's camera endpoint is at /rgb_cameras/front/snapshot 
+        console.log(`Attempting to fetch camera data from proxy: ${ROBOT_API_URL}/rgb_cameras/front/snapshot`);
+        const cameraUrl = `${ROBOT_API_URL}/rgb_cameras/front/snapshot`;
         const response = await axios.get(cameraUrl, {
           headers: getAuthHeaders(),
-          timeout: 2000
+          timeout: 5000
         });
         
         return res.json(response.data);
