@@ -25,28 +25,44 @@ export function registerCameraApiRoutes(app: Express) {
         return res.status(404).json({ error });
       }
       
-      // Build target URL based on parameters
-      let targetUrl = `${ROBOT_API_URL}/robot-camera/${serialNumber}`;
+      // We'll try multiple potential camera endpoints
+      const potentialEndpoints = [
+        '/rgb_cameras/front/compressed',
+        '/rgb_cameras/front/snapshot',
+        '/rgb_cameras/front/image',
+        '/camera/snapshot',
+        '/robot-camera/L382502104987ir',
+        '/camera'
+      ];
       
-      // If a specific endpoint was requested, use it instead of the default URL
+      // If a specific endpoint was requested, try that first
+      let targetUrl;
       if (endpoint && typeof endpoint === 'string') {
         targetUrl = `${ROBOT_API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
         console.log(`Using custom endpoint for camera feed: ${targetUrl}`);
-        
-        // Handle RGB cameras directly, based on the documentation
-        if (endpoint.startsWith('/rgb_cameras/')) {
-          try {
-            console.log(`Accessing RGB camera stream directly: ${targetUrl}`);
-            
-            // First, try to enable the topic
-            try {
-              const enableMsg = JSON.stringify({ "enable_topic": endpoint.replace(/^\//, '') });
-              console.log(`Enabling camera topic with: ${enableMsg}`);
-              
-              await axios.post(ROBOT_API_URL, enableMsg, {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: 3000
-              });
+      } else {
+        // Use the first endpoint from our list
+        targetUrl = `${ROBOT_API_URL}${potentialEndpoints[0]}`;
+        console.log(`Using default camera endpoint: ${targetUrl}`);
+      }
+      
+      // Try to get a camera feed from any of the potential endpoints
+      try {
+          // First try to enable the topic if we have a specific endpoint
+          if (endpoint && typeof endpoint === 'string') {
+              try {
+                  const enableMsg = JSON.stringify({ "enable_topic": endpoint.replace(/^\//, '') });
+                  console.log(`Enabling camera topic with: ${enableMsg}`);
+                  
+                  await axios.post(ROBOT_API_URL, enableMsg, {
+                      headers: { 'Content-Type': 'application/json' },
+                      timeout: 3000
+                  });
+              } catch (error) {
+                  console.log(`Could not enable topic: ${error.message}`);
+                  // Continue anyway, might still work
+              }
+          }
               console.log('Successfully sent enable_topic command');
             } catch (wsError) {
               // Continue anyway even if enabling fails

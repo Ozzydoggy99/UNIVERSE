@@ -184,23 +184,54 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching camera data from API: /api/robots/camera/${serialNumber}`);
       
       try {
-        // First try to get camera data from the robot's video API endpoint
-        // The robot's camera endpoint is at /rgb_cameras/front/snapshot 
-        console.log(`Attempting to fetch camera data from proxy: ${ROBOT_API_URL}/rgb_cameras/front/snapshot`);
-        const cameraUrl = `${ROBOT_API_URL}/rgb_cameras/front/snapshot`;
-        const response = await axios.get(cameraUrl, {
-          headers: getAuthHeaders(),
-          timeout: 5000
-        });
+        // Try multiple potential camera endpoints
+        const endpoints = [
+          '/camera',
+          '/rgb_cameras/front/snapshot',
+          '/rgb_cameras/front/image', 
+          '/camera/snapshot',
+          '/video/snapshot'
+        ];
         
-        return res.json(response.data);
+        let cameraData = null;
+        let lastError = null;
+        
+        // Try each endpoint until one works
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`Attempting to fetch camera data from: ${ROBOT_API_URL}${endpoint}`);
+            const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
+              headers: getAuthHeaders(),
+              timeout: 3000
+            });
+            
+            if (response.data) {
+              cameraData = response.data;
+              console.log(`Successfully retrieved camera data from: ${endpoint}`);
+              break;
+            }
+          } catch (endpointError) {
+            lastError = endpointError;
+            console.log(`Endpoint ${endpoint} failed: ${endpointError.message}`);
+            // Continue to the next endpoint
+          }
+        }
+        
+        if (cameraData) {
+          return res.json(cameraData);
+        }
+        
+        // If all endpoints failed, throw the last error to fall back to default image
+        throw lastError || new Error('All camera endpoints failed');
       } catch (error) {
         console.error('Error in camera data fetch:', error);
         
-        // Return empty camera data
+        // Return empty camera data with placeholder image for UI
         return res.json({
           image: '',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          status: 'unavailable',
+          message: 'Camera temporarily unavailable'
         });
       }
     } catch (error) {
