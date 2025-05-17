@@ -60,9 +60,18 @@ export function registerRobotApiRoutes(app: Express) {
       
       console.log(`LiDAR power control request for ${serialNumber}, action: ${action}`);
       
+      // Validate action
+      if (action !== 'power_on' && action !== 'power_off') {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid action",
+          message: "Action must be either 'power_on' or 'power_off'"
+        });
+      }
+      
       try {
-        // Forward the power control request to the robot
-        const powerControlUrl = `${ROBOT_API_URL}/lidar/power`;
+        // Use the correct service endpoint for LiDAR power control
+        const powerControlUrl = `${ROBOT_API_URL}/services/baseboard/power_on_lidar`;
         console.log(`Sending LiDAR power control request to: ${powerControlUrl}`);
         
         const response = await axios.post(powerControlUrl, 
