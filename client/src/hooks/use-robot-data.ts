@@ -33,7 +33,7 @@ export function useRobotData(robotSerial: string): RobotData {
       const mapJson = await mapResponse.json();
       
       // Fetch LiDAR data
-      const lidarResponse = await fetch(`/api/robots/lidar/${robotSerial}?_preferTopic=/scan_matched_points2`);
+      const lidarResponse = await fetch(`/api/robots/lidar/${robotSerial}?_preferTopic=/scan`);
       if (!lidarResponse.ok) throw new Error('Failed to fetch LiDAR data');
       const lidarJson = await lidarResponse.json();
       
