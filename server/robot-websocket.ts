@@ -31,11 +31,14 @@ const topicCategories: Record<string, string[]> = {
 
 // List of topics to subscribe to from the robot
 const subscribeTopics: string[] = [
-  '/tracked_pose',       // Robot position
-  '/battery_state',      // Battery information
-  '/wheel_state',        // Wheel status
-  '/slam/state',         // SLAM status
-  '/map',                // Map data
+  '/tracked_pose',         // Robot position
+  '/battery_state',        // Battery information
+  '/wheel_state',          // Wheel status
+  '/slam/state',           // SLAM status
+  '/map',                  // Map data
+  '/scan',                 // LiDAR scan data (2D)
+  '/scan_matched_points2', // LiDAR point cloud (3D)
+  '/lidar/scan',           // Alt LiDAR path
 ];
 
 /**
