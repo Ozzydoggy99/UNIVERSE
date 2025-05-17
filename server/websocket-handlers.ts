@@ -1,12 +1,9 @@
 import WebSocket from 'ws';
 import axios from 'axios';
+import { ROBOT_API_URL, ROBOT_SERIAL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
 // Only support our physical robot
-const PHYSICAL_ROBOT_SERIAL = 'L382502104987ir';
-
-// URL for our robot proxy server - using direct IP
-const ROBOT_API_URL = 'http://47.180.91.99:8090';
-const ROBOT_SECRET = process.env.ROBOT_SECRET || '';
+const PHYSICAL_ROBOT_SERIAL = ROBOT_SERIAL;
 
 // Helper function to fetch live data from the proxy server
 async function fetchLiveData(endpoint: string) {
