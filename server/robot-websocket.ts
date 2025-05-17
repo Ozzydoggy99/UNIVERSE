@@ -47,7 +47,7 @@ const subscribeTopics: string[] = [
 function getRobotWebSocketUrl(): string {
   // According to the new documentation, we need to use the proper API endpoint
   // The AutoXing API docs specify the WebSocket URL format
-  return `${ROBOT_API_URL.replace(/^http/, 'ws')}/ws/v2/topics`;
+  return `${ROBOT_API_URL.replace(/^http/, 'ws')}/ws/v2`;
 }
 
 /**
