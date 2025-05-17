@@ -189,29 +189,81 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching position from API: /api/robots/position/${serialNumber}`);
       
       try {
-        // For this robot model, position data is available via the topics API
-        const positionUrl = `${ROBOT_API_URL}/topics/tracked_pose`;
-        console.log(`Fetching position data from: ${positionUrl}`);
+        // Import the position tracker to get the latest position from WebSocket
+        const { robotPositionTracker } = require('./robot-position-tracker');
         
-        const response = await axios.get(positionUrl, {
-          headers: getAuthHeaders(),
-          timeout: 3000
-        });
+        // Get the latest position from the WebSocket tracker - this is updated in real-time
+        const latestPosition = robotPositionTracker.getLatestPosition();
         
-        if (response.data && Array.isArray(response.data.pos) && response.data.pos.length >= 2) {
-          // Format the response to match our expected structure
+        if (latestPosition && latestPosition.x !== undefined && latestPosition.y !== undefined) {
+          console.log(`Position data retrieved successfully from WebSocket: (${latestPosition.x}, ${latestPosition.y})`);
+          return res.json(latestPosition);
+        }
+        
+        // If we don't have position data from WebSocket yet, try a direct API call as backup
+        console.log("No WebSocket position data available yet, trying direct API calls...");
+        
+        // Try multiple potential position endpoints
+        const endpoints = [
+          '/topics/pose', 
+          '/robot/pose',
+          '/state'
+        ];
+        
+        let positionData = null;
+        let lastError = null;
+        
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`Attempting to fetch position from: ${ROBOT_API_URL}${endpoint}`);
+            const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
+              headers: getAuthHeaders(),
+              timeout: 2000
+            });
+            
+            if (response.data) {
+              positionData = response.data;
+              console.log(`Successfully retrieved position data from: ${endpoint}`);
+              break;
+            }
+          } catch (endpointError) {
+            console.log(`Endpoint ${endpoint} failed: ${endpointError.message}`);
+            lastError = endpointError;
+            // Continue to the next endpoint
+          }
+        }
+        
+        if (positionData) {
+          // Try to extract position data from various possible formats
+          let x = 0, y = 0, orientation = 0;
+          
+          if (positionData.pos && Array.isArray(positionData.pos) && positionData.pos.length >= 2) {
+            // Array format: [x, y, ...]
+            x = positionData.pos[0];
+            y = positionData.pos[1];
+            orientation = positionData.ori || 0;
+          } else if (positionData.x !== undefined && positionData.y !== undefined) {
+            // Object format: {x: X, y: Y, ...}
+            x = positionData.x;
+            y = positionData.y;
+            orientation = positionData.orientation || positionData.theta || 0;
+          } else if (positionData.position && positionData.position.x !== undefined) {
+            // Nested object: {position: {x: X, y: Y}, ...}
+            x = positionData.position.x;
+            y = positionData.position.y;
+            orientation = positionData.orientation || 0;
+          }
+          
           const formattedPosition = {
-            x: response.data.pos[0],
-            y: response.data.pos[1],
-            orientation: response.data.ori || 0,
+            x, y, orientation,
             timestamp: new Date().toISOString()
           };
           
-          console.log(`Position data retrieved successfully: (${formattedPosition.x}, ${formattedPosition.y})`);
+          console.log(`Position data formatted: (${formattedPosition.x}, ${formattedPosition.y})`);
           return res.json(formattedPosition);
-        } else {
-          throw new Error('Invalid position data format');
         }
+        
+        throw lastError || new Error('No position data available from any endpoint');
       } catch (error) {
         console.error('Error in position fetch:', error);
         
@@ -236,21 +288,52 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching map data from: /api/robots/map/${serialNumber}`);
       
       try {
-        // For this robot model, map data is available via the topics API
-        const mapUrl = `${ROBOT_API_URL}/topics/map`;
-        console.log(`Fetching map data from: ${mapUrl}`);
+        // Try to get map data from WebSocket connection first
+        const { getLatestMapData } = require('./robot-websocket');
+        const wsMapData = getLatestMapData();
         
-        const response = await axios.get(mapUrl, {
-          headers: getAuthHeaders(),
-          timeout: 5000 // Maps might be large
-        });
-        
-        if (response.data) {
-          console.log(`Map data retrieved successfully`);
-          return res.json(response.data);
-        } else {
-          throw new Error('Empty map data response');
+        if (wsMapData) {
+          console.log(`Map data retrieved successfully from WebSocket`);
+          return res.json(wsMapData);
         }
+        
+        console.log("No WebSocket map data available yet, trying direct API calls...");
+        
+        // Try multiple potential map endpoints
+        const endpoints = [
+          '/maps/current',
+          '/map',
+          '/maps'
+        ];
+        
+        let mapData = null;
+        let lastError = null;
+        
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`Attempting to fetch map data from: ${ROBOT_API_URL}${endpoint}`);
+            const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
+              headers: getAuthHeaders(),
+              timeout: 5000 // Maps might be large
+            });
+            
+            if (response.data) {
+              mapData = response.data;
+              console.log(`Successfully retrieved map data from: ${endpoint}`);
+              break;
+            }
+          } catch (endpointError) {
+            console.log(`Endpoint ${endpoint} failed: ${endpointError.message}`);
+            lastError = endpointError;
+            // Continue to the next endpoint
+          }
+        }
+        
+        if (mapData) {
+          return res.json(mapData);
+        }
+        
+        throw lastError || new Error('No map data available from any endpoint');
       } catch (error) {
         console.error('Error in getMapData fetch:', error);
         
