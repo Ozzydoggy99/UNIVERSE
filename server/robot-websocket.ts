@@ -161,10 +161,32 @@ function connectRobotWebSocket() {
 
           // Add detailed debug logging for LiDAR data
           if (category === 'lidar') {
-            // Check if we have point cloud data or ranges
-            const hasPointCloud = message.data && message.data.points && message.data.points.length > 0;
-            const hasRanges = message.data && message.data.ranges && message.data.ranges.length > 0;
+            // For better debugging, let's extract the structure of the data
+            const dataStructure = {};
+            
+            // If message has data property, check its format
+            if (message.data) {
+              // List all top-level properties in the data
+              Object.keys(message.data).forEach(key => {
+                const value = message.data[key];
+                if (Array.isArray(value)) {
+                  dataStructure[key] = `Array[${value.length}]`;
+                } else if (typeof value === 'object' && value !== null) {
+                  dataStructure[key] = 'Object';
+                } else {
+                  dataStructure[key] = typeof value;
+                }
+              });
+            }
+            
+            // Check if we have point cloud data directly in message (not nested in data)
+            const hasPointCloud = (message.points && message.points.length > 0) || 
+                                  (message.data && message.data.points && message.data.points.length > 0);
+            const hasRanges = (message.ranges && message.ranges.length > 0) || 
+                              (message.data && message.data.ranges && message.data.ranges.length > 0);
+                              
             console.log(`Received LiDAR data from topic ${message.topic} - Has point cloud: ${hasPointCloud}, Has ranges: ${hasRanges}`);
+            console.log(`LiDAR data structure: ${JSON.stringify(dataStructure)}`);
           }
           
           // Forward with category info
