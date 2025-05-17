@@ -36,9 +36,9 @@ const subscribeTopics: string[] = [
   '/wheel_state',          // Wheel status
   '/slam/state',           // SLAM status
   '/map',                  // Map data
-  '/scan',                 // LiDAR scan data (2D)
-  '/scan_matched_points2', // LiDAR point cloud (3D)
-  '/lidar/scan',           // Alt LiDAR path
+  '/scan',                 // 2D LiDAR data showing people moving
+  '/scan_matched_points2', // 3D LiDAR point cloud data
+  '/lidar/scan'            // Alternative LiDAR path
 ];
 
 /**
