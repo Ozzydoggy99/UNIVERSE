@@ -236,13 +236,21 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching map data from: /api/robots/map/${serialNumber}`);
       
       try {
-        const mapUrl = `${ROBOT_API_URL}/map`;
+        // For this robot model, map data is available via the topics API
+        const mapUrl = `${ROBOT_API_URL}/topics/map`;
+        console.log(`Fetching map data from: ${mapUrl}`);
+        
         const response = await axios.get(mapUrl, {
           headers: getAuthHeaders(),
-          timeout: 2000
+          timeout: 5000 // Maps might be large
         });
         
-        return res.json(response.data);
+        if (response.data) {
+          console.log(`Map data retrieved successfully`);
+          return res.json(response.data);
+        } else {
+          throw new Error('Empty map data response');
+        }
       } catch (error) {
         console.error('Error in getMapData fetch:', error);
         
@@ -268,13 +276,31 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching sensor data from API: /api/robots/sensors/${serialNumber}`);
       
       try {
-        const sensorsUrl = `${ROBOT_API_URL}/sensors`;
-        const response = await axios.get(sensorsUrl, {
-          headers: getAuthHeaders(),
-          timeout: 2000
-        });
+        // For this robot model, sensor data is available through various topic endpoints
+        // We'll try to get data from multiple relevant topics and combine them
+        const wheelStateUrl = `${ROBOT_API_URL}/topics/wheel_state`;
+        const batteryStateUrl = `${ROBOT_API_URL}/topics/battery_state`;
+        const slamStateUrl = `${ROBOT_API_URL}/topics/slam/state`;
         
-        return res.json(response.data);
+        console.log(`Fetching sensor data from wheel state, battery state, and SLAM state`);
+        
+        // Get data from multiple endpoints in parallel
+        const [wheelStateRes, batteryStateRes, slamStateRes] = await Promise.allSettled([
+          axios.get(wheelStateUrl, { headers: getAuthHeaders(), timeout: 2000 }),
+          axios.get(batteryStateUrl, { headers: getAuthHeaders(), timeout: 2000 }),
+          axios.get(slamStateUrl, { headers: getAuthHeaders(), timeout: 2000 })
+        ]);
+        
+        // Combine all available sensor data
+        const sensorData = {
+          wheel: wheelStateRes.status === 'fulfilled' ? wheelStateRes.value.data : null,
+          battery: batteryStateRes.status === 'fulfilled' ? batteryStateRes.value.data : null,
+          slam: slamStateRes.status === 'fulfilled' ? slamStateRes.value.data : null,
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log(`Sensor data retrieved successfully`);
+        return res.json(sensorData);
       } catch (error) {
         console.error('Error in sensor data fetch:', error);
         
@@ -299,54 +325,77 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching camera data from API: /api/robots/camera/${serialNumber}`);
       
       try {
-        // Try multiple potential camera endpoints
-        const endpoints = [
-          '/camera',
-          '/rgb_cameras/front/snapshot',
-          '/rgb_cameras/front/image', 
+        // Based on device info, this robot model has RGB cameras
+        // First, try the RGB camera endpoint which is specifically mentioned in the device info
+        const cameraEndpoint = '/rgb_cameras/front/image';
+        console.log(`Attempting to fetch camera data from: ${ROBOT_API_URL}${cameraEndpoint}`);
+        
+        try {
+          const response = await axios.get(`${ROBOT_API_URL}${cameraEndpoint}`, {
+            headers: getAuthHeaders(),
+            timeout: 5000, // Camera images might take longer to download
+            responseType: 'arraybuffer' // Important for binary image data
+          });
+          
+          if (response.data) {
+            console.log(`Successfully retrieved camera data from: ${cameraEndpoint}`);
+            // Convert binary data to base64 for JSON response
+            const base64Image = Buffer.from(response.data).toString('base64');
+            return res.json({
+              image: base64Image,
+              contentType: response.headers['content-type'] || 'image/jpeg',
+              timestamp: new Date().toISOString(),
+              status: 'available'
+            });
+          }
+        } catch (error) {
+          console.log(`Primary camera endpoint failed: ${error.message}`);
+          // Fall through to try alternative endpoints
+        }
+        
+        // Try alternative endpoints if primary fails
+        const alternativeEndpoints = [
           '/camera/snapshot',
-          '/video/snapshot'
+          '/rgb_cameras/front/snapshot'
         ];
         
-        let cameraData = null;
-        let lastError = null;
-        
-        // Try each endpoint until one works
-        for (const endpoint of endpoints) {
+        for (const endpoint of alternativeEndpoints) {
           try {
-            console.log(`Attempting to fetch camera data from: ${ROBOT_API_URL}${endpoint}`);
+            console.log(`Trying alternative camera endpoint: ${ROBOT_API_URL}${endpoint}`);
             const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
               headers: getAuthHeaders(),
-              timeout: 3000
+              timeout: 3000,
+              responseType: 'arraybuffer'
             });
             
             if (response.data) {
-              cameraData = response.data;
               console.log(`Successfully retrieved camera data from: ${endpoint}`);
-              break;
+              const base64Image = Buffer.from(response.data).toString('base64');
+              return res.json({
+                image: base64Image,
+                contentType: response.headers['content-type'] || 'image/jpeg',
+                timestamp: new Date().toISOString(),
+                status: 'available'
+              });
             }
           } catch (endpointError) {
-            lastError = endpointError;
-            console.log(`Endpoint ${endpoint} failed: ${endpointError.message}`);
+            console.log(`Alternative endpoint ${endpoint} failed: ${endpointError.message}`);
             // Continue to the next endpoint
           }
         }
         
-        if (cameraData) {
-          return res.json(cameraData);
-        }
-        
-        // If all endpoints failed, throw the last error to fall back to default image
-        throw lastError || new Error('All camera endpoints failed');
+        // If we get here, all endpoints failed
+        throw new Error('All camera endpoints failed');
       } catch (error) {
         console.error('Error in camera data fetch:', error);
         
-        // Return empty camera data with placeholder image for UI
+        // Return empty camera data with informative message
         return res.json({
           image: '',
           timestamp: new Date().toISOString(),
           status: 'unavailable',
-          message: 'Camera temporarily unavailable'
+          message: 'Camera temporarily unavailable',
+          error: error.message
         });
       }
     } catch (error) {
