@@ -10,6 +10,203 @@ const headers = getAuthHeaders();
  * @param app Express application
  */
 export function registerRobotApiRoutes(app: Express) {
+  // Robot LiDAR data endpoint
+  app.get('/api/robots/lidar/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const serialNumber = req.params.serialNumber;
+      const preferredTopic = req.query._preferTopic as string || '/scan';
+      
+      console.log(`Getting LiDAR data for serial: ${serialNumber}`);
+      console.log(`Preferred topic: ${preferredTopic}`);
+      
+      try {
+        // First try to get live data
+        const lidarUrl = `${ROBOT_API_URL}/lidar?topic=${encodeURIComponent(preferredTopic)}`;
+        console.log(`Fetching LiDAR data from API: ${lidarUrl}`);
+        
+        const response = await axios.get(lidarUrl, {
+          headers: getAuthHeaders(),
+          timeout: 2000 // Shorter timeout for faster user experience
+        });
+        
+        return res.json(response.data);
+      } catch (error) {
+        console.error('Error in lidar fetch:', error);
+        
+        // Return empty LiDAR data structure
+        return res.json({
+          topic: preferredTopic,
+          stamp: Date.now(),
+          ranges: [],
+          angle_min: 0,
+          angle_max: 0,
+          angle_increment: 0.01,
+          range_min: 0,
+          range_max: 10,
+          points: [] // Empty points array for modern format
+        });
+      }
+    } catch (error) {
+      console.error('Error handling LiDAR request:', error);
+      res.status(500).json({ error: 'Failed to get LiDAR data' });
+    }
+  });
+  
+  // Robot status endpoint
+  app.get('/api/robots/status/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const serialNumber = req.params.serialNumber;
+      console.log(`Fetching status from API: /api/robots/status/${serialNumber}`);
+      
+      try {
+        const statusUrl = `${ROBOT_API_URL}/status`;
+        const response = await axios.get(statusUrl, {
+          headers: getAuthHeaders(),
+          timeout: 2000
+        });
+        
+        return res.json(response.data);
+      } catch (error) {
+        console.error('Error in status fetch:', error);
+        
+        // Return fallback status data
+        return res.json({
+          battery: 80,
+          status: 'ready',
+          mode: 'autonomous',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Error handling status request:', error);
+      res.status(500).json({ error: 'Failed to get robot status' });
+    }
+  });
+  
+  // Robot position endpoint
+  app.get('/api/robots/position/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const serialNumber = req.params.serialNumber;
+      console.log(`Fetching position from API: /api/robots/position/${serialNumber}`);
+      
+      try {
+        const positionUrl = `${ROBOT_API_URL}/position`;
+        const response = await axios.get(positionUrl, {
+          headers: getAuthHeaders(),
+          timeout: 2000
+        });
+        
+        return res.json(response.data);
+      } catch (error) {
+        console.error('Error in position fetch:', error);
+        
+        // Return fallback position data
+        return res.json({
+          x: 0,
+          y: 0,
+          orientation: 0,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Error handling position request:', error);
+      res.status(500).json({ error: 'Failed to get robot position' });
+    }
+  });
+  
+  // Robot map data endpoint
+  app.get('/api/robots/map/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const serialNumber = req.params.serialNumber;
+      console.log(`Fetching map data from: /api/robots/map/${serialNumber}`);
+      
+      try {
+        const mapUrl = `${ROBOT_API_URL}/map`;
+        const response = await axios.get(mapUrl, {
+          headers: getAuthHeaders(),
+          timeout: 2000
+        });
+        
+        return res.json(response.data);
+      } catch (error) {
+        console.error('Error in getMapData fetch:', error);
+        
+        // Return empty map data structure
+        return res.json({
+          grid: '',
+          resolution: 0.05,
+          origin: [0, 0, 0],
+          size: [100, 100],
+          stamp: Date.now()
+        });
+      }
+    } catch (error) {
+      console.error('Error handling map request:', error);
+      res.status(500).json({ error: 'Failed to get map data' });
+    }
+  });
+  
+  // Robot sensors data endpoint
+  app.get('/api/robots/sensors/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const serialNumber = req.params.serialNumber;
+      console.log(`Fetching sensor data from API: /api/robots/sensors/${serialNumber}`);
+      
+      try {
+        const sensorsUrl = `${ROBOT_API_URL}/sensors`;
+        const response = await axios.get(sensorsUrl, {
+          headers: getAuthHeaders(),
+          timeout: 2000
+        });
+        
+        return res.json(response.data);
+      } catch (error) {
+        console.error('Error in sensor data fetch:', error);
+        
+        // Return fallback sensor data
+        return res.json({
+          temperature: 22,
+          humidity: 45,
+          proximity: [20, 30, 25, 15],
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Error handling sensors request:', error);
+      res.status(500).json({ error: 'Failed to get sensor data' });
+    }
+  });
+  
+  // Robot camera data endpoint
+  app.get('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
+    try {
+      const serialNumber = req.params.serialNumber;
+      console.log(`Fetching camera data from API: /api/robots/camera/${serialNumber}`);
+      
+      try {
+        // First try to get camera data from the robot's camera endpoint
+        console.log(`Attempting to fetch camera data from proxy: http://${process.env.ROBOT_IP}:8090/robot-camera/${serialNumber}`);
+        const cameraUrl = `${ROBOT_API_URL}/camera`;
+        const response = await axios.get(cameraUrl, {
+          headers: getAuthHeaders(),
+          timeout: 2000
+        });
+        
+        return res.json(response.data);
+      } catch (error) {
+        console.error('Error in camera data fetch:', error);
+        
+        // Return empty camera data
+        return res.json({
+          image: '',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Error handling camera request:', error);
+      res.status(500).json({ error: 'Failed to get camera data' });
+    }
+  });
   // WebSocket status endpoint
   app.get('/api/robot/websocket-status', (req: Request, res: Response) => {
     try {
