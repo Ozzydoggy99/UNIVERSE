@@ -52,6 +52,47 @@ export function registerRobotApiRoutes(app: Express) {
     }
   });
   
+  // LiDAR power control endpoint
+  app.post('/api/robots/lidar/:serialNumber/power', async (req: Request, res: Response) => {
+    try {
+      const serialNumber = req.params.serialNumber;
+      const { action } = req.body;
+      
+      console.log(`LiDAR power control request for ${serialNumber}, action: ${action}`);
+      
+      try {
+        // Forward the power control request to the robot
+        const powerControlUrl = `${ROBOT_API_URL}/lidar/power`;
+        console.log(`Sending LiDAR power control request to: ${powerControlUrl}`);
+        
+        const response = await axios.post(powerControlUrl, 
+          { action }, 
+          {
+            headers: getAuthHeaders(),
+            timeout: 5000
+          }
+        );
+        
+        console.log(`LiDAR power control response: ${response.status}`);
+        return res.json({
+          success: true,
+          action,
+          message: `LiDAR ${action === 'power_on' ? 'powered on' : 'powered off'} successfully`
+        });
+      } catch (error) {
+        console.error('Error in LiDAR power control:', error);
+        return res.status(503).json({ 
+          success: false, 
+          error: 'LiDAR service unavailable',
+          message: 'Could not control LiDAR power. The robot might need to be restarted.'
+        });
+      }
+    } catch (error) {
+      console.error('Error handling LiDAR power request:', error);
+      res.status(500).json({ error: 'Failed to control LiDAR power' });
+    }
+  });
+  
   // Robot status endpoint
   app.get('/api/robots/status/:serialNumber', async (req: Request, res: Response) => {
     try {
