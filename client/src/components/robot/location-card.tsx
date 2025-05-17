@@ -14,8 +14,8 @@ export function RobotLocationCard() {
           <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Current Position:</span>
             <span className="font-mono text-sm">
-              {robotPosition 
-                ? `X: ${robotPosition.x.toFixed(1)}, Y: ${robotPosition.y.toFixed(1)}, Z: ${robotPosition.z.toFixed(1)}` 
+              {robotPosition?.x !== undefined && robotPosition?.y !== undefined
+                ? `X: ${robotPosition.x.toFixed(1)}, Y: ${robotPosition.y.toFixed(1)}${robotPosition.z !== undefined ? `, Z: ${robotPosition.z.toFixed(1)}` : ''}` 
                 : "Unknown"}
             </span>
           </div>
@@ -44,8 +44,8 @@ export function RobotLocationCard() {
           <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Destination:</span>
             <span className="font-mono text-sm">
-              {robotPosition?.destination 
-                ? `X: ${robotPosition.destination.x.toFixed(1)}, Y: ${robotPosition.destination.y.toFixed(1)}, Z: ${robotPosition.destination.z.toFixed(1)}` 
+              {robotPosition?.destination?.x !== undefined && robotPosition?.destination?.y !== undefined
+                ? `X: ${robotPosition.destination.x.toFixed(1)}, Y: ${robotPosition.destination.y.toFixed(1)}${robotPosition.destination.z !== undefined ? `, Z: ${robotPosition.destination.z.toFixed(1)}` : ''}` 
                 : "None"}
             </span>
           </div>
