@@ -6,6 +6,26 @@ import { Express, Request, Response } from 'express';
 const headers = getAuthHeaders();
 
 /**
+ * Fetch battery state from the robot via topics API
+ * For this robot model, battery data is available at /topics/battery_state
+ */
+async function fetchBatteryState() {
+  try {
+    const batteryUrl = `${ROBOT_API_URL}/topics/battery_state`;
+    const response = await axios.get(batteryUrl, {
+      headers: getAuthHeaders(),
+      timeout: 2000
+    });
+    
+    // Return the battery data
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching battery state:', error);
+    return null;
+  }
+}
+
+/**
  * Register all robot-related API routes
  * @param app Express application
  */
@@ -121,13 +141,30 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching status from API: /api/robots/status/${serialNumber}`);
       
       try {
-        const statusUrl = `${ROBOT_API_URL}/status`;
+        // For this robot model, we need to use the device info API
+        const statusUrl = `${ROBOT_API_URL}/device/info`;
+        console.log(`Fetching device info from: ${statusUrl}`);
+        
         const response = await axios.get(statusUrl, {
           headers: getAuthHeaders(),
-          timeout: 2000
+          timeout: 3000
         });
         
-        return res.json(response.data);
+        // Format the response data to match our expected structure
+        const deviceInfo = response.data;
+        const batteryState = await fetchBatteryState();
+        
+        const formattedStatus = {
+          battery: batteryState ? batteryState.percentage * 100 : 80,
+          status: 'ready',
+          mode: 'autonomous',
+          serialNumber: deviceInfo.device?.sn || serialNumber,
+          model: deviceInfo.device?.model || 'unknown',
+          firmwareVersion: deviceInfo.axbot_version || 'unknown',
+          timestamp: new Date().toISOString()
+        };
+        
+        return res.json(formattedStatus);
       } catch (error) {
         console.error('Error in status fetch:', error);
         
@@ -152,13 +189,29 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching position from API: /api/robots/position/${serialNumber}`);
       
       try {
-        const positionUrl = `${ROBOT_API_URL}/position`;
+        // For this robot model, position data is available via the topics API
+        const positionUrl = `${ROBOT_API_URL}/topics/tracked_pose`;
+        console.log(`Fetching position data from: ${positionUrl}`);
+        
         const response = await axios.get(positionUrl, {
           headers: getAuthHeaders(),
-          timeout: 2000
+          timeout: 3000
         });
         
-        return res.json(response.data);
+        if (response.data && Array.isArray(response.data.pos) && response.data.pos.length >= 2) {
+          // Format the response to match our expected structure
+          const formattedPosition = {
+            x: response.data.pos[0],
+            y: response.data.pos[1],
+            orientation: response.data.ori || 0,
+            timestamp: new Date().toISOString()
+          };
+          
+          console.log(`Position data retrieved successfully: (${formattedPosition.x}, ${formattedPosition.y})`);
+          return res.json(formattedPosition);
+        } else {
+          throw new Error('Invalid position data format');
+        }
       } catch (error) {
         console.error('Error in position fetch:', error);
         
