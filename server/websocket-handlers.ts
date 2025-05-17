@@ -12,9 +12,9 @@ async function fetchLiveData(endpoint: string) {
     const response = await axios.get(`${ROBOT_API_URL}/${endpoint}`, {
       timeout: 3000,
       headers: {
+        ...getAuthHeaders(),
         'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Secret': ROBOT_SECRET
+        'Cache-Control': 'no-cache'
       }
     });
     
