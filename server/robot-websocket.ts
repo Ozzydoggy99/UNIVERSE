@@ -159,6 +159,14 @@ function connectRobotWebSocket() {
             }
           }
 
+          // Add detailed debug logging for LiDAR data
+          if (category === 'lidar') {
+            // Check if we have point cloud data or ranges
+            const hasPointCloud = message.data && message.data.points && message.data.points.length > 0;
+            const hasRanges = message.data && message.data.ranges && message.data.ranges.length > 0;
+            console.log(`Received LiDAR data from topic ${message.topic} - Has point cloud: ${hasPointCloud}, Has ranges: ${hasRanges}`);
+          }
+          
           // Forward with category info
           broadcastToClients({
             type: 'data',
