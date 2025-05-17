@@ -915,8 +915,8 @@ export async function getLidarData(serialNumber: string): Promise<LidarData> {
     // Always use cache busting to ensure we get fresh data
     // This is critical for consistency across all devices
     const timestamp = new Date().getTime();
-    // Explicitly request the /scan_matched_points2 topic with correct formatting
-    const preferredTopic = '/scan_matched_points2';
+    // Use the /scan topic which shows real-time point cloud data of movement
+    const preferredTopic = '/scan';
     const url = `/api/robots/lidar/${serialNumber}?_nocache=${timestamp}&_preferTopic=${encodeURIComponent(preferredTopic)}`;
     console.log(`Fetching LiDAR data from: ${url}`);
     
