@@ -119,10 +119,22 @@ export const moveToPointAction: ActionModule = {
         moveActionId = response.data.id;
         console.log(`[ACTION] Created to_unload_point action with ID: ${moveActionId}`);
       } else {
-        // For regular movement, use the standard point-based movement
-        response = await robotApi.post('/api/v2/move/point', {
+        // For regular movement, use the standard move command with the point_id
+        // This uses /chassis/moves endpoint which this robot model supports
+        response = await robotApi.post('/chassis/moves', {
+          creator: 'robot-management-platform',
+          type: 'standard',
           point_id: resolvedPointId,
-          velocity: speed
+          target_x: 0, // These values are placeholders, point_id will be used
+          target_y: 0,
+          target_z: 0,
+          properties: {
+            max_trans_vel: speed,
+            max_rot_vel: 0.5,
+            acc_lim_x: 0.5,
+            acc_lim_theta: 0.5,
+            planning_mode: "directional"
+          }
         });
       }
       
@@ -133,33 +145,27 @@ export const moveToPointAction: ActionModule = {
       while (retries < maxRetries) {
         let status;
         
-        if (isUnloadPoint && moveActionId) {
-          // Check move action status for unload operations
-          const actionResponse = await robotApi.get(`/chassis/moves/${moveActionId}`);
-          const state = actionResponse.data.state;
-          
-          if (state === 'succeeded') {
-            console.log(`[ACTION] Successfully unloaded at point: ${resolvedPointId}`);
-            return { success: true };
-          } else if (state === 'failed' || state === 'cancelled') {
-            console.error(`[ACTION] Error unloading at point:`, actionResponse.data);
-            return { 
-              success: false, 
-              error: `Failed to unload at point: ${actionResponse.data.fail_reason_str || 'Unknown error'}`
-            };
-          }
-        } else {
-          // Check move status for regular movements
-          const statusResponse = await robotApi.get('/api/v2/move/status');
-          status = statusResponse.data.status;
-          
-          if (status === 'idle') {
-            console.log(`[ACTION] Successfully reached point: ${resolvedPointId}`);
-            return { success: true };
-          } else if (status === 'error') {
-            console.error(`[ACTION] Error moving to point: ${resolvedPointId}`, statusResponse.data);
-            return { success: false, error: `Failed to reach point: ${statusResponse.data.message || 'Unknown error'}` };
-          }
+        // Get the move action ID from the response
+        const moveId = response.data.id;
+        
+        if (!moveId) {
+          console.error(`[ACTION] No move ID returned from API`);
+          return { success: false, error: 'No move ID returned from API' };
+        }
+        
+        // Check move action status using the same endpoint for both operations
+        const actionResponse = await robotApi.get(`/chassis/moves/${moveId}`);
+        const state = actionResponse.data.state;
+        
+        if (state === 'succeeded') {
+          console.log(`[ACTION] Successfully completed move to point: ${resolvedPointId}`);
+          return { success: true };
+        } else if (state === 'failed' || state === 'cancelled') {
+          console.error(`[ACTION] Error moving to point:`, actionResponse.data);
+          return { 
+            success: false, 
+            error: `Failed to move to point: ${actionResponse.data.fail_reason_str || 'Unknown error'}`
+          };
         }
         
         await sleep(1000);
