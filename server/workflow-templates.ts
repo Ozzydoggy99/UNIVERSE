@@ -256,7 +256,7 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
     {
       actionId: 'moveToPoint',
       params: {
-        pointId: 'pick-up_load_docking',
+        pointId: '050_load_docking',
         speed: 0.5
       },
       description: 'Move to central pickup docking position'
@@ -264,7 +264,7 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
     {
       actionId: 'alignWithRack',
       params: {
-        pointId: 'pick-up_load'
+        pointId: '050_load'
       },
       description: 'Align with rack at central pickup'
     },
@@ -352,7 +352,7 @@ export const dynamicShelfToCentralWorkflow: WorkflowTemplate = {
     {
       actionId: 'moveToPoint',
       params: {
-        pointId: 'drop-off_load_docking',
+        pointId: '001_load_docking',
         speed: 0.5
       },
       description: 'Move to central dropoff docking position'
@@ -360,8 +360,8 @@ export const dynamicShelfToCentralWorkflow: WorkflowTemplate = {
     {
       actionId: 'toUnloadPoint',
       params: {
-        pointId: 'drop-off_load',
-        rackAreaId: 'drop-off_load'
+        pointId: '001_load',
+        rackAreaId: '001_load'
       },
       description: 'Move to unload point at central dropoff with proper rack area ID'
     },
