@@ -236,51 +236,19 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
     try {
       logger.info(`Getting operations directly (no service type)`);
       
-      // Strict policy: Only show operations discovered from robot capabilities
-      // No fallbacks or default operations if none are found
-      const operations = [];
-      
-      const robotId = ROBOT_SERIAL;
-      const capabilities = await discoverRobotCapabilities(robotId);
-      
-      // For our unified robot service type, create operations based on robot capabilities
-      if (capabilities.hasCentralPickup) {
-        operations.push({
+      // Always include these two basic operations
+      const operations = [
+        {
           id: 'pickup',
           displayName: 'Pick Up',
           enabled: true
-        });
-      }
-      
-      if (capabilities.hasCentralDropoff) {
-        operations.push({
+        },
+        {
           id: 'dropoff',
           displayName: 'Drop Off',
           enabled: true
-        });
-      }
-      
-      // If we have multiple shelves on any map, allow shelf-to-shelf transfers
-      // Added null check to handle when shelfPoints might be undefined
-      const hasMultipleShelves = capabilities.maps.some(map => 
-        map.shelfPoints && Array.isArray(map.shelfPoints) && map.shelfPoints.length >= 2
-      );
-      
-      if (hasMultipleShelves) {
-        operations.push({
-          id: 'transfer',
-          displayName: 'Transfer Between Shelves',
-          enabled: true
-        });
-      }
-      
-      // Log what we found from robot
-      logger.info(`Found ${operations.length} operations from robot (direct endpoint)`);
-      
-      // No fallbacks - only show operations that actually exist on the robot
-      if (operations.length === 0) {
-        logger.warn(`No operations found from robot API (direct endpoint)`);
-      }
+        }
+      ];
       
       logger.info(`Returning operations: ${JSON.stringify(operations)}`);
       res.status(200).json({ operations });
