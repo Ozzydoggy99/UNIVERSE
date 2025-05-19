@@ -99,13 +99,11 @@ export function registerRobotApiRoutes(app: Express) {
         console.log(`Trying multiple LiDAR data endpoints...`);
         
         // First try WebSocket data if available
-        if (getLatestLidarData) {
-          const wsLidarData = getLatestLidarData();
-          
-          if (wsLidarData) {
-            console.log('Using LiDAR data from WebSocket');
-            return res.json(wsLidarData);
-          }
+        const wsLidarData = getLatestLidarData();
+        
+        if (wsLidarData) {
+          console.log('Using LiDAR data from WebSocket');
+          return res.json(wsLidarData);
         }
 
         // Try each potential endpoint
