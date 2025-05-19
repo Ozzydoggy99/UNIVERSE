@@ -16,7 +16,8 @@ async function testDynamicPointDetection() {
     console.log(`Testing point ID: ${testPointId}`);
     
     // Call our new dynamic points API endpoint
-    const response = await axios.get(`http://localhost:4444/api/dynamic-points/${testPointId}`);
+    // Note: Using port 5173 which is the default Vite development server port
+    const response = await axios.get(`http://localhost:5173/api/dynamic-points/${testPointId}`);
     
     if (response.data && response.data.found) {
       console.log(`✅ SUCCESS: Point ${testPointId} found with coordinates:`, response.data.point);
