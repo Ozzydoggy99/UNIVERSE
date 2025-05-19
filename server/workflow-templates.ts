@@ -184,7 +184,7 @@ export const dynamicShelfToShelfWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '{dropoffShelf}_load',
         speed: 0.5
@@ -249,7 +249,7 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '{dropoffShelf}_load',
         speed: 0.5

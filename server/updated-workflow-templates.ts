@@ -55,7 +55,7 @@ export const zoneToPickupWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '104_load',
         speed: 0.5
@@ -112,7 +112,7 @@ export const pickupToDropoffWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '001_load',
         speed: 0.5
@@ -184,7 +184,7 @@ export const dynamicShelfToShelfWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '{dropoffShelf}_load',
         speed: 0.5
@@ -249,7 +249,7 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '{dropoffShelf}_load',
         speed: 0.5
@@ -314,7 +314,7 @@ export const dynamicShelfToCentralWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '001_load',
         speed: 0.5
