@@ -1,9 +1,10 @@
 // relay-server.js
 
-import WebSocket from 'ws';
-import express from 'express';
-import http from 'http';
-import dotenv from 'dotenv';
+// Use CommonJS requires for compatibility
+const ws = require('ws');
+const express = require('express');
+const http = require('http');
+const dotenv = require('dotenv');
 
 // Load environment variables
 dotenv.config();
@@ -15,7 +16,7 @@ const ROBOT_WS = `ws://${ROBOT_IP}:8090/ws/v2/topics`; // Updated WebSocket endp
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server, path: "/ws/pose" });
+const wss = new ws.Server({ server, path: "/ws/pose" });
 
 wss.on("connection", (clientSocket) => {
   console.log("[Relay] Client connected");
