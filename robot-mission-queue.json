@@ -9739,7 +9739,8 @@
           "label": "Move to central pickup docking position"
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 3,
+        "errorMessage": "Movement timeout exceeded (120000ms)"
       },
       {
         "type": "align_with_rack",
@@ -9786,10 +9787,11 @@
         "retryCount": 0
       }
     ],
-    "status": "in_progress",
+    "status": "failed",
     "currentStepIndex": 0,
     "createdAt": "2025-05-19T22:13:07.586Z",
-    "updatedAt": "2025-05-19T22:13:57.183Z",
-    "robotSn": "L382502104987ir"
+    "updatedAt": "2025-05-19T22:20:16.854Z",
+    "robotSn": "L382502104987ir",
+    "offline": true
   }
 ]
