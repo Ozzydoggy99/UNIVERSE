@@ -19,11 +19,11 @@ if (!robotIpFromEnv) {
 }
 const ROBOT_IP = robotIpFromEnv;
 
-// Robot API URL - direct URL without /api/v1
+// Robot API URL - base URL for all API requests
 export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
 
-// Try connecting to the WebSocket path using full format from documentation
-export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/ws/v2/topics/device_info`;
+// Robot WebSocket URL - using the v2 WebSocket API that this robot model supports
+export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/ws/v2`;
 
 // Robot authentication secret - from environment variables (required)
 const robotSecretFromEnv = process.env.ROBOT_SECRET_KEY || process.env.ROBOT_SECRET;

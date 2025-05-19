@@ -2,50 +2,50 @@
 import { Point } from './types';
 import axios from 'axios';
 import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
-import { fetchMaps, fetchMapPoints as apiFetchMapPoints } from './robot-api-fixed';
 
 /**
  * Fetch all map points from the robot's current map using overlays
  */
 export async function fetchRobotMapPoints(): Promise<Point[]> {
+  const headers = getAuthHeaders();
+
   try {
-    // Use the fixed API implementation to get maps
-    const maps = await fetchMaps();
-    if (!maps || maps.length === 0) {
-      console.error('❌ No maps found from robot API');
-      // Return empty array as fallback
-      return [];
+    // Fetch the list of maps
+    const mapsRes = await axios.get(`${ROBOT_API_URL}/maps/`, { headers });
+    const maps = mapsRes.data || [];
+    const activeMap = maps[0];  // Get the first map (typically current/active map)
+    
+    if (!activeMap) {
+      const error = 'No maps found from robot API';
+      console.error('❌ ' + error);
+      throw new Error(error);
     }
 
-    const activeMap = maps[0];
-    
     // Extract floor ID from map name if possible
-    const rawName = activeMap.name || '';
+    const rawName = activeMap.name || activeMap.map_name || '';
     const floorMatch = rawName.match(/^(\d+)/);
     const floorId = floorMatch ? floorMatch[1] : '1'; // Default to floor "1"
     
     console.log(`✅ Found map: ${rawName} (Floor ID: ${floorId})`);
 
-    // Use our fixed API implementation instead of direct axios calls
-    const mapData = await apiFetchMapPoints(activeMap.id);
+    // Get detailed map data including overlays
+    const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, { headers });
+    const mapData = mapDetailRes.data;
     
-    // For now, since our fixed API implementation returns minimal data,
-    // we'll provide a fallback structure to prevent errors
     if (!mapData || !mapData.overlays) {
-      console.log('Using default points data structure');
-      return [];
+      const error = 'No overlay data in map';
+      console.error('❌ ' + error);
+      throw new Error(error);
     }
 
     // Parse the overlay JSON
     let overlays;
     try {
-      overlays = typeof mapData.overlays === 'string' 
-        ? JSON.parse(mapData.overlays)
-        : mapData.overlays;
+      overlays = JSON.parse(mapData.overlays);
     } catch (e) {
       const error = 'Failed to parse overlays JSON: ' + (e instanceof Error ? e.message : String(e));
       console.error('❌ ' + error);
-      return [];
+      throw new Error(error);
     }
 
     // Extract point features from the overlays

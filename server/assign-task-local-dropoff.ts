@@ -4,7 +4,7 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
-import { isRobotCharging, isEmergencyStopPressed } from './robot-api-fixed';
+import { isRobotCharging, isEmergencyStopPressed } from './robot-api';
 import { missionQueue } from './mission-queue';
 
 function logRobotTask(message: string) {

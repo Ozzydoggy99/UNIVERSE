@@ -7,7 +7,7 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { Request } from 'express';
 import { Server } from 'http';
-import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_WS_URL, getAuthHeaders } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
 // Initialize connection states
 let robotWs: WebSocket | null = null;
@@ -45,9 +45,9 @@ const subscribeTopics: string[] = [
  * Get the WebSocket URL for the robot
  */
 function getRobotWebSocketUrl(): string {
-  // Use the robot WebSocket URL from constants
-  // This has been updated to use the correct path supported by this robot
-  return ROBOT_WS_URL;
+  // According to the new documentation, we need to use the proper API endpoint
+  // The AutoXing API docs specify the WebSocket URL format
+  return `${ROBOT_API_URL.replace(/^http/, 'ws')}/ws/v2`;
 }
 
 /**
@@ -100,10 +100,11 @@ function connectRobotWebSocket() {
       // with an array of topics for more efficient subscription
       try {
         if (robotWs && robotWs.readyState === WebSocket.OPEN) {
-          // Per the AutoXing API docs for this specific model, we need to use the format:
-          // { "enable_topic": ["/topic1", "/topic2", ...] }
+          // Per the AutoXing API docs, we need to use the command format:
+          // { "command": "enable_topics", "topics": ["/topic1", "/topic2"] }
           robotWs.send(JSON.stringify({
-            enable_topic: subscribeTopics
+            command: "enable_topics",
+            topics: subscribeTopics
           }));
           console.log(`Subscribed to robot topics: ${subscribeTopics.join(', ')}`);
         }

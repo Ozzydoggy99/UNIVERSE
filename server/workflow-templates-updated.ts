@@ -189,7 +189,7 @@ export const dynamicShelfToShelfWorkflow: WorkflowTemplate = {
         pointId: '{dropoffShelf}_load',
         speed: 0.5
       },
-      description: 'Move directly to dropoff shelf load point'
+      description: 'Move directly to dropoff shelf point'
     },
     {
       actionId: 'jackDown',
@@ -254,7 +254,7 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
         pointId: '{dropoffShelf}_load',
         speed: 0.5
       },
-      description: 'Move directly to dropoff shelf load point'
+      description: 'Move directly to dropoff shelf point'
     },
     {
       actionId: 'jackDown',
