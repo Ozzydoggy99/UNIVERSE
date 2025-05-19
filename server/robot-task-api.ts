@@ -521,8 +521,19 @@ async function toUnloadPoint(taskId: string, x: number, y: number, orientation: 
       return false;
     }
     
-    // For proper targeting, use the full point ID as the rack_area_id
-    const rackAreaId = loadPointId;
+    // Extract the rack area ID from the point ID (just the number prefix)
+    let rackAreaId;
+    
+    // For shelf point IDs like "001_load", extract the numeric prefix as rack_area_id
+    const numericMatch = loadPointId.match(/^(\d+)_/);
+    if (numericMatch) {
+      rackAreaId = numericMatch[1]; // Just get the number "001" from "001_load"
+      logTask(taskId, `Using numeric prefix "${rackAreaId}" as rack_area_id from point ${loadPointId}`);
+    } else {
+      // Fallback - use the full ID if no numeric prefix is found
+      rackAreaId = loadPointId;
+      logTask(taskId, `No numeric prefix found, using full point ID "${rackAreaId}" as rack_area_id`);
+    }
     
     // Send the unload point command to the robot
     const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
