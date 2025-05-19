@@ -41,6 +41,7 @@ import { registerRobotCapabilitiesAPI } from './robot-capabilities-api';
 import { registerTaskApiRoutes } from './robot-task-api';
 import { registerDynamicWorkflowRoutes } from './dynamic-workflow';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
+import dynamicPointsApiRouter from './dynamic-points-api';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -64,6 +65,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register the new shelf points API
   registerRobotPointRoutes(app);
+  
+  // Register our dynamic points API for auto-detecting new map points
+  app.use('/api/dynamic-points', dynamicPointsApiRouter);
   
   // Register AutoXing task assignment API (new version)
   registerAssignTaskRoute(app);
