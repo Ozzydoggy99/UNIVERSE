@@ -226,10 +226,20 @@ export function getShelfPoint(shelfId: string): Point | null {
     pointName = shelfId.toLowerCase();
     console.log(`Using already formatted shelf ID: ${pointName}`);
   }
-  // Special handling for pickup and dropoff points which have hyphens
-  else if (shelfId === 'pick-up' || shelfId === 'drop-off') {
-    pointName = `${shelfId}_load`;
-  } else {
+  // Special handling for pickup and dropoff points with new and old nomenclature
+  else if (shelfId === 'pick-up') {
+    pointName = '050_load'; // New nomenclature
+  }
+  else if (shelfId === 'drop-off') {
+    pointName = '001_load'; // New nomenclature
+  }
+  else if (shelfId === '050' || shelfId === 'pickup') {
+    pointName = '050_load'; // New pickup point
+  }
+  else if (shelfId === '001' || shelfId === 'dropoff') {
+    pointName = '001_load'; // New dropoff point
+  } 
+  else {
     // For numeric shelf IDs like 104, 115, etc.
     pointName = `${shelfId.toLowerCase()}_load`;
   }
@@ -281,10 +291,20 @@ export function getShelfDockingPoint(shelfId: string): Point | null {
     pointName = `${shelfId.toLowerCase()}_docking`;
     console.log(`Converting load point to docking point: ${pointName}`);
   }
-  // Special handling for pickup and dropoff points which have hyphens
-  else if (shelfId === 'pick-up' || shelfId === 'drop-off') {
-    pointName = `${shelfId}_load_docking`;
-  } else {
+  // Special handling for pickup and dropoff points with new and old nomenclature
+  else if (shelfId === 'pick-up') {
+    pointName = '050_load_docking'; // New nomenclature
+  }
+  else if (shelfId === 'drop-off') {
+    pointName = '001_load_docking'; // New nomenclature
+  }
+  else if (shelfId === '050' || shelfId === 'pickup') {
+    pointName = '050_load_docking'; // New pickup point
+  }
+  else if (shelfId === '001' || shelfId === 'dropoff') {
+    pointName = '001_load_docking'; // New dropoff point
+  } 
+  else {
     // For numeric shelf IDs like 104, 115, etc.
     pointName = `${shelfId.toLowerCase()}_load_docking`;
   }
