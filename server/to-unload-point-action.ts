@@ -178,15 +178,20 @@ export const toUnloadPointAction: Action = {
       // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
       
-      // CRITICAL FIX: We need to use the EXACT point ID as the rack_area_id 
-      // This ensures the robot can distinguish between drop-off_load and drop-off_load_docking
-      // Using just "drop-off" as the rack_area_id doesn't provide enough information
+      // Extract the rack area ID from the point ID (just the number prefix)
+      // For shelf point IDs like "001_load", extract the numeric prefix as rack_area_id
+      const numericMatch = loadPointId.match(/^(\d+)_/);
+      if (numericMatch) {
+        rackAreaId = numericMatch[1]; // Just get the number "001" from "001_load"
+        console.log(`[UNLOAD-POINT-ACTION] Using numeric prefix "${rackAreaId}" as rack_area_id from point ${loadPointId}`);
+      } else {
+        // Fallback - use the full ID if no numeric prefix is found
+        rackAreaId = loadPointId;
+        console.log(`[UNLOAD-POINT-ACTION] No numeric prefix found, using full point ID "${rackAreaId}" as rack_area_id`);
+      }
       
-      // For proper targeting, use the FULL POINT ID as the rack_area_id
-      rackAreaId = loadPointId;
-      
-      console.log(`[UNLOAD-POINT-ACTION] CRITICAL FIX: Using exact point ID "${loadPointId}" as rack_area_id`);
-      console.log(`[UNLOAD-POINT-ACTION] This ensures the robot can distinguish between load points and docking points`);
+      console.log(`[UNLOAD-POINT-ACTION] Using extracted rack_area_id "${rackAreaId}" for point "${loadPointId}"`);
+      console.log(`[UNLOAD-POINT-ACTION] This ensures correct targeting for bin unloading at shelf/dropoff points`);
       
       // Just in case, verify we're not left with an empty rack_area_id
       if (!rackAreaId || rackAreaId.trim() === '') {
