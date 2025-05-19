@@ -339,24 +339,38 @@ export async function fetchMapPoints(mapId: string): Promise<any> {
  */
 export async function moveToPoint(x: number, y: number, orientation?: number): Promise<any> {
   try {
-    const moveUrl = `${ROBOT_API_URL}/move`;
+    // Using the proper chassis/moves endpoint format that we confirmed works for this robot model
+    const moveUrl = `${ROBOT_API_URL}/chassis/moves`;
     console.log(`Moving robot to point (${x}, ${y}), orientation: ${orientation || 0}`);
     
+    // Format the data according to the robot's expected format
     const moveData = {
-      x,
-      y,
-      theta: orientation || 0
+      type: "standard",
+      target_x: x,
+      target_y: y,
+      target_z: 0,
+      target_ori: orientation || 0,
+      creator: "replit-interface",
+      properties: {
+        max_trans_vel: 0.5,      // Maximum translational velocity (m/s)
+        max_rot_vel: 0.5,        // Maximum rotational velocity (rad/s)
+        acc_lim_x: 0.5,          // Translational acceleration limit
+        acc_lim_theta: 0.5,      // Rotational acceleration limit
+        planning_mode: "directional" // Using directional mode for more precise movements
+      }
     };
+    
+    console.log(`Sending move command to ${moveUrl} with data:`, JSON.stringify(moveData));
     
     const response = await axios.post(moveUrl, moveData, {
       headers: getAuthHeaders()
     });
     
-    console.log(`Move request sent, response:`, response.data);
+    console.log(`Move request sent, response ID:`, response.data.id);
     return response.data;
   } catch (error) {
     console.error('Error moving robot:', error);
-    throw new Error('Failed to move robot');
+    throw new Error(`Failed to move robot: ${error.message}`);
   }
 }
 

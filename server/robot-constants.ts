@@ -22,8 +22,8 @@ const ROBOT_IP = robotIpFromEnv;
 // Robot API URL - direct URL without /api/v1
 export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
 
-// Try connecting to the specific v2 WebSocket path
-export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/v2/topics`;
+// Try connecting to the WebSocket path using full format from documentation
+export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/ws/v2/topics/device_info`;
 
 // Robot authentication secret - from environment variables (required)
 const robotSecretFromEnv = process.env.ROBOT_SECRET_KEY || process.env.ROBOT_SECRET;
