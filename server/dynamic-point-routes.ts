@@ -13,24 +13,10 @@ import {
  */
 export function registerDynamicPointRoutes(app: express.Express) {
   /**
-   * GET /api/robots/points/dynamic
+   * GET /api/robots/points/all-dynamic
    * Get all dynamically detected points
    */
-  app.get('/api/robots/points/dynamic', (req: Request, res: Response) => {
-    try {
-      const points = getAllDynamicPoints();
-      res.json(points);
-    } catch (error: any) {
-      console.error('❌ Failed to load dynamic points:', error);
-      res.status(500).json({ error: error.message || 'Unknown error' });
-    }
-  });
-
-  /**
-   * GET /api/robots/points
-   * Get all dynamically detected points
-   */
-  app.get('/api/robots/points/dynamic', async (req: Request, res: Response) => {
+  app.get('/api/robots/points/all-dynamic', (req: Request, res: Response) => {
     try {
       const points = getAllDynamicPoints();
       res.json(points);
@@ -44,7 +30,7 @@ export function registerDynamicPointRoutes(app: express.Express) {
    * GET /api/robots/points/lookup/:id
    * Get coordinates for a specific point ID from either static or dynamic sources
    */
-  app.get('/api/robots/points/lookup/:id', async (req: Request, res: Response) => {
+  app.get('/api/robots/points/lookup/:id', (req: Request, res: Response) => {
     try {
       const pointId = req.params.id;
       const coordinates = getPointCoordinates(pointId);
@@ -68,7 +54,7 @@ export function registerDynamicPointRoutes(app: express.Express) {
    * GET /api/robots/points/display-mappings
    * Get all point display mappings (static + dynamic)
    */
-  app.get('/api/robots/points/display-mappings', async (req: Request, res: Response) => {
+  app.get('/api/robots/points/display-mappings', (req: Request, res: Response) => {
     try {
       const mappings = getAllPointDisplayMappings();
       res.json(mappings);
