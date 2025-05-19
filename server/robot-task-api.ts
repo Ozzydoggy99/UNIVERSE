@@ -505,6 +505,74 @@ async function alignWithRack(taskId: string, x: number, y: number, orientation: 
 }
 
 /**
+ * Move to unload point for bin dropoff
+ * 
+ * This function sends a to_unload_point command to the robot, which is used specifically
+ * for dropping bins at shelf points or the central dropoff point
+ */
+async function toUnloadPoint(taskId: string, x: number, y: number, orientation: number, pointName: string): Promise<boolean> {
+  try {
+    logTask(taskId, `Moving to unload point at ${pointName}`);
+    
+    // Make sure we're using proper load point (not docking)
+    const loadPointId = pointName;
+    if (loadPointId.includes('_docking')) {
+      logTask(taskId, `ERROR: Cannot use to_unload_point with docking point ${loadPointId}`);
+      return false;
+    }
+    
+    // For proper targeting, use the full point ID as the rack_area_id
+    const rackAreaId = loadPointId;
+    
+    // Send the unload point command to the robot
+    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+      creator: 'robot-management-platform',
+      type: 'to_unload_point',
+      target_x: x,
+      target_y: y,
+      target_z: orientation,
+      point_id: loadPointId,
+      rack_area_id: rackAreaId
+    }, {
+      headers: getHeaders()
+    });
+    
+    const moveId = response.data.id;
+    logTask(taskId, `Unload point command initiated with move ID: ${moveId}`);
+    
+    // Wait for movement to complete
+    let retries = 0;
+    const maxRetries = 60; // Longer timeout for unload operations
+    
+    while (retries < maxRetries) {
+      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, {
+        headers: getHeaders()
+      });
+      
+      const status = statusResponse.data.state;
+      
+      if (status === 'succeeded') {
+        logTask(taskId, 'Unload point movement completed successfully');
+        return true;
+      } else if (status === 'failed') {
+        logTask(taskId, `Unload point movement failed: ${statusResponse.data.reason || 'Unknown error'}`);
+        return false;
+      }
+      
+      // Still in progress, wait and retry
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      retries++;
+    }
+    
+    logTask(taskId, 'Unload point movement timed out');
+    return false;
+  } catch (error: any) {
+    logTask(taskId, `Error during unload point movement: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Execute Zone 104 bin pickup & delivery task
  */
 async function executeZone104Task(taskId: string): Promise<boolean> {
@@ -563,35 +631,36 @@ async function executeZone104Task(taskId: string): Promise<boolean> {
     }
     
     // STEP 4: Move to docking position for dropoff
-    logTask(taskId, '📍 STEP 4/8: Moving to drop-off_load_docking');
+    logTask(taskId, '📍 STEP 4/8: Moving to 001_load_docking');
     if (task) task.currentStep = 4;
     
     const moveToDropoffDockingSuccess = await moveToPoint(
       taskId,
-      -4.067, 
-      2.579, 
-      269.73, 
-      'drop-off_load_docking'
+      -1.850, 
+      3.366, 
+      0, 
+      '001_load_docking'
     );
     
     if (!moveToDropoffDockingSuccess) {
-      throw new Error('Failed to move to drop-off_load_docking');
+      throw new Error('Failed to move to 001_load_docking');
     }
     
-    // STEP 5: Move to actual dropoff point
-    logTask(taskId, '📍 STEP 5/8: Moving to drop-off_load');
+    // STEP 5: Move to actual dropoff point using to_unload_point
+    logTask(taskId, '📍 STEP 5/8: Moving to unload point at 001_load');
     if (task) task.currentStep = 5;
     
-    const moveToDropoffSuccess = await moveToPoint(
+    // Use toUnloadPoint action instead of moveToPoint for proper bin dropping
+    const moveToDropoffSuccess = await toUnloadPoint(
       taskId,
-      -3.067, 
-      2.579, 
-      269.73, 
-      'drop-off_load'
+      -2.861, 
+      3.383, 
+      0, 
+      '001_load'
     );
     
     if (!moveToDropoffSuccess) {
-      throw new Error('Failed to move to drop-off_load');
+      throw new Error('Failed to move to unload point at 001_load');
     }
     
     // STEP 6: Execute jack_down to lower bin

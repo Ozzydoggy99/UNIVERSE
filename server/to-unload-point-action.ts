@@ -63,18 +63,35 @@ function resolvePointId(pointId: string, params: Record<string, any>): string {
   }
   
   // Special handling for drop-off points (case-insensitive)
+  // Handle both the old "drop-off_load" and new "001_load" naming conventions
   if (label.toLowerCase().includes('drop-off') || label.toLowerCase().includes('dropoff')) {
-    // Ensure proper format for drop-off points
+    // Ensure proper format for drop-off points (old naming convention)
     if (!label.toLowerCase().includes('_load')) {
-      console.log(`[UNLOAD-POINT-ACTION] Normalizing drop-off point ID format: ${label} -> drop-off_load`);
-      return 'drop-off_load';
+      console.log(`[UNLOAD-POINT-ACTION] Normalizing drop-off point ID format: ${label} -> 001_load`);
+      return '001_load'; // Use new naming convention
     }
     
-    // If it has drop-off but wrong format, normalize to drop-off_load
+    // If it has drop-off but wrong format, normalize to new convention
     if (label.toLowerCase() !== 'drop-off_load') {
-      console.log(`[UNLOAD-POINT-ACTION] Standardizing drop-off point format: ${label} -> drop-off_load`);
-      return 'drop-off_load';
+      console.log(`[UNLOAD-POINT-ACTION] Standardizing drop-off point format: ${label} -> 001_load`);
+      return '001_load'; // Use new naming convention
+    } else {
+      // Convert old naming convention to new naming convention
+      console.log(`[UNLOAD-POINT-ACTION] Converting old drop-off_load format to new 001_load format`);
+      return '001_load';
     }
+  }
+  
+  // Also check for the new central dropoff naming convention
+  if (label.toLowerCase().includes('001_load') || (label === '001')) {
+    // Ensure proper format for central dropoff points (new naming convention)
+    if (!label.toLowerCase().includes('_load')) {
+      console.log(`[UNLOAD-POINT-ACTION] Normalizing central dropoff point ID format: ${label} -> 001_load`);
+      return '001_load';
+    }
+    
+    // Already in the correct format
+    return '001_load';
   }
   
   // For numeric-only inputs (e.g., when just "104" is passed), append "_load"
