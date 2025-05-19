@@ -9788,5 +9788,94 @@
     "createdAt": "2025-05-19T19:21:20.902Z",
     "updatedAt": "2025-05-19T19:23:18.717Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747682857162_5vfsuub",
+    "name": "Shelf to Central Dropoff (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -6.917,
+          "y": 6.721,
+          "ori": 0,
+          "label": "Move to pickup shelf docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to pickup shelf docking position completed successfully",
+          "moveId": 4928
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -8.029,
+          "y": 6.704,
+          "ori": 0,
+          "label": "Align with rack at pickup shelf"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4929,
+          "message": "Align with rack completed successfully"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -1.85,
+          "y": 3.366,
+          "ori": 0,
+          "label": "Move directly to central dropoff point"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move directly to central dropoff point completed successfully",
+          "moveId": 4930
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Return to charger initiated with coordinate-based navigation",
+          "moveId": 4931,
+          "method": "coordinate_based_with_charging"
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 6,
+    "createdAt": "2025-05-19T19:27:37.162Z",
+    "updatedAt": "2025-05-19T19:29:53.451Z",
+    "robotSn": "L382502104987ir"
   }
 ]
