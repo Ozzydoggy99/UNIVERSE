@@ -119,16 +119,63 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
         appendLog(`⚠️ Could not cancel current move: ${cancelError.message}`);
       }
       
-      // Send move command
-      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
-        action: "move_to",
+      // Wait a moment for the cancellation to take effect
+      await wait(1000);
+      
+      // Send move command with proper parameters per AutoXing API
+      const moveCommand = {
+        creator: 'robot-management-platform',
+        type: 'standard',  // Use standard move type for navigation
         target_x: x,
-        target_y: y
-      }, { headers });
+        target_y: y,
+        target_z: 0,
+        target_ori: 0,  // We may need to add orientation parameters
+        properties: {
+          max_trans_vel: 0.5,         // Maximum translational velocity (m/s)
+          max_rot_vel: 0.5,           // Maximum rotational velocity (rad/s)
+          acc_lim_x: 0.5,             // Acceleration limit in x direction
+          acc_lim_theta: 0.5,         // Angular acceleration limit
+          planning_mode: 'directional' // Use directional planning
+        }
+      };
+      
+      appendLog(`Sending move command to ${pointLabel} (${x}, ${y})`);
+      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, { headers });
+      const moveId = response.data?.id;
+      
+      if (!moveId) {
+        throw new Error(`Move command failed: No move ID returned`);
+      }
 
-      appendLog(`✅ Move to ${pointLabel} started (MoveID: ${response.data?.id})`);
-      await waitForMoveComplete();
-      appendLog(`🏁 Arrived at ${pointLabel}`);
+      appendLog(`✅ Move to ${pointLabel} started (MoveID: ${moveId})`);
+      
+      // Wait for move to complete by checking specifically this move ID
+      let moveComplete = false;
+      let attempts = 0;
+      const maxAttempts = 60;  // 60 seconds timeout
+      
+      while (!moveComplete && attempts < maxAttempts) {
+        // Check move status
+        const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
+        const moveStatus = statusResponse.data?.state;
+        
+        appendLog(`Current move status: ${moveStatus} (attempt ${attempts + 1})`);
+        
+        if (moveStatus === "succeeded") {
+          moveComplete = true;
+          appendLog(`🏁 Arrived at ${pointLabel}`);
+        } else if (moveStatus === "failed" || moveStatus === "cancelled") {
+          throw new Error(`Move to ${pointLabel} failed with status: ${moveStatus}`);
+        } else {
+          // Still moving, wait and check again
+          await wait(1000);
+          attempts++;
+        }
+      }
+      
+      if (!moveComplete) {
+        throw new Error(`Move to ${pointLabel} timed out after ${maxAttempts} seconds`);
+      }
     } catch (err: any) {
       appendLog(`❌ Move to ${pointLabel} failed: ${err.message}`);
       throw new Error(`Move to ${pointLabel} failed: ${err.message}`);
