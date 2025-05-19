@@ -8,6 +8,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { Request } from 'express';
 import { Server } from 'http';
 import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
+import { robotPositionTracker } from './robot-position-tracker';
 
 // Initialize connection states
 let robotWs: WebSocket | null = null;
@@ -164,7 +165,7 @@ function connectRobotWebSocket() {
           // Store data by topic for later retrieval
           if (message.topic === '/tracked_pose' || message.topic === '/robot/footprint') {
             // Handle position data
-            const { robotPositionTracker } = require('./robot-position-tracker');
+            // Position tracker imported at the top of file
             
             // Extract position data properly based on message format
             let posData = {
