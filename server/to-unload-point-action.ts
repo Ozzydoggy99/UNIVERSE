@@ -178,17 +178,22 @@ export const toUnloadPointAction: Action = {
       // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
       
-      // Extract the rack area ID from the point ID (just the number prefix)
-      // For shelf point IDs like "001_load", extract the numeric prefix as rack_area_id
-      const numericMatch = loadPointId.match(/^(\d+)_/);
-      if (numericMatch) {
-        rackAreaId = numericMatch[1]; // Just get the number "001" from "001_load"
-        console.log(`[UNLOAD-POINT-ACTION] Using numeric prefix "${rackAreaId}" as rack_area_id from point ${loadPointId}`);
-      } else {
-        // Fallback - use the full ID if no numeric prefix is found
-        rackAreaId = loadPointId;
-        console.log(`[UNLOAD-POINT-ACTION] No numeric prefix found, using full point ID "${rackAreaId}" as rack_area_id`);
+      // CRITICAL FIX: We need to ensure we're using the correct rack_area_id format
+      // This must be the complete identifier for the shelf/dropoff location
+      // Both "001_load" and "001_load_docking" would have rack_area_id="001_load"
+      
+      // First, ensure we're only dealing with a load point (not docking)
+      if (loadPointId.toLowerCase().includes('_docking')) {
+        throw new Error(`Cannot use docking point ${loadPointId} for unloading. Should be a load point.`);
       }
+      
+      // Now that we're sure it's a load point, use it as rack_area_id
+      // For "001_load", use "001_load" as the rack_area_id
+      rackAreaId = loadPointId;
+      console.log(`[UNLOAD-POINT-ACTION] Using full load point "${rackAreaId}" as rack_area_id`);
+      
+      // Add additional debugging to help diagnose if there are still issues
+      console.log(`[UNLOAD-POINT-ACTION] ✅ CONFIRMED: Using load point for unloading, NOT a docking point`);
       
       console.log(`[UNLOAD-POINT-ACTION] Using extracted rack_area_id "${rackAreaId}" for point "${loadPointId}"`);
       console.log(`[UNLOAD-POINT-ACTION] This ensures correct targeting for bin unloading at shelf/dropoff points`);
