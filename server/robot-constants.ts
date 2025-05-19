@@ -22,7 +22,7 @@ const ROBOT_IP = robotIpFromEnv;
 // Robot API URL - direct URL without /api/v1
 export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
 
-// Robot WebSocket URL with proper v2 format according to documentation
+// Using exact format from documentation example: ws://192.168.25.25:8090/ws/v2/topics
 export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/ws/v2/topics`;
 
 // Robot authentication secret - from environment variables (required)
