@@ -17,7 +17,7 @@ const robotIpFromEnv = process.env.ROBOT_IP;
 if (!robotIpFromEnv) {
   throw new Error('ROBOT_IP environment variable is required but not set');
 }
-const ROBOT_IP = robotIpFromEnv;
+export const ROBOT_IP = robotIpFromEnv;
 
 // Robot API URL - base URL for all API requests
 export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
