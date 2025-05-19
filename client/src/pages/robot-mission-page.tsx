@@ -1,16 +1,22 @@
 // client/src/pages/robot-mission-page.tsx
 import { FC } from "react";
 import { useRobotMapData } from "@/hooks/use-robot-map-data";
+import { usePointDisplayNames } from "@/hooks/use-point-display-names";
 import MissionControl from "@/components/robot-mission/MissionControl";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 
 const RobotMissionPage: FC = () => {
-  const { allPoints, namedPoints, numericPoints, specialPoints, isLoading, error } = useRobotMapData();
+  const { allPoints, namedPoints, numericPoints, specialPoints, isLoading: pointsLoading, error: pointsError } = useRobotMapData();
+  const { getDisplayName, isLoading: mappingsLoading, error: mappingsError } = usePointDisplayNames();
 
   // Create a shelf points array from numeric points for the mission control component
   const shelfPoints = numericPoints.map(point => point.id);
+  
+  // Combined loading and error states
+  const isLoading = pointsLoading || mappingsLoading;
+  const error = pointsError || mappingsError;
 
   return (
     <div className="container mx-auto p-6">
@@ -46,7 +52,8 @@ const RobotMissionPage: FC = () => {
                   <p>
                     {specialPoints.pickup ? (
                       <>
-                        {specialPoints.pickup.id} ({specialPoints.pickup.x.toFixed(2)}, {specialPoints.pickup.y.toFixed(2)})
+                        <strong>{getDisplayName(specialPoints.pickup.id)}</strong> ({specialPoints.pickup.x.toFixed(2)}, {specialPoints.pickup.y.toFixed(2)})
+                        <div className="text-xs text-muted-foreground">Technical ID: {specialPoints.pickup.id}</div>
                       </>
                     ) : (
                       <span className="text-muted-foreground italic">No pickup point defined</span>
@@ -59,7 +66,8 @@ const RobotMissionPage: FC = () => {
                   <p>
                     {specialPoints.dropoff ? (
                       <>
-                        {specialPoints.dropoff.id} ({specialPoints.dropoff.x.toFixed(2)}, {specialPoints.dropoff.y.toFixed(2)})
+                        <strong>{getDisplayName(specialPoints.dropoff.id)}</strong> ({specialPoints.dropoff.x.toFixed(2)}, {specialPoints.dropoff.y.toFixed(2)})
+                        <div className="text-xs text-muted-foreground">Technical ID: {specialPoints.dropoff.id}</div>
                       </>
                     ) : (
                       <span className="text-muted-foreground italic">No dropoff point defined</span>

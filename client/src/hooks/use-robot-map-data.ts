@@ -1,5 +1,6 @@
 // client/src/hooks/use-robot-map-data.ts
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Point } from '../types/robot';
 
 export interface RobotMapData {
@@ -10,31 +11,58 @@ export interface RobotMapData {
     standby?: Point;
   };
   allFloors: string[];
+  allPoints?: Point[];
+  namedPoints?: Point[];
+  numericPoints?: Point[];
 }
 
 export function useRobotMapData() {
-  const [data, setData] = useState<RobotMapData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error } = useQuery<RobotMapData>({
+    queryKey: ['/api/robots/points/full'],
+    staleTime: 60000, // 1 minute
+  });
+  
+  // Process the data to extract different point types for UI use
+  const processedData = {
+    specialPoints: data?.specialPoints || { pickup: undefined, dropoff: undefined, standby: undefined },
+    allPoints: extractAllPoints(data),
+    namedPoints: extractNamedPoints(data),
+    numericPoints: extractNumericPoints(data),
+    shelvesByFloor: data?.shelvesByFloor || {},
+    allFloors: data?.allFloors || [],
+  };
+  
+  return { 
+    ...processedData,
+    isLoading, 
+    error,
+  };
+}
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/robots/points/full');
-        if (!res.ok) throw new Error(`Failed to fetch map data: ${res.status}`);
-        const json = await res.json();
-        setData(json);
-      } catch (err: any) {
-        console.error('❌ useRobotMapData error:', err);
-        setError(err.message || 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
-    }
+// Helper functions to process point data
+function extractAllPoints(data: RobotMapData | undefined): Point[] {
+  if (!data) return [];
+  
+  const points: Point[] = [];
+  // Add special points
+  if (data.specialPoints.pickup) points.push(data.specialPoints.pickup);
+  if (data.specialPoints.dropoff) points.push(data.specialPoints.dropoff);
+  if (data.specialPoints.standby) points.push(data.specialPoints.standby);
+  
+  // Add shelf points from all floors
+  Object.values(data.shelvesByFloor).forEach(floorPoints => {
+    points.push(...floorPoints);
+  });
+  
+  return points;
+}
 
-    load();
-  }, []);
+function extractNamedPoints(data: RobotMapData | undefined): Point[] {
+  const points = extractAllPoints(data);
+  return points.filter(p => isNaN(parseInt(p.id)));
+}
 
-  return { data, loading, error };
+function extractNumericPoints(data: RobotMapData | undefined): Point[] {
+  const points = extractAllPoints(data);
+  return points.filter(p => !isNaN(parseInt(p.id)));
 }
