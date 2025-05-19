@@ -10075,7 +10075,8 @@
           "label": "Move to pickup shelf docking position"
         },
         "completed": false,
-        "retryCount": 0
+        "retryCount": 3,
+        "errorMessage": "Movement timeout exceeded (120000ms)"
       },
       {
         "type": "align_with_rack",
@@ -10122,10 +10123,11 @@
         "retryCount": 0
       }
     ],
-    "status": "in_progress",
+    "status": "failed",
     "currentStepIndex": 0,
     "createdAt": "2025-05-19T22:39:15.652Z",
-    "updatedAt": "2025-05-19T22:40:09.875Z",
-    "robotSn": "L382502104987ir"
+    "updatedAt": "2025-05-19T22:48:11.095Z",
+    "robotSn": "L382502104987ir",
+    "offline": true
   }
 ]
