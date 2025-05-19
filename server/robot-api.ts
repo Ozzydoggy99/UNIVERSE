@@ -274,9 +274,6 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching position from API: /api/robots/position/${serialNumber}`);
       
       try {
-        // Import the position tracker to get the latest position from WebSocket
-        const { robotPositionTracker } = require('./robot-position-tracker');
-        
         // Get the latest position from the WebSocket tracker - this is updated in real-time
         const latestPosition = robotPositionTracker.getLatestPosition();
         
@@ -376,7 +373,6 @@ export function registerRobotApiRoutes(app: Express) {
       
       try {
         // Try to get map data from WebSocket connection first
-        const { getLatestMapData } = require('./robot-websocket');
         const wsMapData = getLatestMapData();
         
         if (wsMapData) {
@@ -596,11 +592,6 @@ export function registerRobotApiRoutes(app: Express) {
   // WebSocket status endpoint
   app.get('/api/robot/websocket-status', (req: Request, res: Response) => {
     try {
-      // Import the websocket status function
-      const { getRobotWebSocketStatus } = require('./robot-websocket');
-      // Import the position tracker
-      const { robotPositionTracker } = require('./robot-position-tracker');
-      
       const status = getRobotWebSocketStatus();
       const latestPosition = robotPositionTracker.getLatestPosition();
       
