@@ -1317,7 +1317,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffDockingPoint.x,
       floorPoints.dropoffDockingPoint.y,
       floorPoints.dropoffDockingPoint.ori,
-      'drop-off_load_docking'
+      '001_load_docking' // Updated nomenclature
     );
     
     // STEP 5: Move to dropoff point with to_unload_point
@@ -1328,7 +1328,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffPoint.x,
       floorPoints.dropoffPoint.y,
       floorPoints.dropoffPoint.ori,
-      'drop-off_load'
+      '001_load' // Updated nomenclature
     );
     
     // STEP 6: Execute jack_down to lower bin
@@ -1345,7 +1345,7 @@ async function executePickupWorkflow(
       floorPoints.dropoffDockingPoint.x,
       floorPoints.dropoffDockingPoint.y,
       floorPoints.dropoffDockingPoint.ori,
-      'drop-off_load_docking (safe position)'
+      '001_load_docking (safe position)' // Updated nomenclature
     );
     
     // STEP 8: Return to charger (if available)
@@ -1484,7 +1484,7 @@ async function executeDropoffWorkflow(
       floorPoints.pickupDockingPoint.x,
       floorPoints.pickupDockingPoint.y,
       floorPoints.pickupDockingPoint.ori,
-      'pick-up_load_docking'
+      '050_load_docking' // Updated nomenclature
     );
     
     // Allow a brief pause for stability
