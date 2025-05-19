@@ -275,13 +275,11 @@ export function registerRobotApiRoutes(app: Express) {
       
       try {
         // Get the latest position from the WebSocket tracker - this is updated in real-time
-        if (robotPositionTracker && robotPositionTracker.getLatestPosition) {
-          const latestPosition = robotPositionTracker.getLatestPosition();
-          
-          if (latestPosition && latestPosition.x !== undefined && latestPosition.y !== undefined) {
-            console.log(`Position data retrieved successfully from WebSocket: (${latestPosition.x}, ${latestPosition.y})`);
-            return res.json(latestPosition);
-          }
+        const latestPosition = robotPositionTracker.getLatestPosition();
+        
+        if (latestPosition && latestPosition.x !== undefined && latestPosition.y !== undefined) {
+          console.log(`Position data retrieved successfully from WebSocket: (${latestPosition.x}, ${latestPosition.y})`);
+          return res.json(latestPosition);
         }
         
         // If we don't have position data from WebSocket yet, try a direct API call as backup
