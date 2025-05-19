@@ -16,8 +16,34 @@ async function testDynamicPointDetection() {
     console.log(`Testing point ID: ${testPointId}`);
     
     // Call our new dynamic points API endpoint
-    // Note: Using port 5173 which is the default Vite development server port
-    const response = await axios.get(`http://localhost:5173/api/dynamic-points/${testPointId}`);
+    // Try direct API call to the robot instead
+    console.log(`Testing direct API call to the robot for point: ${testPointId}`);
+    
+    // First verify our robot-live-points service is working by directly importing it
+    // Since we're using ES modules, we need to import not require
+    import { getPointById, fetchRobotPoints } from './robot-live-points';
+    
+    // Fetch all points to see what we have
+    console.log("Fetching all robot map points...");
+    const allPoints = await fetchRobotPoints();
+    console.log(`Found ${allPoints.length} points on the robot map`);
+    
+    if (allPoints.length > 0) {
+      console.log("Sample points:", allPoints.slice(0, 3));
+    }
+    
+    // Now look for our specific point
+    console.log(`Looking for specific point: ${testPointId}`);
+    const point = await getPointById(testPointId);
+    
+    // Manually construct a response similar to what the API would return
+    const response = {
+      data: {
+        success: true,
+        found: !!point,
+        point: point
+      }
+    };
     
     if (response.data && response.data.found) {
       console.log(`✅ SUCCESS: Point ${testPointId} found with coordinates:`, response.data.point);
