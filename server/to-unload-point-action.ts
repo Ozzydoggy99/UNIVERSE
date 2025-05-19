@@ -182,18 +182,28 @@ export const toUnloadPointAction: Action = {
       // This must be the complete identifier for the shelf/dropoff location
       // Both "001_load" and "001_load_docking" would have rack_area_id="001_load"
       
-      // First, ensure we're only dealing with a load point (not docking)
+      // If a docking point is provided, convert it to a load point
+      if (loadPointId.toLowerCase().includes('_docking')) {
+        // Convert "001_load_docking" to "001_load"
+        const originalId = loadPointId;
+        loadPointId = loadPointId.replace(/_docking/i, '_load');
+        console.log(`[UNLOAD-POINT-ACTION] Converting docking point ${originalId} to load point ${loadPointId}`);
+      }
+      
+      // Final safety check - if we still have a docking point somehow, fail
       if (loadPointId.toLowerCase().includes('_docking')) {
         throw new Error(`Cannot use docking point ${loadPointId} for unloading. Should be a load point.`);
       }
       
-      // Now that we're sure it's a load point, use it as rack_area_id
-      // For "001_load", use "001_load" as the rack_area_id
+      // Now that we're sure it's a load point, use the FULL load point ID as rack_area_id
+      // For "001_load", use the entire "001_load" as rack_area_id, NOT just "001"
       rackAreaId = loadPointId;
       console.log(`[UNLOAD-POINT-ACTION] Using full load point "${rackAreaId}" as rack_area_id`);
       
       // Add additional debugging to help diagnose if there are still issues
       console.log(`[UNLOAD-POINT-ACTION] ✅ CONFIRMED: Using load point for unloading, NOT a docking point`);
+      console.log(`[UNLOAD-POINT-ACTION] Double-check point ID format = ${loadPointId}`);
+      console.log(`[UNLOAD-POINT-ACTION] Double-check rack_area_id format = ${rackAreaId}`);
       
       console.log(`[UNLOAD-POINT-ACTION] Using extracted rack_area_id "${rackAreaId}" for point "${loadPointId}"`);
       console.log(`[UNLOAD-POINT-ACTION] This ensures correct targeting for bin unloading at shelf/dropoff points`);

@@ -515,25 +515,30 @@ async function toUnloadPoint(taskId: string, x: number, y: number, orientation: 
     logTask(taskId, `Moving to unload point at ${pointName}`);
     
     // Make sure we're using proper load point (not docking)
-    const loadPointId = pointName;
-    if (loadPointId.includes('_docking')) {
+    // If a docking point is passed, convert it to a load point
+    let loadPointId = pointName;
+    if (loadPointId.toLowerCase().includes('_docking')) {
+      // Convert "001_load_docking" to "001_load"
+      loadPointId = loadPointId.replace(/_docking/i, '_load');
+      logTask(taskId, `NOTICE: Converting docking point ${pointName} to load point ${loadPointId}`);
+    }
+    
+    // Final safety check - if we still have a docking point, fail
+    if (loadPointId.toLowerCase().includes('_docking')) {
       logTask(taskId, `ERROR: Cannot use to_unload_point with docking point ${loadPointId}`);
       return false;
     }
     
-    // Extract the rack area ID from the point ID (just the number prefix)
-    let rackAreaId;
+    // CRITICAL FIX: We MUST use the full load point ID as the rack_area_id
+    // Using just the numeric prefix causes issues because both load and docking
+    // points would have the same prefix (e.g., "001")
     
-    // For shelf point IDs like "001_load", extract the numeric prefix as rack_area_id
-    const numericMatch = loadPointId.match(/^(\d+)_/);
-    if (numericMatch) {
-      rackAreaId = numericMatch[1]; // Just get the number "001" from "001_load"
-      logTask(taskId, `Using numeric prefix "${rackAreaId}" as rack_area_id from point ${loadPointId}`);
-    } else {
-      // Fallback - use the full ID if no numeric prefix is found
-      rackAreaId = loadPointId;
-      logTask(taskId, `No numeric prefix found, using full point ID "${rackAreaId}" as rack_area_id`);
-    }
+    // For a load point like "001_load", use the entire "001_load" as rack_area_id
+    // This is what the robot expects - the full load point ID
+    const rackAreaId = loadPointId;
+    
+    logTask(taskId, `CRITICAL FIX: Using full load point "${rackAreaId}" as rack_area_id`);
+    logTask(taskId, `✅ CONFIRMED: Using load point for unloading, NOT a docking point`);
     
     // Send the unload point command to the robot
     const payload = {
