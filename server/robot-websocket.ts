@@ -100,11 +100,10 @@ function connectRobotWebSocket() {
       // with an array of topics for more efficient subscription
       try {
         if (robotWs && robotWs.readyState === WebSocket.OPEN) {
-          // Per the AutoXing API docs, we need to use the command format:
-          // { "command": "enable_topics", "topics": ["/topic1", "/topic2"] }
+          // Per the AutoXing API docs for this specific model, we need to use the format:
+          // { "enable_topic": ["/topic1", "/topic2", ...] }
           robotWs.send(JSON.stringify({
-            command: "enable_topics",
-            topics: subscribeTopics
+            enable_topic: subscribeTopics
           }));
           console.log(`Subscribed to robot topics: ${subscribeTopics.join(', ')}`);
         }
