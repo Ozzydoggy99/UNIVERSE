@@ -64,7 +64,7 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
       
       // Get all map points
       logRobotTask('Fetching all robot map points...');
-      const allPoints = await fetchRobotMapPoints();
+      const allPoints = await fetchAllMapPoints();
       
       if (!allPoints || allPoints.length === 0) {
         throw new Error('Failed to get map points from robot');

@@ -39,7 +39,7 @@ export function registerBinStatusRoutes(app: express.Express) {
       }
       
       // If no override, get map points to find coordinates
-      const mapPoints = await fetchRobotMapPoints();
+      const mapPoints = await fetchAllMapPoints();
       const point = mapPoints.find((p: Point) => p.id === location);
       
       if (!point) {
