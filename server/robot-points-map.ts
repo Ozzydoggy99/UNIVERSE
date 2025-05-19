@@ -40,7 +40,34 @@ const robotPointsMap: RobotPointsMap = {
       mapId: 4,
       mapName: 'Floor1',
       points: {
-        // Central pickup and dropoff points
+        // Central pickup and dropoff points (updated nomenclature)
+        '050_load': {
+          x: -2.847, 
+          y: 2.311, 
+          theta: 0.0
+        },
+        '050_load_docking': {
+          x: -1.887,
+          y: 2.311,
+          theta: 0.0
+        },
+        '001_load': {
+          x: -2.861,
+          y: 3.383,
+          theta: 0.0
+        },
+        '001_unload': {
+          x: -2.861,  // Same position as 001_load
+          y: 3.383,
+          theta: 0.0
+        },
+        '001_load_docking': {
+          x: -1.850,
+          y: 3.366,
+          theta: 0.0
+        },
+        
+        // Legacy points kept for backward compatibility
         'pick-up_load': {
           x: -2.847, 
           y: 2.311, 
@@ -53,11 +80,6 @@ const robotPointsMap: RobotPointsMap = {
         },
         'drop-off_load': {
           x: -2.861,
-          y: 3.383,
-          theta: 0.0
-        },
-        'drop-off_unload': {
-          x: -2.861,  // Same position as drop-off_load
           y: 3.383,
           theta: 0.0
         },
