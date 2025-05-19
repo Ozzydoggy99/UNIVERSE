@@ -1,6 +1,7 @@
 import { ActionParams, ValidationResult } from './action-modules';
 import axios from 'axios';
 import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
+import { getPointCoordinates } from './dynamic-point-service';
 
 // Define the ActionResult interface
 export type ActionResult = {
