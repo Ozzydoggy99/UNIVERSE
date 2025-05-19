@@ -1,6 +1,8 @@
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from "./robot-constants";
 import { Express, Request, Response } from 'express';
+import { getLatestLidarData, getLatestMapData, getRobotWebSocketStatus } from './robot-websocket';
+import { robotPositionTracker } from './robot-position-tracker';
 
 // Using the correct AutoXing API header format
 const headers = getAuthHeaders();
@@ -97,7 +99,6 @@ export function registerRobotApiRoutes(app: Express) {
         console.log(`Trying multiple LiDAR data endpoints...`);
         
         // First try WebSocket data if available
-        const { getLatestLidarData } = require('./robot-websocket');
         const wsLidarData = getLatestLidarData();
         
         if (wsLidarData) {
