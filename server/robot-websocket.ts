@@ -79,7 +79,12 @@ function connectRobotWebSocket() {
     }, 10000);
 
     // Create connection with proper auth headers according to AutoXing API docs
-    robotWs = new WebSocket(wsUrl, {
+    // Using the proper WebSocket path format that the robot supports
+    const fullWsUrl = `ws://${ROBOT_IP}:8090/ws/v2/topics`;
+    
+    console.log(`Connecting to robot using full WebSocket URL: ${fullWsUrl}`);
+    
+    robotWs = new WebSocket(fullWsUrl, {
       headers: getAuthHeaders()
     });
 
