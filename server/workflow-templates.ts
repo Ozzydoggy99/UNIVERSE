@@ -128,11 +128,12 @@ export const pickupToDropoffWorkflow: WorkflowTemplate = {
       description: 'Move to dropoff docking position'
     },
     {
-      actionId: 'alignWithRack',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '001_load'
+        pointId: '001_load',
+        rackAreaId: '001_load'
       },
-      description: 'Align with rack at dropoff'
+      description: 'Back up into unload point with proper rack area ID'
     },
     {
       actionId: 'jackDown',
