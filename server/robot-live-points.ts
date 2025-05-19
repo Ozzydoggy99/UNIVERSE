@@ -1,246 +1,207 @@
 /**
  * Robot Live Points Service
  * 
- * This service provides direct access to points on the robot map in real-time,
- * allowing the system to detect and use newly added points without requiring code changes.
+ * This service provides real-time access to robot map points,
+ * fetching them directly from the robot API with caching for performance.
  */
 
 import axios from 'axios';
-import { Point } from './types';
-import { ROBOT_API_URL, ROBOT_SERIAL, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl } from './robot-api';
 
-// Cache to store recently fetched points
-let cachedPoints: any[] = [];
-let cachedPointsMap: Map<string, Point> = new Map();
-let lastFetchTime = 0;
-const CACHE_TTL = 30000; // 30 seconds
-
-/**
- * Fetch all points directly from the robot
- */
-export async function fetchRobotPoints(): Promise<any[]> {
-  try {
-    // Use cache if available and fresh
-    const now = Date.now();
-    if (cachedPoints.length > 0 && (now - lastFetchTime) < CACHE_TTL) {
-      return cachedPoints;
-    }
-    
-    console.log(`[ROBOT-LIVE-POINTS] Fetching points directly from robot...`);
-    
-    // Step 1: Get a list of all maps
-    const mapsResponse = await axios.get(`${ROBOT_API_URL}/maps`, {
-      headers: getAuthHeaders()
-    });
-    
-    if (!mapsResponse.data || !Array.isArray(mapsResponse.data) || mapsResponse.data.length === 0) {
-      console.error('[ROBOT-LIVE-POINTS] No maps found on robot');
-      return [];
-    }
-    
-    // Use the first map (usually the current one)
-    const activeMap = mapsResponse.data[0];
-    console.log(`[ROBOT-LIVE-POINTS] Using map: ${activeMap.name || activeMap.map_name} (ID: ${activeMap.id})`);
-    
-    // Step 2: Get detailed map data with overlays
-    const mapDetailResponse = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, {
-      headers: getAuthHeaders()
-    });
-    
-    if (!mapDetailResponse.data || !mapDetailResponse.data.overlays) {
-      console.error('[ROBOT-LIVE-POINTS] No overlay data in map');
-      return [];
-    }
-    
-    // Parse overlays (these contain our points)
-    let overlays;
-    try {
-      overlays = typeof mapDetailResponse.data.overlays === 'string'
-        ? JSON.parse(mapDetailResponse.data.overlays)
-        : mapDetailResponse.data.overlays;
-    } catch (e) {
-      console.error('[ROBOT-LIVE-POINTS] Error parsing overlays:', e);
-      return [];
-    }
-    
-    if (!overlays.features || !Array.isArray(overlays.features)) {
-      console.error('[ROBOT-LIVE-POINTS] No features in map overlays');
-      return [];
-    }
-    
-    // Extract points from features (looking for Point type features with properties)
-    const points = overlays.features
-      .filter((f: any) => f.geometry?.type === 'Point' && f.properties)
-      .map((f: any) => {
-        const { properties, geometry } = f;
-        const id = properties.name?.trim() || properties.text?.trim() || '';
-        
-        // Get coordinates from properties or geometry
-        const x = properties.x !== undefined ? properties.x : geometry.coordinates[0];
-        const y = properties.y !== undefined ? properties.y : geometry.coordinates[1];
-        
-        // Get orientation
-        const theta = properties.yaw !== undefined ? properties.yaw : 
-                     (properties.orientation !== undefined ? properties.orientation : 0);
-        
-        return { id, x, y, theta };
-      })
-      .filter((p: any) => p.id && typeof p.id === 'string' && p.id.trim() !== '');
-    
-    console.log(`[ROBOT-LIVE-POINTS] Found ${points.length} points on robot map`);
-    
-    // Update cache
-    cachedPoints = points;
-    
-    // Also create a map for quick lookups
-    cachedPointsMap = new Map();
-    points.forEach((p: any) => {
-      // Store both original case and lowercase versions for case-insensitive lookup
-      cachedPointsMap.set(p.id, p);
-      cachedPointsMap.set(p.id.toLowerCase(), p);
-    });
-    
-    lastFetchTime = now;
-    return points;
-  } catch (error) {
-    console.error('[ROBOT-LIVE-POINTS] Error fetching points:', error);
-    return [];
-  }
+// Types for robot map points
+interface RobotPoint {
+  id: string;
+  x: number;
+  y: number;
+  theta: number;
+  pointType?: string;
 }
 
-/**
- * Get coordinates for a specific point by ID
- */
-export async function getPointById(pointId: string): Promise<Point | null> {
-  if (!pointId) return null;
-  
-  try {
-    // Normalize the point ID
-    const normalizedId = normalizePointId(pointId);
-    console.log(`[ROBOT-LIVE-POINTS] Looking for point: ${normalizedId} (original: ${pointId})`);
-    
-    // Try cache first
-    if (cachedPointsMap.size > 0) {
-      // Try exact match first
-      if (cachedPointsMap.has(normalizedId)) {
-        const point = cachedPointsMap.get(normalizedId);
-        console.log(`[ROBOT-LIVE-POINTS] Found point in cache: ${normalizedId}`);
-        return point ? { x: point.x, y: point.y, theta: point.theta } : null;
-      }
-      
-      // Try lowercase
-      if (cachedPointsMap.has(normalizedId.toLowerCase())) {
-        const point = cachedPointsMap.get(normalizedId.toLowerCase());
-        console.log(`[ROBOT-LIVE-POINTS] Found point in cache (case-insensitive): ${normalizedId}`);
-        return point ? { x: point.x, y: point.y, theta: point.theta } : null;
-      }
-    }
-    
-    // If not in cache, fetch fresh data
-    console.log(`[ROBOT-LIVE-POINTS] Point not in cache, fetching fresh data...`);
-    await fetchRobotPoints();
-    
-    // Try again with fresh data
-    if (cachedPointsMap.has(normalizedId)) {
-      const point = cachedPointsMap.get(normalizedId);
-      console.log(`[ROBOT-LIVE-POINTS] Found point after refresh: ${normalizedId}`);
-      return point ? { x: point.x, y: point.y, theta: point.theta } : null;
-    }
-    
-    if (cachedPointsMap.has(normalizedId.toLowerCase())) {
-      const point = cachedPointsMap.get(normalizedId.toLowerCase());
-      console.log(`[ROBOT-LIVE-POINTS] Found point after refresh (case-insensitive): ${normalizedId}`);
-      return point ? { x: point.x, y: point.y, theta: point.theta } : null;
-    }
-    
-    // Try alternate IDs (e.g., with/without _load suffix)
-    const alternateIds = generateAlternateIds(normalizedId);
-    for (const altId of alternateIds) {
-      if (cachedPointsMap.has(altId) || cachedPointsMap.has(altId.toLowerCase())) {
-        const point = cachedPointsMap.get(altId) || cachedPointsMap.get(altId.toLowerCase());
-        console.log(`[ROBOT-LIVE-POINTS] Found point using alternate ID: ${altId}`);
-        return point ? { x: point.x, y: point.y, theta: point.theta } : null;
-      }
-    }
-    
-    console.log(`[ROBOT-LIVE-POINTS] Point not found: ${normalizedId}`);
-    return null;
-  } catch (error) {
-    console.error('[ROBOT-LIVE-POINTS] Error getting point:', error);
-    return null;
-  }
-}
+// Cache storage
+let pointsCache: RobotPoint[] = [];
+let lastCacheUpdate = 0;
+const CACHE_TTL = 60 * 1000; // 1 minute in milliseconds
 
 /**
- * Generate alternate point IDs to try 
+ * Normalize a point ID to handle different formats
+ * 
+ * This handles conversions between formats like:
+ * - "110" (base point)
+ * - "110_load" (load point)
+ * - "110_load_docking" (docking point)
  */
-function generateAlternateIds(pointId: string): string[] {
-  const alternateIds = [];
-  
-  // For example, for "110", try "110_load"
-  if (/^\d+$/.test(pointId)) {
-    alternateIds.push(`${pointId}_load`);
-    alternateIds.push(`${pointId}_load_docking`);
-  }
-  
-  // For "110_load", try "110"
-  if (pointId.endsWith('_load')) {
-    alternateIds.push(pointId.replace('_load', ''));
-  }
-  
-  // For "110_load_docking", try "110_load" and "110"
-  if (pointId.endsWith('_load_docking')) {
-    alternateIds.push(pointId.replace('_load_docking', '_load'));
-    alternateIds.push(pointId.replace('_load_docking', ''));
-  }
-  
-  return alternateIds;
-}
-
-/**
- * Normalize point ID to our standard format
- */
-function normalizePointId(pointId: string): string {
-  if (!pointId) return '';
-  
-  // For numeric-only IDs, add _load suffix (e.g., "110" -> "110_load")
-  if (/^\d+$/.test(pointId)) {
-    return `${pointId}_load`;
-  }
-  
-  // If it already has a suffix, keep as is
-  if (pointId.includes('_load') || pointId.includes('_docking')) {
+export function normalizePointId(pointId: string): string {
+  // If it's already normalized (no suffixes), return as is
+  if (!pointId.includes('_')) {
     return pointId;
   }
   
-  // Default: add _load suffix
-  return `${pointId}_load`;
+  // Remove suffixes to get the base ID
+  if (pointId.includes('_load_docking')) {
+    return pointId.replace('_load_docking', '');
+  } else if (pointId.includes('_load')) {
+    return pointId.replace('_load', '');
+  } else if (pointId.includes('_docking')) {
+    return pointId.replace('_docking', '');
+  }
+  
+  return pointId;
 }
 
 /**
- * Clear the cache to force a refresh
+ * Fetch all points from the robot's map API
+ */
+export async function fetchRobotPoints(): Promise<RobotPoint[]> {
+  try {
+    // Check if cache is valid
+    const now = Date.now();
+    if (pointsCache.length > 0 && now - lastCacheUpdate < CACHE_TTL) {
+      console.log('[ROBOT-LIVE-POINTS] Using cached points data');
+      return pointsCache;
+    }
+    
+    console.log('[ROBOT-LIVE-POINTS] Fetching fresh points data from robot API');
+    
+    // Get the robot API base URL
+    const baseUrl = getRobotApiUrl();
+    
+    // Fetch maps from the robot API
+    console.log('[ROBOT-LIVE-POINTS] Fetching maps list');
+    const mapsResponse = await axios.get(`${baseUrl}/maps/`);
+    
+    if (!mapsResponse.data || !Array.isArray(mapsResponse.data)) {
+      throw new Error('Invalid maps response from robot API');
+    }
+    
+    // Find the active map
+    const maps = mapsResponse.data;
+    if (maps.length === 0) {
+      console.warn('[ROBOT-LIVE-POINTS] No maps found on robot');
+      return [];
+    }
+    
+    // Use the first map (can be enhanced to use the active map)
+    const mapId = maps[0].id;
+    const mapName = maps[0].map_name;
+    console.log(`[ROBOT-LIVE-POINTS] Using map: ${mapName} (${mapId})`);
+    
+    // Fetch map details to get points
+    console.log(`[ROBOT-LIVE-POINTS] Fetching map details for map ID ${mapId}`);
+    const mapResponse = await axios.get(`${baseUrl}/maps/${mapId}`);
+    
+    if (!mapResponse.data || !mapResponse.data.overlays) {
+      throw new Error('Invalid map details response from robot API');
+    }
+    
+    // Extract points from map overlays
+    const overlays = mapResponse.data.overlays;
+    const points: RobotPoint[] = [];
+    
+    // Process overlays to extract points
+    if (overlays && overlays.features && Array.isArray(overlays.features)) {
+      console.log(`[ROBOT-LIVE-POINTS] Processing ${overlays.features.length} map features`);
+      
+      overlays.features.forEach(feature => {
+        if (feature.properties && feature.properties.type === 'point') {
+          // Extract point details
+          const pointId = feature.properties.name || '';
+          const coordinates = feature.geometry.coordinates;
+          const theta = feature.properties.ori || 0;
+          
+          if (pointId && coordinates && coordinates.length >= 2) {
+            points.push({
+              id: pointId,
+              x: coordinates[0],
+              y: coordinates[1],
+              theta,
+              pointType: feature.properties.point_type || 'unknown'
+            });
+          }
+        }
+      });
+    }
+    
+    console.log(`[ROBOT-LIVE-POINTS] Extracted ${points.length} points from map`);
+    
+    // Cache the points
+    pointsCache = points;
+    lastCacheUpdate = now;
+    
+    return points;
+  } catch (error: any) {
+    console.error('[ROBOT-LIVE-POINTS] Error fetching points:', error.message);
+    
+    // If we have cached data and get an error, return the cache
+    if (pointsCache.length > 0) {
+      console.log('[ROBOT-LIVE-POINTS] Returning cached points due to error');
+      return pointsCache;
+    }
+    
+    throw error;
+  }
+}
+
+/**
+ * Get a specific point by its ID
+ * 
+ * This function handles various point ID formats automatically,
+ * including conversion between base, load, and docking points.
+ */
+export async function getPointById(pointId: string): Promise<RobotPoint | null> {
+  // First, try to find the exact point ID
+  try {
+    const points = await fetchRobotPoints();
+    
+    // Look for the exact match first
+    let point = points.find(p => p.id === pointId);
+    
+    // If not found, try normalizing and looking for the base ID
+    if (!point) {
+      const normalizedId = normalizePointId(pointId);
+      console.log(`[ROBOT-LIVE-POINTS] Point ${pointId} not found, trying normalized ID: ${normalizedId}`);
+      point = points.find(p => p.id === normalizedId);
+      
+      // If still not found, try generating variants based on the base ID
+      if (!point) {
+        console.log(`[ROBOT-LIVE-POINTS] Normalized ID ${normalizedId} not found, trying variants`);
+        
+        // Generate variant point IDs to try
+        const variants = [
+          `${normalizedId}_load`,
+          `${normalizedId}_load_docking`,
+          `${normalizedId}_docking`
+        ];
+        
+        // Try each variant
+        for (const variant of variants) {
+          const variantPoint = points.find(p => p.id === variant);
+          if (variantPoint) {
+            console.log(`[ROBOT-LIVE-POINTS] Found variant point: ${variant}`);
+            point = variantPoint;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (point) {
+      console.log(`[ROBOT-LIVE-POINTS] Found point for ID ${pointId}:`, point);
+    } else {
+      console.log(`[ROBOT-LIVE-POINTS] No point found for ${pointId} or any of its variants`);
+    }
+    
+    return point || null;
+  } catch (error: any) {
+    console.error(`[ROBOT-LIVE-POINTS] Error getting point ${pointId}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Clear the points cache to force a refresh
  */
 export function clearCache(): void {
-  console.log('[ROBOT-LIVE-POINTS] Clearing cache');
-  cachedPoints = [];
-  cachedPointsMap.clear();
-  lastFetchTime = 0;
-}
-
-/**
- * Get all shelf points
- */
-export async function getShelfPoints(): Promise<Point[]> {
-  const points = await fetchRobotPoints();
-  
-  return points
-    .filter((p: any) => {
-      const id = p.id.toLowerCase();
-      return /^\d+(_load)?$/.test(id) || id.includes('_load');
-    })
-    .map((p: any) => ({
-      x: p.x,
-      y: p.y,
-      theta: p.theta
-    }));
+  console.log('[ROBOT-LIVE-POINTS] Clearing points cache');
+  pointsCache = [];
+  lastCacheUpdate = 0;
 }
