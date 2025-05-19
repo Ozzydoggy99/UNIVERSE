@@ -3,6 +3,9 @@
  * 
  * This file is used by the workflow system to locate and interact with points
  * across the different maps in the robot.
+ * 
+ * It includes mapping between technical point IDs (001_load, 050_load) and 
+ * user-friendly display names ("Pickup", "Dropoff") shown in the UI.
  */
 
 // Point coordinates type
