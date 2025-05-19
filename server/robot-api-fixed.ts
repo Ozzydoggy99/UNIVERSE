@@ -216,44 +216,6 @@ export function registerRobotApiRoutes(app: Express) {
     try {
       const serialNumber = req.params.serialNumber;
       console.log(`Fetching camera data from API: /api/robots/camera/${serialNumber}`);
-      console.log(`Attempting to fetch camera data from: ${ROBOT_API_URL}/rgb_cameras/front/image`);
-      
-      try {
-        // For now, return an empty image response to prevent UI errors
-        const cameraData = {
-          image: "",
-          timestamp: new Date().toISOString()
-        };
-        
-        console.log(`Camera data retrieved successfully`);
-        return res.json(cameraData);
-      } catch (error) {
-        console.error('Error in camera data fetch:', error);
-        throw new Error('Could not fetch camera data');
-      }
-    } catch (error) {
-      console.error('Error in camera endpoint:', error);
-      res.status(500).json({ error: 'Failed to get robot camera data' });
-    }
-  });
-        
-        console.log(`Sensor data retrieved successfully`);
-        return res.json(sensorData);
-      } catch (error) {
-        console.error('Error in sensor data fetch:', error);
-        throw new Error('Could not get sensor data');
-      }
-    } catch (error) {
-      console.error('Error in sensors endpoint:', error);
-      res.status(500).json({ error: 'Failed to get sensor data' });
-    }
-  });
-
-  // Robot camera endpoint
-  app.get('/api/robots/camera/:serialNumber', async (req: Request, res: Response) => {
-    try {
-      const serialNumber = req.params.serialNumber;
-      console.log(`Fetching camera data from API: /api/robots/camera/${serialNumber}`);
       
       try {
         // First try the main camera endpoint
@@ -266,8 +228,8 @@ export function registerRobotApiRoutes(app: Express) {
             timeout: 1000
           });
           // If successful, we'd process the image, but for now just return a placeholder
-        } catch (error) {
-          console.log(`Primary camera endpoint failed: ${error.message}`);
+        } catch (cameraError) {
+          console.log(`Primary camera endpoint failed: ${cameraError.message}`);
           
           // Try alternative endpoints
           const alternativeEndpoint = `${ROBOT_API_URL}/camera/snapshot`;
@@ -279,9 +241,22 @@ export function registerRobotApiRoutes(app: Express) {
               timeout: 1000
             });
             // If successful, we'd process the image, but for now just return a placeholder
-          } catch (altError) {
-            console.log(`Alternative endpoint ${alternativeEndpoint} failed: ${altError.message}`);
-            throw new Error('All camera endpoints failed');
+          } catch (altCameraError) {
+            console.log(`Alternative endpoint ${alternativeEndpoint} failed: ${altCameraError.message}`);
+            
+            // Try one more endpoint
+            const rbgCameraSnapshotEndpoint = `${ROBOT_API_URL}/rgb_cameras/front/snapshot`;
+            console.log(`Trying alternative camera endpoint: ${rbgCameraSnapshotEndpoint}`);
+            
+            try {
+              await axios.get(rbgCameraSnapshotEndpoint, {
+                headers: getAuthHeaders(),
+                timeout: 1000
+              });
+            } catch (finalCameraError) {
+              console.log(`Alternative endpoint ${rbgCameraSnapshotEndpoint} failed: ${finalCameraError.message}`);
+              // Don't throw error, just return empty image
+            }
           }
         }
         
