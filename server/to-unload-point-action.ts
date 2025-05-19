@@ -1,7 +1,7 @@
 import { ActionParams, ValidationResult } from './action-modules';
 import axios from 'axios';
 import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
-import { getPointCoordinates } from './dynamic-map-points';
+import { getPointById } from './robot-live-points';
 
 // Define the ActionResult interface
 export type ActionResult = {
@@ -173,26 +173,39 @@ export const toUnloadPointAction: Action = {
         
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
       
-      // DYNAMIC POINT LOOKUP: Get coordinates from the dynamic map service
+      // DYNAMIC POINT LOOKUP: Get coordinates from the live points service
       // This allows us to handle newly added points without code changes
-      const pointCoordinates = await getPointCoordinates(loadPointId);
+      console.log(`[UNLOAD-POINT-ACTION] Looking up coordinates for point ${loadPointId} using robot-live-points service`);
+      let pointData = await getPointById(loadPointId);
       
-      if (!pointCoordinates) {
+      if (!pointData) {
         console.error(`[UNLOAD-POINT-ACTION] ❌ Could not find coordinates for point: ${loadPointId}`);
         console.error(`[UNLOAD-POINT-ACTION] This may be a new point that needs to be added to the map.`);
-        console.error(`[UNLOAD-POINT-ACTION] Attempting to fetch the latest map points from the robot...`);
+        console.error(`[UNLOAD-POINT-ACTION] Trying alternate point ID formats...`);
         
-        // Try again after refreshing the cache - maybe the point was just added
-        // This second attempt will force a fresh fetch from the robot
-        const refreshedPoint = await getPointCoordinates(loadPointId);
+        // Try with numeric ID (e.g., "110" for "110_load")
+        const numericId = loadPointId.replace('_load', '');
+        console.log(`[UNLOAD-POINT-ACTION] Trying numeric ID: ${numericId}`);
+        const numericPoint = await getPointById(numericId);
         
-        if (!refreshedPoint) {
-          throw new Error(`Could not find the unload point coordinates for ${loadPointId}. Make sure this point exists on the robot map.`);
+        if (numericPoint) {
+          console.log(`[UNLOAD-POINT-ACTION] ✅ Found coordinates using numeric ID: (${numericPoint.x}, ${numericPoint.y})`);
+          pointData = numericPoint;
+        } else {
+          // As a last resort, try with _docking suffix
+          const dockingId = `${numericId}_docking`;
+          console.log(`[UNLOAD-POINT-ACTION] Trying docking ID: ${dockingId}`);
+          const dockingPoint = await getPointById(dockingId);
+          
+          if (!dockingPoint) {
+            throw new Error(`Could not find the unload point coordinates for ${loadPointId}. Make sure this point exists on the robot map.`);
+          }
+          
+          console.log(`[UNLOAD-POINT-ACTION] ✅ Found coordinates using docking ID: (${dockingPoint.x}, ${dockingPoint.y})`);
+          pointData = dockingPoint;
         }
-        
-        console.log(`[UNLOAD-POINT-ACTION] ✅ Found coordinates after refresh: (${refreshedPoint.x}, ${refreshedPoint.y})`);
       } else {
-        console.log(`[UNLOAD-POINT-ACTION] ✅ Found coordinates for ${loadPointId}: (${pointCoordinates.x}, ${pointCoordinates.y})`);
+        console.log(`[UNLOAD-POINT-ACTION] ✅ Found coordinates for ${loadPointId}: (${pointData.x}, ${pointData.y})`);
       }
       
       // Extract the area ID from the point ID with more robust handling
