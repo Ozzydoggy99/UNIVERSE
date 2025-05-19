@@ -536,7 +536,7 @@ async function toUnloadPoint(taskId: string, x: number, y: number, orientation: 
     }
     
     // Send the unload point command to the robot
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
+    const payload = {
       creator: 'robot-management-platform',
       type: 'to_unload_point',
       target_x: x,
@@ -544,7 +544,11 @@ async function toUnloadPoint(taskId: string, x: number, y: number, orientation: 
       target_z: orientation,
       point_id: loadPointId,
       rack_area_id: rackAreaId
-    }, {
+    };
+    
+    logTask(taskId, `Sending to_unload_point command with payload: ${JSON.stringify(payload)}`);
+    
+    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, payload, {
       headers: getHeaders()
     });
     
