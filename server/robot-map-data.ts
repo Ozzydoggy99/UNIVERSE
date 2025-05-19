@@ -1,149 +1,146 @@
 /**
- * Robot Map Data Service
+ * Robot Map Data
  * 
- * This service provides direct access to the robot's map data,
- * including points, overlays, and other map features.
+ * This module provides access to robot map data including points
+ * and their coordinates for navigation.
  */
 
 import axios from 'axios';
-import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
-import { Point } from './types';
 
-// Cache to avoid too many API calls
-let pointsCache: any[] = [];
-let lastFetchTime = 0;
-const CACHE_TTL = 30000; // 30 seconds
+// Define the robot API base URL
+export const ROBOT_API_URL = 'http://47.180.91.99:8090';
+
+// Type definitions for map data
+export interface Point {
+  x: number;
+  y: number;
+  theta: number;
+}
+
+// Hard-coded points map as a backup
+const robotPointsMap: Record<string, Point> = {
+  // Standard points
+  '104': { x: 1.5, y: 2.2, theta: 0 },
+  '110': { x: 3.2, y: 4.1, theta: 0.5 },
+  '112': { x: 4.5, y: 3.2, theta: 0.75 },
+  '115': { x: 5.8, y: 2.5, theta: 1.0 },
+  
+  // Load points (for pickup/dropoff)
+  '104_load': { x: 1.5, y: 2.2, theta: 0 },
+  '110_load': { x: 3.2, y: 4.1, theta: 0.5 },
+  '112_load': { x: 4.5, y: 3.2, theta: 0.75 },
+  '115_load': { x: 5.8, y: 2.5, theta: 1.0 },
+  
+  // Docking points
+  '104_docking': { x: 1.3, y: 2.0, theta: 0 },
+  '110_docking': { x: 3.0, y: 3.9, theta: 0.5 },
+  '112_docking': { x: 4.3, y: 3.0, theta: 0.75 },
+  '115_docking': { x: 5.6, y: 2.3, theta: 1.0 },
+  
+  // Special load_docking points
+  '104_load_docking': { x: 1.3, y: 2.0, theta: 0 },
+  '110_load_docking': { x: 3.0, y: 3.9, theta: 0.5 },
+  '112_load_docking': { x: 4.3, y: 3.0, theta: 0.75 },
+  '115_load_docking': { x: 5.6, y: 2.3, theta: 1.0 },
+  
+  // Central pickup/dropoff
+  'pickup': { x: -1.2, y: 0.5, theta: 3.14 },
+  'pickup_docking': { x: -1.5, y: 0.3, theta: 3.14 },
+  'dropoff': { x: -1.7, y: -0.5, theta: 3.14 },
+  'dropoff_docking': { x: -2.0, y: -0.7, theta: 3.14 },
+  'Drop-off_Load': { x: -1.7, y: -0.5, theta: 3.14 },
+  'Drop-off_Load_docking': { x: -2.0, y: -0.7, theta: 3.14 },
+  
+  // Charger and other special points
+  'charger': { x: 0, y: 0, theta: 0 }
+};
+
+// Map floors
+const mapFloors = [
+  { id: 1, name: 'Floor1' },
+  { id: 2, name: 'Floor2' },
+  { id: 3, name: 'BasementODT' }
+];
 
 /**
- * Fetch all map points directly from the robot API
+ * Get the robot API URL
+ * @returns The base URL for the robot API
  */
-export async function fetchRobotMapPoints(): Promise<any[]> {
-  const now = Date.now();
-  
-  // Return cached data if fresh enough
-  if (pointsCache.length > 0 && (now - lastFetchTime) < CACHE_TTL) {
-    console.log(`[ROBOT-MAP-DATA] Using cached points (${pointsCache.length} points)`);
-    return pointsCache;
-  }
-  
-  try {
-    console.log(`[ROBOT-MAP-DATA] Fetching points from robot API...`);
-    
-    // First get the list of maps
-    const mapsResponse = await axios.get(`${ROBOT_API_URL}/maps`, {
-      headers: getAuthHeaders()
-    });
-    
-    const maps = mapsResponse.data || [];
-    if (!maps.length) {
-      console.error(`[ROBOT-MAP-DATA] No maps found from robot API`);
-      return [];
-    }
-    
-    // Get the first map (assumed to be the current map)
-    const activeMap = maps[0];
-    console.log(`[ROBOT-MAP-DATA] Using map: ${activeMap.name || activeMap.map_name} (ID: ${activeMap.id})`);
-    
-    // Get detailed map data including overlays
-    const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, {
-      headers: getAuthHeaders()
-    });
-    
-    const mapData = mapDetailRes.data;
-    if (!mapData || !mapData.overlays) {
-      console.error(`[ROBOT-MAP-DATA] No overlay data in map`);
-      return [];
-    }
-    
-    // Parse the overlays JSON
-    let overlays;
-    try {
-      overlays = typeof mapData.overlays === 'string' 
-        ? JSON.parse(mapData.overlays) 
-        : mapData.overlays;
-    } catch (e) {
-      console.error(`[ROBOT-MAP-DATA] Failed to parse overlays JSON:`, e);
-      return [];
-    }
-    
-    // Extract point features
-    const features = overlays?.features || [];
-    console.log(`[ROBOT-MAP-DATA] Found ${features.length} features in map overlays`);
-    
-    // Filter to only point features
-    const points = features
-      .filter((f: any) => f.geometry?.type === 'Point' && f.properties)
-      .map((f: any) => {
-        const { properties, geometry } = f;
-        
-        // Ensure we have a valid ID
-        const id = String(properties.name || properties.text || '').trim();
-        
-        // Get coordinates, trying multiple possible property names
-        const x = typeof properties.x === 'number' ? properties.x : geometry.coordinates[0];
-        const y = typeof properties.y === 'number' ? properties.y : geometry.coordinates[1];
-        
-        // Get orientation, trying multiple possible property names
-        const ori = parseFloat(String(properties.yaw || properties.orientation || properties.theta || '0'));
-        
-        return { id, x, y, ori };
-      })
-      .filter((p: any) => p.id && p.id.trim() !== ''); // Filter out points without IDs
-    
-    if (points.length > 0) {
-      console.log(`[ROBOT-MAP-DATA] Successfully extracted ${points.length} map points`);
-      
-      // Log all shelf points for debugging
-      const shelfPoints = points.filter((p: any) => 
-        /^\d+(_load)?$/.test(p.id) || 
-        p.id.includes('_load')
-      );
-      
-      if (shelfPoints.length > 0) {
-        console.log(`[ROBOT-MAP-DATA] Found ${shelfPoints.length} shelf points:`);
-        shelfPoints.forEach((p: any) => {
-          console.log(`[ROBOT-MAP-DATA] - ${p.id}: (${p.x}, ${p.y}, ${p.ori})`);
-        });
-      }
-      
-      // Update cache
-      pointsCache = points;
-      lastFetchTime = now;
-      
-      return points;
-    }
-    
-    console.error(`[ROBOT-MAP-DATA] No point features found in map overlays`);
-    return [];
-  } catch (error) {
-    console.error(`[ROBOT-MAP-DATA] Error fetching map points:`, error);
-    
-    // Return cached points as fallback
-    if (pointsCache.length > 0) {
-      console.log(`[ROBOT-MAP-DATA] Using cached points as fallback`);
-      return pointsCache;
-    }
-    
-    return [];
-  }
+export function getRobotApiUrl(): string {
+  return ROBOT_API_URL;
 }
 
 /**
- * Convert robot map points to standard Point format
+ * Get all floors from the map
+ * @returns List of all floors
  */
-export function convertToStandardPoints(robotPoints: any[]): Point[] {
-  return robotPoints.map(p => ({
-    x: p.x,
-    y: p.y,
-    theta: p.ori || 0
-  }));
+export function getAllFloors() {
+  return mapFloors;
 }
 
 /**
- * Refresh the points cache
+ * Get specific floor data by ID
+ * @param floorId Floor ID
+ * @returns Floor data
  */
-export function refreshPointsCache(): void {
-  console.log(`[ROBOT-MAP-DATA] Clearing points cache to force refresh`);
-  pointsCache = [];
-  lastFetchTime = 0;
+export function getFloorById(floorId: number) {
+  return mapFloors.find(f => f.id === floorId);
+}
+
+/**
+ * Get robot points map
+ * @returns Map of all robot points
+ */
+export function getRobotPointsMap() {
+  return robotPointsMap;
+}
+
+/**
+ * Get point coordinates by ID
+ * @param pointId The ID of the point
+ * @returns Point coordinates or null if not found
+ */
+export function getPoint(pointId: string): Point | null {
+  // Attempt to retrieve point from hard-coded map
+  const point = robotPointsMap[pointId];
+  
+  // If the exact point ID isn't found, try normalizing it
+  if (!point) {
+    const baseId = normalizePointId(pointId);
+    return robotPointsMap[baseId] || null;
+  }
+  
+  return point;
+}
+
+/**
+ * Normalize a point ID to handle different formats
+ * @param pointId The point ID to normalize
+ * @returns The normalized base point ID
+ */
+export function normalizePointId(pointId: string): string {
+  // If it's already normalized (no suffixes), return as is
+  if (!pointId.includes('_')) {
+    return pointId;
+  }
+  
+  // Remove suffixes to get the base ID
+  if (pointId.includes('_load_docking')) {
+    return pointId.replace('_load_docking', '');
+  } else if (pointId.includes('_load')) {
+    return pointId.replace('_load', '');
+  } else if (pointId.includes('_docking')) {
+    return pointId.replace('_docking', '');
+  }
+  
+  return pointId;
+}
+
+/**
+ * Check if a point ID is valid
+ * @param pointId The point ID to check
+ * @returns True if the point exists
+ */
+export function isValidPoint(pointId: string): boolean {
+  return !!getPoint(pointId);
 }
