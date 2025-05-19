@@ -9671,6 +9671,74 @@
           "label": "Move to central pickup docking position"
         },
         "completed": false,
+        "retryCount": 3,
+        "errorMessage": "Movement timeout exceeded (120000ms)"
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.847,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Align with rack at central pickup"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "move",
+        "params": {
+          "x": -6.917,
+          "y": 6.721,
+          "ori": 0,
+          "label": "Move directly to dropoff shelf load point"
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 0,
+    "createdAt": "2025-05-19T22:06:20.036Z",
+    "updatedAt": "2025-05-19T22:13:52.635Z",
+    "robotSn": "L382502104987ir",
+    "offline": true
+  },
+  {
+    "id": "mission_1747692787586_z9azm19",
+    "name": "Central Pickup to Shelf (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.887,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Move to central pickup docking position"
+        },
+        "completed": false,
         "retryCount": 0
       },
       {
@@ -9720,8 +9788,8 @@
     ],
     "status": "in_progress",
     "currentStepIndex": 0,
-    "createdAt": "2025-05-19T22:06:20.036Z",
-    "updatedAt": "2025-05-19T22:07:37.161Z",
+    "createdAt": "2025-05-19T22:13:07.586Z",
+    "updatedAt": "2025-05-19T22:13:57.183Z",
     "robotSn": "L382502104987ir"
   }
 ]
