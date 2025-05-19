@@ -4,7 +4,7 @@
  * This script verifies that the robot properly skips docking points during dropoff
  * operations by testing both standard workflows and direct API calls.
  */
-const axios = require('axios');
+import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:5000';
 
