@@ -161,10 +161,8 @@ export const toUnloadPointAction: Action = {
       
       // Based on the AutoXing API documentation, we need to use the 'to_unload_point' move type
       // for the actual load point (not the docking point)
-      // Ensure we're using a proper load point without any docking suffix
-      const loadPointId = resolvedPointId.toLowerCase().includes('_docking') 
-        ? resolvedPointId.replace('_docking', '_load').replace('_DOCKING', '_load')
-        : resolvedPointId;
+      // Since we need to modify this variable later, use let instead of const
+      let loadPointId = resolvedPointId;
         
       // Second safety check - after resolving, if we still have a docking point, throw an error
       if (loadPointId.toString().toLowerCase().includes('_docking')) {
@@ -182,17 +180,20 @@ export const toUnloadPointAction: Action = {
       // This must be the complete identifier for the shelf/dropoff location
       // Both "001_load" and "001_load_docking" would have rack_area_id="001_load"
       
-      // If a docking point is provided, convert it to a load point
+      // CRITICAL FIX: We cannot just rename the point - we must REJECT docking points entirely
+      // since the robot must physically be at the load point location to unload
+      
+      // Completely reject any docking points - no conversion, just error out
       if (loadPointId.toLowerCase().includes('_docking')) {
-        // Convert "001_load_docking" to "001_load"
-        const originalId = loadPointId;
-        loadPointId = loadPointId.replace(/_docking/i, '_load');
-        console.log(`[UNLOAD-POINT-ACTION] Converting docking point ${originalId} to load point ${loadPointId}`);
+        console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Cannot unload at a docking point: ${loadPointId}`);
+        console.log(`[UNLOAD-POINT-ACTION] The robot must physically move to a load point before unloading`);
+        throw new Error(`Cannot unload at docking point ${loadPointId}. The robot must physically be at a load point.`);
       }
       
-      // Final safety check - if we still have a docking point somehow, fail
-      if (loadPointId.toLowerCase().includes('_docking')) {
-        throw new Error(`Cannot use docking point ${loadPointId} for unloading. Should be a load point.`);
+      // Verify we have a proper load point
+      if (!loadPointId.toLowerCase().includes('_load')) {
+        console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Not a valid load point: ${loadPointId}`);
+        throw new Error(`The point ${loadPointId} is not a valid load point for unloading operations.`);
       }
       
       // Now that we're sure it's a load point, use the FULL load point ID as rack_area_id

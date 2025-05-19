@@ -514,20 +514,26 @@ async function toUnloadPoint(taskId: string, x: number, y: number, orientation: 
   try {
     logTask(taskId, `Moving to unload point at ${pointName}`);
     
-    // Make sure we're using proper load point (not docking)
-    // If a docking point is passed, convert it to a load point
-    let loadPointId = pointName;
-    if (loadPointId.toLowerCase().includes('_docking')) {
-      // Convert "001_load_docking" to "001_load"
-      loadPointId = loadPointId.replace(/_docking/i, '_load');
-      logTask(taskId, `NOTICE: Converting docking point ${pointName} to load point ${loadPointId}`);
-    }
+    // CRITICAL FIX: The robot must physically be at a load point to unload
+    // We cannot simply convert a docking point name to a load point name
     
-    // Final safety check - if we still have a docking point, fail
-    if (loadPointId.toLowerCase().includes('_docking')) {
-      logTask(taskId, `ERROR: Cannot use to_unload_point with docking point ${loadPointId}`);
+    // Completely reject any docking points - no conversion
+    if (pointName.toLowerCase().includes('_docking')) {
+      logTask(taskId, `⚠️ CRITICAL ERROR: Cannot unload at a docking point: ${pointName}`);
+      logTask(taskId, `Robot must physically move to a load point before unloading`);
+      logTask(taskId, `Check your workflow sequence to ensure proper movement to load points`);
       return false;
     }
+    
+    // Verify that this is a valid load point
+    if (!pointName.toLowerCase().includes('_load')) {
+      logTask(taskId, `⚠️ CRITICAL ERROR: Not a valid load point: ${pointName}`);
+      logTask(taskId, `Point must include '_load' in its ID`);
+      return false;
+    }
+    
+    // Use the point name directly - we've verified it's a load point
+    const loadPointId = pointName;
     
     // CRITICAL FIX: We MUST use the full load point ID as the rack_area_id
     // Using just the numeric prefix causes issues because both load and docking
