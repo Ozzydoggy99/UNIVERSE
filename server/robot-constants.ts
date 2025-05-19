@@ -19,11 +19,11 @@ if (!robotIpFromEnv) {
 }
 const ROBOT_IP = robotIpFromEnv;
 
-// Robot API URL - base URL for all API requests, without /api/v1
+// Robot API URL - direct URL without /api/v1
 export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
 
-// Robot WebSocket URL - trying direct root connection since path support is limited
-export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/topics`;
+// Robot WebSocket URL with trailing slash which is required
+export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/topics/`;
 
 // Robot authentication secret - from environment variables (required)
 const robotSecretFromEnv = process.env.ROBOT_SECRET_KEY || process.env.ROBOT_SECRET;
