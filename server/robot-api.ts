@@ -1,8 +1,6 @@
 import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from "./robot-constants";
 import { Express, Request, Response } from 'express';
-import { getLatestLidarData, getLatestMapData, getRobotWebSocketStatus } from './robot-websocket';
-import { robotPositionTracker } from './robot-position-tracker';
 
 // Using the correct AutoXing API header format
 const headers = getAuthHeaders();
@@ -99,6 +97,7 @@ export function registerRobotApiRoutes(app: Express) {
         console.log(`Trying multiple LiDAR data endpoints...`);
         
         // First try WebSocket data if available
+        const { getLatestLidarData } = require('./robot-websocket');
         const wsLidarData = getLatestLidarData();
         
         if (wsLidarData) {
@@ -274,6 +273,9 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching position from API: /api/robots/position/${serialNumber}`);
       
       try {
+        // Import the position tracker to get the latest position from WebSocket
+        const { robotPositionTracker } = require('./robot-position-tracker');
+        
         // Get the latest position from the WebSocket tracker - this is updated in real-time
         const latestPosition = robotPositionTracker.getLatestPosition();
         
@@ -373,6 +375,7 @@ export function registerRobotApiRoutes(app: Express) {
       
       try {
         // Try to get map data from WebSocket connection first
+        const { getLatestMapData } = require('./robot-websocket');
         const wsMapData = getLatestMapData();
         
         if (wsMapData) {
@@ -592,7 +595,10 @@ export function registerRobotApiRoutes(app: Express) {
   // WebSocket status endpoint
   app.get('/api/robot/websocket-status', (req: Request, res: Response) => {
     try {
-      // getRobotWebSocketStatus and robotPositionTracker are already imported at the top of the file
+      // Import the websocket status function
+      const { getRobotWebSocketStatus } = require('./robot-websocket');
+      // Import the position tracker
+      const { robotPositionTracker } = require('./robot-position-tracker');
       
       const status = getRobotWebSocketStatus();
       const latestPosition = robotPositionTracker.getLatestPosition();

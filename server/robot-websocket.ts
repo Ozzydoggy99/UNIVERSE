@@ -7,8 +7,7 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { Request } from 'express';
 import { Server } from 'http';
-import { ROBOT_API_URL, ROBOT_WS_URL, ROBOT_SECRET, getAuthHeaders, ROBOT_IP } from './robot-constants';
-import { robotPositionTracker } from './robot-position-tracker';
+import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 
 // Initialize connection states
 let robotWs: WebSocket | null = null;
@@ -46,8 +45,9 @@ const subscribeTopics: string[] = [
  * Get the WebSocket URL for the robot
  */
 function getRobotWebSocketUrl(): string {
-  // Use the WebSocket URL from constants
-  return ROBOT_WS_URL;
+  // According to the new documentation, we need to use the proper API endpoint
+  // The AutoXing API docs specify the WebSocket URL format
+  return `${ROBOT_API_URL.replace(/^http/, 'ws')}/ws/v2`;
 }
 
 /**
@@ -79,13 +79,7 @@ function connectRobotWebSocket() {
     }, 10000);
 
     // Create connection with proper auth headers according to AutoXing API docs
-    // Explicitly format the correct WebSocket URL with topics path that robot needs
-    const robotIp = process.env.ROBOT_IP || "47.180.91.99";
-    const fullWsUrl = `ws://${robotIp}:8090/ws/v2/topics`;
-    
-    console.log(`Connecting to robot WebSocket at ${fullWsUrl}`);
-    
-    robotWs = new WebSocket(fullWsUrl, {
+    robotWs = new WebSocket(wsUrl, {
       headers: getAuthHeaders()
     });
 
@@ -170,7 +164,7 @@ function connectRobotWebSocket() {
           // Store data by topic for later retrieval
           if (message.topic === '/tracked_pose' || message.topic === '/robot/footprint') {
             // Handle position data
-            // Position tracker imported at the top of file
+            const { robotPositionTracker } = require('./robot-position-tracker');
             
             // Extract position data properly based on message format
             let posData = {
