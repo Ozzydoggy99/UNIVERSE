@@ -2,6 +2,7 @@
 import { Point } from './types';
 import axios from 'axios';
 import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
+import { fetchMaps, fetchMapPoints as apiFetchMapPoints } from './robot-api-fixed';
 
 /**
  * Fetch all map points from the robot's current map using overlays

@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import { createServer, type Server } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { storage } from './mem-storage';
-import { registerRobotApiRoutes } from './robot-api';
+import { registerRobotApiRoutes } from './robot-api-fixed';
 import { registerRobotVideoRoutes } from './robot-video';
 import { setupVite } from './vite';
 import { registerAdminRoutes } from './admin-routes';
