@@ -95,10 +95,18 @@ export const moveToPointAction: ActionModule = {
       
       console.log(`[ACTION] Moving to point: ${resolvedPointId}`);
       
+      // Check if this is a dropoff operation - use the forDropoff parameter
+      // If it's a dropoff and the point includes '_docking', we should convert it to a load point
+      let pointIdToUse = resolvedPointId;
+      
+      // For dropoff operations, always use the load point (not docking)
+      if (params.forDropoff === true && pointIdToUse.includes('_docking')) {
+        pointIdToUse = pointIdToUse.replace('_docking', '');
+        console.log(`[ACTION] Dropoff operation detected - converting docking point to load point: ${pointIdToUse}`);
+      }
+      
       // Check if this is a shelf unload point (for dropping bins)
-      const isUnloadPoint = !resolvedPointId.includes('_docking') && 
-                            resolvedPointId.includes('_load') && 
-                            params.forDropoff === true;
+      const isUnloadPoint = pointIdToUse.includes('_load') && params.forDropoff === true;
       
       let response;
       let moveActionId;
