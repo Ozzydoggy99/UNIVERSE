@@ -273,8 +273,9 @@ export function registerRobotApiRoutes(app: Express) {
       console.log(`Fetching position from API: /api/robots/position/${serialNumber}`);
       
       try {
-        // Import the position tracker to get the latest position from WebSocket
-        const { robotPositionTracker } = require('./robot-position-tracker');
+        // Get position from the robotPositionTracker (imported at top of file)
+        // Note: Using direct import since require() isn't allowed in ES modules
+        import { robotPositionTracker } from './robot-position-tracker.js';
         
         // Get the latest position from the WebSocket tracker - this is updated in real-time
         const latestPosition = robotPositionTracker.getLatestPosition();
