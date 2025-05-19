@@ -314,7 +314,7 @@ export const dynamicShelfToCentralWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
         pointId: '001_load',
         speed: 0.5
