@@ -12,6 +12,9 @@ import { registerRobotMoveApiRoutes } from './robot-move-api';
 import { registerRobotPointRoutes } from './robot-points-api';
 // Import point display mappings
 import { pointDisplayMappings } from './robot-points-map';
+// Import automatic point detection system
+import { initializeAutoPointDetection } from './auto-point-detection';
+import { registerDynamicPointRoutes } from './dynamic-point-routes';
 // Task assignment API for AutoXing structured mission execution
 import { registerAssignTaskRoute } from './assign-task';
 // Local pickup handling with jack up/down operations
@@ -65,6 +68,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register the new shelf points API
   registerRobotPointRoutes(app);
   
+  // Register dynamic point detection routes
+  registerDynamicPointRoutes(app);
+  
+  // Initialize the automatic point detection system
+  initializeAutoPointDetection();
+  
   // Register AutoXing task assignment API (new version)
   registerAssignTaskRoute(app);
   
@@ -102,10 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register robot capabilities API for dynamic template configuration
   registerRobotCapabilitiesAPI(app);
   
-  // Add endpoint for point display mappings (for UI friendly names)
-  app.get('/api/robots/points/display-mappings', (req: Request, res: Response) => {
-    res.json(pointDisplayMappings);
-  });
+  // Note: Dynamic point display mappings now registered in registerDynamicPointRoutes
   
   // Test endpoint for the toUnloadPoint action
   app.post('/api/robot/test-unload-action', async (req: Request, res: Response) => {
