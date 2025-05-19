@@ -7,7 +7,7 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { Request } from 'express';
 import { Server } from 'http';
-import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
+import { ROBOT_API_URL, ROBOT_WS_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
 import { robotPositionTracker } from './robot-position-tracker';
 
 // Initialize connection states
@@ -46,9 +46,8 @@ const subscribeTopics: string[] = [
  * Get the WebSocket URL for the robot
  */
 function getRobotWebSocketUrl(): string {
-  // According to the new documentation, we need to use the proper API endpoint
-  // The AutoXing API docs specify the WebSocket URL format
-  return `${ROBOT_API_URL.replace(/^http/, 'ws')}/ws/v2`;
+  // Use the WebSocket URL from constants
+  return ROBOT_WS_URL;
 }
 
 /**
