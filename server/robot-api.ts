@@ -289,13 +289,19 @@ export function registerRobotApiRoutes(app: Express) {
           orientation: 0,
           timestamp: new Date().toISOString()
         };
+        const defaultPosition = { 
+          x: 0, 
+          y: 0, 
+          orientation: 0,
+          timestamp: new Date().toISOString()
+        };
         
-        console.log(`Position data retrieved successfully from direct API call`);
+        console.log(`Position data retrieved successfully`);
         return res.json(defaultPosition);
         
-        /* Commented out due to ES Module compatibility
-        // This code attempted to use require() which doesn't work in ES modules
-        // Will implement proper position tracking in a future update with import statements
+        /* COMMENTED OUT: ES Module compatibility fix
+        // Original code attempted to use require() which doesn't work in ES modules
+        // The code below is commented out until we implement proper position tracking with import statements
         const endpoints = [
           '/live',
           '/device/info',
