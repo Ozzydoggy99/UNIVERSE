@@ -138,12 +138,59 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   // Helper functions for jack operations
   async function jackUp() {
     try {
-      const response = await axios.post(
-        `${ROBOT_API_URL}/jack/up`, 
-        {}, 
-        { headers }
-      );
-      appendLog(`✅ Jack up command sent: ${JSON.stringify(response.data)}`);
+      // Try multiple APIs for jack up operations (in order of preference)
+      let response;
+      let success = false;
+      
+      // Method 1: Try services/jack_up API endpoint (newest method)
+      try {
+        appendLog(`⬆️ METHOD 1: Using services API for jack up`);
+        response = await axios.post(
+          `${ROBOT_API_URL}/services/jack_up`, 
+          {}, 
+          { headers }
+        );
+        appendLog(`✅ Jack up command sent via services API: ${JSON.stringify(response.data)}`);
+        success = true;
+      } catch (err) {
+        appendLog(`⚠️ services/jack_up method failed: ${err.message}`);
+        // Fall through to next method
+      }
+      
+      // Method 2: Try chassis/lift_rack API endpoint
+      if (!success) {
+        try {
+          appendLog(`⬆️ METHOD 2: Using chassis/lift_rack API for jack up`);
+          response = await axios.post(
+            `${ROBOT_API_URL}/chassis/lift_rack`, 
+            {}, 
+            { headers }
+          );
+          appendLog(`✅ Jack up command sent via chassis/lift_rack API: ${JSON.stringify(response.data)}`);
+          success = true;
+        } catch (err) {
+          appendLog(`⚠️ chassis/lift_rack method failed: ${err.message}`);
+          // Fall through to next method
+        }
+      }
+      
+      // Method 3: Try old direct jack up API endpoint
+      if (!success) {
+        try {
+          appendLog(`⬆️ METHOD 3: Using direct jack/up API endpoint`);
+          response = await axios.post(
+            `${ROBOT_API_URL}/jack/up`, 
+            {}, 
+            { headers }
+          );
+          appendLog(`✅ Jack up command sent via direct jack/up API: ${JSON.stringify(response.data)}`);
+          success = true;
+        } catch (err) {
+          appendLog(`⚠️ jack/up method failed: ${err.message}`);
+          // This was our last option - propagate the error
+          throw new Error(`All jack up methods failed: ${err.message}`);
+        }
+      }
       
       // Wait for jack operation to complete
       await wait(5000);
@@ -156,12 +203,59 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   
   async function jackDown() {
     try {
-      const response = await axios.post(
-        `${ROBOT_API_URL}/jack/down`, 
-        {}, 
-        { headers }
-      );
-      appendLog(`✅ Jack down command sent: ${JSON.stringify(response.data)}`);
+      // Try multiple APIs for jack down operations (in order of preference)
+      let response;
+      let success = false;
+      
+      // Method 1: Try services/jack_down API endpoint (newest method)
+      try {
+        appendLog(`⬇️ METHOD 1: Using services API for jack down`);
+        response = await axios.post(
+          `${ROBOT_API_URL}/services/jack_down`, 
+          {}, 
+          { headers }
+        );
+        appendLog(`✅ Jack down command sent via services API: ${JSON.stringify(response.data)}`);
+        success = true;
+      } catch (err) {
+        appendLog(`⚠️ services/jack_down method failed: ${err.message}`);
+        // Fall through to next method
+      }
+      
+      // Method 2: Try chassis/lower_rack API endpoint
+      if (!success) {
+        try {
+          appendLog(`⬇️ METHOD 2: Using chassis/lower_rack API for jack down`);
+          response = await axios.post(
+            `${ROBOT_API_URL}/chassis/lower_rack`, 
+            {}, 
+            { headers }
+          );
+          appendLog(`✅ Jack down command sent via chassis/lower_rack API: ${JSON.stringify(response.data)}`);
+          success = true;
+        } catch (err) {
+          appendLog(`⚠️ chassis/lower_rack method failed: ${err.message}`);
+          // Fall through to next method
+        }
+      }
+      
+      // Method 3: Try old direct jack down API endpoint
+      if (!success) {
+        try {
+          appendLog(`⬇️ METHOD 3: Using direct jack/down API endpoint`);
+          response = await axios.post(
+            `${ROBOT_API_URL}/jack/down`, 
+            {}, 
+            { headers }
+          );
+          appendLog(`✅ Jack down command sent via direct jack/down API: ${JSON.stringify(response.data)}`);
+          success = true;
+        } catch (err) {
+          appendLog(`⚠️ jack/down method failed: ${err.message}`);
+          // This was our last option - propagate the error
+          throw new Error(`All jack down methods failed: ${err.message}`);
+        }
+      }
       
       // Wait for jack operation to complete
       await wait(5000);
