@@ -47,10 +47,6 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
     throw new Error("❌ Required point(s) not found: pickup, dropoff, desk/standby, shelf");
   }
 
-  const sequence = uiMode === "pickup"
-    ? [shelf, dropoff, standby]
-    : [standby, pickup, shelf, standby];
-
   appendLog("\n[MISSION START]");
   appendLog(`Mode: ${uiMode}`);
   appendLog(`Shelf: ${shelf.id} → (${shelf.x}, ${shelf.y})`);
@@ -58,21 +54,121 @@ export async function runMission({ shelfId, uiMode, points }: RobotTaskRequest) 
   appendLog(`drop-off: ${dropoff.id} → (${dropoff.x}, ${dropoff.y})`);
   appendLog(`Standby: ${standby.id} → (${standby.x}, ${standby.y})`);
 
-  for (const point of sequence) {
+  if (uiMode === "pickup") {
+    // PICKUP MODE: Get bin from shelf and take to dropoff
+    
+    // Step 1: Move to shelf
+    appendLog(`➡️ Moving to shelf: ${shelf.id}`);
+    await moveToPoint(shelf.x, shelf.y, "shelf point");
+    
+    // Step 2: Jack up to grab the bin
+    appendLog(`⬆️ Jacking up to grab bin at shelf: ${shelf.id}`);
+    await jackUp();
+    
+    // Step 3: Move to dropoff 
+    appendLog(`➡️ Moving to dropoff with bin: ${dropoff.id}`);
+    await moveToPoint(dropoff.x, dropoff.y, "dropoff point");
+    
+    // Step 4: Jack down to release bin
+    appendLog(`⬇️ Jacking down to release bin at dropoff`);
+    await jackDown();
+    
+    // Step 5: Move to standby
+    appendLog(`➡️ Moving to standby position: ${standby.id}`);
+    await moveToPoint(standby.x, standby.y, "standby point");
+    
+  } else {
+    // DROPOFF MODE: Get bin from pickup and take to shelf
+    
+    // Step 1: Move to standby first
+    appendLog(`➡️ Moving to standby: ${standby.id}`);
+    await moveToPoint(standby.x, standby.y, "standby point");
+    
+    // Step 2: Move to pickup
+    appendLog(`➡️ Moving to pickup: ${pickup.id}`);
+    await moveToPoint(pickup.x, pickup.y, "pickup point");
+    
+    // Step 3: Jack up to grab the bin
+    appendLog(`⬆️ Jacking up to grab bin at pickup`);
+    await jackUp();
+    
+    // Step 4: Move to shelf
+    appendLog(`➡️ Moving to shelf with bin: ${shelf.id}`);
+    await moveToPoint(shelf.x, shelf.y, "shelf point");
+    
+    // Step 5: Jack down to release bin
+    appendLog(`⬇️ Jacking down to release bin at shelf`);
+    await jackDown();
+    
+    // Step 6: Move to standby
+    appendLog(`➡️ Moving back to standby: ${standby.id}`);
+    await moveToPoint(standby.x, standby.y, "standby point");
+  }
+
+  // Helper function to move robot to point
+  async function moveToPoint(x: number, y: number, pointLabel: string) {
     try {
-      appendLog(`➡️ Sending robot to: ${point.id} (${point.x}, ${point.y})`);
+      // Cancel any current moves first
+      try {
+        await axios.patch(
+          `${ROBOT_API_URL}/chassis/moves/current`,
+          { state: "cancelled" },
+          { headers }
+        );
+      } catch (cancelError: any) {
+        appendLog(`⚠️ Could not cancel current move: ${cancelError.message}`);
+      }
+      
+      // Send move command
       const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, {
         action: "move_to",
-        target_x: point.x,
-        target_y: point.y
+        target_x: x,
+        target_y: y
       }, { headers });
 
-      appendLog(`✅ Move to ${point.id} started (MoveID: ${response.data?.id})`);
+      appendLog(`✅ Move to ${pointLabel} started (MoveID: ${response.data?.id})`);
       await waitForMoveComplete();
-      appendLog(`🏁 Arrived at ${point.id}`);
+      appendLog(`🏁 Arrived at ${pointLabel}`);
     } catch (err: any) {
-      appendLog(`❌ Move to ${point.id} failed: ${err.message}`);
-      throw new Error(`Move failed: ${point.id}`);
+      appendLog(`❌ Move to ${pointLabel} failed: ${err.message}`);
+      throw new Error(`Move to ${pointLabel} failed: ${err.message}`);
+    }
+  }
+  
+  // Helper functions for jack operations
+  async function jackUp() {
+    try {
+      const response = await axios.post(
+        `${ROBOT_API_URL}/jack/up`, 
+        {}, 
+        { headers }
+      );
+      appendLog(`✅ Jack up command sent: ${JSON.stringify(response.data)}`);
+      
+      // Wait for jack operation to complete
+      await wait(5000);
+      appendLog(`✅ Jack up operation completed`);
+    } catch (err: any) {
+      appendLog(`❌ Jack up failed: ${err.message}`);
+      throw new Error(`Jack up failed: ${err.message}`);
+    }
+  }
+  
+  async function jackDown() {
+    try {
+      const response = await axios.post(
+        `${ROBOT_API_URL}/jack/down`, 
+        {}, 
+        { headers }
+      );
+      appendLog(`✅ Jack down command sent: ${JSON.stringify(response.data)}`);
+      
+      // Wait for jack operation to complete
+      await wait(5000);
+      appendLog(`✅ Jack down operation completed`);
+    } catch (err: any) {
+      appendLog(`❌ Jack down failed: ${err.message}`);
+      throw new Error(`Jack down failed: ${err.message}`);
     }
   }
 

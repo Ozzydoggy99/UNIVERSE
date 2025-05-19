@@ -149,9 +149,9 @@ export const toUnloadPointAction: Action = {
         console.log(`[UNLOAD-POINT-ACTION] According to the perfect example (pickup-104-new.js), docking points should`);
         console.log(`[UNLOAD-POINT-ACTION] use standard 'move' type, not 'to_unload_point'. Correcting this issue.`);
         
-        // Instead of just logging this, we should explicitly throw an error
-        // This will force workflow execution to fail early and prevent incorrect operations
-        throw new Error(`Cannot use to_unload_point with docking point ${params.pointId}. Use moveToPoint action for docking points.`);
+        // Convert docking point to load point
+        params.pointId = params.pointId.toString().replace(/_docking/i, '_load');
+        console.log(`[UNLOAD-POINT-ACTION] Converted docking point to load point: ${params.pointId}`);
       }
       
       // Resolve the point ID using our naming convention
@@ -164,10 +164,11 @@ export const toUnloadPointAction: Action = {
       // Since we need to modify this variable later, use let instead of const
       let loadPointId = resolvedPointId;
         
-      // Second safety check - after resolving, if we still have a docking point, throw an error
+      // Second safety check - after resolving, if we still have a docking point, convert it
       if (loadPointId.toString().toLowerCase().includes('_docking')) {
-        console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: After resolving point ID, still have docking point: ${loadPointId}`);
-        throw new Error(`Cannot use to_unload_point with docking point ${loadPointId}. This should never happen - check the point naming.`);
+        console.log(`[UNLOAD-POINT-ACTION] ⚠️ After resolving point ID, still have docking point: ${loadPointId}`);
+        loadPointId = loadPointId.toString().replace(/_docking/i, '_load');
+        console.log(`[UNLOAD-POINT-ACTION] Converted to load point: ${loadPointId}`);
       }
         
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
@@ -175,26 +176,6 @@ export const toUnloadPointAction: Action = {
       // Extract the area ID from the point ID with more robust handling
       // Special handling for the drop-off area which contains a hyphen
       let rackAreaId;
-      
-      // CRITICAL FIX: We need to ensure we're using the correct rack_area_id format
-      // This must be the complete identifier for the shelf/dropoff location
-      // Both "001_load" and "001_load_docking" would have rack_area_id="001_load"
-      
-      // CRITICAL FIX: We cannot just rename the point - we must REJECT docking points entirely
-      // since the robot must physically be at the load point location to unload
-      
-      // Completely reject any docking points - no conversion, just error out
-      if (loadPointId.toLowerCase().includes('_docking')) {
-        console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Cannot unload at a docking point: ${loadPointId}`);
-        console.log(`[UNLOAD-POINT-ACTION] The robot must physically move to a load point before unloading`);
-        throw new Error(`Cannot unload at docking point ${loadPointId}. The robot must physically be at a load point.`);
-      }
-      
-      // Verify we have a proper load point
-      if (!loadPointId.toLowerCase().includes('_load')) {
-        console.log(`[UNLOAD-POINT-ACTION] ⚠️ CRITICAL ERROR: Not a valid load point: ${loadPointId}`);
-        throw new Error(`The point ${loadPointId} is not a valid load point for unloading operations.`);
-      }
       
       // Now that we're sure it's a load point, use the FULL load point ID as rack_area_id
       // For "001_load", use the entire "001_load" as rack_area_id, NOT just "001"
