@@ -135,27 +135,9 @@ function connectRobotWebSocket() {
       });
     });
 
-    // Storage for latest topic data
-let latestMapData: any = null;
-let latestLidarData: any = null;
-let latestBatteryData: any = null;
-
-// Getter functions for WebSocket data
-export function getLatestMapData(): any {
-  return latestMapData;
-}
-
-export function getLatestLidarData(): any {
-  return latestLidarData;
-}
-
-export function getLatestBatteryData(): any {
-  return latestBatteryData && latestBatteryData.percentage ? 
-    { percentage: latestBatteryData.percentage, charging: !!latestBatteryData.charging } : 
-    null;
-}
-
-robotWs.on('message', (data) => {
+    // Data will be stored in the top-level variables
+    
+    robotWs.on('message', (data) => {
       try {
         const messageStr = data.toString();
         let message: any;
@@ -213,11 +195,11 @@ robotWs.on('message', (data) => {
             // Update the position tracker
             robotPositionTracker.updatePosition(posData);
           } else if (message.topic === '/map' || message.topic === '/map_v2') {
-            // Store map data
+            // Store map data in top-level variable
             latestMapData = message;
             console.log(`Stored latest map data from ${message.topic}`);
           } else if (category === 'lidar') {
-            // Store LiDAR data
+            // Store LiDAR data in top-level variable
             latestLidarData = message;
             
             // For better debugging, let's extract the structure of the data
@@ -369,6 +351,34 @@ export function getRobotWebSocketStatus(): string {
   } else {
     return 'disconnected';
   }
+}
+
+// Storage for latest topic data for access outside the WebSocket connection
+let latestMapData: any = null;
+let latestLidarData: any = null;
+let latestBatteryData: any = null;
+
+/**
+ * Get the latest map data from the robot
+ */
+export function getLatestMapData(): any {
+  return latestMapData;
+}
+
+/**
+ * Get the latest LiDAR data from the robot
+ */
+export function getLatestLidarData(): any {
+  return latestLidarData;
+}
+
+/**
+ * Get the latest battery data from the robot
+ */
+export function getLatestBatteryData(): any {
+  return latestBatteryData && latestBatteryData.percentage ? 
+    { percentage: latestBatteryData.percentage, charging: !!latestBatteryData.charging } : 
+    null;
 }
 
 /**
