@@ -99,11 +99,13 @@ export function registerRobotApiRoutes(app: Express) {
         console.log(`Trying multiple LiDAR data endpoints...`);
         
         // First try WebSocket data if available
-        const wsLidarData = getLatestLidarData();
-        
-        if (wsLidarData) {
-          console.log('Using LiDAR data from WebSocket');
-          return res.json(wsLidarData);
+        if (getLatestLidarData) {
+          const wsLidarData = getLatestLidarData();
+          
+          if (wsLidarData) {
+            console.log('Using LiDAR data from WebSocket');
+            return res.json(wsLidarData);
+          }
         }
 
         // Try each potential endpoint
@@ -275,11 +277,13 @@ export function registerRobotApiRoutes(app: Express) {
       
       try {
         // Get the latest position from the WebSocket tracker - this is updated in real-time
-        const latestPosition = robotPositionTracker.getLatestPosition();
-        
-        if (latestPosition && latestPosition.x !== undefined && latestPosition.y !== undefined) {
-          console.log(`Position data retrieved successfully from WebSocket: (${latestPosition.x}, ${latestPosition.y})`);
-          return res.json(latestPosition);
+        if (robotPositionTracker && robotPositionTracker.getLatestPosition) {
+          const latestPosition = robotPositionTracker.getLatestPosition();
+          
+          if (latestPosition && latestPosition.x !== undefined && latestPosition.y !== undefined) {
+            console.log(`Position data retrieved successfully from WebSocket: (${latestPosition.x}, ${latestPosition.y})`);
+            return res.json(latestPosition);
+          }
         }
         
         // If we don't have position data from WebSocket yet, try a direct API call as backup
