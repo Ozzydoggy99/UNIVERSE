@@ -16,6 +16,20 @@ export function registerDynamicPointRoutes(app: express.Express) {
    * GET /api/robots/points/dynamic
    * Get all dynamically detected points
    */
+  app.get('/api/robots/points/dynamic', (req: Request, res: Response) => {
+    try {
+      const points = getAllDynamicPoints();
+      res.json(points);
+    } catch (error: any) {
+      console.error('❌ Failed to load dynamic points:', error);
+      res.status(500).json({ error: error.message || 'Unknown error' });
+    }
+  });
+
+  /**
+   * GET /api/robots/points
+   * Get all dynamically detected points
+   */
   app.get('/api/robots/points/dynamic', async (req: Request, res: Response) => {
     try {
       const points = getAllDynamicPoints();
