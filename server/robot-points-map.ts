@@ -23,6 +23,13 @@ export interface Floor {
   charger: Point;
 }
 
+// Display name mapping for user interface
+export interface PointDisplayMapping {
+  technicalId: string;    // Internal ID used by system (e.g., "001_load")
+  displayName: string;    // User-friendly name shown in UI (e.g., "Dropoff")
+  pointType: 'pickup' | 'dropoff' | 'shelf' | 'charger'; // Type of point
+}
+
 // Robot points map type
 export interface RobotPointsMap {
   floors: Record<number, Floor>;
@@ -33,7 +40,21 @@ export interface RobotPointsMap {
   getShelfPointNames: (floorId: number) => string[];
   getShelfNumber: (shelfPointName: string) => number;
   getDockingPointName: (loadPointName: string) => string;
+  // New mapping functions for display names
+  getDisplayName: (technicalId: string) => string;
+  getTechnicalIdFromDisplay: (displayName: string) => string;
 }
+
+// Display name mappings for the UI
+export const pointDisplayMappings: PointDisplayMapping[] = [
+  { technicalId: '050_load', displayName: 'Pickup', pointType: 'pickup' },
+  { technicalId: '050_load_docking', displayName: 'Pickup Docking', pointType: 'pickup' },
+  { technicalId: '001_load', displayName: 'Dropoff', pointType: 'dropoff' },
+  { technicalId: '001_load_docking', displayName: 'Dropoff Docking', pointType: 'dropoff' },
+  { technicalId: '104_load', displayName: 'Zone 104', pointType: 'shelf' },
+  { technicalId: '104_load_docking', displayName: 'Zone 104 Docking', pointType: 'shelf' },
+  { technicalId: 'charger', displayName: 'Charging Station', pointType: 'charger' },
+];
 
 // Contains data retrieved from analyze-robot-map.js
 const robotPointsMap: RobotPointsMap = {
@@ -199,6 +220,26 @@ const robotPointsMap: RobotPointsMap = {
     }
     
     return `${loadPointName}_docking`;
+  },
+  
+  // Get display name for technical point ID
+  getDisplayName: function(technicalId: string): string {
+    const mapping = pointDisplayMappings.find(m => m.technicalId === technicalId);
+    if (mapping) {
+      return mapping.displayName;
+    }
+    // If no mapping found, return the original ID (fallback)
+    return technicalId;
+  },
+  
+  // Get technical ID from display name
+  getTechnicalIdFromDisplay: function(displayName: string): string {
+    const mapping = pointDisplayMappings.find(m => m.displayName === displayName);
+    if (mapping) {
+      return mapping.technicalId;
+    }
+    // If no mapping found, return the original name (fallback)
+    return displayName;
   }
 };
 

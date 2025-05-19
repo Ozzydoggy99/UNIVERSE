@@ -10,6 +10,8 @@ import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
 // New optimized points API for shelf filtering
 import { registerRobotPointRoutes } from './robot-points-api';
+// Import point display mappings
+import { pointDisplayMappings } from './robot-points-map';
 // Task assignment API for AutoXing structured mission execution
 import { registerAssignTaskRoute } from './assign-task';
 // Local pickup handling with jack up/down operations
@@ -99,6 +101,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register robot capabilities API for dynamic template configuration
   registerRobotCapabilitiesAPI(app);
+  
+  // Add endpoint for point display mappings (for UI friendly names)
+  app.get('/api/robots/points/display-mappings', (req: Request, res: Response) => {
+    res.json(pointDisplayMappings);
+  });
   
   // Test endpoint for the toUnloadPoint action
   app.post('/api/robot/test-unload-action', async (req: Request, res: Response) => {
