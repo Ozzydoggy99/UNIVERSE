@@ -41,7 +41,10 @@ const RobotMissionPage: FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
-            <MissionControl shelfPoints={shelfPoints.map(id => ({ id }))} />
+            <MissionControl shelfPoints={shelfPoints.map(id => ({ 
+              id, 
+              name: getDisplayName(id) 
+            }))} />
           </div>
           <div>
             <Card className="p-6">
@@ -76,25 +79,27 @@ const RobotMissionPage: FC = () => {
                 </div>
                 
                 <div>
-                  <h3 className="font-medium">Desk Point</h3>
+                  <h3 className="font-medium">Standby Point</h3>
                   <p>
-                    {specialPoints.desk ? (
+                    {specialPoints.standby ? (
                       <>
-                        {specialPoints.desk.id} ({specialPoints.desk.x.toFixed(2)}, {specialPoints.desk.y.toFixed(2)})
+                        <strong>{getDisplayName(specialPoints.standby.id)}</strong> ({specialPoints.standby.x.toFixed(2)}, {specialPoints.standby.y.toFixed(2)})
+                        <div className="text-xs text-muted-foreground">Technical ID: {specialPoints.standby.id}</div>
                       </>
                     ) : (
-                      <span className="text-muted-foreground italic">No desk point defined</span>
+                      <span className="text-muted-foreground italic">No standby point defined</span>
                     )}
                   </p>
                 </div>
                 
                 <div>
-                  <h3 className="font-medium">Available Numeric Points</h3>
+                  <h3 className="font-medium">Available Shelf Points</h3>
                   {numericPoints.length > 0 ? (
                     <ul className="list-disc list-inside space-y-1">
                       {numericPoints.map((point) => (
                         <li key={point.id}>
-                          {point.id} ({point.x.toFixed(2)}, {point.y.toFixed(2)})
+                          <strong>{getDisplayName(point.id)}</strong> ({point.x.toFixed(2)}, {point.y.toFixed(2)})
+                          <div className="text-xs text-muted-foreground">Technical ID: {point.id}</div>
                         </li>
                       ))}
                     </ul>
