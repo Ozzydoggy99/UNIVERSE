@@ -58,7 +58,8 @@ export const zoneToPickupWorkflow: WorkflowTemplate = {
       actionId: 'moveToPoint',
       params: {
         pointId: '104_load',
-        speed: 0.5
+        speed: 0.5,
+        forDropoff: true
       },
       description: 'Move directly to Zone 104 load point'
     },
@@ -115,7 +116,8 @@ export const pickupToDropoffWorkflow: WorkflowTemplate = {
       actionId: 'moveToPoint',
       params: {
         pointId: '001_load',
-        speed: 0.5
+        speed: 0.5,
+        forDropoff: true
       },
       description: 'Move directly to dropoff point'
     },
