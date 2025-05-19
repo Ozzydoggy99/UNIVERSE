@@ -2,6 +2,9 @@ import axios from "axios";
 import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from "./robot-constants";
 import { Express, Request, Response } from 'express';
 
+// Overriding the API URL to use the correct endpoints for this robot model
+const DIRECT_API_URL = 'http://47.180.91.99:8090';
+
 // Using the correct AutoXing API header format
 const headers = getAuthHeaders();
 

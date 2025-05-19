@@ -19,11 +19,10 @@ if (!robotIpFromEnv) {
 }
 const ROBOT_IP = robotIpFromEnv;
 
-// Robot API URL - base URL for all API requests including the /api/v1 path
-export let ROBOT_API_URL = `http://${ROBOT_IP}:8090/api/v1`;
+// Robot API URL - base URL for all API requests, without /api/v1
+export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
 
-// Robot WebSocket URL - specific format for the AutoXing robot model
-// Using the /topics path since that appears to be the WebSocket endpoint for this model
+// Robot WebSocket URL - trying direct root connection since path support is limited
 export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/topics`;
 
 // Robot authentication secret - from environment variables (required)
