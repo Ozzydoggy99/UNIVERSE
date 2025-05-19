@@ -592,10 +592,7 @@ export function registerRobotApiRoutes(app: Express) {
   // WebSocket status endpoint
   app.get('/api/robot/websocket-status', (req: Request, res: Response) => {
     try {
-      // Import the websocket status function
-      const { getRobotWebSocketStatus } = require('./robot-websocket');
-      // Import the position tracker
-      const { robotPositionTracker } = require('./robot-position-tracker');
+      // getRobotWebSocketStatus and robotPositionTracker are already imported at the top of the file
       
       const status = getRobotWebSocketStatus();
       const latestPosition = robotPositionTracker.getLatestPosition();
