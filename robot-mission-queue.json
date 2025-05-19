@@ -9877,5 +9877,187 @@
     "createdAt": "2025-05-19T19:27:37.162Z",
     "updatedAt": "2025-05-19T19:29:53.451Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747683798542_ho4wbwo",
+    "name": "Central Pickup to Shelf (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.887,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Move to central pickup docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to central pickup docking position completed successfully",
+          "moveId": 4932
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.847,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Align with rack at central pickup"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4933,
+          "message": "Align with rack completed successfully"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -8.029,
+          "y": 6.704,
+          "ori": 0,
+          "point_id": "115_load",
+          "rack_area_id": "115_load",
+          "label": "Move directly to dropoff shelf point for unloading"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4934,
+          "message": "Move to unload point completed successfully"
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Return to charger initiated with coordinate-based navigation",
+          "moveId": 4935,
+          "method": "coordinate_based_with_charging"
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 6,
+    "createdAt": "2025-05-19T19:43:18.542Z",
+    "updatedAt": "2025-05-19T19:44:43.797Z",
+    "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747684430744_9qk2cf2",
+    "name": "Central Pickup to Shelf (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.887,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Move to central pickup docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to central pickup docking position completed successfully",
+          "moveId": 4936
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.847,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Align with rack at central pickup"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4937,
+          "message": "Align with rack completed successfully"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "x": -8.029,
+          "y": 6.704,
+          "ori": 0,
+          "point_id": "115_load",
+          "rack_area_id": "115_load",
+          "label": "Move directly to dropoff shelf point for unloading"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 4938,
+          "message": "Move to unload point completed successfully"
+        }
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Return to charger initiated with coordinate-based navigation",
+          "moveId": 4939,
+          "method": "coordinate_based_with_charging"
+        }
+      }
+    ],
+    "status": "completed",
+    "currentStepIndex": 6,
+    "createdAt": "2025-05-19T19:53:50.744Z",
+    "updatedAt": "2025-05-19T19:55:14.004Z",
+    "robotSn": "L382502104987ir"
   }
 ]
