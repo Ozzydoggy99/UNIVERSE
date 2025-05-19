@@ -1,7 +1,7 @@
 import { ActionParams, ValidationResult } from './action-modules';
 import axios from 'axios';
 import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
-import { getPointCoordinates } from './dynamic-point-service';
+import { getPointCoordinates } from './dynamic-map-points';
 
 // Define the ActionResult interface
 export type ActionResult = {
@@ -172,6 +172,28 @@ export const toUnloadPointAction: Action = {
       }
         
       console.log(`[ACTION] Using load point ID for unloading: ${loadPointId}`);
+      
+      // DYNAMIC POINT LOOKUP: Get coordinates from the dynamic map service
+      // This allows us to handle newly added points without code changes
+      const pointCoordinates = await getPointCoordinates(loadPointId);
+      
+      if (!pointCoordinates) {
+        console.error(`[UNLOAD-POINT-ACTION] ❌ Could not find coordinates for point: ${loadPointId}`);
+        console.error(`[UNLOAD-POINT-ACTION] This may be a new point that needs to be added to the map.`);
+        console.error(`[UNLOAD-POINT-ACTION] Attempting to fetch the latest map points from the robot...`);
+        
+        // Try again after refreshing the cache - maybe the point was just added
+        // This second attempt will force a fresh fetch from the robot
+        const refreshedPoint = await getPointCoordinates(loadPointId);
+        
+        if (!refreshedPoint) {
+          throw new Error(`Could not find the unload point coordinates for ${loadPointId}. Make sure this point exists on the robot map.`);
+        }
+        
+        console.log(`[UNLOAD-POINT-ACTION] ✅ Found coordinates after refresh: (${refreshedPoint.x}, ${refreshedPoint.y})`);
+      } else {
+        console.log(`[UNLOAD-POINT-ACTION] ✅ Found coordinates for ${loadPointId}: (${pointCoordinates.x}, ${pointCoordinates.y})`);
+      }
       
       // Extract the area ID from the point ID with more robust handling
       // Special handling for the drop-off area which contains a hyphen

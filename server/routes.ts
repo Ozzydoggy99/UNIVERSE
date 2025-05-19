@@ -175,6 +175,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Dynamic Point Service API for automatic detection of new map points
+  app.get('/api/dynamic-points/:pointId', async (req, res) => {
+    try {
+      const { pointId } = req.params;
+      console.log(`[DYNAMIC-POINTS-API] Getting coordinates for point ID: ${pointId}`);
+      
+      // Import the dynamic-map-points module
+      const { getPointCoordinates } = await import('./dynamic-map-points');
+      
+      const point = await getPointCoordinates(pointId);
+      
+      if (point) {
+        console.log(`[DYNAMIC-POINTS-API] Found coordinates for ${pointId}: (${point.x}, ${point.y})`);
+        res.json({
+          found: true,
+          point
+        });
+      } else {
+        console.log(`[DYNAMIC-POINTS-API] Could not find coordinates for point: ${pointId}`);
+        res.json({
+          found: false,
+          message: `Could not find point with ID: ${pointId}`
+        });
+      }
+    } catch (error) {
+      console.error('[DYNAMIC-POINTS-API] Error getting point coordinates:', error);
+      res.status(500).json({
+        found: false,
+        error: 'Internal server error'
+      });
+    }
+  });
+  
+  // Get all available shelf points (for dropdowns, etc.)
+  app.get('/api/dynamic-points', async (req, res) => {
+    try {
+      console.log('[DYNAMIC-POINTS-API] Fetching all shelf points');
+      
+      // Import the dynamic-map-points module
+      const { getAllShelfPoints } = await import('./dynamic-map-points');
+      
+      const points = await getAllShelfPoints();
+      
+      console.log(`[DYNAMIC-POINTS-API] Found ${points.length} shelf points`);
+      res.json({
+        points
+      });
+    } catch (error) {
+      console.error('[DYNAMIC-POINTS-API] Error getting shelf points:', error);
+      res.status(500).json({
+        error: 'Internal server error'
+      });
+    }
+  });
+  
   // Register mission router for robot task execution
   app.use('/api', missionRouter);
   
