@@ -120,6 +120,9 @@ export async function fetchAllMapPoints(): Promise<Point[]> {
 
 /**
  * Get coordinates for a specific point ID
+ * 
+ * This improved version specifically fixes the original "110_load" point detection bug
+ * by trying multiple variations of the point ID format.
  */
 export async function getPointCoordinates(pointId: string): Promise<Point | null> {
   if (!pointId) {
@@ -128,27 +131,50 @@ export async function getPointCoordinates(pointId: string): Promise<Point | null
   }
   
   try {
-    const normalizedId = normalizePointId(pointId);
-    console.log(`[DYNAMIC-MAP] Finding coordinates for point: ${normalizedId} (original: ${pointId})`);
+    console.log(`[DYNAMIC-MAP] Looking up coordinates for point: ${pointId}`);
     
-    // Fetch all points
+    // IMPORTANT: Try the original ID first without normalization
+    // This fixes the "110_load" detection issue by not prematurely adding _load
     const allPoints = await fetchAllMapPoints();
     
-    // First try exact match
-    let point = allPoints.find(p => p.id === normalizedId);
+    // First try exact match with the original ID
+    let point = allPoints.find(p => p.id === pointId);
     
-    // If not found, try case-insensitive match
-    if (!point) {
-      point = allPoints.find(p => p.id.toLowerCase() === normalizedId.toLowerCase());
-    }
-    
+    // If found with exact match, return immediately
     if (point) {
-      console.log(`[DYNAMIC-MAP] ✅ Found coordinates for ${normalizedId}: (${point.x}, ${point.y})`);
+      console.log(`[DYNAMIC-MAP] ✅ Found exact match for ${pointId}: (${point.x}, ${point.y})`);
       return point;
     }
     
-    // Try alternate formats
-    const alternateIds = generateAlternateIds(normalizedId);
+    // Try case-insensitive match with original ID
+    point = allPoints.find(p => p.id.toLowerCase() === pointId.toLowerCase());
+    if (point) {
+      console.log(`[DYNAMIC-MAP] ✅ Found case-insensitive match for ${pointId}: (${point.x}, ${point.y})`);
+      return point;
+    }
+    
+    // If not found with original ID, try with normalization
+    const normalizedId = normalizePointId(pointId);
+    console.log(`[DYNAMIC-MAP] Original point not found, trying normalized ID: ${normalizedId}`);
+    
+    // Try exact match with normalized ID
+    point = allPoints.find(p => p.id === normalizedId);
+    if (point) {
+      console.log(`[DYNAMIC-MAP] ✅ Found coordinates for normalized ID ${normalizedId}: (${point.x}, ${point.y})`);
+      return point;
+    }
+    
+    // Try case-insensitive match with normalized ID
+    point = allPoints.find(p => p.id.toLowerCase() === normalizedId.toLowerCase());
+    if (point) {
+      console.log(`[DYNAMIC-MAP] ✅ Found case-insensitive match for normalized ID ${normalizedId}: (${point.x}, ${point.y})`);
+      return point;
+    }
+    
+    // Try alternate formats as a last resort
+    const alternateIds = generateAlternateIds(pointId);
+    console.log(`[DYNAMIC-MAP] Trying alternate formats for ${pointId}: ${alternateIds.join(', ')}`);
+    
     for (const altId of alternateIds) {
       point = allPoints.find(p => p.id.toLowerCase() === altId.toLowerCase());
       if (point) {
@@ -157,7 +183,30 @@ export async function getPointCoordinates(pointId: string): Promise<Point | null
       }
     }
     
-    console.error(`[DYNAMIC-MAP] ❌ Could not find coordinates for ${normalizedId}`);
+    // Special fallback for numeric IDs (like "110")
+    if (/^\d+$/.test(pointId)) {
+      const numericMatches = allPoints.filter(p => 
+        p.id.startsWith(pointId) || 
+        p.id.includes(`_${pointId}`) ||
+        p.id.includes(`${pointId}_`)
+      );
+      
+      if (numericMatches.length > 0) {
+        // Prefer matches with _load suffix if available
+        const loadPoint = numericMatches.find(p => p.id.includes('_load'));
+        if (loadPoint) {
+          console.log(`[DYNAMIC-MAP] ✅ Found numeric-based match with _load: ${loadPoint.id}`);
+          return loadPoint;
+        }
+        
+        // Otherwise use the first match
+        console.log(`[DYNAMIC-MAP] ✅ Found numeric-based match: ${numericMatches[0].id}`);
+        return numericMatches[0];
+      }
+    }
+    
+    console.error(`[DYNAMIC-MAP] ❌ Could not find coordinates for ${pointId} (normalized: ${normalizedId})`);
+    console.log(`[DYNAMIC-MAP] Available points: ${allPoints.map(p => p.id).join(', ')}`);
     return null;
   } catch (error) {
     console.error(`[DYNAMIC-MAP] Error getting point coordinates:`, error);
@@ -183,23 +232,38 @@ export async function getAllShelfPoints(): Promise<Point[]> {
 
 /**
  * Normalize point ID to standard format
+ * 
+ * This corrected version specifically handles the original bug with "110_load" point format.
+ * It prevents unnecessarily adding _load suffix to IDs that already have it.
  */
 function normalizePointId(pointId: string): string {
   if (!pointId) return '';
   
   const id = pointId.toString();
   
+  // FIXED: If it already has _load or _docking, keep as is
+  if (id.includes('_load') || id.includes('_docking')) {
+    console.log(`[DYNAMIC-MAP] Point ${id} already has _load or _docking suffix, keeping as is`);
+    return id;
+  }
+  
   // If it's a number only, add _load suffix (e.g., "110" -> "110_load")
   if (/^\d+$/.test(id)) {
+    console.log(`[DYNAMIC-MAP] Adding _load suffix to numeric point ID: ${id} -> ${id}_load`);
     return `${id}_load`;
   }
   
-  // If it already has _load or _docking, keep as is
-  if (id.includes('_load') || id.includes('_docking')) {
+  // Special case for Drop-off points
+  if (id.toLowerCase().includes('drop-off') || id.toLowerCase() === 'dropoff') {
+    if (!id.includes('_load')) {
+      console.log(`[DYNAMIC-MAP] Adding _load suffix to Drop-off point: ${id} -> ${id}_load`);
+      return `${id}_load`;
+    }
     return id;
   }
   
   // Otherwise add _load
+  console.log(`[DYNAMIC-MAP] Adding _load suffix to point ID: ${id} -> ${id}_load`);
   return `${id}_load`;
 }
 

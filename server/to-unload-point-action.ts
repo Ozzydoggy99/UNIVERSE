@@ -51,18 +51,27 @@ export async function execute(params: ActionParams): Promise<ExecuteResponse> {
     // Regular shelf points (e.g., "110_load") and special points (e.g., "Drop-off_Load")
     let rack_area_id: string;
     
-    // Normalize the point ID first to handle various formats
-    const normalizedPointId = normalizePointId(point_id);
-    console.log(`[TO-UNLOAD-POINT] Normalized point ID: ${normalizedPointId}`);
-    
+    // CRITICAL FIX: For points like "110_load", use the original point ID directly
+    // This ensures we don't lose the _load suffix which is critical for proper operation
+    if (point_id.includes('_load')) {
+      // Use the point_id directly if it already has the _load suffix
+      rack_area_id = point_id;
+      console.log(`[TO-UNLOAD-POINT] Using original point ID (with _load) as rack_area_id: ${rack_area_id}`);
+    }
     // Special case for the hyphenated Drop-off point
-    if (point_id.includes('Drop-off') || point_id.toLowerCase().includes('drop-off')) {
+    else if (point_id.includes('Drop-off') || point_id.toLowerCase().includes('drop-off')) {
       rack_area_id = 'Drop-off';
       console.log(`[TO-UNLOAD-POINT] Using special rack area ID for Drop-off point: ${rack_area_id}`);
-    } else {
-      // For regular shelf points, use the normalized ID
-      rack_area_id = normalizedPointId;
-      console.log(`[TO-UNLOAD-POINT] Using normalized point ID for rack area: ${rack_area_id}`);
+    } 
+    // For numeric IDs like "110", add the _load suffix
+    else if (/^\d+$/.test(point_id)) {
+      rack_area_id = `${point_id}_load`;
+      console.log(`[TO-UNLOAD-POINT] Added _load suffix to numeric ID: ${rack_area_id}`);
+    }
+    // For all other points, use the original point ID
+    else {
+      rack_area_id = point_id;
+      console.log(`[TO-UNLOAD-POINT] Using original point ID for rack area: ${rack_area_id}`);
     }
     
     // Construct the API endpoint for placing the bin
