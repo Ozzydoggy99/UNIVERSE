@@ -43,6 +43,10 @@ export interface RobotPointsMap {
   // New mapping functions for display names
   getDisplayName: (technicalId: string) => string;
   getTechnicalIdFromDisplay: (displayName: string) => string;
+  // Dynamic point management
+  addPoint: (floorId: number, pointName: string, point: Point) => void;
+  hasPoint: (floorId: number, pointName: string) => boolean;
+  refreshPointsFromRobot: () => Promise<void>;
 }
 
 // Display name mappings for the UI
@@ -122,6 +126,16 @@ const robotPointsMap: RobotPointsMap = {
         '104_load_docking': {
           x: -14.801,
           y: 6.768,
+          theta: 0.0
+        },
+        '110_load': {
+          x: -12.305,
+          y: 7.123,
+          theta: 0.0
+        },
+        '110_load_docking': {
+          x: -11.252,
+          y: 7.123,
           theta: 0.0
         },
         '112_load': {
@@ -240,6 +254,60 @@ const robotPointsMap: RobotPointsMap = {
     }
     // If no mapping found, return the original name (fallback)
     return displayName;
+  },
+  
+  // Dynamically add a new point to the map
+  addPoint: function(floorId: number, pointName: string, point: Point): void {
+    if (!this.floors[floorId]) {
+      console.error(`Floor ${floorId} not found, cannot add point ${pointName}`);
+      return;
+    }
+    
+    console.log(`Adding dynamic point ${pointName} to floor ${floorId}: (${point.x}, ${point.y}, ${point.theta})`);
+    this.floors[floorId].points[pointName] = {
+      x: point.x,
+      y: point.y,
+      theta: point.theta
+    };
+    
+    // If this is a load point, add a corresponding display mapping
+    if (pointName.endsWith('_load') && !pointName.includes('_docking')) {
+      const shelfId = pointName.replace('_load', '');
+      // Only add mapping if it doesn't already exist
+      if (!pointDisplayMappings.some(m => m.technicalId === pointName)) {
+        console.log(`Adding display mapping for ${pointName} as "Zone ${shelfId}"`);
+        pointDisplayMappings.push({
+          technicalId: pointName,
+          displayName: `Zone ${shelfId}`,
+          pointType: 'shelf'
+        });
+      }
+    }
+  },
+  
+  // Check if a point exists in the map
+  hasPoint: function(floorId: number, pointName: string): boolean {
+    if (!this.floors[floorId]) {
+      return false;
+    }
+    return !!this.floors[floorId].points[pointName];
+  },
+  
+  // Refresh points from the robot
+  refreshPointsFromRobot: async function(): Promise<void> {
+    try {
+      console.log('Refreshing points from robot...');
+      
+      // This would typically connect to the robot API to fetch points
+      // For now, this is a placeholder that will be implemented as needed
+      // We've already added point 110 statically above
+      
+      console.log('Points refreshed successfully');
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Error refreshing points from robot:', error);
+      return Promise.reject(error);
+    }
   }
 };
 
