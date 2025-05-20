@@ -12,14 +12,13 @@
 
 import { Express, Request, Response } from 'express';
 import robotPointsMap, { pointDisplayMappings, PointDisplayMapping } from './robot-points-map';
-import { ensureAuthenticated, ensureAdmin } from './auth';
 
 /**
  * Register refresh points API routes
  */
 export function registerRefreshPointsRoutes(app: Express): void {
   // Endpoint to manually trigger refresh of points from robot map
-  app.post('/api/refresh-robot-points', ensureAuthenticated, ensureAdmin, async (req: Request, res: Response) => {
+  app.post('/api/refresh-robot-points', async (req: Request, res: Response) => {
     try {
       console.log('Manual refresh of robot points initiated');
       await robotPointsMap.refreshPointsFromRobot();
@@ -42,7 +41,7 @@ export function registerRefreshPointsRoutes(app: Express): void {
   });
 
   // Endpoint to get available point sets
-  app.get('/api/point-sets', ensureAuthenticated, (req: Request, res: Response) => {
+  app.get('/api/point-sets', (req: Request, res: Response) => {
     try {
       const pointSets = enrichPointSets(robotPointsMap.getPointSets());
       res.status(200).json({ 
