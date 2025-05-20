@@ -1,119 +1,183 @@
 /**
- * API for refreshing robot points and dynamically adding new points to the system
+ * Refresh Points API
  * 
- * This API provides endpoints to:
- * 1. Refresh all points from the robot's map
- * 2. Add a specific point to the system
+ * This API provides endpoints to synchronize the points in our system with
+ * the actual points defined in the robot's maps.
  * 
- * These endpoints allow the system to dynamically detect and incorporate
- * new points (like shelf 110) into workflows without requiring a restart.
+ * It handles:
+ * 1. Detection of new point sets (e.g., 110_load and 110_load_docking)
+ * 2. Removal of obsolete point sets no longer in the robot maps
+ * 3. Updating display mappings to match available points
  */
 
-import express, { Request, Response } from 'express';
-import robotPointsMap from './robot-points-map';
-
-const refreshPointsRouter = express.Router();
+import { Express, Request, Response } from 'express';
+import robotPointsMap, { pointDisplayMappings, PointDisplayMapping } from './robot-points-map';
 
 /**
- * GET /api/robot-points/refresh
- * 
- * Refreshes all point data from the robot
+ * Register refresh points API routes
  */
-refreshPointsRouter.get('/refresh', async (req: Request, res: Response) => {
-  try {
-    console.log('Manually refreshing robot points map...');
-    await robotPointsMap.refreshPointsFromRobot();
-    
-    // Return the updated list of shelf points
-    const floorIds = robotPointsMap.getFloorIds();
-    const shelfPoints: Record<string, string[]> = {};
-    
-    for (const floorId of floorIds) {
-      shelfPoints[`floor${floorId}`] = robotPointsMap.getShelfPointNames(floorId);
+export function registerRefreshPointsRoutes(app: Express): void {
+  // Endpoint to manually trigger refresh of points from robot map
+  app.post('/api/refresh-robot-points', async (req: Request, res: Response) => {
+    try {
+      console.log('Manual refresh of robot points initiated');
+      await robotPointsMap.refreshPointsFromRobot();
+      
+      // Get updated point sets for display in the UI
+      const pointSets = extractPointSets();
+      
+      res.status(200).json({
+        success: true, 
+        message: 'Robot points refreshed successfully',
+        pointSets
+      });
+    } catch (error) {
+      console.error('Error refreshing robot points:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Error refreshing robot points: ${error instanceof Error ? error.message : String(error)}`
+      });
     }
-    
-    res.json({
-      success: true,
-      message: 'Robot points refreshed successfully',
-      shelfPoints
-    });
-  } catch (error) {
-    console.error('Error refreshing robot points:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to refresh robot points',
-      error: String(error)
-    });
-  }
-});
+  });
 
-/**
- * POST /api/robot-points/add
- * 
- * Manually add a new point to the system
- * Body: {
- *   floorId: number,
- *   pointName: string,
- *   x: number,
- *   y: number,
- *   theta: number
- * }
- */
-refreshPointsRouter.post('/add', (req: Request, res: Response) => {
-  try {
-    const { floorId, pointName, x, y, theta } = req.body;
-    
-    // Validate input
-    if (!floorId || !pointName || x === undefined || y === undefined || theta === undefined) {
-      return res.status(400).json({
+  // Endpoint to get available point sets
+  app.get('/api/point-sets', (req: Request, res: Response) => {
+    try {
+      const pointSets = extractPointSets();
+      res.status(200).json({ 
+        success: true, 
+        pointSets 
+      });
+    } catch (error) {
+      console.error('Error getting point sets:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Error getting point sets: ${error instanceof Error ? error.message : String(error)}`
+      });
+    }
+  });
+
+  // Endpoint to update display name for a technical point ID
+  app.post('/api/update-display-mapping', (req: Request, res: Response) => {
+    try {
+      const { technicalId, displayName, pointType } = req.body;
+      
+      if (!technicalId || !displayName || !pointType) {
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required fields: technicalId, displayName, or pointType'
+        });
+      }
+      
+      // Check if the mapping already exists
+      const existingIndex = pointDisplayMappings.findIndex(m => m.technicalId === technicalId);
+      
+      if (existingIndex >= 0) {
+        // Update existing mapping
+        pointDisplayMappings[existingIndex] = {
+          technicalId,
+          displayName,
+          pointType: pointType as 'pickup' | 'dropoff' | 'shelf' | 'charger'
+        };
+      } else {
+        // Add new mapping
+        pointDisplayMappings.push({
+          technicalId,
+          displayName,
+          pointType: pointType as 'pickup' | 'dropoff' | 'shelf' | 'charger'
+        });
+      }
+      
+      res.status(200).json({
+        success: true,
+        message: 'Display mapping updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating display mapping:', error);
+      res.status(500).json({
         success: false,
-        message: 'Missing required fields'
+        message: `Error updating display mapping: ${error instanceof Error ? error.message : String(error)}`
       });
     }
+  });
+}
+
+/**
+ * Helper function to extract point sets (load points with their corresponding docking points)
+ * from the robot points map. Used to display available points in the UI.
+ */
+function extractPointSets(): Array<{
+  id: string;
+  displayName: string;
+  loadPoint: string;
+  dockingPoint: string;
+  pointType: string;
+}> {
+  const pointSets: Array<{
+    id: string;
+    displayName: string;
+    loadPoint: string;
+    dockingPoint: string;
+    pointType: string;
+  }> = [];
+  
+  const floorIds = robotPointsMap.getFloorIds();
+  for (const floorId of floorIds) {
+    const points = robotPointsMap.floors[floorId]?.points || {};
     
-    // Determine if we need to also add a docking point
-    let dockingPointName;
-    if (pointName.endsWith('_load') && !pointName.includes('_docking')) {
-      dockingPointName = `${pointName}_docking`;
+    // First pass: find all _load points
+    const loadPoints = Object.keys(points).filter(id => id.endsWith('_load'));
+    
+    // Second pass: for each load point, find its corresponding docking point
+    for (const loadPoint of loadPoints) {
+      // Generate expected docking point ID
+      const dockingPoint = loadPoint + '_docking';
       
-      // For this demo, we'll place the docking point 1 meter in front of the load point
-      // In a real system, this would be calculated based on the orientation and rack specifications
-      const dockingX = x + Math.cos(theta * (Math.PI / 180));
-      const dockingY = y + Math.sin(theta * (Math.PI / 180));
+      // Skip if we don't have the docking point
+      if (!points[dockingPoint]) {
+        console.warn(`Load point ${loadPoint} exists, but corresponding docking point ${dockingPoint} not found`);
+        continue;
+      }
       
-      // Add the docking point
-      robotPointsMap.addPoint(floorId, dockingPointName, {
-        x: dockingX,
-        y: dockingY,
-        theta
+      // Extract logical ID from the point
+      let id;
+      if (loadPoint.startsWith('pick-up')) {
+        id = 'pick-up';
+      } else if (loadPoint.startsWith('drop-off')) {
+        id = 'drop-off';
+      } else {
+        // For regular shelf points, extract the numerical ID
+        const match = loadPoint.match(/^(\d+)_load$/);
+        id = match ? match[1] : loadPoint;
+      }
+      
+      // Get display name from mappings or use the ID as fallback
+      let displayName = id;
+      let pointType = 'shelf';
+      
+      // Find display mapping
+      const mapping = pointDisplayMappings.find(m => m.technicalId === loadPoint);
+      if (mapping) {
+        displayName = mapping.displayName;
+        pointType = mapping.pointType;
+      } else if (id === 'pick-up') {
+        displayName = 'Pickup';
+        pointType = 'pickup';
+      } else if (id === 'drop-off') {
+        displayName = 'Dropoff';
+        pointType = 'dropoff';
+      }
+      
+      // Add the point set
+      pointSets.push({
+        id,
+        displayName,
+        loadPoint,
+        dockingPoint,
+        pointType
       });
     }
-    
-    // Add the main point
-    robotPointsMap.addPoint(floorId, pointName, {
-      x,
-      y,
-      theta
-    });
-    
-    res.json({
-      success: true,
-      message: 'Point added successfully',
-      pointName,
-      dockingPointName
-    });
-  } catch (error) {
-    console.error('Error adding point:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to add point',
-      error: String(error)
-    });
   }
-});
-
-export default refreshPointsRouter;
-
-export function registerRefreshPointsRoutes(app: express.Express) {
-  app.use('/api/robot-points', refreshPointsRouter);
+  
+  return pointSets;
 }

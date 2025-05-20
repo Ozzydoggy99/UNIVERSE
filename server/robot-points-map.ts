@@ -298,11 +298,119 @@ const robotPointsMap: RobotPointsMap = {
     try {
       console.log('Refreshing points from robot...');
       
-      // This would typically connect to the robot API to fetch points
-      // For now, this is a placeholder that will be implemented as needed
-      // We've already added point 110 statically above
+      // Import necessary API functions
+      const { fetchMapData, getRobotMaps } = await import('./robot-api');
+      
+      // Get all maps from the robot
+      const maps = await getRobotMaps();
+      if (!maps || !maps.maps || !Array.isArray(maps.maps)) {
+        console.error('Failed to get maps from robot');
+        return Promise.reject(new Error('Failed to get maps from robot'));
+      }
+      
+      // Use the first floor map
+      const floor1Map = maps.maps.find(map => map.name === 'Floor1');
+      if (!floor1Map) {
+        console.error('Floor1 map not found');
+        return Promise.reject(new Error('Floor1 map not found'));
+      }
+      
+      // Get map details including points
+      const mapDetails = await fetchMapData(floor1Map.uid);
+      if (!mapDetails || !mapDetails.overlays) {
+        console.error('Failed to get map details or no overlays found');
+        return Promise.reject(new Error('Failed to get map details'));
+      }
+      
+      // Extract and track point IDs found on the robot
+      const robotPointIds = new Set<string>();
+      
+      // Current floor points (for comparison to detect removed points)
+      const currentPoints = this.floors[1]?.points || {};
+      const currentPointIds = new Set(Object.keys(currentPoints));
+      
+      // Track new points found to log them
+      const newPointsFound: string[] = [];
+      
+      // Parse and extract points from map overlays
+      const features = mapDetails.overlays.features || [];
+      for (const feature of features) {
+        if (feature.geometry?.type === 'Point' && feature.properties?.id) {
+          const pointId = feature.properties.id;
+          const coords = feature.geometry.coordinates;
+          
+          // Only process named points like "110_load" or "110_load_docking"
+          if (
+            typeof pointId === 'string' && 
+            coords && 
+            Array.isArray(coords) && 
+            coords.length >= 2 &&
+            (pointId.includes('_load') || pointId.includes('charger'))
+          ) {
+            // Add to tracking set
+            robotPointIds.add(pointId);
+            
+            // Extract coordinates
+            const x = coords[0];
+            const y = coords[1];
+            
+            // Get orientation (theta) if available, default to 0
+            let theta = 0;
+            if (feature.properties.orientation !== undefined) {
+              theta = feature.properties.orientation;
+            }
+            
+            // Check if this is a new point
+            if (!this.hasPoint(1, pointId)) {
+              console.log(`Adding new point from robot map: ${pointId} at (${x}, ${y}, ${theta})`);
+              newPointsFound.push(pointId);
+              
+              // Add the point to our map
+              this.addPoint(1, pointId, { x, y, theta });
+            } else {
+              // Update existing point in case coordinates changed
+              console.log(`Updating existing point: ${pointId}`);
+              this.floors[1].points[pointId] = { x, y, theta };
+            }
+          }
+        }
+      }
+      
+      // Find points to remove (present in our map but not in robot's map)
+      const pointsToRemove: string[] = [];
+      for (const pointId of currentPointIds) {
+        // Only consider _load and _load_docking points for removal, not built-in points
+        if ((pointId.includes('_load') || pointId.includes('_docking')) && 
+            !robotPointIds.has(pointId) &&
+            // Don't remove central pickup/dropoff points which are special
+            !pointId.startsWith('pick-up') && 
+            !pointId.startsWith('drop-off') &&
+            !pointId.startsWith('050') &&
+            !pointId.startsWith('001')) {
+          pointsToRemove.push(pointId);
+        }
+      }
+      
+      // Remove points that no longer exist in the robot map
+      for (const pointId of pointsToRemove) {
+        console.log(`Removing point no longer in robot map: ${pointId}`);
+        delete this.floors[1].points[pointId];
+        
+        // Also remove from display mappings if present
+        const mappingIndex = pointDisplayMappings.findIndex(m => m.technicalId === pointId);
+        if (mappingIndex >= 0) {
+          pointDisplayMappings.splice(mappingIndex, 1);
+        }
+      }
       
       console.log('Points refreshed successfully');
+      if (newPointsFound.length > 0) {
+        console.log(`Added ${newPointsFound.length} new points: ${newPointsFound.join(', ')}`);
+      }
+      if (pointsToRemove.length > 0) {
+        console.log(`Removed ${pointsToRemove.length} points: ${pointsToRemove.join(', ')}`);
+      }
+      
       return Promise.resolve();
     } catch (error) {
       console.error('Error refreshing points from robot:', error);
