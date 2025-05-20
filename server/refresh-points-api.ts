@@ -12,19 +12,20 @@
 
 import { Express, Request, Response } from 'express';
 import robotPointsMap, { pointDisplayMappings, PointDisplayMapping } from './robot-points-map';
+import { ensureAuthenticated, ensureAdmin } from './auth';
 
 /**
  * Register refresh points API routes
  */
 export function registerRefreshPointsRoutes(app: Express): void {
   // Endpoint to manually trigger refresh of points from robot map
-  app.post('/api/refresh-robot-points', async (req: Request, res: Response) => {
+  app.post('/api/refresh-robot-points', ensureAuthenticated, ensureAdmin, async (req: Request, res: Response) => {
     try {
       console.log('Manual refresh of robot points initiated');
       await robotPointsMap.refreshPointsFromRobot();
       
       // Get updated point sets for display in the UI
-      const pointSets = extractPointSets();
+      const pointSets = enrichPointSets(robotPointsMap.getPointSets());
       
       res.status(200).json({
         success: true, 
@@ -43,7 +44,7 @@ export function registerRefreshPointsRoutes(app: Express): void {
   // Endpoint to get available point sets
   app.get('/api/point-sets', (req: Request, res: Response) => {
     try {
-      const pointSets = extractPointSets();
+      const pointSets = enrichPointSets(robotPointsMap.getPointSets());
       res.status(200).json({ 
         success: true, 
         pointSets 
@@ -103,81 +104,42 @@ export function registerRefreshPointsRoutes(app: Express): void {
 }
 
 /**
- * Helper function to extract point sets (load points with their corresponding docking points)
- * from the robot points map. Used to display available points in the UI.
+ * Helper function to enrich point sets with display names and types
+ * Takes the basic point sets from the robotPointsMap.getPointSets() function
+ * and adds display names and point types based on mappings
  */
-function extractPointSets(): Array<{
+function enrichPointSets(rawPointSets: Array<{id: string, loadPoint: string, dockingPoint: string}>): Array<{
   id: string;
   displayName: string;
   loadPoint: string;
   dockingPoint: string;
   pointType: string;
 }> {
-  const pointSets: Array<{
-    id: string;
-    displayName: string;
-    loadPoint: string;
-    dockingPoint: string;
-    pointType: string;
-  }> = [];
-  
-  const floorIds = robotPointsMap.getFloorIds();
-  for (const floorId of floorIds) {
-    const points = robotPointsMap.floors[floorId]?.points || {};
+  return rawPointSets.map(pointSet => {
+    // Get display name from mappings or use the ID as fallback
+    let displayName = pointSet.id;
+    let pointType = 'shelf';
     
-    // First pass: find all _load points
-    const loadPoints = Object.keys(points).filter(id => id.endsWith('_load'));
-    
-    // Second pass: for each load point, find its corresponding docking point
-    for (const loadPoint of loadPoints) {
-      // Generate expected docking point ID
-      const dockingPoint = loadPoint + '_docking';
-      
-      // Skip if we don't have the docking point
-      if (!points[dockingPoint]) {
-        console.warn(`Load point ${loadPoint} exists, but corresponding docking point ${dockingPoint} not found`);
-        continue;
-      }
-      
-      // Extract logical ID from the point
-      let id;
-      if (loadPoint.startsWith('pick-up')) {
-        id = 'pick-up';
-      } else if (loadPoint.startsWith('drop-off')) {
-        id = 'drop-off';
-      } else {
-        // For regular shelf points, extract the numerical ID
-        const match = loadPoint.match(/^(\d+)_load$/);
-        id = match ? match[1] : loadPoint;
-      }
-      
-      // Get display name from mappings or use the ID as fallback
-      let displayName = id;
-      let pointType = 'shelf';
-      
-      // Find display mapping
-      const mapping = pointDisplayMappings.find(m => m.technicalId === loadPoint);
-      if (mapping) {
-        displayName = mapping.displayName;
-        pointType = mapping.pointType;
-      } else if (id === 'pick-up') {
-        displayName = 'Pickup';
-        pointType = 'pickup';
-      } else if (id === 'drop-off') {
-        displayName = 'Dropoff';
-        pointType = 'dropoff';
-      }
-      
-      // Add the point set
-      pointSets.push({
-        id,
-        displayName,
-        loadPoint,
-        dockingPoint,
-        pointType
-      });
+    // Find display mapping for the load point
+    const mapping = pointDisplayMappings.find(m => m.technicalId === pointSet.loadPoint);
+    if (mapping) {
+      displayName = mapping.displayName;
+      pointType = mapping.pointType;
+    } else if (pointSet.id === 'pick-up') {
+      displayName = 'Pickup';
+      pointType = 'pickup';
+    } else if (pointSet.id === 'drop-off') {
+      displayName = 'Dropoff';
+      pointType = 'dropoff';
     }
-  }
-  
-  return pointSets;
+    
+    // Add the display information to the point set
+    return {
+      id: pointSet.id,
+      displayName,
+      loadPoint: pointSet.loadPoint,
+      dockingPoint: pointSet.dockingPoint,
+      pointType
+    };
+  });
 }

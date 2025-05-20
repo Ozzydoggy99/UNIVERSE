@@ -54,7 +54,7 @@ app.use((req, res, next) => {
         
         // Log the currently available point sets
         const pointSets = robotPointsMap.getPointSets();
-        console.log(`Available point sets after refresh: ${pointSets.map(set => set.id).join(', ')}`);
+        console.log(`Available point sets after refresh: ${pointSets.map((set: {id: string}) => set.id).join(', ')}`);
       } catch (refreshError) {
         console.error('Error during scheduled robot points refresh:', refreshError);
       }

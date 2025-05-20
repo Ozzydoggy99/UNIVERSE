@@ -47,6 +47,8 @@ export interface RobotPointsMap {
   addPoint: (floorId: number, pointName: string, point: Point) => void;
   hasPoint: (floorId: number, pointName: string) => boolean;
   refreshPointsFromRobot: () => Promise<void>;
+  // Get sets of paired load/docking points
+  getPointSets: () => Array<{id: string, loadPoint: string, dockingPoint: string}>;
 }
 
 // Display name mappings for the UI
@@ -309,7 +311,7 @@ const robotPointsMap: RobotPointsMap = {
       }
       
       // Use the first floor map (typically Floor1)
-      const floor1Map = maps.find(map => map.name === 'Floor1');
+      const floor1Map = maps.find((map: any) => map.name === 'Floor1');
       if (!floor1Map) {
         console.error('Floor1 map not found');
         return Promise.reject(new Error('Floor1 map not found'));
@@ -327,7 +329,7 @@ const robotPointsMap: RobotPointsMap = {
       
       // Current floor points (for comparison to detect removed points)
       const currentPoints = this.floors[1]?.points || {};
-      const currentPointIds = new Set(Object.keys(currentPoints));
+      const currentPointIds = new Set<string>(Object.keys(currentPoints));
       
       // Track new points found to log them
       const newPointsFound: string[] = [];
@@ -424,11 +426,11 @@ const robotPointsMap: RobotPointsMap = {
       
       // Calculate which point sets were added or removed
       const pointSetsAfter = this.getPointSets();
-      const addedSets = pointSetsAfter.filter(setAfter => 
-        !pointSetsBefore.some(setBefore => setBefore.id === setAfter.id)
+      const addedSets = pointSetsAfter.filter((setAfter: {id: string}) => 
+        !pointSetsBefore.some((setBefore: {id: string}) => setBefore.id === setAfter.id)
       );
-      const removedSets = pointSetsBefore.filter(setBefore => 
-        !pointSetsAfter.some(setAfter => setAfter.id === setBefore.id)
+      const removedSets = pointSetsBefore.filter((setBefore: {id: string}) => 
+        !pointSetsAfter.some((setAfter: {id: string}) => setAfter.id === setBefore.id)
       );
       
       console.log('Points refreshed successfully');
@@ -441,10 +443,10 @@ const robotPointsMap: RobotPointsMap = {
       
       // Log point set changes
       if (addedSets.length > 0) {
-        console.log(`Added ${addedSets.length} new point sets: ${addedSets.map(s => s.id).join(', ')}`);
+        console.log(`Added ${addedSets.length} new point sets: ${addedSets.map((s: {id: string}) => s.id).join(', ')}`);
       }
       if (removedSets.length > 0) {
-        console.log(`Removed ${removedSets.length} point sets: ${removedSets.map(s => s.id).join(', ')}`);
+        console.log(`Removed ${removedSets.length} point sets: ${removedSets.map((s: {id: string}) => s.id).join(', ')}`);
       }
       
       return Promise.resolve();
@@ -457,7 +459,7 @@ const robotPointsMap: RobotPointsMap = {
   /**
    * Helper method to get all point sets (combinations of load and docking points)
    */
-  getPointSets: function() {
+  getPointSets: function(): Array<{id: string, loadPoint: string, dockingPoint: string}> {
     const pointSets: Array<{id: string, loadPoint: string, dockingPoint: string}> = [];
     const floorIds = this.getFloorIds();
     
@@ -473,7 +475,7 @@ const robotPointsMap: RobotPointsMap = {
         
         if (points[dockingPoint]) {
           // Extract logical ID
-          let id;
+          let id: string;
           if (loadPoint.startsWith('pick-up')) {
             id = 'pick-up';
           } else if (loadPoint.startsWith('drop-off')) {
