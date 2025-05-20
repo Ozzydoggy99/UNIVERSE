@@ -1,9 +1,9 @@
 // relay-server.js
 
-import WebSocket from 'ws';
-import express from 'express';
-import http from 'http';
-import dotenv from 'dotenv';
+const WebSocket = require('ws');
+const express = require('express');
+const http = require('http');
+const dotenv = require('dotenv');
 
 // Load environment variables
 dotenv.config();
@@ -11,7 +11,8 @@ dotenv.config();
 const ROBOT_SERIAL = "L382502104987ir";
 const ROBOT_IP = process.env.ROBOT_IP || "47.180.91.99";
 const ROBOT_SECRET = process.env.ROBOT_SECRET || process.env.ROBOT_SECRET_KEY || "";
-const ROBOT_WS = `ws://${ROBOT_IP}:8090/ws/v2/topics`; // Updated WebSocket endpoint
+// Based on error messages, the correct endpoint might be just '/ws' instead of '/ws/v2/topics'
+const ROBOT_WS = `ws://${ROBOT_IP}:8090/ws`; // Updated WebSocket endpoint
 
 const app = express();
 const server = http.createServer(app);
@@ -29,11 +30,17 @@ wss.on("connection", (clientSocket) => {
 
   robotSocket.on("open", () => {
     console.log("[Relay] Connected to robot WebSocket");
+    // Subscribe to tracked pose topic
+    robotSocket.send(JSON.stringify({
+      command: "enable_topics",
+      topics: ["/tracked_pose", "/battery_state", "/wheel_state", "/slam/state"]
+    }));
+    console.log("[Relay] Subscribed to essential robot topics");
   });
 
   robotSocket.on("message", (data) => {
     if (clientSocket.readyState === WebSocket.OPEN) {
-      console.log("[Relay] Forwarding robot data:", data.toString());
+      console.log("[Relay] Forwarding robot data:", data.toString().substring(0, 100) + "...");
       clientSocket.send(data);
     }
   });
