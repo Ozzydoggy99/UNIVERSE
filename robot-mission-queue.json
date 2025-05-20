@@ -11346,5 +11346,82 @@
     "createdAt": "2025-05-20T01:25:02.642Z",
     "updatedAt": "2025-05-20T01:26:27.369Z",
     "robotSn": "L382502104987ir"
+  },
+  {
+    "id": "mission_1747705706843_8vetixn",
+    "name": "Central Pickup to Shelf (115_load)",
+    "steps": [
+      {
+        "type": "move",
+        "params": {
+          "x": -1.887,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Move to central pickup docking position"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "message": "Move command to Move to central pickup docking position completed successfully",
+          "moveId": 5071
+        }
+      },
+      {
+        "type": "align_with_rack",
+        "params": {
+          "x": -2.847,
+          "y": 2.311,
+          "ori": 0,
+          "label": "Align with rack at central pickup"
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {
+          "success": true,
+          "moveId": 5072,
+          "message": "Align with rack completed successfully"
+        }
+      },
+      {
+        "type": "jack_up",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": true,
+        "retryCount": 0,
+        "robotResponse": {}
+      },
+      {
+        "type": "to_unload_point",
+        "params": {
+          "point_id": "115_load",
+          "rack_area_id": "115_load",
+          "label": "Move directly to dropoff shelf point for unloading"
+        },
+        "completed": false,
+        "retryCount": 0,
+        "errorMessage": "Failed to execute toUnloadPoint action: require is not defined"
+      },
+      {
+        "type": "jack_down",
+        "params": {
+          "waitComplete": true
+        },
+        "completed": false,
+        "retryCount": 0
+      },
+      {
+        "type": "return_to_charger",
+        "params": {},
+        "completed": false,
+        "retryCount": 0
+      }
+    ],
+    "status": "failed",
+    "currentStepIndex": 3,
+    "createdAt": "2025-05-20T01:48:26.843Z",
+    "updatedAt": "2025-05-20T01:49:19.299Z",
+    "robotSn": "L382502104987ir"
   }
 ]

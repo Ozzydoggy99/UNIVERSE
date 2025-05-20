@@ -284,6 +284,13 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
       description: 'Move to dropoff shelf docking position'
     },
     {
+      actionId: 'alignWithRack',
+      params: {
+        pointId: '{dropoffShelf}_load'
+      },
+      description: 'Align with rack at dropoff shelf'
+    },
+    {
       actionId: 'toUnloadPoint',
       params: {
         pointId: '{dropoffShelf}_load',
