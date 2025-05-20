@@ -33,7 +33,7 @@ wss.on("connection", (clientSocket) => {
   });
 
   robotSocket.on("message", (data) => {
-    if (clientSocket.readyState === WebSocket.OPEN) {
+    if (clientSocket.readyState === ws.OPEN) {
       console.log("[Relay] Forwarding robot data:", data.toString());
       clientSocket.send(data);
     }
