@@ -2291,11 +2291,8 @@ export async function executeWorkflow(
             workflowSteps.push({
               type: 'to_unload_point',
               params: {
-                x: point.x,
-                y: point.y,
-                ori: point.theta,
                 point_id: pointId,
-                rack_area_id: rackAreaId, // ADDED THIS CRITICAL PARAMETER
+                rack_area_id: rackAreaId,
                 label: step.description || `Moving to unload point ${pointId}`
               },
               completed: false,
