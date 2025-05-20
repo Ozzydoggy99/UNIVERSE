@@ -14,9 +14,9 @@ const router = express.Router();
  * GET /api/robot-points
  * Returns the full robot points map
  */
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const pointsMap = getRobotPointsMap();
+    const pointsMap = await getRobotPointsMap();
     res.json({ success: true, pointsMap });
   } catch (error: any) {
     console.error('Error in robot-points API:', error);
@@ -31,7 +31,7 @@ router.get('/', (req: Request, res: Response) => {
  * GET /api/robot-points/:pointId
  * Get coordinates for a specific point ID
  */
-router.get('/:pointId', (req: Request, res: Response) => {
+router.get('/:pointId', async (req: Request, res: Response) => {
   try {
     const { pointId } = req.params;
     
@@ -42,7 +42,7 @@ router.get('/:pointId', (req: Request, res: Response) => {
       });
     }
     
-    const point = getPoint(pointId);
+    const point = await getPoint(pointId);
     
     if (!point) {
       return res.json({
