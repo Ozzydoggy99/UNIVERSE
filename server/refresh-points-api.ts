@@ -42,7 +42,7 @@ export function registerRefreshPointsRoutes(app: Express): void {
   });
 
   // Endpoint to get available point sets
-  app.get('/api/point-sets', (req: Request, res: Response) => {
+  app.get('/api/point-sets', ensureAuthenticated, (req: Request, res: Response) => {
     try {
       const pointSets = enrichPointSets(robotPointsMap.getPointSets());
       res.status(200).json({ 
@@ -59,7 +59,7 @@ export function registerRefreshPointsRoutes(app: Express): void {
   });
 
   // Endpoint to update display name for a technical point ID
-  app.post('/api/update-display-mapping', (req: Request, res: Response) => {
+  app.post('/api/update-display-mapping', ensureAuthenticated, ensureAdmin, (req: Request, res: Response) => {
     try {
       const { technicalId, displayName, pointType } = req.body;
       

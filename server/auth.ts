@@ -1,12 +1,28 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./mem-storage";
 import { User as SelectUser } from "../shared/schema";
 import memorystore from "memorystore";
+
+// Middleware to ensure user is authenticated
+export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ message: 'Authentication required' });
+}
+
+// Middleware to ensure authenticated user is an admin
+export function ensureAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user && (req.user as SelectUser).role === 'admin') {
+    return next();
+  }
+  res.status(403).json({ message: 'Admin privileges required' });
+}
 
 declare global {
   namespace Express {
