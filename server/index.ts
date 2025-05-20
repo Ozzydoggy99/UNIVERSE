@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import robotPointsMap from "./robot-points-map";
+import http from "http";
 
 const app = express();
 app.use(express.json());
@@ -43,6 +44,22 @@ app.use((req, res, next) => {
     console.log('Initializing robot points map...');
     await robotPointsMap.refreshPointsFromRobot();
     console.log('Robot points map initialized successfully');
+    
+    // Set up periodic refresh (every 5 minutes)
+    const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+    setInterval(async () => {
+      try {
+        console.log('Performing scheduled refresh of robot points...');
+        await robotPointsMap.refreshPointsFromRobot();
+        
+        // Log the currently available point sets
+        const pointSets = robotPointsMap.getPointSets();
+        console.log(`Available point sets after refresh: ${pointSets.map(set => set.id).join(', ')}`);
+      } catch (refreshError) {
+        console.error('Error during scheduled robot points refresh:', refreshError);
+      }
+    }, REFRESH_INTERVAL);
+    console.log(`Scheduled automatic refresh of robot points every ${REFRESH_INTERVAL/60000} minutes`);
   } catch (error) {
     console.error('Error initializing robot points map:', error);
     // Continue starting the server even if point refresh fails

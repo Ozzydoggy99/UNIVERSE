@@ -298,18 +298,18 @@ const robotPointsMap: RobotPointsMap = {
     try {
       console.log('Refreshing points from robot...');
       
-      // Import necessary API functions
-      const { fetchMapData, getRobotMaps } = await import('./robot-api');
+      // Import necessary API functions from our dedicated robot map API module
+      const { getRobotMaps, fetchMapData, extractPointsFromMap, isPointPair } = await import('./robot-map-api');
       
       // Get all maps from the robot
-      const maps = await getRobotMaps();
-      if (!maps || !maps.maps || !Array.isArray(maps.maps)) {
-        console.error('Failed to get maps from robot');
+      const { maps } = await getRobotMaps();
+      if (!maps || !Array.isArray(maps) || maps.length === 0) {
+        console.error('Failed to get maps from robot or no maps available');
         return Promise.reject(new Error('Failed to get maps from robot'));
       }
       
-      // Use the first floor map
-      const floor1Map = maps.maps.find(map => map.name === 'Floor1');
+      // Use the first floor map (typically Floor1)
+      const floor1Map = maps.find(map => map.name === 'Floor1');
       if (!floor1Map) {
         console.error('Floor1 map not found');
         return Promise.reject(new Error('Floor1 map not found'));
@@ -331,6 +331,9 @@ const robotPointsMap: RobotPointsMap = {
       
       // Track new points found to log them
       const newPointsFound: string[] = [];
+      
+      // Track paired point sets for better user feedback
+      const pointSetsBefore = this.getPointSets();
       
       // Parse and extract points from map overlays
       const features = mapDetails.overlays.features || [];
@@ -365,6 +368,22 @@ const robotPointsMap: RobotPointsMap = {
               console.log(`Adding new point from robot map: ${pointId} at (${x}, ${y}, ${theta})`);
               newPointsFound.push(pointId);
               
+              // If it's a load or docking point, potentially add display mapping
+              const pointInfo = isPointPair(pointId);
+              if (pointInfo.isLoadPoint) {
+                // Add to display mappings if it's a load point and doesn't exist yet
+                const hasMapping = pointDisplayMappings.some(m => m.technicalId === pointId);
+                if (!hasMapping) {
+                  const displayName = pointInfo.baseId;
+                  pointDisplayMappings.push({
+                    technicalId: pointId,
+                    displayName: displayName,
+                    pointType: 'shelf'
+                  });
+                  console.log(`Added display mapping for new point: ${pointId} -> ${displayName}`);
+                }
+              }
+              
               // Add the point to our map
               this.addPoint(1, pointId, { x, y, theta });
             } else {
@@ -378,7 +397,7 @@ const robotPointsMap: RobotPointsMap = {
       
       // Find points to remove (present in our map but not in robot's map)
       const pointsToRemove: string[] = [];
-      for (const pointId of currentPointIds) {
+      for (const pointId of Array.from(currentPointIds)) {
         // Only consider _load and _load_docking points for removal, not built-in points
         if ((pointId.includes('_load') || pointId.includes('_docking')) && 
             !robotPointIds.has(pointId) &&
@@ -403,6 +422,15 @@ const robotPointsMap: RobotPointsMap = {
         }
       }
       
+      // Calculate which point sets were added or removed
+      const pointSetsAfter = this.getPointSets();
+      const addedSets = pointSetsAfter.filter(setAfter => 
+        !pointSetsBefore.some(setBefore => setBefore.id === setAfter.id)
+      );
+      const removedSets = pointSetsBefore.filter(setBefore => 
+        !pointSetsAfter.some(setAfter => setAfter.id === setBefore.id)
+      );
+      
       console.log('Points refreshed successfully');
       if (newPointsFound.length > 0) {
         console.log(`Added ${newPointsFound.length} new points: ${newPointsFound.join(', ')}`);
@@ -411,11 +439,61 @@ const robotPointsMap: RobotPointsMap = {
         console.log(`Removed ${pointsToRemove.length} points: ${pointsToRemove.join(', ')}`);
       }
       
+      // Log point set changes
+      if (addedSets.length > 0) {
+        console.log(`Added ${addedSets.length} new point sets: ${addedSets.map(s => s.id).join(', ')}`);
+      }
+      if (removedSets.length > 0) {
+        console.log(`Removed ${removedSets.length} point sets: ${removedSets.map(s => s.id).join(', ')}`);
+      }
+      
       return Promise.resolve();
     } catch (error) {
       console.error('Error refreshing points from robot:', error);
       return Promise.reject(error);
     }
+  },
+  
+  /**
+   * Helper method to get all point sets (combinations of load and docking points)
+   */
+  getPointSets: function() {
+    const pointSets: Array<{id: string, loadPoint: string, dockingPoint: string}> = [];
+    const floorIds = this.getFloorIds();
+    
+    for (const floorId of floorIds) {
+      const points = this.floors[floorId]?.points || {};
+      
+      // Find all load points
+      const loadPoints = Object.keys(points).filter(id => id.endsWith('_load'));
+      
+      // For each load point, find its corresponding docking point
+      for (const loadPoint of loadPoints) {
+        const dockingPoint = loadPoint + '_docking';
+        
+        if (points[dockingPoint]) {
+          // Extract logical ID
+          let id;
+          if (loadPoint.startsWith('pick-up')) {
+            id = 'pick-up';
+          } else if (loadPoint.startsWith('drop-off')) {
+            id = 'drop-off';
+          } else {
+            // For regular shelf points, extract the ID before _load
+            const match = loadPoint.match(/^(.+)_load$/);
+            id = match ? match[1] : loadPoint;
+          }
+          
+          pointSets.push({
+            id,
+            loadPoint,
+            dockingPoint
+          });
+        }
+      }
+    }
+    
+    return pointSets;
   }
 };
 
