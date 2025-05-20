@@ -6,7 +6,8 @@
  */
 
 import axios from 'axios';
-import { getRobotApiUrl } from './robot-api';
+// Import constants including robot API URL
+import { ROBOT_API_URL } from './robot-constants';
 
 // Types for robot map points
 interface RobotPoint {
@@ -63,7 +64,7 @@ export async function fetchRobotPoints(): Promise<RobotPoint[]> {
     console.log('[ROBOT-LIVE-POINTS] Fetching fresh points data from robot API');
     
     // Get the robot API base URL
-    const baseUrl = getRobotApiUrl();
+    const baseUrl = ROBOT_API_URL;
     
     // Fetch maps from the robot API
     console.log('[ROBOT-LIVE-POINTS] Fetching maps list');
@@ -101,7 +102,7 @@ export async function fetchRobotPoints(): Promise<RobotPoint[]> {
     if (overlays && overlays.features && Array.isArray(overlays.features)) {
       console.log(`[ROBOT-LIVE-POINTS] Processing ${overlays.features.length} map features`);
       
-      overlays.features.forEach(feature => {
+      overlays.features.forEach((feature: any) => {
         if (feature.properties && feature.properties.type === 'point') {
           // Extract point details
           const pointId = feature.properties.name || '';
