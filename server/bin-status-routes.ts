@@ -1,7 +1,7 @@
 // server/bin-status-routes.ts
 import express from 'express';
 import { checkForBin } from './bin-detection';
-import { fetchAllMapPoints } from './dynamic-map-points';
+import { fetchRobotMapPoints } from './robot-map-data';
 import { Point } from './types';
 
 // In-memory storage for temporarily overriding bin status
