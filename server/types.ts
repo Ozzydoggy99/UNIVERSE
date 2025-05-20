@@ -1,12 +1,13 @@
 // server/types.ts
 
 export interface Point {
-  id: string;
-  name: string;
+  id?: string;
+  name?: string;
   x: number;
   y: number;
   z?: number;
   ori?: number;
+  theta?: number;  // Added for compatibility with robot API
   robotId?: string;
   type?: string;
   floor?: string;

@@ -1,6 +1,7 @@
 // relay-server.js
 
-const WebSocket = require('ws');
+// Use CommonJS requires for compatibility
+const ws = require('ws');
 const express = require('express');
 const http = require('http');
 const dotenv = require('dotenv');
@@ -11,18 +12,17 @@ dotenv.config();
 const ROBOT_SERIAL = "L382502104987ir";
 const ROBOT_IP = process.env.ROBOT_IP || "47.180.91.99";
 const ROBOT_SECRET = process.env.ROBOT_SECRET || process.env.ROBOT_SECRET_KEY || "";
-// Based on error messages, the correct endpoint might be just '/ws' instead of '/ws/v2/topics'
-const ROBOT_WS = `ws://${ROBOT_IP}:8090/ws`; // Updated WebSocket endpoint
+const ROBOT_WS = `ws://${ROBOT_IP}:8090/ws/v2/topics`; // Updated WebSocket endpoint
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server, path: "/ws/pose" });
+const wss = new ws.Server({ server, path: "/ws/pose" });
 
 wss.on("connection", (clientSocket) => {
   console.log("[Relay] Client connected");
 
   // Use consistent authentication method with x-api-key header
-  const robotSocket = new WebSocket(ROBOT_WS, {
+  const robotSocket = new ws(ROBOT_WS, {
     headers: {
       "x-api-key": ROBOT_SECRET
     }
@@ -30,17 +30,11 @@ wss.on("connection", (clientSocket) => {
 
   robotSocket.on("open", () => {
     console.log("[Relay] Connected to robot WebSocket");
-    // Subscribe to tracked pose topic
-    robotSocket.send(JSON.stringify({
-      command: "enable_topics",
-      topics: ["/tracked_pose", "/battery_state", "/wheel_state", "/slam/state"]
-    }));
-    console.log("[Relay] Subscribed to essential robot topics");
   });
 
   robotSocket.on("message", (data) => {
-    if (clientSocket.readyState === WebSocket.OPEN) {
-      console.log("[Relay] Forwarding robot data:", data.toString().substring(0, 100) + "...");
+    if (clientSocket.readyState === ws.OPEN) {
+      console.log("[Relay] Forwarding robot data:", data.toString());
       clientSocket.send(data);
     }
   });

@@ -63,11 +63,12 @@ export const zoneToPickupWorkflow: WorkflowTemplate = {
       description: 'Move to Zone 104 docking position'
     },
     {
-      actionId: 'alignWithRack',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '104_load'
+        pointId: '104_load',
+        rackAreaId: '104_load'
       },
-      description: 'Align with rack at Zone 104 to drop the bin at the load point'
+      description: 'Back up into unload point with proper rack area ID'
     },
     {
       actionId: 'jackDown',
@@ -128,11 +129,12 @@ export const pickupToDropoffWorkflow: WorkflowTemplate = {
       description: 'Move to dropoff docking position'
     },
     {
-      actionId: 'alignWithRack',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '001_load'
+        pointId: '001_load',
+        rackAreaId: '001_load'
       },
-      description: 'Align with rack at dropoff to place the bin at the load point'
+      description: 'Back up into unload point with proper rack area ID'
     },
     {
       actionId: 'jackDown',
@@ -208,11 +210,12 @@ export const dynamicShelfToShelfWorkflow: WorkflowTemplate = {
       description: 'Move to dropoff shelf docking position'
     },
     {
-      actionId: 'alignWithRack',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '{dropoffShelf}_load'
+        pointId: '{dropoffShelf}_load',
+        rackAreaId: '{dropoffShelf}_load'
       },
-      description: 'Align with rack at dropoff shelf to place the bin at the load point'
+      description: 'Move to unload point at dropoff shelf with proper rack area ID'
     },
     {
       actionId: 'jackDown',
@@ -281,11 +284,12 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
       description: 'Move to dropoff shelf docking position'
     },
     {
-      actionId: 'alignWithRack',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '{dropoffShelf}_load'
+        pointId: '{dropoffShelf}_load',
+        rackAreaId: '{dropoffShelf}_load'
       },
-      description: 'Align with rack at dropoff shelf to place the bin at the load point'
+      description: 'Move to unload point at dropoff shelf with proper rack area ID'
     },
     {
       actionId: 'jackDown',
@@ -294,7 +298,7 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
       },
       description: 'Jack down to release bin'
     },
-    /* Removed redundant reverseFromRack action as alignWithRack already handles proper positioning */
+    /* Removed redundant reverseFromRack action as toUnloadPoint already handles proper positioning */
     {
       actionId: 'returnToCharger',
       params: {
@@ -354,11 +358,12 @@ export const dynamicShelfToCentralWorkflow: WorkflowTemplate = {
       description: 'Move to central dropoff docking position'
     },
     {
-      actionId: 'alignWithRack',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: 'drop-off_load'
+        pointId: 'drop-off_load',
+        rackAreaId: 'drop-off_load'
       },
-      description: 'Align with rack at central dropoff to place the bin at the load point'
+      description: 'Move to unload point at central dropoff with proper rack area ID'
     },
     {
       actionId: 'jackDown',
@@ -367,7 +372,7 @@ export const dynamicShelfToCentralWorkflow: WorkflowTemplate = {
       },
       description: 'Jack down to release bin'
     },
-    /* Removed redundant reverseFromRack action as alignWithRack already handles proper positioning */
+    /* Removed redundant reverseFromRack action as toUnloadPoint already handles proper positioning */
     {
       actionId: 'returnToCharger',
       params: {

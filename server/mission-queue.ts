@@ -958,70 +958,153 @@ export class MissionQueueManager {
     console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ Executing move to unload point`);
     
     try {
-      // CRITICAL FIX: We must validate that we have a pointId parameter
-      // Check both camelCase (pointId) and snake_case (point_id) formats for compatibility
-      if (!params.pointId && !params.point_id) {
-        console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR: No pointId or point_id provided for to_unload_point operation`);
-        throw new Error('Missing required pointId for to_unload_point operation');
+      // CRITICAL FIX: Make this function match the to-unload-point-action.ts implementation
+      // to ensure consistent behavior across all code paths
+      
+      // Extract the proper point_id regardless of camelCase or snake_case format
+      let point_id = params.pointId || params.point_id;
+      
+      if (!point_id) {
+        console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR: No pointId or point_id provided`);
+        throw new Error('Missing required point_id for to_unload_point operation');
       }
       
-      // Extract the proper load point and rack area ID
-      // Support both parameter naming formats
-      let loadPointId = params.pointId || params.point_id;
-      
-      // Sanitize input - ensure we're using a load point, not a docking point
-      if (loadPointId.toLowerCase().includes('_docking')) {
-        console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ WARNING: Converting docking point ${loadPointId} to load point`);
-        loadPointId = loadPointId.replace(/_docking/i, '_load');
+      // Get the proper docking point ID based on the target load point
+      let docking_point_id = point_id;
+      if (point_id.toLowerCase().includes('_load')) {
+        // If we received a _load point, convert to _docking
+        docking_point_id = point_id.replace(/_load/i, '_docking');
+        console.log(`[${timestamp}] [TO-UNLOAD] Converting load point ${point_id} to docking point ${docking_point_id}`);
+      } else if (!point_id.toLowerCase().includes('_docking')) {
+        // If it's not already a docking point, append _docking
+        docking_point_id = `${point_id}_docking`;
+        console.log(`[${timestamp}] [TO-UNLOAD] Adding _docking suffix to point: ${docking_point_id}`);
       }
       
-      // Safety check - ensure it's a load point now
-      if (loadPointId.toLowerCase().includes('_docking')) {
-        throw new Error(`Cannot use to_unload_point with docking point ${loadPointId}`);
+      // CRITICAL FIX: First, MOVE to the docking point before placing
+      console.log(`[${timestamp}] [TO-UNLOAD] First step: Moving to docking point ${docking_point_id}`);
+      try {
+        // Import the robotPointsMap to get coordinates
+        const robotMap = require('../server/robot-map-data');
+        
+        // Get coordinates for the docking point
+        const pointData = await robotMap.getPointCoordinates(docking_point_id);
+        
+        if (!pointData) {
+          console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR: Could not find coordinates for docking point ${docking_point_id}`);
+          // Fallback: Try to get coordinates for the original point ID
+          const originalPointData = await robotMap.getPointCoordinates(point_id);
+          
+          if (!originalPointData) {
+            throw new Error(`Could not find coordinates for point ${docking_point_id} or ${point_id}`);
+          }
+          
+          console.log(`[${timestamp}] [TO-UNLOAD] Using coordinates from original point: ${point_id}`);
+          pointData = originalPointData;
+        }
+        
+        // Execute the move to docking point - this was missing before!
+        console.log(`[${timestamp}] [TO-UNLOAD] Moving to coordinates: x=${pointData.x}, y=${pointData.y}, theta=${pointData.theta}`);
+        const moveResponse = await axios.post(`${ROBOT_API_URL}/move/to_point`, {
+          x: pointData.x,
+          y: pointData.y,
+          theta: pointData.theta
+        }, { headers });
+        
+        if (moveResponse.status !== 200) {
+          throw new Error(`Failed to move to docking point: ${moveResponse.statusText}`);
+        }
+        
+        // Wait for move to complete
+        console.log(`[${timestamp}] [TO-UNLOAD] Waiting for move to docking point to complete...`);
+        let moveComplete = false;
+        let waitAttempts = 0;
+        
+        while (!moveComplete && waitAttempts < 12) { // Try for 60 seconds max
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+          moveComplete = await this.checkMoveStatus();
+          waitAttempts++;
+          
+          if (moveComplete) {
+            console.log(`[${timestamp}] [TO-UNLOAD] ✅ Move to docking point completed successfully`);
+          } else if (waitAttempts < 12) {
+            console.log(`[${timestamp}] [TO-UNLOAD] ⏳ Robot still moving to docking point, waiting... (attempt ${waitAttempts})`);
+          }
+        }
+        
+        if (!moveComplete) {
+          console.warn(`[${timestamp}] [TO-UNLOAD] ⚠️ Timed out waiting for move to complete, proceeding anyway`);
+        }
+      } catch (error) {
+        console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR during move to docking point: ${error.message}`);
+        throw error;
       }
       
-      // For proper targeting, use the FULL POINT ID as the rack_area_id (CRITICAL FIX)
-      const rackAreaId = loadPointId;
-      
-      console.log(`[${timestamp}] [TO-UNLOAD] CRITICAL FIX: Using point_id=${loadPointId} and rack_area_id=${rackAreaId}`);
-      console.log(`[${timestamp}] [TO-UNLOAD] This ensures proper unloading at the exact designated point`);
-      
-      // Create a move with type=to_unload_point WITH PROPER PARAMETERS
-      const moveCommand = {
-        creator: 'robot-api',
-        type: 'to_unload_point', // Special move type for rack unloading
-        point_id: loadPointId,   // CRITICAL FIX: Use point_id instead of coordinates
-        rack_area_id: rackAreaId, // CRITICAL FIX: Include rack_area_id for proper placement
-        target_x: 0, // Setting to 0 as these will be ignored when point_id is used
-        target_y: 0,
-        target_ori: 0
-      };
-      
-      console.log(`[${timestamp}] [TO-UNLOAD] Creating to_unload_point move: ${JSON.stringify(moveCommand)}`);
-      
-      // Send the move command to go to unload point
-      const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, { headers });
-      
-      if (!response.data || !response.data.id) {
-        throw new Error('Failed to create to_unload_point move - invalid response');
+      // Now prepare for the place operation as before - AFTER moving to docking point
+      // CRITICAL FIX: Ensure we're using a load point, not a docking point for the place operation
+      if (point_id.toLowerCase().includes('_docking')) {
+        console.log(`[${timestamp}] [TO-UNLOAD] Converting docking point ${point_id} to load point`);
+        point_id = point_id.replace(/_docking/i, '_load');
       }
       
-      const moveId = response.data.id;
-      console.log(`[${timestamp}] [TO-UNLOAD] Robot to_unload_point command sent - move ID: ${moveId}`);
+      console.log(`[${timestamp}] [TO-UNLOAD] Working with point ID: ${point_id}`);
       
-      // Wait for movement to complete
-      await this.waitForMoveComplete(moveId, 120000); // 2 minute timeout
+      // Extract rack area ID following the exact same logic as to-unload-point-action.ts
+      let rack_area_id: string;
       
-      // Verify movement is complete
-      const isMoveComplete = await this.checkMoveStatus();
-      if (!isMoveComplete) {
-        console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ WARNING: Robot might still be moving after to_unload_point operation`);
-        // Add additional wait time
-        await new Promise(resolve => setTimeout(resolve, 5000));
+      // For points like "110_load", use the original point ID directly
+      if (point_id.includes('_load')) {
+        rack_area_id = point_id;
+        console.log(`[${timestamp}] [TO-UNLOAD] Using original point ID (with _load) as rack_area_id: ${rack_area_id}`);
+      }
+      // Special case for the hyphenated Drop-off point
+      else if (point_id.includes('Drop-off') || point_id.toLowerCase().includes('drop-off')) {
+        rack_area_id = 'Drop-off';
+        console.log(`[${timestamp}] [TO-UNLOAD] Using special rack area ID for Drop-off point: ${rack_area_id}`);
+      } 
+      // For numeric IDs like "110", add the _load suffix
+      else if (/^\d+$/.test(point_id)) {
+        rack_area_id = `${point_id}_load`;
+        console.log(`[${timestamp}] [TO-UNLOAD] Added _load suffix to numeric ID: ${rack_area_id}`);
+      }
+      // For all other points, use the original point ID
+      else {
+        rack_area_id = point_id;
+        console.log(`[${timestamp}] [TO-UNLOAD] Using original point ID for rack area: ${rack_area_id}`);
       }
       
-      console.log(`[${timestamp}] [TO-UNLOAD] ✅ Move to unload point completed successfully`);
-      return { success: true, moveId, message: 'Move to unload point completed successfully' };
+      // Send the place command to the robot using the /move/place endpoint
+      // This exactly matches what we do in to-unload-point-action.ts for consistency
+      console.log(`[${timestamp}] [TO-UNLOAD] Sending place command with rack_area_id: ${rack_area_id}`);
+      const response = await axios.post(`${ROBOT_API_URL}/move/place`, {
+        rack_area_id
+      }, { headers });
+      
+      // Check response status
+      if (response.status === 200) {
+        console.log(`[${timestamp}] [TO-UNLOAD] Successfully executed place command for ${point_id}`);
+        
+        // Wait for a fixed time since we don't have a move ID to track
+        console.log(`[${timestamp}] [TO-UNLOAD] Waiting for place operation to complete...`);
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+        
+        // Double-check that the robot has stopped moving
+        const isMoveComplete = await this.checkMoveStatus();
+        if (!isMoveComplete) {
+          console.log(`[${timestamp}] [TO-UNLOAD] ⚠️ Robot still moving, waiting additional time...`);
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 more seconds
+        }
+        
+        console.log(`[${timestamp}] [TO-UNLOAD] ✅ Move to unload point completed successfully`);
+        return { 
+          success: true, 
+          message: `Successfully executed place command for ${point_id}`,
+          data: response.data
+        };
+      } else {
+        console.error(`[${timestamp}] [TO-UNLOAD] ❌ Failed to execute place command: ${response.statusText}`);
+        throw new Error(`Place command failed: ${response.statusText}`);
+      }
       
     } catch (error: any) {
       console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR during to_unload_point operation: ${error.message}`);
@@ -1030,7 +1113,7 @@ export class MissionQueueManager {
         console.error(`[${timestamp}] [TO-UNLOAD] Response error details:`, error.response.data);
         
         if (error.response.status === 404) {
-          throw new Error('Robot API to_unload_point endpoint not available');
+          throw new Error('Robot API place endpoint not available');
         }
         
         // Handle specific unload errors
@@ -1040,12 +1123,12 @@ export class MissionQueueManager {
             throw new Error('Unload point is occupied, cannot complete operation');
           }
           if (errorMsg.includes('emergency')) {
-            throw new Error('Emergency stop detected during unload point movement');
+            throw new Error('Emergency stop detected during unload operation');
           }
         }
       }
       
-      throw new Error(`Failed to move to unload point: ${error.message}`);
+      throw new Error(`Failed to execute toUnloadPoint action: ${error.message}`);
     }
   }
   

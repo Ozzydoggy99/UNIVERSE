@@ -2,14 +2,14 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import { createServer, type Server } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { storage } from './mem-storage';
-import { registerRobotApiRoutes } from './robot-api-fixed';
+import { registerRobotApiRoutes } from './robot-api';
 import { registerRobotVideoRoutes } from './robot-video';
 import { setupVite } from './vite';
 import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
 // New optimized points API for shelf filtering
-import { registerRobotPointRoutes } from './robot-points-api';
+import robotPointsApiRouter, { registerRobotPointRoutes } from './robot-points-api';
 // Import point display mappings
 import { pointDisplayMappings } from './robot-points-map';
 // Task assignment API for AutoXing structured mission execution
@@ -41,6 +41,7 @@ import { registerRobotCapabilitiesAPI } from './robot-capabilities-api';
 import { registerTaskApiRoutes } from './robot-task-api';
 import { registerDynamicWorkflowRoutes } from './dynamic-workflow';
 import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
+import dynamicPointsApiRouter from './dynamic-points-api';
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -64,6 +65,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register the new shelf points API
   registerRobotPointRoutes(app);
+  
+  // Register our dynamic points API for auto-detecting new map points
+  app.use('/api/dynamic-points', dynamicPointsApiRouter);
   
   // Register AutoXing task assignment API (new version)
   registerAssignTaskRoute(app);
@@ -172,6 +176,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Debug endpoint error:', error);
       res.status(500).json({ error: String(error) });
+    }
+  });
+  
+  // Dynamic Point Service API for automatic detection of new map points
+  app.get('/api/dynamic-points/:pointId', async (req, res) => {
+    try {
+      const { pointId } = req.params;
+      console.log(`[DYNAMIC-POINTS-API] Getting coordinates for point ID: ${pointId}`);
+      
+      // Import the dynamic-map-points module
+      const { getPointCoordinates } = await import('./dynamic-map-points');
+      
+      const point = await getPointCoordinates(pointId);
+      
+      if (point) {
+        console.log(`[DYNAMIC-POINTS-API] Found coordinates for ${pointId}: (${point.x}, ${point.y})`);
+        res.json({
+          found: true,
+          point
+        });
+      } else {
+        console.log(`[DYNAMIC-POINTS-API] Could not find coordinates for point: ${pointId}`);
+        res.json({
+          found: false,
+          message: `Could not find point with ID: ${pointId}`
+        });
+      }
+    } catch (error) {
+      console.error('[DYNAMIC-POINTS-API] Error getting point coordinates:', error);
+      res.status(500).json({
+        found: false,
+        error: 'Internal server error'
+      });
+    }
+  });
+  
+  // Get all available shelf points (for dropdowns, etc.)
+  app.get('/api/dynamic-points', async (req, res) => {
+    try {
+      console.log('[DYNAMIC-POINTS-API] Fetching all shelf points');
+      
+      // Import the dynamic-map-points module
+      const { getAllShelfPoints } = await import('./dynamic-map-points');
+      
+      const points = await getAllShelfPoints();
+      
+      console.log(`[DYNAMIC-POINTS-API] Found ${points.length} shelf points`);
+      res.json({
+        points
+      });
+    } catch (error) {
+      console.error('[DYNAMIC-POINTS-API] Error getting shelf points:', error);
+      res.status(500).json({
+        error: 'Internal server error'
+      });
     }
   });
   

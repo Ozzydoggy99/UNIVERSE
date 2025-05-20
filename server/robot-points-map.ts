@@ -53,8 +53,6 @@ export const pointDisplayMappings: PointDisplayMapping[] = [
   { technicalId: '001_load_docking', displayName: 'Dropoff Docking', pointType: 'dropoff' },
   { technicalId: '104_load', displayName: 'Zone 104', pointType: 'shelf' },
   { technicalId: '104_load_docking', displayName: 'Zone 104 Docking', pointType: 'shelf' },
-  { technicalId: '110_load', displayName: 'Zone 110', pointType: 'shelf' },
-  { technicalId: '110_load_docking', displayName: 'Zone 110 Docking', pointType: 'shelf' },
   { technicalId: 'charger', displayName: 'Charging Station', pointType: 'charger' },
 ];
 
@@ -145,17 +143,6 @@ const robotPointsMap: RobotPointsMap = {
           x: -6.917,
           y: 6.721,
           theta: 0.0
-        },
-        // Adding the new point 110 and its docking point
-        '110_load': {
-          x: -5.688,
-          y: 15.347,
-          theta: 271.07
-        },
-        '110_load_docking': {
-          x: -5.660,
-          y: 14.520,
-          theta: 267.8
         }
       },
       // Charger location on this floor

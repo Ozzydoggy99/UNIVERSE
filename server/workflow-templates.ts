@@ -55,12 +55,11 @@ export const zoneToPickupWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '104_load',
-        speed: 0.5
+        pointId: '104_load'
       },
-      description: 'Move directly to Zone 104 load point'
+      description: 'Move directly to Zone 104 load point for unloading'
     },
     {
       actionId: 'jackDown',
@@ -112,12 +111,11 @@ export const pickupToDropoffWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '001_load',
-        speed: 0.5
+        pointId: '001_load'
       },
-      description: 'Move directly to dropoff point'
+      description: 'Move directly to dropoff point for unloading'
     },
     {
       actionId: 'jackDown',
@@ -184,12 +182,11 @@ export const dynamicShelfToShelfWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '{dropoffShelf}_load',
-        speed: 0.5
+        pointId: '{dropoffShelf}_load'
       },
-      description: 'Move directly to dropoff shelf load point'
+      description: 'Move directly to dropoff shelf point for unloading'
     },
     {
       actionId: 'jackDown',
@@ -249,12 +246,11 @@ export const dynamicCentralToShelfWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '{dropoffShelf}_load',
-        speed: 0.5
+        pointId: '{dropoffShelf}_load'
       },
-      description: 'Move directly to dropoff shelf load point'
+      description: 'Move directly to dropoff shelf point for unloading'
     },
     {
       actionId: 'jackDown',
@@ -314,12 +310,11 @@ export const dynamicShelfToCentralWorkflow: WorkflowTemplate = {
       description: 'Jack up to grab bin'
     },
     {
-      actionId: 'moveToPoint',
+      actionId: 'toUnloadPoint',
       params: {
-        pointId: '001_load',
-        speed: 0.5
+        pointId: '001_load'
       },
-      description: 'Move directly to central dropoff point'
+      description: 'Move directly to central dropoff point for unloading'
     },
     {
       actionId: 'jackDown',
