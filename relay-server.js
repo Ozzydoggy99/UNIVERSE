@@ -22,7 +22,7 @@ wss.on("connection", (clientSocket) => {
   console.log("[Relay] Client connected");
 
   // Use consistent authentication method with x-api-key header
-  const robotSocket = new WebSocket(ROBOT_WS, {
+  const robotSocket = new ws(ROBOT_WS, {
     headers: {
       "x-api-key": ROBOT_SECRET
     }
