@@ -92,7 +92,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       
       // Get all map points
       logRobotTask('Fetching all robot map points...');
-      const allPoints = await fetchAllMapPoints();
+      const allPoints = await fetchRobotMapPoints();
       
       if (!allPoints || allPoints.length === 0) {
         throw new Error('Failed to get map points from robot');
