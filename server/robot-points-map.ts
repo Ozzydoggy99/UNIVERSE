@@ -310,15 +310,17 @@ const robotPointsMap: RobotPointsMap = {
         return Promise.reject(new Error('Failed to get maps from robot'));
       }
       
-      // Use the first floor map (typically Floor1)
-      const floor1Map = maps.find((map: any) => map.name === 'Floor1');
-      if (!floor1Map) {
-        console.error('Floor1 map not found');
-        return Promise.reject(new Error('Floor1 map not found'));
+      // Use any available map, starting with the first one
+      if (maps.length > 0) {
+        console.log(`Available maps: ${maps.map((map: any) => map.name).join(', ')}`);
       }
       
+      // Use the first available map
+      const currentMap = maps[0];
+      console.log(`Using map: ${currentMap.name} (${currentMap.uid})`);
+      
       // Get map details including points
-      const mapDetails = await fetchMapData(floor1Map.uid);
+      const mapDetails = await fetchMapData(currentMap.uid);
       if (!mapDetails || !mapDetails.overlays) {
         console.error('Failed to get map details or no overlays found');
         return Promise.reject(new Error('Failed to get map details'));
