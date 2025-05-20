@@ -546,45 +546,52 @@ async function toUnloadPoint(taskId: string, x: number, y: number, orientation: 
     logTask(taskId, `CRITICAL FIX: Using full load point "${rackAreaId}" as rack_area_id`);
     logTask(taskId, `✅ CONFIRMED: Using load point for unloading, NOT a docking point`);
     
-    // CRITICAL FIX: Send the unload point command to the robot using the /move/place endpoint
-    // This makes it consistent with to-unload-point-action.ts and mission-queue.ts implementations
+    // Send the unload point command to the robot
     const payload = {
+      creator: 'robot-management-platform',
+      type: 'to_unload_point',
+      target_x: x,
+      target_y: y,
+      target_z: orientation,
+      point_id: loadPointId,
       rack_area_id: rackAreaId
     };
     
-    logTask(taskId, `Sending place command with rack_area_id: ${rackAreaId}`);
+    logTask(taskId, `Sending to_unload_point command with payload: ${JSON.stringify(payload)}`);
     
-    const response = await axios.post(`${ROBOT_API_URL}/move/place`, payload, {
+    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, payload, {
       headers: getHeaders()
     });
     
-    logTask(taskId, `Unload point command initiated - status: ${response.status}`);
+    const moveId = response.data.id;
+    logTask(taskId, `Unload point command initiated with move ID: ${moveId}`);
     
-    // CRITICAL FIX: Since the move/place endpoint doesn't return a move ID to poll,
-    // we need to use a fixed delay and then check the robot's movement status
-    logTask(taskId, 'Using fixed delay for place operation (10 seconds)');
-    await new Promise(resolve => setTimeout(resolve, 10000));
+    // Wait for movement to complete
+    let retries = 0;
+    const maxRetries = 60; // Longer timeout for unload operations
     
-    // After waiting, check if the robot is still moving
-    try {
-      // Check if there's a current move
-      const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
+    while (retries < maxRetries) {
+      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, {
         headers: getHeaders()
       });
       
-      if (moveResponse.data && moveResponse.data.id) {
-        logTask(taskId, `Robot is still executing a move with ID: ${moveResponse.data.id}`);
-        logTask(taskId, 'Waiting for an additional 10 seconds...');
-        await new Promise(resolve => setTimeout(resolve, 10000));
+      const status = statusResponse.data.state;
+      
+      if (status === 'succeeded') {
+        logTask(taskId, 'Unload point movement completed successfully');
+        return true;
+      } else if (status === 'failed') {
+        logTask(taskId, `Unload point movement failed: ${statusResponse.data.reason || 'Unknown error'}`);
+        return false;
       }
       
-      logTask(taskId, '✅ Unload point movement completed successfully');
-      return true;
-    } catch (checkError) {
-      // If there's no current move (404 error), it means the operation is complete
-      logTask(taskId, 'No current move detected, assuming operation is complete');
-      return true;
+      // Still in progress, wait and retry
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      retries++;
     }
+    
+    logTask(taskId, 'Unload point movement timed out');
+    return false;
   } catch (error: any) {
     logTask(taskId, `Error during unload point movement: ${error.message}`);
     return false;

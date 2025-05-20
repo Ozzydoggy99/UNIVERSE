@@ -2288,16 +2288,22 @@ export async function executeWorkflow(
             
             logWorkflow(workflowId, `FINAL rack_area_id = "${rackAreaId}" for point "${pointId}"`);
             
+            // CRITICAL FIX: Add the actual to_unload_point step to the workflow steps
             workflowSteps.push({
               type: 'to_unload_point',
               params: {
+                x: point.x,
+                y: point.y,
+                ori: point.theta,
                 point_id: pointId,
-                rack_area_id: rackAreaId,
-                label: step.description || `Moving to unload point ${pointId}`
+                rack_area_id: rackAreaId, // CRITICAL PARAMETER
+                label: step.description || `Unloading at ${pointId}`
               },
               completed: false,
               retryCount: 0
             });
+            
+            logWorkflow(workflowId, `✅ Added to_unload_point step with rack_area_id=${rackAreaId}`);
           }
           else if (step.actionId === 'jackUp') {
             workflowSteps.push({

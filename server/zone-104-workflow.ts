@@ -4,9 +4,8 @@ import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from './robot-constants';
-// Update import to use the correct function from dynamic-map-points instead
 import { fetchRobotMapPoints } from './robot-map-data';
-import { isRobotCharging, isEmergencyStopPressed, returnToCharger } from './robot-api';
+import { isRobotCharging, isEmergencyStopPressed, returnToCharger } from './robot-api-fixed';
 import { missionQueue } from './mission-queue';
 import { MissionStep } from './mission-queue';
 import { Point } from './types';

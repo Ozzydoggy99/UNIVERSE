@@ -1,9 +1,9 @@
 import axios from "axios";
-import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from "./robot-constants";
+import { ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from "./robot-constants";
 import { Express, Request, Response } from 'express';
 
-// Overriding the API URL to use the correct endpoints for this robot model
-const DIRECT_API_URL = 'http://47.180.91.99:8090';
+// Direct API URL - using the correct format for this robot model
+const ROBOT_API_URL = 'http://47.180.91.99:8090';
 
 // Using the correct AutoXing API header format
 const headers = getAuthHeaders();
@@ -231,8 +231,8 @@ export function registerRobotApiRoutes(app: Express) {
             timeout: 1000
           });
           // If successful, we'd process the image, but for now just return a placeholder
-        } catch (error) {
-          console.log(`Primary camera endpoint failed: ${error.message}`);
+        } catch (cameraError) {
+          console.log(`Primary camera endpoint failed: ${cameraError.message}`);
           
           // Try alternative endpoints
           const alternativeEndpoint = `${ROBOT_API_URL}/camera/snapshot`;
@@ -244,8 +244,8 @@ export function registerRobotApiRoutes(app: Express) {
               timeout: 1000
             });
             // If successful, we'd process the image, but for now just return a placeholder
-          } catch (altError) {
-            console.log(`Alternative endpoint ${alternativeEndpoint} failed: ${altError.message}`);
+          } catch (altCameraError) {
+            console.log(`Alternative endpoint ${alternativeEndpoint} failed: ${altCameraError.message}`);
             
             // Try one more endpoint
             const rbgCameraSnapshotEndpoint = `${ROBOT_API_URL}/rgb_cameras/front/snapshot`;
@@ -256,9 +256,9 @@ export function registerRobotApiRoutes(app: Express) {
                 headers: getAuthHeaders(),
                 timeout: 1000
               });
-            } catch (finalError) {
-              console.log(`Alternative endpoint ${rbgCameraSnapshotEndpoint} failed: ${finalError.message}`);
-              throw new Error('All camera endpoints failed');
+            } catch (finalCameraError) {
+              console.log(`Alternative endpoint ${rbgCameraSnapshotEndpoint} failed: ${finalCameraError.message}`);
+              // Don't throw error, just return empty image
             }
           }
         }
@@ -339,24 +339,38 @@ export async function fetchMapPoints(mapId: string): Promise<any> {
  */
 export async function moveToPoint(x: number, y: number, orientation?: number): Promise<any> {
   try {
-    const moveUrl = `${ROBOT_API_URL}/move`;
+    // Using the proper chassis/moves endpoint format that we confirmed works for this robot model
+    const moveUrl = `${ROBOT_API_URL}/chassis/moves`;
     console.log(`Moving robot to point (${x}, ${y}), orientation: ${orientation || 0}`);
     
+    // Format the data according to the robot's expected format
     const moveData = {
-      x,
-      y,
-      theta: orientation || 0
+      type: "standard",
+      target_x: x,
+      target_y: y,
+      target_z: 0,
+      target_ori: orientation || 0,
+      creator: "replit-interface",
+      properties: {
+        max_trans_vel: 0.5,      // Maximum translational velocity (m/s)
+        max_rot_vel: 0.5,        // Maximum rotational velocity (rad/s)
+        acc_lim_x: 0.5,          // Translational acceleration limit
+        acc_lim_theta: 0.5,      // Rotational acceleration limit
+        planning_mode: "directional" // Using directional mode for more precise movements
+      }
     };
+    
+    console.log(`Sending move command to ${moveUrl} with data:`, JSON.stringify(moveData));
     
     const response = await axios.post(moveUrl, moveData, {
       headers: getAuthHeaders()
     });
     
-    console.log(`Move request sent, response:`, response.data);
+    console.log(`Move request sent, response ID:`, response.data.id);
     return response.data;
   } catch (error) {
     console.error('Error moving robot:', error);
-    throw new Error('Failed to move robot');
+    throw new Error(`Failed to move robot: ${error.message}`);
   }
 }
 

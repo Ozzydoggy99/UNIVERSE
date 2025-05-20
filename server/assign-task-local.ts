@@ -4,7 +4,7 @@ import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
-import { isRobotCharging, isEmergencyStopPressed } from './robot-api';
+import { isRobotCharging, isEmergencyStopPressed } from './robot-api-fixed';
 import { missionQueue } from './mission-queue';
 
 // Configure debug log file - consistent with assign-task.ts
