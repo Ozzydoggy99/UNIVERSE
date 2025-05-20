@@ -306,8 +306,9 @@ const robotPointsMap: RobotPointsMap = {
       // Get all maps from the robot
       const { maps } = await getRobotMaps();
       if (!maps || !Array.isArray(maps) || maps.length === 0) {
-        console.error('Failed to get maps from robot or no maps available');
-        return Promise.reject(new Error('Failed to get maps from robot'));
+        console.log('No maps available from robot API, using existing point data');
+        // Don't reject, continue with existing data
+        return Promise.resolve();
       }
       
       // Use any available map, starting with the first one
@@ -322,8 +323,9 @@ const robotPointsMap: RobotPointsMap = {
       // Get map details including points
       const mapDetails = await fetchMapData(currentMap.uid);
       if (!mapDetails || !mapDetails.overlays) {
-        console.error('Failed to get map details or no overlays found');
-        return Promise.reject(new Error('Failed to get map details'));
+        console.log('No map overlays found, using existing point data');
+        // Don't reject, continue with existing data
+        return Promise.resolve();
       }
       
       // Extract and track point IDs found on the robot
