@@ -969,7 +969,79 @@ export class MissionQueueManager {
         throw new Error('Missing required point_id for to_unload_point operation');
       }
       
-      // CRITICAL FIX: Ensure we're using a load point, not a docking point
+      // Get the proper docking point ID based on the target load point
+      let docking_point_id = point_id;
+      if (point_id.toLowerCase().includes('_load')) {
+        // If we received a _load point, convert to _docking
+        docking_point_id = point_id.replace(/_load/i, '_docking');
+        console.log(`[${timestamp}] [TO-UNLOAD] Converting load point ${point_id} to docking point ${docking_point_id}`);
+      } else if (!point_id.toLowerCase().includes('_docking')) {
+        // If it's not already a docking point, append _docking
+        docking_point_id = `${point_id}_docking`;
+        console.log(`[${timestamp}] [TO-UNLOAD] Adding _docking suffix to point: ${docking_point_id}`);
+      }
+      
+      // CRITICAL FIX: First, MOVE to the docking point before placing
+      console.log(`[${timestamp}] [TO-UNLOAD] First step: Moving to docking point ${docking_point_id}`);
+      try {
+        // Import the robotPointsMap to get coordinates
+        const robotMap = require('../server/robot-map-data');
+        
+        // Get coordinates for the docking point
+        const pointData = await robotMap.getPointCoordinates(docking_point_id);
+        
+        if (!pointData) {
+          console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR: Could not find coordinates for docking point ${docking_point_id}`);
+          // Fallback: Try to get coordinates for the original point ID
+          const originalPointData = await robotMap.getPointCoordinates(point_id);
+          
+          if (!originalPointData) {
+            throw new Error(`Could not find coordinates for point ${docking_point_id} or ${point_id}`);
+          }
+          
+          console.log(`[${timestamp}] [TO-UNLOAD] Using coordinates from original point: ${point_id}`);
+          pointData = originalPointData;
+        }
+        
+        // Execute the move to docking point - this was missing before!
+        console.log(`[${timestamp}] [TO-UNLOAD] Moving to coordinates: x=${pointData.x}, y=${pointData.y}, theta=${pointData.theta}`);
+        const moveResponse = await axios.post(`${ROBOT_API_URL}/move/to_point`, {
+          x: pointData.x,
+          y: pointData.y,
+          theta: pointData.theta
+        }, { headers });
+        
+        if (moveResponse.status !== 200) {
+          throw new Error(`Failed to move to docking point: ${moveResponse.statusText}`);
+        }
+        
+        // Wait for move to complete
+        console.log(`[${timestamp}] [TO-UNLOAD] Waiting for move to docking point to complete...`);
+        let moveComplete = false;
+        let waitAttempts = 0;
+        
+        while (!moveComplete && waitAttempts < 12) { // Try for 60 seconds max
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+          moveComplete = await this.checkMoveStatus();
+          waitAttempts++;
+          
+          if (moveComplete) {
+            console.log(`[${timestamp}] [TO-UNLOAD] ✅ Move to docking point completed successfully`);
+          } else if (waitAttempts < 12) {
+            console.log(`[${timestamp}] [TO-UNLOAD] ⏳ Robot still moving to docking point, waiting... (attempt ${waitAttempts})`);
+          }
+        }
+        
+        if (!moveComplete) {
+          console.warn(`[${timestamp}] [TO-UNLOAD] ⚠️ Timed out waiting for move to complete, proceeding anyway`);
+        }
+      } catch (error) {
+        console.error(`[${timestamp}] [TO-UNLOAD] ❌ ERROR during move to docking point: ${error.message}`);
+        throw error;
+      }
+      
+      // Now prepare for the place operation as before - AFTER moving to docking point
+      // CRITICAL FIX: Ensure we're using a load point, not a docking point for the place operation
       if (point_id.toLowerCase().includes('_docking')) {
         console.log(`[${timestamp}] [TO-UNLOAD] Converting docking point ${point_id} to load point`);
         point_id = point_id.replace(/_docking/i, '_load');
