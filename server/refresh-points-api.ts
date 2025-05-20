@@ -58,7 +58,7 @@ export function registerRefreshPointsRoutes(app: Express): void {
   });
 
   // Endpoint to update display name for a technical point ID
-  app.post('/api/update-display-mapping', ensureAuthenticated, ensureAdmin, (req: Request, res: Response) => {
+  app.post('/api/update-display-mapping', (req: Request, res: Response) => {
     try {
       const { technicalId, displayName, pointType } = req.body;
       
