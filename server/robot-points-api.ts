@@ -66,4 +66,8 @@ router.get('/:pointId', async (req: Request, res: Response) => {
   }
 });
 
+export function registerRobotPointRoutes(app: express.Express) {
+  app.use('/api/robot-points', router);
+}
+
 export default router;

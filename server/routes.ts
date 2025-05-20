@@ -9,7 +9,7 @@ import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
 // New optimized points API for shelf filtering
-import { registerRobotPointRoutes } from './robot-points-api';
+import robotPointsApiRouter, { registerRobotPointRoutes } from './robot-points-api';
 // Import point display mappings
 import { pointDisplayMappings } from './robot-points-map';
 // Task assignment API for AutoXing structured mission execution

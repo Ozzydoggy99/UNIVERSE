@@ -1823,10 +1823,10 @@ export function registerDynamicWorkflowRoutes(app: express.Express): void {
       // Currently we only support the toUnloadPoint action for testing
       if (actionId === 'toUnloadPoint') {
         // Import action modules dynamically to prevent circular dependencies
-        const { toUnloadPointAction } = await import('./to-unload-point-action');
+        const toUnloadPointModule = await import('./to-unload-point-action');
         
         // Execute the action directly
-        const result = await toUnloadPointAction.execute(params);
+        const result = await toUnloadPointModule.execute(params);
         
         return res.status(200).json({
           success: result.success,

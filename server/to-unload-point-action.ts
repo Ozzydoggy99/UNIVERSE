@@ -31,6 +31,9 @@ interface ExecuteResponse {
  * point ID formats like "110", "110_load", etc. It works with both standard
  * shelf points and special points like "Drop-off_Load".
  */
+// Export both the individual function and as a named object for compatibility
+export const toUnloadPointAction = { execute };
+
 export async function execute(params: ActionParams): Promise<ExecuteResponse> {
   try {
     console.log(`[TO-UNLOAD-POINT] Executing with params:`, params);
