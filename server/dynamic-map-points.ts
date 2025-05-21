@@ -8,7 +8,7 @@
 
 import axios from 'axios';
 import { Point } from './types';
-import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 
 // Cache of map points with TTL for performance
 let pointsCache: Point[] = [];
@@ -31,12 +31,12 @@ export async function fetchAllMapPoints(): Promise<Point[]> {
     console.log(`[DYNAMIC-MAP] Fetching points from robot API...`);
     
     // First get the list of maps
-    const mapsResponse = await axios.get(`${ROBOT_API_URL}/maps`, {
-      headers: getAuthHeaders()
+    const mapsResponse = await axios.get(`${await getRobotApiUrl('L382502104987ir')}/maps`, {
+      headers: await getAuthHeaders('L382502104987ir')
     });
     
-    const maps = mapsResponse.data || [];
-    if (!maps.length) {
+    const maps = mapsResponse.data as any[];
+    if (!Array.isArray(maps) || maps.length === 0) {
       console.error(`[DYNAMIC-MAP] No maps found from robot API`);
       return [];
     }
@@ -46,11 +46,11 @@ export async function fetchAllMapPoints(): Promise<Point[]> {
     console.log(`[DYNAMIC-MAP] Using map: ${activeMap.name || activeMap.map_name} (ID: ${activeMap.id})`);
     
     // Get detailed map data including overlays
-    const mapDetailRes = await axios.get(`${ROBOT_API_URL}/maps/${activeMap.id}`, {
-      headers: getAuthHeaders()
+    const mapDetailRes = await axios.get(`${await getRobotApiUrl('L382502104987ir')}/maps/${activeMap.id}`, {
+      headers: await getAuthHeaders('L382502104987ir')
     });
     
-    const mapData = mapDetailRes.data;
+    const mapData = mapDetailRes.data as any;
     if (!mapData || !mapData.overlays) {
       console.error(`[DYNAMIC-MAP] No overlay data in map`);
       return [];
@@ -86,13 +86,13 @@ export async function fetchAllMapPoints(): Promise<Point[]> {
       console.log(`[DYNAMIC-MAP] Successfully extracted ${points.length} map points`);
       
       // Log all shelf points for debugging
-      const shelfPoints = points.filter(p => 
+      const shelfPoints = points.filter((p: any) => 
         /^\d+(_load)?$/.test(p.id) || 
         p.id.includes('_load')
       );
       
       console.log(`[DYNAMIC-MAP] Found ${shelfPoints.length} shelf points:`);
-      shelfPoints.forEach(p => {
+      shelfPoints.forEach((p: any) => {
         console.log(`[DYNAMIC-MAP] - ${p.id}: (${p.x}, ${p.y})`);
       });
       

@@ -7,7 +7,9 @@
 
 import axios from 'axios';
 import { Request, Response } from 'express';
-import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
+
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
 
 /**
  * Fetch the complete robot system settings
@@ -18,8 +20,10 @@ import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
 export async function fetchRobotSystemSettings(): Promise<any> {
   try {
     console.log('Fetching robot system settings...');
-    const response = await axios.get(`${ROBOT_API_URL}/system/settings/effective`, {
-      headers: getAuthHeaders()
+    const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+    const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+    const response = await axios.get(`${robotApiUrl}/system/settings/effective`, {
+      headers
     });
     
     if (!response.data) {

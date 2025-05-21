@@ -16,6 +16,7 @@ const ROBOT_API_URL = 'http://47.180.91.99:8090';
  * Map type with points
  */
 interface Map {
+  id: number;
   uid: string;
   name: string;
   points: Point[];
@@ -38,7 +39,8 @@ interface Point {
 async function getMaps(): Promise<Map[]> {
   try {
     const response = await axios.get(`${ROBOT_API_URL}/api/v2/maps`);
-    return response.data.maps || [];
+    const data = response.data as { maps?: Map[] };
+    return data.maps || [];
   } catch (error) {
     console.error('Error fetching maps:', error);
     return [];
@@ -48,12 +50,13 @@ async function getMaps(): Promise<Map[]> {
 /**
  * Get all points for a specific map
  */
-async function getMapPoints(mapUid: string): Promise<Point[]> {
+async function getMapPoints(mapId: number): Promise<Point[]> {
   try {
-    const response = await axios.get(`${ROBOT_API_URL}/api/v2/maps/${mapUid}/points`);
-    return response.data.points || [];
+    const response = await axios.get(`${ROBOT_API_URL}/api/v2/maps/${mapId}/points`);
+    const data = response.data as { points?: Point[] };
+    return data.points || [];
   } catch (error) {
-    console.error(`Error fetching points for map ${mapUid}:`, error);
+    console.error(`Error fetching points for map ${mapId}:`, error);
     return [];
   }
 }
@@ -104,7 +107,7 @@ export async function analyzeRobotMaps(): Promise<Record<string, any>> {
     // Process each map
     const mapAnalysis = await Promise.all(standardMaps.map(async map => {
       // Get points for this map
-      const points = await getMapPoints(map.uid);
+      const points = await getMapPoints(map.id);
       
       // Categorize points
       const processedPoints = points.map(point => ({

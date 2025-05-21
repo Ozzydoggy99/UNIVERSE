@@ -3,10 +3,20 @@ import express, { Request, Response } from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getRobotSecret, getAuthHeaders } from './robot-constants';
+
+// Types for robot API responses
+interface MoveResponse {
+  id: string;
+  state: string;
+  [key: string]: any;
+}
+
+// Default robot serial number
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
 
 // Helper functions for robot movement
-async function sendMoveCommand(x: number, y: number, logToFile: Function): Promise<any> {
+async function sendMoveCommand(x: number, y: number, logToFile: Function): Promise<MoveResponse> {
   try {
     logToFile(`➡️ Sending move command to: (${x}, ${y})`);
     
@@ -33,8 +43,10 @@ async function sendMoveCommand(x: number, y: number, logToFile: Function): Promi
     logToFile(`📦 Move payload: ${JSON.stringify(moveData)}`);
     
     // Send the move command to the robot API
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveData, {
-      headers: getAuthHeaders()
+    const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+    const authHeaders = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+    const response = await axios.post<MoveResponse>(`${robotApiUrl}/chassis/moves`, moveData, {
+      headers: authHeaders
     });
     
     const moveId = response.data.id;
@@ -54,8 +66,10 @@ async function sendMoveCommand(x: number, y: number, logToFile: Function): Promi
 // Helper to check move status
 async function checkMoveStatus(logToFile: Function): Promise<boolean> {
   try {
-    const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
-      headers: getAuthHeaders()
+    const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+    const authHeaders = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+    const response = await axios.get<MoveResponse>(`${robotApiUrl}/chassis/moves/current`, {
+      headers: authHeaders
     });
     
     if (response.data && response.data.state) {

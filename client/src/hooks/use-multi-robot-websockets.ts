@@ -24,6 +24,7 @@ const categories = [
     label: "Map Data", 
     filter: (msg: any) => 
       msg.category === 'map' || 
+      msg.type === 'points_update' ||
       (msg.data && (
         msg.data.topic === '/map' || 
         msg.data.topic === '/slam/state'

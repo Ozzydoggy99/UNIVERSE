@@ -41,6 +41,33 @@ interface ShelfPoint {
   y: number;
 }
 
+interface ServiceCardProps {
+  serviceType: ServiceType;
+  onSelect: () => void;
+  isSelected?: boolean;
+}
+
+interface OperationCardProps {
+  operation: OperationType;
+  onSelect: () => void;
+  isSelected?: boolean;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+interface WorkflowResponse {
+  workflowId: string;
+}
+
+interface SimplifiedPoint {
+  displayName: string;
+  pointSets: string[];
+}
+
 /**
  * Service Selection Page
  * 
@@ -140,11 +167,7 @@ function ServiceCard({
   serviceType, 
   onSelect,
   isSelected = false
-}: { 
-  serviceType: ServiceType, 
-  onSelect: () => void,
-  isSelected?: boolean
-}) {
+}: ServiceCardProps) {
   // Use a dynamic icon based on the icon property
   // Default to a generic icon if the specific one isn't available
   let iconComponent;
@@ -195,7 +218,7 @@ function ServiceCard({
 export function OperationSelectionPage() {
   const [, navigate] = useLocation();
   const params = useParams();
-  const { serviceType } = params;
+  const serviceType = params?.serviceType || '';
   const { toast } = useToast();
   
   // Fetch operations directly from the operations endpoint
@@ -317,11 +340,7 @@ function OperationCard({
   operation, 
   onSelect,
   isSelected = false
-}: { 
-  operation: OperationType, 
-  onSelect: () => void,
-  isSelected?: boolean
-}) {
+}: OperationCardProps) {
   const baseClasses = "p-4 hover:shadow-lg transition-shadow cursor-pointer";
   const colorClasses = operation.enabled
     ? (isSelected 
@@ -356,7 +375,8 @@ function OperationCard({
 export function FloorSelectionPage() {
   const [, navigate] = useLocation();
   const params = useParams();
-  const { operationType } = params;
+  const serviceType = params?.serviceType || '';
+  const operationType = params?.operationType || '';
   const { toast } = useToast();
   
   // Fetch floors for the selected operation
@@ -479,16 +499,19 @@ function FloorCard({
 export function ShelfSelectionPage() {
   const [, navigate] = useLocation();
   const params = useParams();
-  const { operationType, floorId } = params;
+  const serviceType = params?.serviceType || '';
+  const operationType = params?.operationType || '';
+  const floorId = params?.floorId || '';
   const { toast } = useToast();
   const [isExecuting, setIsExecuting] = useState(false);
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
+  const [selectedPointSets, setSelectedPointSets] = useState<string[]>([]);
   
-  // Fetch shelves for the selected floor and operation
-  const { data, isLoading, error } = useQuery<unknown, Error, { shelves: ShelfPoint[] }>({
-    queryKey: [`/api/simplified-workflow/operations/${operationType}/floors/${floorId}/shelves`],
+  // Fetch simplified points from the API
+  const { data: simplifiedPoints, isLoading, error } = useQuery<unknown, Error, SimplifiedPoint[]>({
+    queryKey: ['/api/robot/points/simplified'],
     retry: 1,
-    select: (data: any) => data as { shelves: ShelfPoint[] }
+    select: (data: any) => data as SimplifiedPoint[]
   });
   
   if (isLoading) {
@@ -521,154 +544,64 @@ export function ShelfSelectionPage() {
     );
   }
   
-  // No fallbacks - only use actual shelves from the robot
-  const shelves = data?.shelves || [];
-  
-  // Sort shelves by displayName numerically
-  const sortedShelves = [...shelves].sort((a, b) => {
+  // Sort simplified points by displayName numerically
+  const sortedPoints = [...(simplifiedPoints || [])].sort((a, b) => {
     const aNum = parseInt(a.displayName) || 0;
     const bNum = parseInt(b.displayName) || 0;
     return aNum - bNum;
   });
   
-  const handleSelect = (shelf: ShelfPoint) => {
-    setSelectedShelf(shelf.id);
+  const handleSelect = async (point: SimplifiedPoint) => {
+    setSelectedShelf(point.displayName);
+    setSelectedPointSets(point.pointSets);
   };
   
   const handleExecute = async () => {
-    if (!selectedShelf) {
+    if (!selectedShelf || selectedPointSets.length === 0) return;
+    // Only send _load points for dropoff/unload actions
+    // Filter out any _docking points from the selected point sets
+    const loadPoints = selectedPointSets.filter(p => p.endsWith('_load'));
+    if (loadPoints.length === 0) {
       toast({
-        title: "No Shelf Selected",
-        description: "Please select a shelf to continue.",
+        title: "Error",
+        description: "No valid shelf load point found for this selection.",
         variant: "destructive"
       });
       return;
     }
-    
-    setIsExecuting(true);
-    
     try {
-      // For transfer operations, we need to select a source shelf and target shelf
-      if (operationType === 'transfer') {
-        // Select source shelf first
-        if (!localStorage.getItem('sourceShelf')) {
-          localStorage.setItem('sourceShelf', selectedShelf);
-          
-          toast({
-            title: "Source Shelf Selected",
-            description: "Now select the target shelf.",
-            variant: "default"
-          });
-          
-          // Clear the selection and stay on the same page
-          setSelectedShelf(null);
-          setIsExecuting(false);
-          return;
-        } else {
-          // We have both source and target
-          const sourceShelf = localStorage.getItem('sourceShelf');
-          const targetShelf = selectedShelf;
-          
-          // Clean up
-          localStorage.removeItem('sourceShelf');
-          
-          // Make the API call with both shelves - use sourceShelfId for consistency with API
-          console.log('Executing transfer workflow:', {
-            operationType,
-            floorId,
-            sourceShelfId: sourceShelf,
-            shelfId: targetShelf
-          });
-          
-          const response = await axios.post(`/api/simplified-workflow/execute`, {
-            operationType,
-            floorId,
-            sourceShelfId: sourceShelf,
-            shelfId: targetShelf  // Use shelfId instead of targetShelf to match API expectations
-          });
-          
-          console.log('Transfer workflow response:', response.data);
-          
-          // Use the success status from the response
-          if (response.data && response.data.success) {
-            toast({
-              title: "Transfer Mission Initiated",
-              description: `The robot is moving to execute the transfer mission. Mission ID: ${response.data.missionId}`,
-              variant: "default"
-            });
-            
-            // Navigate after a short delay to ensure toast is visible
-            setTimeout(() => {
-              navigate('/my-template');
-            }, 1000);
-          } else {
-            toast({
-              title: "Transfer Mission Execution Issue",
-              description: response.data?.message || "The transfer mission could not be executed properly.",
-              variant: "destructive"
-            });
-            setIsExecuting(false);
-          }
+      setIsExecuting(true);
+      const response = await axios.post<ApiResponse<WorkflowResponse>>('/api/simplified-workflow/execute', {
+        serviceType: 'laundry',
+        operationType,
+        floorId,
+        shelfId: loadPoints[0], // Always use the first _load point as the shelfId
+        pointSets: loadPoints // Only send _load points for workflow execution
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Secret': import.meta.env.VITE_ROBOT_SECRET || ''
         }
-      } else {
-        // Regular pickup or dropoff operation
-        console.log('Executing workflow:', {
-          operationType,
-          floorId,
-          shelfId: selectedShelf
-        });
-        
-        const response = await axios.post(`/api/simplified-workflow/execute`, {
-          operationType,
-          floorId,
-          shelfId: selectedShelf
-        });
-        
-        console.log('Workflow response:', response.data);
-        
-        // Use the success status from the response
-        if (response.data && response.data.success) {
-          toast({
-            title: "Mission Initiated",
-            description: `The robot is moving to execute the ${operationType} mission. Mission ID: ${response.data.missionId}`,
-            variant: "default"
-          });
-          
-          // Navigate after a short delay to ensure toast is visible
-          setTimeout(() => {
-            navigate('/my-template');
-          }, 1000);
-        } else {
-          toast({
-            title: "Mission Execution Issue",
-            description: response.data?.message || "The mission could not be executed properly.",
-            variant: "destructive"
-          });
-          setIsExecuting(false);
-        }
-      }
-    } catch (err: any) {
-      // Detailed error logging
-      console.error("Error executing workflow:", err);
-      
-      if (err.response) {
-        // The request was made and the server responded with an error status
-        console.error("Server response error:", err.response.data);
-        console.error("Status code:", err.response.status);
-      } else if (err.request) {
-        // The request was made but no response was received
-        console.error("No response received:", err.request);
-      } else {
-        // Something happened in setting up the request
-        console.error("Request error:", err.message);
-      }
-      
-      toast({
-        title: "Error Executing Mission",
-        description: err.response?.data?.error || "There was an error starting the mission. Please try again.",
-        variant: "destructive"
       });
       
+      if (response.data.success && response.data.data?.workflowId) {
+        toast({
+          title: "Workflow Started",
+          description: "The robot has started executing the workflow.",
+          variant: "default"
+        });
+        navigate(`/simplified-workflow/status/${response.data.data.workflowId}`);
+      } else {
+        throw new Error(response.data.error || 'Failed to start workflow');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
       setIsExecuting(false);
     }
   };
@@ -677,19 +610,15 @@ export function ShelfSelectionPage() {
     <div className="container mx-auto p-4">
       <Card className="shadow-lg border-0">
         <CardContent className="p-6">
-          <h1 className="text-2xl font-bold mb-6 text-center">
-            {operationType === 'transfer' && localStorage.getItem('sourceShelf') 
-              ? "Select Target Shelf" 
-              : "Select Shelf"}
-          </h1>
+          <h1 className="text-2xl font-bold mb-6 text-center">Select Shelf</h1>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {sortedShelves.map((shelf: ShelfPoint) => (
+            {sortedPoints.map((point) => (
               <ShelfCard 
-                key={shelf.id}
-                shelf={shelf}
-                isSelected={selectedShelf === shelf.id}
-                onSelect={() => handleSelect(shelf)}
+                key={point.displayName}
+                shelf={point}
+                isSelected={selectedShelf === point.displayName}
+                onSelect={() => handleSelect(point)}
               />
             ))}
           </div>
@@ -697,13 +626,7 @@ export function ShelfSelectionPage() {
           <div className="flex justify-between mt-8">
             <Button 
               variant="outline" 
-              onClick={() => {
-                // Clean up any source shelf selection if going back
-                if (operationType === 'transfer') {
-                  localStorage.removeItem('sourceShelf');
-                }
-                navigate(`/simplified-workflow/operations/${operationType}`)
-              }}
+              onClick={() => navigate(`/simplified-workflow/operations/${operationType}`)}
             >
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Floors
             </Button>
@@ -721,11 +644,7 @@ export function ShelfSelectionPage() {
                 ) : (
                   <>
                     <ArrowRight className="mr-2 h-4 w-4" /> 
-                    {operationType === 'transfer' && !localStorage.getItem('sourceShelf') 
-                      ? "Select Source Shelf" 
-                      : operationType === 'transfer' 
-                        ? "Start Transfer" 
-                        : `Start ${operationType}`}
+                    Start Mission
                   </>
                 )}
               </Button>
@@ -747,7 +666,7 @@ function ShelfCard({
   onSelect,
   isSelected = false
 }: { 
-  shelf: ShelfPoint, 
+  shelf: SimplifiedPoint, 
   onSelect: () => void,
   isSelected?: boolean
 }) {
@@ -762,7 +681,9 @@ function ShelfCard({
       onClick={onSelect}
     >
       <div className="flex flex-col items-center py-2">
-        <h3 className={`text-lg font-medium ${isSelected ? 'text-gray-700' : 'text-white'}`}>{shelf.displayName}</h3>
+        <h3 className={`text-lg font-medium ${isSelected ? 'text-gray-700' : 'text-white'}`}>
+          {shelf.displayName}
+        </h3>
         
         {isSelected && (
           <div className="mt-2 text-green-600 flex items-center">

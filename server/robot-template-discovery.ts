@@ -7,7 +7,9 @@
 
 import axios from 'axios';
 import { storage } from './storage';
-import { ROBOT_API_URL, ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
+
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
 
 // Simple logger
 const logger = {
@@ -170,49 +172,52 @@ function isShelfPoint(pointId: any): boolean {
   return isStandardPattern || isAutoXPattern;
 }
 
+interface MapsResponse {
+  maps?: any[];
+  [key: string]: any;
+}
+
 /**
  * Get all maps from the robot
  */
 async function getMaps(): Promise<any[]> {
   try {
-    logger.info(`Fetching maps from robot API: ${ROBOT_API_URL}/maps with robot ID: ${ROBOT_SERIAL}`);
-    const response = await axios.get(`${ROBOT_API_URL}/maps`, {
-      headers: {
-        'X-Robot-Serial': ROBOT_SERIAL,
-        'X-Robot-Secret': ROBOT_SECRET
-      }
-    });
+    const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+    const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+    logger.info(`Fetching maps from robot API: ${robotApiUrl}/maps with robot ID: ${DEFAULT_ROBOT_SERIAL}`);
+    const response = await axios.get(`${robotApiUrl}/maps`, { headers });
     
     // Handle various response formats with improved handling
     let maps = [];
     
     if (response.data) {
+      const data = response.data as MapsResponse;
       // Format 1: Direct array
-      if (Array.isArray(response.data)) {
-        maps = response.data;
+      if (Array.isArray(data)) {
+        maps = data;
         logger.info(`Found maps in direct array format: ${maps.length}`);
       } 
       // Format 2: Array in maps property
-      else if (response.data.maps && Array.isArray(response.data.maps)) {
-        maps = response.data.maps;
+      else if (data.maps && Array.isArray(data.maps)) {
+        maps = data.maps;
         logger.info(`Found maps in 'maps' property: ${maps.length}`);
       } 
       // Format 3: Single map object
-      else if (response.data.id !== undefined) {
-        maps = [response.data];
+      else if ((data as any).id) {
+        maps = [data];
         logger.info(`Found single map object`);
       }
       // Format 4: Try other common properties
       else {
         const propertiesToCheck = ['map', 'data', 'items', 'results'];
         for (const prop of propertiesToCheck) {
-          if (response.data[prop]) {
-            if (Array.isArray(response.data[prop])) {
-              maps = response.data[prop];
+          if (data[prop]) {
+            if (Array.isArray(data[prop])) {
+              maps = data[prop];
               logger.info(`Found maps in '${prop}' property: ${maps.length}`);
               break;
-            } else if (response.data[prop].id !== undefined) {
-              maps = [response.data[prop]];
+            } else if (data[prop].id !== undefined) {
+              maps = [data[prop]];
               logger.info(`Found single map in '${prop}' property`);
               break;
             }
@@ -253,139 +258,35 @@ async function getMaps(): Promise<any[]> {
  * Get all points for a specific map
  */
 async function getMapPoints(mapId: string | number): Promise<any[]> {
-  // Try several different endpoint patterns
-  const endpoints = [
-    `/maps/${mapId}/points`,
-    `/maps/${mapId}/point`,
-    `/maps/${mapId}`,
-    `/points?map_id=${mapId}`,
-    `/point?map_id=${mapId}`
-  ];
-  
   let points: any[] = [];
-  
-  for (const endpoint of endpoints) {
-    try {
-      logger.info(`Fetching points for map ${mapId} from robot API: ${ROBOT_API_URL}${endpoint}`);
-      const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
-        headers: {
-          'X-Robot-Serial': ROBOT_SERIAL,
-          'X-Robot-Secret': ROBOT_SECRET
-        }
-      });
-      
-      // Parse overlays first since this is the most common case for AutoX robots
-      if (response.data && typeof response.data === 'object' && response.data.overlays && typeof response.data.overlays === 'string') {
-        logger.info(`Found overlays JSON string in response for map ${mapId}`);
-        try {
-          // Parse the overlays JSON string into an object
-          const overlaysData = JSON.parse(response.data.overlays);
-          
-          // Check if it has GeoJSON features
-          if (overlaysData.features && Array.isArray(overlaysData.features)) {
-            // Filter for points (not LineStrings)
-            const pointFeatures = overlaysData.features.filter((feature: any) => {
-              return feature.geometry && feature.geometry.type === 'Point';
-            });
-            
-            logger.info(`Found ${pointFeatures.length} point features in overlays data`);
-            
-            // Convert GeoJSON features to point objects
-            points = pointFeatures.map((feature: any) => {
-              // Create standardized point object with properties from the feature
-              return {
-                id: feature.properties?.name || feature.id,
-                name: feature.properties?.name || '',
-                properties: feature.properties || {},
-                pose: {
-                  position: {
-                    x: feature.geometry.coordinates[0],
-                    y: feature.geometry.coordinates[1]
-                  },
-                  orientation: {
-                    z: feature.properties?.yaw || 0
-                  }
-                }
-              };
-            });
-            
-            // If we found points in overlays, continue to next step
-            if (points.length > 0) {
-              logger.info(`Successfully extracted ${points.length} points from overlays data`);
-              logger.info(`First point: ${JSON.stringify(points[0])}`);
-              break;
-            }
-          }
-        } catch (error) {
-          logger.error(`Error parsing overlays JSON: ${error}`);
-        }
+  try {
+    const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+    const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+    logger.info(`Fetching map points for map ${mapId} from robot API: ${robotApiUrl}/maps/${mapId}/points`);
+    const response = await axios.get(`${robotApiUrl}/maps/${mapId}/points`, { headers });
+
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        points = response.data;
+      } else if ((response.data as any)?.points && Array.isArray((response.data as any).points)) {
+        points = (response.data as { points?: any[] }).points ?? [];
+      } else if ((response.data as any)?.id || (response.data as any)?.name) {
+        points = [response.data];
       }
-      
-      // Handle different response formats if overlays didn't work
-      if (response.data) {
-        // Try to parse points from response based on different formats
-        if (Array.isArray(response.data)) {
-          // Direct array response
-          points = response.data;
-        } else if (response.data.points && Array.isArray(response.data.points)) {
-          // Objects with points array
-          points = response.data.points;
-        } else if (response.data.id || response.data.name) {
-          // Single point returned as object
-          points = [response.data];
-        } else if (typeof response.data === 'object') {
-          // Maybe the data contains point information directly
-          
-          // Check if there's a points_url to fetch points
-          if (points.length === 0 && response.data.points_url) {
-            // Try to get points from the points_url
-            try {
-              const pointsUrl = response.data.points_url;
-              logger.info(`Found points_url: ${pointsUrl}`);
-              
-              // Make a separate API call to fetch points
-              const pointsResponse = await axios.get(pointsUrl, {
-                headers: {
-                  'X-Robot-Serial': ROBOT_SERIAL,
-                  'X-Robot-Secret': ROBOT_SECRET
-                }
-              });
-              
-              if (pointsResponse.data && Array.isArray(pointsResponse.data)) {
-                points = pointsResponse.data;
-              } else if (pointsResponse.data && pointsResponse.data.points && 
-                         Array.isArray(pointsResponse.data.points)) {
-                points = pointsResponse.data.points;
-              }
-            } catch (pointsError) {
-              logger.warn(`Error fetching points from points_url: ${pointsError}`);
-            }
-          }
-        }
-        
-        // If we found points, break out of the loop
-        if (points.length > 0) {
-          logger.info(`Retrieved ${points.length} points for map ${mapId} using endpoint ${endpoint}`);
-          const pointIds = points.map((p: any) => p.id || p.point_id || p.name || 'unknown');
-          logger.info(`Point IDs for map ${mapId}: ${JSON.stringify(pointIds)}`);
-          logger.info(`First point full data: ${JSON.stringify(points[0])}`);
-          break;
-        }
-      }
-    } catch (error) {
-      logger.error(`Error fetching points for map ${mapId} using endpoint ${endpoint}: ${error}`);
-      // Continue trying other endpoints
     }
+
+    if (points.length === 0) {
+      logger.warn(`MAP POINTS DEBUG - Map ${mapId} has 0 points: ${JSON.stringify(points)}`);
+    } else {
+      logger.info(`Map ${mapId} has ${points.length} points: ${points.map((p: any) => p?.id || p?.name).join(', ')}`);
+    }
+    // Debug log to show all actual point IDs and names from the robot
+    logger.info(`RAW MAP POINTS for map ${mapId}: ${JSON.stringify(points.map(p => ({id: p.id, name: p.name})))} `);
+    return points;
+  } catch (error) {
+    logger.error(`Error fetching points for map ${mapId}: ${error}`);
+    return [];
   }
-  
-  // Debug log whether we found points
-  if (points.length === 0) {
-    logger.warn(`MAP POINTS DEBUG - Map ${mapId} has 0 points: ${JSON.stringify(points)}`);
-  } else {
-    logger.info(`Map ${mapId} has ${points.length} points: ${points.map(p => p.id || p.name).join(', ')}`);
-  }
-  
-  return points;
 }
 
 /**
@@ -429,58 +330,50 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       
       // Try to extract floor number from map name or ID (e.g., "Floor1" -> 1)
       const nameToCheck = mapName || mapId;
-      const floorMatch = String(nameToCheck).match(/Floor(\d+)/);
-      if (floorMatch) {
-        floorNumber = parseInt(floorMatch[1], 10);
-      } else if (String(nameToCheck).includes('Basement')) {
+      logger.info(`Attempting to extract floor number from: ${nameToCheck}`);
+      
+      // Try multiple patterns to extract floor number
+      const patterns = [
+        /Floor(\d+)/i,  // Floor1, floor1, etc.
+        /Floor\s*(\d+)/i,  // Floor 1, floor 1, etc.
+        /Level\s*(\d+)/i,  // Level 1, level 1, etc.
+        /(\d+)(?:\s*st|\s*nd|\s*rd|\s*th)?\s*Floor/i,  // 1st Floor, 1 Floor, etc.
+        /(\d+)/  // Just a number
+      ];
+      
+      for (const pattern of patterns) {
+        const match = String(nameToCheck).match(pattern);
+        if (match) {
+          floorNumber = parseInt(match[1], 10);
+          logger.info(`Found floor number ${floorNumber} from match: ${match[0]} using pattern: ${pattern}`);
+          break;
+        }
+      }
+      
+      if (String(nameToCheck).toLowerCase().includes('basement')) {
         floorNumber = 0; // Basement is floor 0
+        logger.info('Found basement floor (floor 0)');
       }
       
       // Get all points for this map
-      const points = await getMapPoints(mapId);
+      const mapPoints = await getMapPoints(mapId);
       
       // Debug log to show all actual point IDs from the robot
-      logger.info(`MAP POINTS DEBUG - Map ${mapId} has ${points.length} points: ${JSON.stringify(points.map(p => p.id || p.name))}`);
+      logger.info(`MAP POINTS DEBUG - Map ${mapId} has ${mapPoints.length} points: ${JSON.stringify(mapPoints.map(p => p.id || p.name))}`);
       
-      // Filter for shelf points and format them - with robust checking
-      const shelfPoints = points
+      // Filter for shelf points and format them
+      const shelfPoints = mapPoints
         .filter((point: any) => {
           if (!point) return false;
-          
-          // Use id property or fallback to name if id is missing
           const pointId = point.id || point.name || point.point_id || '';
-          
-          // Skip if we can't determine a valid ID
           if (!pointId) {
             logger.warn(`Point missing ID: ${JSON.stringify(point)}`);
             return false;
           }
-          
-          // Check both ID and properties.name for shelf points
-          let isShelf = isShelfPoint(pointId);
-          
-          // Also check properties.name for AutoX robots
-          if (!isShelf && point.properties && point.properties.name) {
-            isShelf = isShelfPoint(point.properties.name);
-          }
-          
-          // Also check type=34 which is the "rack" type in AutoX robots
-          if (!isShelf && point.properties && point.properties.type === '34') {
-            logger.info(`✅ Found rack point via type=34: ${pointId}`);
-            isShelf = true;
-          }
-          
-          if (isShelf) {
-            logger.info(`✅ Found shelf point: ${pointId}`);
-          }
-          
-          return isShelf;
+          return isShelfPoint(pointId);
         })
         .map((point: any) => {
-          // Get point ID with fallback
           const pointId = point.id || point.name || point.point_id || '';
-          
-          // Check if there's a corresponding docking point with various naming patterns
           const possibleDockingIds = [
             `${pointId}_docking`,
             `${pointId}-docking`,
@@ -490,16 +383,11 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
             `${pointId}-dock`
           ];
           
-          // Check if any of the possible docking point IDs exist
-          const hasDockingPoint = points.some((p: any) => {
+          const hasDockingPoint = mapPoints.some((p: any) => {
             if (!p || !p.id) return false;
             const pId = String(p.id).toLowerCase();
             return possibleDockingIds.some(id => pId === id.toLowerCase());
           });
-          
-          if (hasDockingPoint) {
-            logger.info(`✅ Found docking point for shelf: ${pointId}`);
-          }
           
           return {
             id: pointId,
@@ -511,14 +399,17 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
           };
         });
       
-      return {
+      // Create the map data object with proper display names
+      const mapData: MapData = {
         id: mapId,
-        name: mapName,
-        displayName: mapName,  // Set displayName to be the same as name initially
-        floorNumber,
-        shelfPoints,
-        points: points  // Store the raw points data
+        name: `Floor ${floorNumber}`, // Display name like "Floor 1"
+        displayName: `Floor ${floorNumber}`, // Same as name for consistency
+        floorNumber: floorNumber,
+        shelfPoints: shelfPoints, // Assign the filtered and mapped shelf points
+        points: mapPoints // Assign all points from the map
       };
+      
+      return mapData;
     });
     
     const mapData = await Promise.all(mapDataPromises);
@@ -668,7 +559,9 @@ export async function updateTemplateWithRobotCapabilities(
     await storage.updateTemplate(templateId, updatedTemplate);
     
     logger.info(`[TEMPLATE-DISCOVERY] Template ${templateId} updated successfully`);
+    return;
   } catch (error) {
     logger.error(`Error updating template with robot capabilities: ${error}`);
+    return;
   }
 }

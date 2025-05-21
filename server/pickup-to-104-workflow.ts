@@ -3,12 +3,15 @@ import express from 'express';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 import { fetchRobotMapPoints } from './robot-map-data';
 import { isRobotCharging, isEmergencyStopPressed, returnToCharger } from './robot-api';
 import { missionQueue } from './mission-queue';
 import { MissionStep } from './mission-queue';
 import { Point } from './types';
+
+// Default robot serial number
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
 
 // Configure debug log file
 const debugLogFile = path.join(process.cwd(), 'robot-debug.log');
@@ -264,7 +267,7 @@ export function registerPickupTo104WorkflowRoute(app: express.Express) {
       
       // Create the mission and let the mission queue execute it
       const missionName = `Pickup to 104 Workflow`;
-      const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
+      const mission = missionQueue.createMission(missionName, workflowSteps, DEFAULT_ROBOT_SERIAL);
       
       // Calculate planning time
       const duration = Date.now() - startTime;

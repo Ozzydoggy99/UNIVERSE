@@ -7,7 +7,7 @@
  */
 
 import axios from 'axios';
-import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders, DEFAULT_ROBOT_SERIAL } from './robot-constants';
 
 /**
  * Interface for a map point from the robot API
@@ -23,6 +23,7 @@ export interface RobotMapPoint {
  * Interface for a map from the robot API
  */
 export interface RobotMap {
+  id?: string | number;
   uid: string;
   name: string;
   description?: string;
@@ -58,11 +59,12 @@ export interface RobotMapDetails {
 /**
  * Get a list of all available maps from the robot
  */
-export async function getRobotMaps(): Promise<{ maps: RobotMap[] }> {
+export async function getRobotMaps(serialNumber: string = DEFAULT_ROBOT_SERIAL): Promise<{ maps: RobotMap[] }> {
   try {
     console.log('Fetching all robot maps');
-    const response = await axios.get(`${ROBOT_API_URL}/maps`, {
-      headers: getAuthHeaders(),
+    const robotApiUrl = await getRobotApiUrl(serialNumber);
+    const response = await axios.get(`${robotApiUrl}/maps`, {
+      headers: await getAuthHeaders(serialNumber),
       timeout: 5000
     });
     
@@ -83,18 +85,20 @@ export async function getRobotMaps(): Promise<{ maps: RobotMap[] }> {
 /**
  * Get detailed data for a specific map including points and overlays
  */
-export async function fetchMapData(mapId: string): Promise<RobotMapDetails> {
+export async function fetchMapData(mapId: string, serialNumber: string = DEFAULT_ROBOT_SERIAL): Promise<RobotMapDetails> {
   try {
     console.log(`Fetching detailed map data for map ID: ${mapId}`);
-    const response = await axios.get(`${ROBOT_API_URL}/maps/${mapId}`, {
-      headers: getAuthHeaders(),
+    const robotApiUrl = await getRobotApiUrl(serialNumber);
+    const response = await axios.get(`${robotApiUrl}/maps/${mapId}`, {
+      headers: await getAuthHeaders(serialNumber),
       timeout: 10000
     });
     
     if (response.data) {
+      const data = response.data as RobotMapDetails;
       // Check if the response contains the expected overlays with points
-      if (response.data.overlays && response.data.overlays.features) {
-        const pointFeatures = response.data.overlays.features.filter(
+      if (data.overlays && data.overlays.features) {
+        const pointFeatures = data.overlays.features.filter(
           (f: any) => f.geometry?.type === 'Point' && f.properties?.id
         );
         console.log(`Found ${pointFeatures.length} point features in map ${mapId}`);
@@ -102,7 +106,7 @@ export async function fetchMapData(mapId: string): Promise<RobotMapDetails> {
         console.log(`Map ${mapId} found but no overlays or points detected`);
       }
       
-      return response.data;
+      return data;
     } else {
       console.log(`Empty or invalid response for map ${mapId}`);
       return { uid: mapId };

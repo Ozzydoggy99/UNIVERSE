@@ -1,6 +1,13 @@
 // server/bin-detection.ts
 import axios from 'axios';
-import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
+
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
+
+interface CostmapResponse {
+  obstacles: { x: number; y: number; [key: string]: any }[];
+  [key: string]: any;
+}
 
 /**
  * Check if there's a bin at the specified position by detecting obstacles using the chassis/local_costmap API
@@ -12,20 +19,22 @@ import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
  */
 export async function checkForBin(x: number, y: number, pointId?: string): Promise<boolean> {
   try {
-    const headers = getAuthHeaders();
+    const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+    const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] [BIN-DETECTION] Checking for bin at ${pointId || `(${x}, ${y})`}`);
     
     // Detect obstacles using the local costmap API
-    const costmapEndpoint = `${ROBOT_API_URL}/chassis/local_costmap`;
+    const costmapEndpoint = `${robotApiUrl}/chassis/local_costmap`;
     const costmapResponse = await axios.get(costmapEndpoint, { headers });
     
-    if (!costmapResponse.data || !costmapResponse.data.obstacles) {
+    const data = costmapResponse.data as CostmapResponse;
+    if (!data || !data.obstacles) {
       throw new Error("No obstacle data available from costmap API");
     }
     
     // Check if any obstacle is near the specified coordinates
-    const obstacles = costmapResponse.data.obstacles;
+    const obstacles = data.obstacles;
     for (const obstacle of obstacles) {
       // Calculate distance between point and obstacle
       const distance = Math.sqrt(
@@ -65,19 +74,21 @@ export async function getBinDetectionStatus(
   pointId?: string
 ): Promise<{detected: boolean, confidence: number, method: string}> {
   try {
-    const headers = getAuthHeaders();
+    const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+    const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
     const timestamp = new Date().toISOString();
     
     // Detect obstacles using the local costmap API
-    const costmapEndpoint = `${ROBOT_API_URL}/chassis/local_costmap`;
+    const costmapEndpoint = `${robotApiUrl}/chassis/local_costmap`;
     const costmapResponse = await axios.get(costmapEndpoint, { headers });
     
-    if (!costmapResponse.data || !costmapResponse.data.obstacles) {
+    const data = costmapResponse.data as CostmapResponse;
+    if (!data || !data.obstacles) {
       throw new Error("No obstacle data available from costmap API");
     }
     
     // Check if any obstacle is near the specified coordinates
-    const obstacles = costmapResponse.data.obstacles;
+    const obstacles = data.obstacles;
     let minDistance = 999;
     let detected = false;
     let confidence = 0;

@@ -142,6 +142,18 @@ export const robotTasks = pgTable("robot_tasks", {
   createdBy: integer("created_by").references(() => users.id), // User who created the task
 });
 
+// Robot Credentials
+export const robotCredentials = pgTable("robot_credentials", {
+  id: serial("id").primaryKey(),
+  serialNumber: text("serial_number").notNull().unique(),
+  ipAddress: text("ip_address").notNull(),
+  port: integer("port").default(8090),
+  secret: text("secret").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // User Schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -235,6 +247,15 @@ export const insertGameZombieSchema = createInsertSchema(gameZombies).pick({
   y: true,
 });
 
+// Robot Credentials Schema
+export const insertRobotCredentialsSchema = createInsertSchema(robotCredentials).pick({
+  serialNumber: true,
+  ipAddress: true,
+  port: true,
+  secret: true,
+  isActive: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect & { role: string };
@@ -265,6 +286,9 @@ export type GameItem = typeof gameItems.$inferSelect;
 
 export type InsertGameZombie = z.infer<typeof insertGameZombieSchema>;
 export type GameZombie = typeof gameZombies.$inferSelect;
+
+export type InsertRobotCredentials = z.infer<typeof insertRobotCredentialsSchema>;
+export type RobotCredentials = typeof robotCredentials.$inferSelect;
 
 // Building Floor Maps
 export const floorMaps = pgTable("floor_maps", {

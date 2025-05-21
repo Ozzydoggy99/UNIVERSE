@@ -8,15 +8,15 @@
 import { Request, Response, Express } from 'express';
 import axios from 'axios';
 import { storage } from './storage';
-import { ROBOT_API_URL, ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
-import { 
-  discoverRobotCapabilities, 
+import {
+  discoverRobotCapabilities,
   updateTemplateWithRobotCapabilities,
   RobotCapabilities,
   MapData,
   ShelfPoint,
   ServiceType
 } from './robot-template-discovery';
+// import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 
 // Simple logger
 const logger = {
@@ -24,6 +24,8 @@ const logger = {
   error: (message: string) => console.error(message),
   warn: (message: string) => console.warn(message)
 };
+
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
 
 /**
  * Register API routes for robot capabilities
@@ -37,7 +39,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
    */
   app.post('/api/robot-capabilities/clear-cache', async (req: Request, res: Response) => {
     try {
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       await storage.clearRobotCapabilities(robotId);
       logger.info(`Cleared robot capabilities cache for robot ${robotId}`);
       res.status(200).json({ success: true, message: `Cleared capabilities cache for robot ${robotId}` });
@@ -55,7 +57,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
    */
   app.get('/api/robot-capabilities/operations', async (req: Request, res: Response) => {
     try {
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       // Determine available operations
@@ -97,7 +99,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
    */
   app.get('/api/robot-capabilities', async (req: Request, res: Response) => {
     try {
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       res.status(200).json(capabilities);
@@ -115,7 +117,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
   app.post('/api/robot-capabilities/apply-to-template/:templateId', async (req: Request, res: Response) => {
     try {
       const { templateId } = req.params;
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       
       await updateTemplateWithRobotCapabilities(parseInt(templateId, 10), robotId);
       
@@ -133,7 +135,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
    */
   app.get('/api/simplified-workflow/maps', async (req: Request, res: Response) => {
     try {
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       // Sort maps by floor number
@@ -154,7 +156,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
    */
   app.get('/api/simplified-workflow/service-types', async (req: Request, res: Response) => {
     try {
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       res.status(200).json({ serviceTypes: capabilities.serviceTypes });
@@ -178,7 +180,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       let operations = [];
       
       // Don't catch exceptions - let them propagate to show real errors
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       // For our unified robot service type, create operations based on robot capabilities
@@ -277,7 +279,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       let floors: Floor[] = [];
       
       // Don't catch exceptions - let them propagate to show real errors
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       // Filter and transform maps to floors
@@ -289,11 +291,44 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
           }
           return true;
         })
-        .map(map => ({
-          id: map.id,
-          displayName: map.name,
-          floorNumber: map.floorNumber
-        }))
+        .map(map => {
+          // Extract floor number from map name or ID
+          let floorNumber = 1;
+          const nameToCheck = map.name || String(map.id);
+          logger.info(`Processing floor from map: ${JSON.stringify(map)}`);
+          logger.info(`Attempting to extract floor number from: ${nameToCheck}`);
+          
+          // Try multiple patterns to extract floor number
+          const patterns = [
+            /Floor(\d+)/i,  // Floor1, floor1, etc.
+            /Floor\s*(\d+)/i,  // Floor 1, floor 1, etc.
+            /Level\s*(\d+)/i,  // Level 1, level 1, etc.
+            /(\d+)(?:\s*st|\s*nd|\s*rd|\s*th)?\s*Floor/i,  // 1st Floor, 1 Floor, etc.
+            /(\d+)/  // Just a number
+          ];
+          
+          for (const pattern of patterns) {
+            const match = String(nameToCheck).match(pattern);
+            if (match) {
+              floorNumber = parseInt(match[1], 10);
+              logger.info(`Found floor number ${floorNumber} from match: ${match[0]} using pattern: ${pattern}`);
+              break;
+            }
+          }
+          
+          if (String(nameToCheck).toLowerCase().includes('basement')) {
+            floorNumber = 0; // Basement is floor 0
+            logger.info('Found basement floor (floor 0)');
+          }
+          
+          const floor = {
+            id: String(floorNumber), // Use floor number as ID
+            displayName: `Floor ${floorNumber}`,
+            floorNumber: floorNumber
+          };
+          logger.info(`Created floor object: ${JSON.stringify(floor)}`);
+          return floor;
+        })
         .sort((a, b) => a.floorNumber - b.floorNumber);
       
       // No fallback - only show floors that actually exist on the robot
@@ -327,7 +362,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       // No fallbacks - we only use actual floors from the robot's capabilities
       let floors: Floor[] = [];
       
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       // Filter and transform maps to floors
@@ -339,11 +374,44 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
           }
           return true;
         })
-        .map(map => ({
-          id: map.id,
-          displayName: map.name,
-          floorNumber: map.floorNumber
-        }))
+        .map(map => {
+          // Extract floor number from map name or ID
+          let floorNumber = 1;
+          const nameToCheck = map.name || String(map.id);
+          logger.info(`Processing floor from map: ${JSON.stringify(map)}`);
+          logger.info(`Attempting to extract floor number from: ${nameToCheck}`);
+          
+          // Try multiple patterns to extract floor number
+          const patterns = [
+            /Floor(\d+)/i,  // Floor1, floor1, etc.
+            /Floor\s*(\d+)/i,  // Floor 1, floor 1, etc.
+            /Level\s*(\d+)/i,  // Level 1, level 1, etc.
+            /(\d+)(?:\s*st|\s*nd|\s*rd|\s*th)?\s*Floor/i,  // 1st Floor, 1 Floor, etc.
+            /(\d+)/  // Just a number
+          ];
+          
+          for (const pattern of patterns) {
+            const match = String(nameToCheck).match(pattern);
+            if (match) {
+              floorNumber = parseInt(match[1], 10);
+              logger.info(`Found floor number ${floorNumber} from match: ${match[0]} using pattern: ${pattern}`);
+              break;
+            }
+          }
+          
+          if (String(nameToCheck).toLowerCase().includes('basement')) {
+            floorNumber = 0; // Basement is floor 0
+            logger.info('Found basement floor (floor 0)');
+          }
+          
+          const floor = {
+            id: String(floorNumber), // Use floor number as ID
+            displayName: `Floor ${floorNumber}`,
+            floorNumber: floorNumber
+          };
+          logger.info(`Created floor object: ${JSON.stringify(floor)}`);
+          return floor;
+        })
         .sort((a, b) => a.floorNumber - b.floorNumber);
       
       // No fallback - only show floors that actually exist on the robot
@@ -378,7 +446,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       // No fallbacks - we only use actual shelves from the robot
       let shelves: Shelf[] = [];
       
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       // Debug log the maps
@@ -488,7 +556,7 @@ export function registerRobotCapabilitiesAPI(app: Express): void {
       // No fallbacks - we only use actual shelves from the robot
       let shelves: Shelf[] = [];
       
-      const robotId = ROBOT_SERIAL;
+      const robotId = DEFAULT_ROBOT_SERIAL;
       const capabilities = await discoverRobotCapabilities(robotId);
       
       // Debug log the maps

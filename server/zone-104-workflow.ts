@@ -3,13 +3,37 @@ import express from 'express';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 // Update import to use the correct function from dynamic-map-points instead
 import { fetchRobotMapPoints } from './robot-map-data';
 import { isRobotCharging, isEmergencyStopPressed, returnToCharger } from './robot-api';
 import { missionQueue } from './mission-queue';
 import { MissionStep } from './mission-queue';
 import { Point } from './types';
+
+// Default robot serial number
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
+
+interface ErrorResponse {
+  response?: {
+    data?: unknown;
+  };
+}
+
+interface BinStatusResponse {
+  success: boolean;
+  binPresent: boolean;
+  source: string;
+}
+
+interface ChargerPose {
+  pos: [number, number];
+  ori: number;
+}
+
+interface MapResponse {
+  charger_pose: ChargerPose;
+}
 
 // Configure debug log file
 const debugLogFile = path.join(process.cwd(), 'robot-debug.log');
@@ -33,7 +57,7 @@ function logRobotTask(message: string) {
 async function checkForBin(pointId: string): Promise<boolean> {
   try {
     // Use the bin status API which uses direct robot communication (no fallbacks)
-    const binStatusResponse = await axios.get(`http://localhost:5000/api/bins/status?location=${pointId}`);
+    const binStatusResponse = await axios.get<BinStatusResponse>(`http://localhost:5000/api/bins/status?location=${pointId}`);
     if (binStatusResponse.data && binStatusResponse.data.success) {
       const binPresent = binStatusResponse.data.binPresent;
       const source = binStatusResponse.data.source;
@@ -42,9 +66,13 @@ async function checkForBin(pointId: string): Promise<boolean> {
     } else {
       throw new Error('Invalid response from bin status API');
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If bin detection fails, throw error - no fallbacks
-    const errorMsg = `Failed to detect bin at ${pointId}: ${error.message}`;
+    const errorResponse = error as ErrorResponse;
+    const errorMessage = error instanceof Error ? error.message : 
+      (errorResponse?.response?.data) || 
+      'Unknown error occurred';
+    const errorMsg = `Failed to detect bin at ${pointId}: ${errorMessage}`;
     logRobotTask(`[BIN-DETECTION] ${errorMsg}`);
     throw new Error(errorMsg);
   }
@@ -116,9 +144,9 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       
       try {
         // Try to get charger position from the AutoXing API
-        const mapResponse = await axios.get(`${ROBOT_API_URL}/maps/current`, { 
-          headers: getAuthHeaders() 
-        });
+        const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+        const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+        const mapResponse = await axios.get<MapResponse>(`${robotApiUrl}/maps/current`, { headers });
         
         if (mapResponse.data && mapResponse.data.charger_pose && mapResponse.data.charger_pose.pos) {
           // Create a charger point from the API data
@@ -131,8 +159,12 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           
           logRobotTask(`Found charger position from API: (${chargerPoint.x}, ${chargerPoint.y}), ori: ${chargerPoint.ori}`);
         }
-      } catch (error: any) {
-        logRobotTask(`Warning: Could not get charger position from API: ${error.message}`);
+      } catch (error: unknown) {
+        const errorResponse = error as ErrorResponse;
+        const errorMessage = error instanceof Error ? error.message : 
+          (errorResponse?.response?.data) || 
+          'Unknown error occurred';
+        logRobotTask(`Warning: Could not get charger position from API: ${errorMessage}`);
         // Will fall back to map points method below
       }
       
@@ -199,7 +231,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           x: pickupPoint.x,
           y: pickupPoint.y,
           ori: pickupPoint.ori,
-          label: `Align with rack at ${pickupPoint.id}`
+          label: pickupPoint.id
         }
       });
       
@@ -272,12 +304,12 @@ export function registerZone104WorkflowRoute(app: express.Express) {
           logRobotTask(`- Step ${i+1}: JACK UP with safety wait: ${step.params.waitComplete}`);
         } else if (step.type === 'jack_down') {
           logRobotTask(`- Step ${i+1}: JACK DOWN with safety wait: ${step.params.waitComplete}`);
-        } else if (step.type === 'manual_joystick') {
-          logRobotTask(`- Step ${i+1}: ${step.params.label} (${step.params.linear.x}, ${step.params.linear.y}) for ${step.params.duration}ms`);
         } else if (step.type === 'align_with_rack') {
           logRobotTask(`- Step ${i+1}: ALIGN WITH RACK at ${step.params.label} (${step.params.x}, ${step.params.y})`);
         } else if (step.type === 'to_unload_point') {
           logRobotTask(`- Step ${i+1}: TO UNLOAD POINT at ${step.params.label} (${step.params.x}, ${step.params.y})`);
+        } else if (step.type === 'return_to_charger') {
+          logRobotTask(`- Step ${i+1}: RETURN TO CHARGER at ${step.params.label} (${step.params.x}, ${step.params.y})`);
         }
       }
       
@@ -287,7 +319,7 @@ export function registerZone104WorkflowRoute(app: express.Express) {
       
       // Create the mission and let the mission queue execute it
       const missionName = `Zone 104 Workflow with Charger Return`;
-      const mission = missionQueue.createMission(missionName, workflowSteps, ROBOT_SERIAL);
+      const mission = missionQueue.createMission(missionName, workflowSteps, DEFAULT_ROBOT_SERIAL);
       
       // Calculate planning time
       const duration = Date.now() - startTime;

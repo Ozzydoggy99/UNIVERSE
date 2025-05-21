@@ -7,7 +7,11 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { Request } from 'express';
 import { Server } from 'http';
-import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants.js';
+import { robotPositionTracker } from './robot-position-tracker.js';
+import { extractPointsFromMap } from './robot-map-api.js';
+import robotPointsMap from './robot-points-map.js';
+import { EventEmitter } from 'events';
 
 // Initialize connection states
 let robotWs: WebSocket | null = null;
@@ -23,54 +27,60 @@ const clients: Set<WebSocket> = new Set();
 // Topic classifications for forwarding to frontend with context
 const topicCategories: Record<string, string[]> = {
   'status': ['/battery_state', '/detailed_battery_state', '/wheel_state'],
-  'pose': ['/tracked_pose', '/robot/footprint'],
   'map': ['/map', '/map_v2', '/slam/state'],
   'video': ['/rgb_cameras/front/compressed', '/rgb_cameras/front/video'],
   'lidar': ['/scan', '/lidar/scan', '/lidar/pointcloud'],
+  'pose': ['/tracked_pose', '/robot/footprint']
 };
 
 // List of topics to subscribe to from the robot
 const subscribeTopics: string[] = [
-  '/tracked_pose',         // Robot position
   '/battery_state',        // Battery information
   '/wheel_state',          // Wheel status
   '/slam/state',           // SLAM status
   '/map',                  // Map data
   '/scan',                 // 2D LiDAR data showing people moving
   '/scan_matched_points2', // 3D LiDAR point cloud data
-  '/lidar/scan'            // Alternative LiDAR path
+  '/lidar/scan',           // Alternative LiDAR path
+  '/tracked_pose',         // Robot position
+  '/robot/footprint'       // Robot footprint
 ];
+
+// Event emitter for WebSocket events
+const wsEvents = new EventEmitter();
 
 /**
  * Get the WebSocket URL for the robot
  */
-function getRobotWebSocketUrl(): string {
-  // According to the new documentation, we need to use the proper API endpoint
-  // The AutoXing API docs specify the WebSocket URL format
-  return `${ROBOT_API_URL.replace(/^http/, 'ws')}/ws/v2`;
+async function getRobotWebSocketUrl(): Promise<string> {
+  // Use the correct WebSocket endpoint according to docs
+  const wsUrl = (await getRobotApiUrl('L382502104987ir')).replace(/^http/, 'ws') + '/ws/v2/topics';
+  console.log('[DEBUG] Generated WebSocket URL:', wsUrl);
+  return wsUrl;
 }
 
 /**
  * Connect to the robot WebSocket
  */
-function connectRobotWebSocket() {
+async function connectRobotWebSocket() {
   if (isConnecting || (robotWs && robotWs.readyState === WebSocket.OPEN)) {
+    console.log('[DEBUG] Already connecting or connected, skipping connection attempt');
     return;
   }
 
   isConnecting = true;
-  const wsUrl = getRobotWebSocketUrl();
-  console.log(`Connecting to robot WebSocket at ${wsUrl}`);
+  const wsUrl = await getRobotWebSocketUrl();
+  console.log(`[DEBUG] Connecting to robot WebSocket at ${wsUrl}`);
 
   try {
     // Set connection timeout
     connectionTimeout = setTimeout(() => {
-      console.log('Robot WebSocket connection timed out');
+      console.log('[DEBUG] Robot WebSocket connection timed out');
       if (robotWs) {
         try {
           robotWs.terminate();
         } catch (e) {
-          console.error('Error terminating robot WebSocket:', e);
+          console.error('[DEBUG] Error terminating robot WebSocket:', e);
         }
       }
       robotWs = null;
@@ -78,13 +88,19 @@ function connectRobotWebSocket() {
       scheduleReconnect();
     }, 10000);
 
-    // Create connection with proper auth headers according to AutoXing API docs
+    // Get auth headers and only use APPCODE for WebSocket
+    const authHeaders = await getAuthHeaders('L382502104987ir');
+    const wsHeaders = {
+      'APPCODE': authHeaders['APPCODE']
+    };
+    console.log('[DEBUG] Using WebSocket headers:', wsHeaders);
+    
     robotWs = new WebSocket(wsUrl, {
-      headers: getAuthHeaders()
+      headers: wsHeaders
     });
 
     robotWs.on('open', () => {
-      console.log('Robot WebSocket connection established');
+      console.log('[DEBUG] Robot WebSocket connection established');
       
       // Clear timeout and update state
       if (connectionTimeout) {
@@ -96,20 +112,40 @@ function connectRobotWebSocket() {
       reconnectAttempt = 0;
 
       // Subscribe to topics
-      // According to the updated API documentation, we should use the enable_topics command
-      // with an array of topics for more efficient subscription
       try {
         if (robotWs && robotWs.readyState === WebSocket.OPEN) {
-          // Per the AutoXing API docs, we need to use the command format:
-          // { "command": "enable_topics", "topics": ["/topic1", "/topic2"] }
-          robotWs.send(JSON.stringify({
-            command: "enable_topics",
-            topics: subscribeTopics
-          }));
-          console.log(`Subscribed to robot topics: ${subscribeTopics.join(', ')}`);
+          // Subscribe to all topics at once using the correct format
+          const subscribeMessage = {
+            enable_topic: subscribeTopics
+          };
+          console.log('[DEBUG] Sending topic subscription:', JSON.stringify(subscribeMessage));
+          robotWs.send(JSON.stringify(subscribeMessage));
+          
+          // Wait for subscription response
+          const subscriptionTimeout = setTimeout(() => {
+            console.log('[DEBUG] No subscription response received within 5 seconds');
+          }, 5000);
+          
+          robotWs.once('message', (data) => {
+            clearTimeout(subscriptionTimeout);
+            try {
+              const response = JSON.parse(data.toString());
+              console.log('[DEBUG] Received subscription response:', JSON.stringify(response, null, 2));
+              if (response.enabled_topics) {
+                console.log('[DEBUG] Successfully subscribed to topics:', response.enabled_topics);
+              } else {
+                console.log('[DEBUG] Unexpected subscription response format:', response);
+              }
+            } catch (e) {
+              console.error('[DEBUG] Error parsing subscription response:', e);
+              console.error('[DEBUG] Raw subscription response:', data.toString());
+            }
+          });
+          
+          console.log(`[DEBUG] Subscribed to robot topics: ${subscribeTopics.join(', ')}`);
         }
       } catch (e) {
-        console.error(`Error subscribing to topics:`, e);
+        console.error(`[DEBUG] Error subscribing to topics:`, e);
       }
 
       // Set up ping interval
@@ -121,8 +157,9 @@ function connectRobotWebSocket() {
         if (robotWs && robotWs.readyState === WebSocket.OPEN) {
           try {
             robotWs.ping();
+            console.log('[DEBUG] Sent ping to robot WebSocket');
           } catch (e) {
-            console.error('Error sending ping to robot WebSocket:', e);
+            console.error('[DEBUG] Error sending ping to robot WebSocket:', e);
           }
         }
       }, 30000);
@@ -134,144 +171,138 @@ function connectRobotWebSocket() {
         timestamp: Date.now()
       });
     });
-
-    // Data will be stored in the top-level variables
     
     robotWs.on('message', (data) => {
       try {
-        const messageStr = data.toString();
-        let message: any;
+        console.log('[DEBUG] Raw WebSocket message received:', data.toString());
+        const message = JSON.parse(data.toString());
+        console.log('[DEBUG] Parsed WebSocket message:', JSON.stringify(message, null, 2));
         
-        try {
-          message = JSON.parse(messageStr);
-        } catch (e) {
-          // Not JSON, just use raw data
-          message = { raw: messageStr };
-        }
+        // Handle position updates
+        if (message.topic === '/tracked_pose') {
+          try {
+            console.log('[DEBUG] Processing tracked_pose message:', JSON.stringify(message, null, 2));
+            const posData = message.data || message;
+            if (posData) {
+              let position = {
+                x: 0,
+                y: 0,
+                theta: 0,
+                timestamp: Date.now()
+              };
 
-        // Categorize message by topic if available
-        if (message.topic) {
-          let category = 'other';
-          
-          // Find which category this topic belongs to
-          for (const [cat, topics] of Object.entries(topicCategories)) {
-            if (topics.includes(message.topic)) {
-              category = cat;
-              break;
+              // Extract position data based on message format
+              if (posData.pos && Array.isArray(posData.pos) && posData.pos.length >= 2) {
+                position.x = posData.pos[0];
+                position.y = posData.pos[1];
+                position.theta = posData.ori || 0;
+              } else if (posData.x !== undefined && posData.y !== undefined) {
+                position.x = posData.x;
+                position.y = posData.y;
+                position.theta = posData.theta || posData.orientation || 0;
+              }
+
+              console.log('[DEBUG] Extracted position:', position);
+              robotPositionTracker.updatePosition(position);
+            } else {
+              console.log('[DEBUG] No position data found in message');
             }
+          } catch (posError) {
+            console.error('[DEBUG] Error processing position data:', posError);
+            console.error('[DEBUG] Position data that caused error:', JSON.stringify(message, null, 2));
           }
-
-          // Store data by topic for later retrieval
-          if (message.topic === '/tracked_pose' || message.topic === '/robot/footprint') {
-            // Handle position data
-            const { robotPositionTracker } = require('./robot-position-tracker');
-            
-            // Extract position data properly based on message format
-            let posData = {
-              x: 0,
-              y: 0,
-              theta: 0,
-              timestamp: Date.now()
-            };
-            
-            if (message.pos && Array.isArray(message.pos) && message.pos.length >= 2) {
-              posData.x = message.pos[0];
-              posData.y = message.pos[1];
-              posData.theta = message.ori || 0;
-            } else if (message.data && message.data.pos && Array.isArray(message.data.pos)) {
-              posData.x = message.data.pos[0];
-              posData.y = message.data.pos[1];
-              posData.theta = message.data.ori || 0;
-            } else if (message.x !== undefined && message.y !== undefined) {
-              posData.x = message.x;
-              posData.y = message.y;
-              posData.theta = message.theta || message.orientation || 0;
-            } else if (message.data && message.data.x !== undefined) {
-              posData.x = message.data.x;
-              posData.y = message.data.y;
-              posData.theta = message.data.theta || message.data.orientation || 0;
-            }
-            
-            // Update the position tracker
-            robotPositionTracker.updatePosition(posData);
-          } else if (message.topic === '/map' || message.topic === '/map_v2') {
-            // Store map data in top-level variable
-            latestMapData = message;
-            console.log(`Stored latest map data from ${message.topic}`);
-          } else if (category === 'lidar') {
-            // Store LiDAR data in top-level variable
-            latestLidarData = message;
-            
-            // For better debugging, let's extract the structure of the data
-            const dataStructure = {};
-            
-            // If message has data property, check its format
-            if (message.data) {
-              // List all top-level properties in the data
-              Object.keys(message.data).forEach(key => {
-                const value = message.data[key];
-                if (Array.isArray(value)) {
-                  dataStructure[key] = `Array[${value.length}]`;
-                } else if (typeof value === 'object' && value !== null) {
-                  dataStructure[key] = 'Object';
-                } else {
-                  dataStructure[key] = typeof value;
-                }
+        }
+        
+        // Handle battery data
+        if (message.topic === '/battery_state') {
+          try {
+            console.log('[DEBUG] Processing battery state message:', JSON.stringify(message, null, 2));
+            const batteryData = message.data || message;
+            if (batteryData) {
+              // Log all possible charging state fields
+              console.log('[DEBUG] Battery charging state fields:', {
+                charging: batteryData.charging,
+                is_charging: batteryData.is_charging,
+                charging_state: batteryData.charging_state,
+                power_supply_status: batteryData.power_supply_status
               });
+
+              // Check multiple possible charging state indicators
+              const isCharging = 
+                batteryData.charging === true || 
+                batteryData.is_charging === true ||
+                batteryData.charging_state === 'charging' ||
+                batteryData.power_supply_status === 'charging';
+
+              latestBatteryData = {
+                percentage: batteryData.percentage || batteryData.battery_percentage || 0,
+                charging: isCharging,
+                voltage: batteryData.voltage,
+                current: batteryData.current,
+                temperature: batteryData.temperature,
+                timestamp: Date.now()
+              };
+              console.log('[DEBUG] Updated battery data:', latestBatteryData);
+            } else {
+              console.log('[DEBUG] No battery data found in message');
             }
-            
-            // Check if we have point cloud data directly in message (not nested in data)
-            const hasPointCloud = (message.points && message.points.length > 0) || 
-                                  (message.data && message.data.points && message.data.points.length > 0);
-            const hasRanges = (message.ranges && message.ranges.length > 0) || 
-                              (message.data && message.data.ranges && message.data.ranges.length > 0);
-                              
-            console.log(`Received LiDAR data from topic ${message.topic} - Has point cloud: ${hasPointCloud}, Has ranges: ${hasRanges}`);
-            console.log(`LiDAR data structure: ${JSON.stringify(dataStructure)}`);
-          } else if (message.topic === '/battery_state') {
-            // Store battery data
-            latestBatteryData = message;
-            console.log(`Stored latest battery data: ${message.percentage ? (message.percentage * 100).toFixed(1) + '%' : 'unknown'}`);
+          } catch (batteryError) {
+            console.error('[DEBUG] Error processing battery data:', batteryError);
+            console.error('[DEBUG] Battery data that caused error:', JSON.stringify(message, null, 2));
           }
-          
-          // Forward with category info
-          broadcastToClients({
-            type: 'data',
-            category,
-            topic: message.topic,
-            data: message,
-            timestamp: Date.now()
-          });
-        } else if (message.error) {
-          // Handle error messages
-          console.log('Robot WebSocket error message:', message.error);
-          
-          broadcastToClients({
-            type: 'error',
-            error: message.error,
-            timestamp: Date.now()
-          });
-        } else {
-          // Just forward other messages
-          broadcastToClients({
-            type: 'data',
-            category: 'unknown',
-            data: message,
-            timestamp: Date.now()
-          });
         }
-      } catch (e) {
-        console.error('Error processing robot WebSocket message:', e);
+        
+        // Store data by topic for later retrieval
+        if (message.topic === '/robot/footprint') {
+          console.log('[DEBUG] Processing footprint data:', message);
+          // Handle footprint data
+        }
+        
+        // Forward message to clients based on topic category
+        for (const [category, topics] of Object.entries(topicCategories)) {
+          if (topics.includes(message.topic)) {
+            console.log(`[DEBUG] Forwarding ${message.topic} to ${category} category`);
+            wsEvents.emit(category, message);
+            break;
+          }
+        }
+      } catch (error) {
+        console.error('[DEBUG] Error processing WebSocket message:', error);
+        console.error('[DEBUG] Raw message data:', data.toString());
       }
     });
 
     robotWs.on('error', (error) => {
-      console.error('Robot WebSocket error:', error);
-      console.log('Connection error occurred. Attempting to reconnect...');
+      console.error('[DEBUG] Robot WebSocket error:', error);
+      
+      // Clean up intervals
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      
+      if (connectionTimeout) {
+        clearTimeout(connectionTimeout);
+        connectionTimeout = null;
+      }
+
+      robotWs = null;
+      isConnecting = false;
+
+      // Notify clients
+      broadcastToClients({
+        type: 'connection',
+        status: 'error',
+        error: error.message,
+        timestamp: Date.now()
+      });
+
+      // Try to reconnect
+      scheduleReconnect();
     });
 
     robotWs.on('close', (code, reason) => {
-      console.log(`Robot WebSocket connection closed: ${code} ${reason || ''}`);
+      console.log(`[DEBUG] Robot WebSocket connection closed: ${code} ${reason || ''}`);
       
       // Clean up intervals
       if (pingInterval) {
@@ -308,19 +339,19 @@ function connectRobotWebSocket() {
 }
 
 /**
- * Schedule a reconnection attempt with exponential backoff
+ * Schedule a reconnection attempt
  */
 function scheduleReconnect() {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
   }
 
-  reconnectAttempt++;
-  const delay = Math.min(1000 * Math.pow(2, reconnectAttempt - 1), 30000);
-  console.log(`Attempting to reconnect to robot WebSocket in ${delay}ms (attempt ${reconnectAttempt})`);
-
+  // Exponential backoff with max delay of 30 seconds
+  const delay = Math.min(1000 * Math.pow(2, reconnectAttempt), 30000);
+  console.log(`[DEBUG] Scheduling reconnection attempt ${reconnectAttempt + 1} in ${delay}ms`);
+  
   reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
+    reconnectAttempt++;
     connectRobotWebSocket();
   }, delay);
 }
@@ -329,15 +360,17 @@ function scheduleReconnect() {
  * Broadcast a message to all connected clients
  */
 function broadcastToClients(message: any) {
-  clients.forEach(client => {
+  const messageStr = JSON.stringify(message);
+  
+  for (const client of clients) {
     if (client.readyState === WebSocket.OPEN) {
       try {
-        client.send(JSON.stringify(message));
-      } catch (e) {
-        console.error('Error broadcasting to client:', e);
+        client.send(messageStr);
+      } catch (error) {
+        console.error('[DEBUG] Error sending message to client:', error);
       }
     }
-  });
+  }
 }
 
 /**
@@ -403,8 +436,6 @@ export function getRobotStatus(serialNumber: string) {
  */
 export function getRobotPosition(serialNumber: string) {
   // Use the position tracker for consistent position data
-  const { robotPositionTracker } = require('./robot-position-tracker');
-  
   if (robotPositionTracker.hasPosition()) {
     return robotPositionTracker.getLatestPosition();
   }
@@ -511,19 +542,25 @@ export function isRobotConnected(serialNumber: string): boolean {
 }
 
 /**
- * Send a command to the robot via WebSocket
+ * Send a command to the robot
  */
-export function sendRobotCommand(serialNumber: string, command: any): boolean {
-  if (!(robotWs && robotWs.readyState === WebSocket.OPEN)) {
-    throw new Error('Cannot send robot command: Robot WebSocket not connected');
+export function sendRobotCommand(topic: string, data: any): boolean {
+  if (!robotWs || robotWs.readyState !== WebSocket.OPEN) {
+    console.error('[DEBUG] Cannot send command: WebSocket not connected');
+    return false;
   }
-  
+
   try {
-    robotWs.send(JSON.stringify(command));
+    const message = {
+      topic,
+      data
+    };
+    
+    robotWs.send(JSON.stringify(message));
     return true;
-  } catch (e) {
-    console.error('Error sending command to robot:', e);
-    throw new Error(`Failed to send command to robot: ${e instanceof Error ? e.message : String(e)}`);
+  } catch (error) {
+    console.error('[DEBUG] Error sending robot command:', error);
+    return false;
   }
 }
 
@@ -533,13 +570,12 @@ export function sendRobotCommand(serialNumber: string, command: any): boolean {
 export function attachWebSocketProxy(server: Server) {
   const wss = new WebSocketServer({ server, path: '/ws/status' });
 
-  wss.on('connection', (client) => {
+  wss.on('connection', async (client) => {
     console.log('🔌 Admin client connected to task status WS proxy');
-    
     // Connect to the robot's task status WebSocket
-    const robotBaseUrl = ROBOT_API_URL.replace(/^http/, 'ws');
-    const upstream = new WebSocket(`${robotBaseUrl}/ws/status`, {
-      headers: getAuthHeaders()
+    const robotBaseUrl = (await getRobotApiUrl('L382502104987ir')).replace(/^http/, 'ws');
+    const upstream = new WebSocket(`${robotBaseUrl}/ws/v2/status`, {
+      headers: await getAuthHeaders('L382502104987ir')
     });
 
     upstream.on('open', () => {
@@ -658,6 +694,19 @@ export function setupRobotWebSocketServer(server: Server) {
         reconnectAttempt,
         timestamp: Date.now()
       }));
+
+      // Send initial points data
+      if (robotPointsMap.floors[1]) {
+        ws.send(JSON.stringify({
+          type: 'points_update',
+          category: 'map',
+          topic: '/map',
+          data: {
+            points: robotPointsMap.floors[1].points,
+            timestamp: Date.now()
+          }
+        }));
+      }
     } catch (e) {
       console.error('Error sending initial status to client:', e);
     }
@@ -728,11 +777,8 @@ export function setupRobotWebSocketServer(server: Server) {
       console.log('Client WebSocket disconnected');
       clients.delete(ws);
     });
-
-    // Handle client errors
-    ws.on('error', (error) => {
-      console.error('Client WebSocket error:', error);
-      clients.delete(ws);
-    });
   });
 }
+
+// Export the event emitter
+export { wsEvents };

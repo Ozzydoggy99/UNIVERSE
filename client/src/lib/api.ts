@@ -4,7 +4,7 @@ import { RobotStatus, RobotPosition, RobotSensorData, CameraData, LidarData } fr
 // API endpoint configurations
 const API_URL = import.meta.env.VITE_AXBOT_API_URL || "/api/axbot";
 const API_KEY = import.meta.env.VITE_AXBOT_API_KEY || "";
-const ROBOT_SECRET = import.meta.env.VITE_ROBOT_SECRET || "";
+const ROBOT_APPCODE = import.meta.env.VITE_ROBOT_APPCODE || "";
 
 // Proxy server URLs for direct robot connection
 const ROBOT_PROXY_URL = import.meta.env.VITE_ROBOT_PROXY_URL || "";
@@ -40,7 +40,7 @@ export async function getRobotStatus(serialNumber?: string): Promise<RobotStatus
           // Skip logging to reduce console noise
           const proxyResponse = await fetch(`${ROBOT_PROXY_URL}/device/info`, {
             headers: {
-              'Secret': ROBOT_SECRET
+              'APPCODE': ROBOT_APPCODE
             }
           });
           if (proxyResponse.ok) {

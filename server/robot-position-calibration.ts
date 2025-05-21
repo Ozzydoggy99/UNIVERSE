@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 
 const ROBOT_API_URL = 'http://47.180.91.99:8090';
 const ROBOT_SECRET = process.env.ROBOT_SECRET || '';

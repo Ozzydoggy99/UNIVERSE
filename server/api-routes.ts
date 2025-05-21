@@ -40,9 +40,10 @@ import { registerBinStatusRoutes } from './bin-status-routes';
 import { registerRobotCapabilitiesAPI } from './robot-capabilities-api';
 import { registerTaskApiRoutes } from './robot-task-api';
 import { registerDynamicWorkflowRoutes } from './dynamic-workflow';
-import { ROBOT_SERIAL, ROBOT_SECRET } from './robot-constants';
 import dynamicPointsApiRouter from './dynamic-points-api';
 import { registerRefreshPointsRoutes } from './refresh-points-api';
+import robotCredentialsRouter from './robot-credentials';
+
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -51,6 +52,12 @@ function formatError(error: unknown): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Create HTTP server
+  const server = createServer(app);
+  
+  // Setup WebSocket server for robot communication
+  setupRobotWebSocketServer(server);
+  
   // Setup authentication
   await setupAuth(app);
   
@@ -63,6 +70,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register robot movement API routes
   registerRobotMoveApiRoutes(app);
   
+  // Register robot credentials routes
+  app.use('/api/robots', robotCredentialsRouter);
   
   // Register the new shelf points API
   registerRobotPointRoutes(app);
@@ -438,8 +447,6 @@ function setupWebSockets(httpServer: Server) {
       console.log('[Relay] Client connected to pose relay WebSocket');
       
       // Connect to the robot WebSocket with authentication headers
-      const ROBOT_SERIAL = "L382502104987ir";
-      // Based on the logs, the robot WebSocket endpoint should be '/ws'
       const ROBOT_WS = `ws://47.180.91.99:8090/ws`;
       console.log(`[Relay] Connecting to robot WebSocket at ${ROBOT_WS}`);
       
@@ -448,10 +455,10 @@ function setupWebSockets(httpServer: Server) {
       console.log('[Relay] Robot also supports /map, /slam/state, /wheel_state, /battery_state etc.');
       
       // Robot requires authentication headers for WebSocket connection
-      // Use the same 'x-api-key' header format that works in all other robot API calls
+      // Use the same APPCODE header format that works in all other robot API calls
       const connectionOptions = {
         headers: {
-          "x-api-key": ROBOT_SECRET
+          "APPCODE": "667a51a4d948433081a272c78d10a8a4"
         }
       };
       

@@ -7,6 +7,12 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Default robot configuration
+const DEFAULT_ROBOT = {
+  serialNumber: 'L382502104987ir',
+  appcode: '667a51a4d948433081a272c78d10a8a4'
+};
+
 export async function apiRequest(
   url: string,
   options?: {
@@ -26,9 +32,9 @@ export async function apiRequest(
     ...(data ? { "Content-Type": "application/json" } : {}),
   };
   
-  // If the URL contains "robot", add the Secret header
-  if (url.includes('robot')) {
-    headers['Secret'] = import.meta.env.VITE_ROBOT_SECRET || '';
+  // Add APPCODE header for robot authentication
+  if (url.includes('robots') || url.includes('robot') || url.includes('simplified-workflow')) {
+    headers['APPCODE'] = DEFAULT_ROBOT.appcode;
   }
   
   try {
@@ -93,10 +99,9 @@ export const getQueryFn: <T>(options: {
     const url = queryKey[0] as string;
     const headers: Record<string, string> = {};
     
-    // If the URL contains "robots" or "robot", add the Secret header
-    // This is to ensure authentication for robot API endpoints
-    if (url.includes('robot')) {
-      headers['Secret'] = import.meta.env.VITE_ROBOT_SECRET as string || '';
+    // If the URL contains "robots", "robot", or "simplified-workflow", add the Secret header
+    if (url.includes('robots') || url.includes('robot') || url.includes('simplified-workflow')) {
+      headers['APPCODE'] = DEFAULT_ROBOT.appcode;
     }
     
     try {
@@ -110,7 +115,7 @@ export const getQueryFn: <T>(options: {
       // Don't throw on non-OK responses for robot endpoints
       // Instead, handle them gracefully for better UX
       if (!res.ok) {
-        if (url.includes('robot')) {
+        if (url.includes('robot') || url.includes('simplified-workflow')) {
           const data = await res.json().catch(() => ({}));
           return {
             ...data,

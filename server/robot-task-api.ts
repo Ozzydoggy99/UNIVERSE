@@ -11,10 +11,10 @@ import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 
-// Robot API base URL
-const ROBOT_API_URL = process.env.ROBOT_API_URL || 'http://47.180.91.99:8090/api/v1';
-const ROBOT_SECRET = process.env.ROBOT_SECRET || 'rosver1';
+// Default robot serial number
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
 
 // Task status enum
 export enum TaskStatus {
@@ -48,6 +48,28 @@ export interface Task {
   robotId?: string;
 }
 
+// API response types
+interface RobotStatusResponse {
+  is_up: boolean;
+  is_charging: boolean;
+  x: number;
+  y: number;
+  ori: number;
+  id: string;
+}
+
+interface MoveResponse {
+  id: string;
+  state: string;
+  [key: string]: any;
+}
+
+interface BatteryResponse {
+  is_charging: boolean;
+  percentage: number;
+  voltage: number;
+}
+
 // In-memory store for active tasks
 const activeTasks: Map<string, Task> = new Map();
 
@@ -55,11 +77,39 @@ const activeTasks: Map<string, Task> = new Map();
 const taskStoragePath = path.join(process.cwd(), 'robot-tasks.json');
 
 // Helper to get authentication headers
-function getHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${ROBOT_SECRET}`
-  };
+async function getHeaders() {
+  return await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+}
+
+// Helper to get robot API URL
+async function getRobotUrl() {
+  return await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+}
+
+// Helper to make API requests with proper typing
+async function makeApiRequest<T>(endpoint: string, options: any = {}): Promise<T> {
+  const robotUrl = await getRobotUrl();
+  const headers = await getHeaders();
+  const url = `${robotUrl}${endpoint}`;
+  const method = (options.method || 'GET').toUpperCase();
+  if (method === 'GET') {
+    const response = await axios.get<T>(url, { ...options, headers });
+    return response.data;
+  } else if (method === 'POST') {
+    const response = await axios.post<T>(url, options.data || {}, { ...options, headers });
+    return response.data;
+  } else if (method === 'PATCH') {
+    const response = await axios.patch<T>(url, options.data || {}, { ...options, headers });
+    return response.data;
+  } else if (method === 'PUT') {
+    const response = await axios.put<T>(url, options.data || {}, { ...options, headers });
+    return response.data;
+  } else if (method === 'DELETE') {
+    const response = await axios.delete<T>(url, { ...options, headers });
+    return response.data;
+  } else {
+    throw new Error(`Unsupported HTTP method: ${method}`);
+  }
 }
 
 /**
@@ -84,15 +134,14 @@ async function ensureJackIsDown(taskId: string): Promise<boolean> {
   
   try {
     // Check jack state
-    const jackStateResponse = await axios.get(`${ROBOT_API_URL}/jack_state`, { headers: getHeaders() });
-    const jackState = jackStateResponse.data;
+    const jackState = await makeApiRequest<RobotStatusResponse>('/jack_state');
     
     if (jackState && jackState.is_up === true) {
       logTask(taskId, '⚠️ Jack is currently UP. Executing jack_down operation...');
       
       try {
         // Execute jack_down operation
-        await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+        await makeApiRequest<RobotStatusResponse>('/services/jack_down', { method: 'POST', data: {} });
         
         // Wait for the jack operation to complete (~10 seconds)
         logTask(taskId, 'Jack down operation started, waiting 10 seconds for completion...');
@@ -114,7 +163,7 @@ async function ensureJackIsDown(taskId: string): Promise<boolean> {
     
     try {
       // Execute jack_down operation as a precaution
-      await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+      await makeApiRequest<RobotStatusResponse>('/services/jack_down', { method: 'POST', data: {} });
       
       // Wait for the jack operation to complete (~10 seconds)
       logTask(taskId, 'Precautionary jack down operation started, waiting 10 seconds...');
@@ -142,7 +191,8 @@ async function executeJackUp(taskId: string): Promise<boolean> {
     await new Promise(resolve => setTimeout(resolve, 3000));
     
     // Execute the jack_up operation
-    await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers: getHeaders() });
+    const robotUrl = await getRobotUrl();
+    await makeApiRequest<RobotStatusResponse>('/services/jack_up', { method: 'POST', data: {} });
     
     // Wait for operation to complete
     logTask(taskId, 'Jack up operation started, waiting 10 seconds for completion...');
@@ -172,7 +222,8 @@ async function executeJackDown(taskId: string): Promise<boolean> {
     await new Promise(resolve => setTimeout(resolve, 3000));
     
     // Execute the jack_down operation
-    await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers: getHeaders() });
+    const robotUrl = await getRobotUrl();
+    await makeApiRequest<RobotStatusResponse>('/services/jack_down', { method: 'POST', data: {} });
     
     // Wait for operation to complete
     logTask(taskId, 'Jack down operation started, waiting 10 seconds for completion...');
@@ -199,9 +250,7 @@ async function returnToCharger(taskId: string): Promise<boolean> {
   try {
     // Cancel any current moves first for safety
     try {
-      await axios.patch(`${ROBOT_API_URL}/chassis/moves/current`, { 
-        state: 'cancelled' 
-      }, { headers: getHeaders() });
+      await makeApiRequest<MoveResponse>('/chassis/moves/current', { method: 'PATCH', data: { state: 'cancelled' } });
       logTask(taskId, 'Successfully cancelled any current moves');
     } catch (error: any) {
       logTask(taskId, `Warning: Couldn't cancel current move: ${error.message}`);
@@ -246,8 +295,8 @@ async function returnToCharger(taskId: string): Promise<boolean> {
     logTask(taskId, `Creating 'charge' move to charger at (${chargerPosition.x}, ${chargerPosition.y}), orientation: ${chargerPosition.ori}`);
     
     // Send the charge command to the robot
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, chargeCommand, { headers: getHeaders() });
-    const moveId = response.data.id;
+    const moveResponse = await makeApiRequest<MoveResponse>('/chassis/moves', { method: 'POST', data: chargeCommand });
+    const moveId = moveResponse.id;
     
     logTask(taskId, `Charge command sent - move ID: ${moveId}`);
     
@@ -263,8 +312,8 @@ async function returnToCharger(taskId: string): Promise<boolean> {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Check move status
-      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
-      const moveStatus = statusResponse.data.state;
+      const statusResponse = await makeApiRequest<MoveResponse>(`/chassis/moves/${moveId}`);
+      const moveStatus = statusResponse.state;
       
       logTask(taskId, `Current charger return status: ${moveStatus}`);
       
@@ -285,17 +334,12 @@ async function returnToCharger(taskId: string): Promise<boolean> {
     }
     
     // Check battery state to confirm charging
-    try {
-      const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers: getHeaders() });
-      const batteryState = batteryResponse.data;
-      
-      if (batteryState && batteryState.is_charging) {
-        logTask(taskId, '🔋 Confirmed: Robot is now charging!');
-      } else {
-        logTask(taskId, `⚠️ Warning: Robot returned to charger but may not be charging. Battery state: ${JSON.stringify(batteryState)}`);
-      }
-    } catch (batteryError: any) {
-      logTask(taskId, `Warning: Could not check charging status: ${batteryError.message}`);
+    const batteryState = await makeApiRequest<BatteryResponse>('/battery_state');
+    
+    if (batteryState && batteryState.is_charging) {
+      logTask(taskId, '🔋 Confirmed: Robot is now charging!');
+    } else {
+      logTask(taskId, `⚠️ Warning: Robot returned to charger but may not be charging. Battery state: ${JSON.stringify(batteryState)}`);
     }
     
     return true;
@@ -314,10 +358,10 @@ async function moveToPoint(taskId: string, x: number, y: number, orientation: nu
   try {
     // Check if there's a current move and cancel it if needed
     try {
-      const currentMoveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, { headers: getHeaders() });
-      if (currentMoveResponse.data && currentMoveResponse.data.id) {
+      const currentMoveResponse = await makeApiRequest<MoveResponse>('/chassis/moves/current');
+      if (currentMoveResponse.id) {
         logTask(taskId, '⚠️ Robot is currently moving. Cancelling current move');
-        await axios.patch(`${ROBOT_API_URL}/chassis/moves/current`, { state: 'cancelled' }, { headers: getHeaders() });
+        await makeApiRequest<MoveResponse>('/chassis/moves/current', { method: 'PATCH', data: { state: 'cancelled' } });
         
         // Give a bit of time for the cancellation to take effect
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -344,8 +388,8 @@ async function moveToPoint(taskId: string, x: number, y: number, orientation: nu
     };
     
     // Send the move command to the robot
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, { headers: getHeaders() });
-    const moveId = response.data.id;
+    const moveResponse = await makeApiRequest<MoveResponse>('/chassis/moves', { method: 'POST', data: moveCommand });
+    const moveId = moveResponse.id;
     
     logTask(taskId, `Move command sent for ${pointName} - move ID: ${moveId}`);
     
@@ -361,15 +405,15 @@ async function moveToPoint(taskId: string, x: number, y: number, orientation: nu
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Check move status
-      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
-      const moveStatus = statusResponse.data.state;
+      const statusResponse = await makeApiRequest<MoveResponse>(`/chassis/moves/${moveId}`);
+      const moveStatus = statusResponse.state;
       
       logTask(taskId, `Current move status: ${moveStatus}`);
       
       // Try to get current position for better monitoring
       try {
-        const posResponse = await axios.get(`${ROBOT_API_URL}/chassis/pose`, { headers: getHeaders() });
-        const pos = posResponse.data;
+        const posResponse = await makeApiRequest<MoveResponse>('/chassis/pose');
+        const pos = posResponse;
         
         // Validate position data before using toFixed
         if (pos && typeof pos.x === 'number' && typeof pos.y === 'number' && typeof pos.ori === 'number') {
@@ -398,8 +442,8 @@ async function moveToPoint(taskId: string, x: number, y: number, orientation: nu
     }
     
     // One final status check to be absolutely sure
-    const finalStatusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
-    const finalMoveStatus = finalStatusResponse.data.state;
+    const finalStatusResponse = await makeApiRequest<MoveResponse>(`/chassis/moves/${moveId}`);
+    const finalMoveStatus = finalStatusResponse.state;
     logTask(taskId, `Final move status check: ${finalMoveStatus}`);
     
     // If we got here, the move was successful
@@ -424,12 +468,8 @@ async function alignWithRack(taskId: string, x: number, y: number, orientation: 
     }
     
     // Stop robot first for safety
-    try {
-      await axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() });
-      logTask(taskId, '✅ Stopped robot before align with rack');
-    } catch (stopError: any) {
-      logTask(taskId, `Warning: Failed to stop robot: ${stopError.message}`);
-    }
+    await makeApiRequest<RobotStatusResponse>('/chassis/stop', { method: 'POST', data: {} });
+    logTask(taskId, '✅ Stopped robot before align with rack');
     
     // Wait for stabilization
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -446,13 +486,13 @@ async function alignWithRack(taskId: string, x: number, y: number, orientation: 
     logTask(taskId, `Creating align_with_rack move: ${JSON.stringify(alignCommand)}`);
     
     // Send the move command to align with rack
-    const response = await axios.post(`${ROBOT_API_URL}/chassis/moves`, alignCommand, { headers: getHeaders() });
+    const moveResponse = await makeApiRequest<MoveResponse>('/chassis/moves', { method: 'POST', data: alignCommand });
     
-    if (!response.data || !response.data.id) {
+    if (!moveResponse || !moveResponse.id) {
       throw new Error('Failed to create align_with_rack move - invalid response');
     }
     
-    const moveId = response.data.id;
+    const moveId = moveResponse.id;
     logTask(taskId, `Robot align_with_rack command sent - move ID: ${moveId}`);
     
     // Wait for alignment to complete
@@ -467,8 +507,8 @@ async function alignWithRack(taskId: string, x: number, y: number, orientation: 
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Check move status
-      const statusResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers: getHeaders() });
-      const moveStatus = statusResponse.data.state;
+      const statusResponse = await makeApiRequest<MoveResponse>(`/chassis/moves/${moveId}`);
+      const moveStatus = statusResponse.state;
       
       logTask(taskId, `Current align_with_rack status: ${moveStatus}`);
       
@@ -479,7 +519,7 @@ async function alignWithRack(taskId: string, x: number, y: number, orientation: 
       } else if (moveStatus === 'failed' || moveStatus === 'cancelled') {
         if (moveStatus === 'failed') {
           // Check failure reason
-          const failReason = statusResponse.data.fail_reason_str || 'Unknown failure';
+          const failReason = statusResponse.fail_reason_str || 'Unknown failure';
           logTask(taskId, `⚠️ Align with rack failed with reason: ${failReason}`);
         }
         throw new Error(`Align with rack failed or was cancelled. Status: ${moveStatus}`);
@@ -554,26 +594,18 @@ async function toUnloadPoint(taskId: string, x: number, y: number, orientation: 
     
     logTask(taskId, `Sending place command with rack_area_id: ${rackAreaId}`);
     
-    const response = await axios.post(`${ROBOT_API_URL}/move/place`, payload, {
-      headers: getHeaders()
-    });
+    const response = await makeApiRequest<RobotStatusResponse>('/move/place', { method: 'POST', data: payload });
     
-    logTask(taskId, `Unload point command initiated - status: ${response.status}`);
-    
-    // CRITICAL FIX: Since the move/place endpoint doesn't return a move ID to poll,
-    // we need to use a fixed delay and then check the robot's movement status
     logTask(taskId, 'Using fixed delay for place operation (10 seconds)');
     await new Promise(resolve => setTimeout(resolve, 10000));
     
     // After waiting, check if the robot is still moving
     try {
       // Check if there's a current move
-      const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
-        headers: getHeaders()
-      });
+      const moveResponse = await makeApiRequest<MoveResponse>('/chassis/moves/current');
       
-      if (moveResponse.data && moveResponse.data.id) {
-        logTask(taskId, `Robot is still executing a move with ID: ${moveResponse.data.id}`);
+      if (moveResponse.id) {
+        logTask(taskId, `Robot is still executing a move with ID: ${moveResponse.id}`);
         logTask(taskId, 'Waiting for an additional 10 seconds...');
         await new Promise(resolve => setTimeout(resolve, 10000));
       }
@@ -911,7 +943,7 @@ export function cancelTask(taskId: string): boolean {
   
   // For tasks that were running, try to stop the robot
   if (wasRunning) {
-    axios.post(`${ROBOT_API_URL}/chassis/stop`, {}, { headers: getHeaders() })
+    makeApiRequest<RobotStatusResponse>('/chassis/stop', { method: 'POST', data: {} })
       .then(() => {
         logTask(taskId, 'Robot stopped due to task cancellation');
         

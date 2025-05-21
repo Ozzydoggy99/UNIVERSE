@@ -2,8 +2,17 @@ import { Express } from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 import { missionQueue, MissionQueueManager } from './mission-queue';
+
+// Default robot serial number
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
+
+interface ErrorResponse {
+  response?: {
+    data?: unknown;
+  };
+}
 
 // Function to log robot task messages with timestamps
 function logRobotTask(message: string) {
@@ -15,8 +24,8 @@ function logRobotTask(message: string) {
   try {
     const logPath = path.join(process.cwd(), 'robot-debug.log');
     fs.appendFileSync(logPath, logMessage + '\n');
-  } catch (err) {
-    console.error('Failed to write to log file:', err);
+  } catch (err: unknown) {
+    console.error('Failed to write to log file:', err instanceof Error ? err.message : 'Unknown error');
   }
 }
 
@@ -27,11 +36,14 @@ export function registerReturnToChargerHandler(app: Express) {
     logRobotTask('🔽 Received request to JACK DOWN robot');
     
     try {
+      const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+      const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+
       // Execute the jack_down command
       const response = await axios.post(
-        `${ROBOT_API_URL}/services/jack_down`,
+        `${robotApiUrl}/services/jack_down`,
         {},
-        { headers: getAuthHeaders() }
+        { headers }
       );
       
       const result = response.data;
@@ -43,10 +55,16 @@ export function registerReturnToChargerHandler(app: Express) {
         result,
         duration: Date.now() - startTime
       });
-    } catch (err: any) {
-      const errorMessage = err.response?.data || err.message;
+    } catch (err: unknown) {
+      const errorResponse = err as ErrorResponse;
+      const errorMessage = err instanceof Error ? err.message : 
+        (errorResponse?.response?.data) || 
+        'Unknown error occurred';
       logRobotTask(`❌ Failed to JACK DOWN robot: ${errorMessage}`);
-      res.status(500).json({ error: err.message, response: err.response?.data });
+      res.status(500).json({ 
+        error: errorMessage, 
+        response: errorResponse?.response?.data 
+      });
     }
   };
   
@@ -57,7 +75,7 @@ export function registerReturnToChargerHandler(app: Express) {
     
     try {
       // Import helper functions from robot-map-data
-      const { fetchRobotMapPoints, getSpecialPoints } = await import('./robot-map-data');
+      const { fetchRobotMapPoints } = await import('./robot-map-data');
       
       // Get all map points using our existing function
       const points = await fetchRobotMapPoints();
@@ -81,9 +99,15 @@ export function registerReturnToChargerHandler(app: Express) {
         logRobotTask(`Found charger point with ID: ${charger.id}`);
       } else {
         // Backup: try using the standby point as a charger location
-        const specialPoints = getSpecialPoints(points);
-        if (specialPoints.standby) {
-          charger = specialPoints.standby;
+        const standbyPoints = points.filter((point: any) => {
+          return point.id && (
+            point.id.toString().toLowerCase().includes('standby') || 
+            point.id.toString().toLowerCase().includes('home')
+          );
+        });
+        
+        if (standbyPoints && standbyPoints.length > 0) {
+          charger = standbyPoints[0];
           logRobotTask(`No charger point found, using standby point as fallback: ${charger.id}`);
         } else {
           throw new Error('No charger or standby points found on the map');
@@ -148,7 +172,7 @@ export function registerReturnToChargerHandler(app: Express) {
       
       // Create and execute the mission
       const missionName = 'Return to Charger - HIGH PRIORITY';
-      const mission = missionQueue.createMission(missionName, missionSteps, 'L382502104987ir');
+      const mission = missionQueue.createMission(missionName, missionSteps, DEFAULT_ROBOT_SERIAL);
       
       logRobotTask(`✅ Created mission to return to charger. Mission ID: ${mission.id}`);
       
@@ -166,10 +190,16 @@ export function registerReturnToChargerHandler(app: Express) {
         },
         duration: Date.now() - startTime
       });
-    } catch (err: any) {
-      const errorMessage = err.response?.data || err.message;
+    } catch (err: unknown) {
+      const errorResponse = err as ErrorResponse;
+      const errorMessage = err instanceof Error ? err.message : 
+        (errorResponse?.response?.data) || 
+        'Unknown error occurred';
       logRobotTask(`❌ Failed to return robot to charger: ${errorMessage}`);
-      res.status(500).json({ error: err.message, response: err.response?.data });
+      res.status(500).json({ 
+        error: errorMessage, 
+        response: errorResponse?.response?.data 
+      });
     }
   };
   

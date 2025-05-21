@@ -1,14 +1,32 @@
 import express from 'express';
 import axios from 'axios';
-import { ROBOT_API_URL, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
+
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
+
+interface ChargeResponse {
+  id: string;
+  [key: string]: any;
+}
+
+interface MoveState {
+  state: string;
+  fail_reason_str?: string;
+  fail_message?: string;
+  [key: string]: any;
+}
+
+interface BatteryState {
+  is_charging: boolean;
+  percentage: number;
+  [key: string]: any;
+}
 
 /**
  * Direct implementation of charger docking using 'charge' move type
  * Created to test and verify that the robot can properly return to and dock with the charger
  */
 export function registerChargerDockingRoutes(app: express.Express) {
-  const headers = getAuthHeaders();
-  
   // Execute direct charger docking - uses the known charger coordinates
   app.post('/api/robot/dock-with-charger', async (req, res) => {
     const timestamp = new Date().toISOString();
@@ -25,8 +43,10 @@ export function registerChargerDockingRoutes(app: express.Express) {
       
       // Cancel any current moves first
       console.log(`[${timestamp}] [CHARGER-DIRECT] Cancelling any current moves first`);
+      const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+      const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
       try {
-        await axios.patch(`${ROBOT_API_URL}/chassis/moves/current`, { 
+        await axios.patch(`${robotApiUrl}/chassis/moves/current`, { 
           state: 'cancelled' 
         }, { headers });
         console.log(`[${timestamp}] [CHARGER-DIRECT] Successfully cancelled any current moves`);
@@ -68,8 +88,9 @@ export function registerChargerDockingRoutes(app: express.Express) {
       console.log(`[${timestamp}] [CHARGER-DIRECT] Sending charge command with payload:`, JSON.stringify(chargePayload));
       
       // Execute the charge move
-      const chargeResponse = await axios.post(`${ROBOT_API_URL}/chassis/moves`, chargePayload, { headers });
-      const moveId = chargeResponse.data.id;
+      const chargeResponse = await axios.post(`${robotApiUrl}/chassis/moves`, chargePayload, { headers });
+      const chargeData = chargeResponse.data as ChargeResponse;
+      const moveId = chargeData.id;
       
       console.log(`[${timestamp}] [CHARGER-DIRECT] Charge command sent - move ID: ${moveId}`);
       console.log(`[${timestamp}] [CHARGER-DIRECT] Response data:`, JSON.stringify(chargeResponse.data));
@@ -84,8 +105,8 @@ export function registerChargerDockingRoutes(app: express.Express) {
             
             try {
               // Check move status first
-              const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/${moveId}`, { headers });
-              const moveState = moveResponse.data;
+              const moveResponse = await axios.get(`${robotApiUrl}/chassis/moves/${moveId}`, { headers });
+              const moveState = moveResponse.data as MoveState;
               
               console.log(`[${currentTime}] [CHARGER-DIRECT] Move (ID: ${moveId}) status: ${moveState.state}`);
               
@@ -97,8 +118,8 @@ export function registerChargerDockingRoutes(app: express.Express) {
               
               // Check if charging regardless of move status (could be charging even if move "failed")
               try {
-                const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers });
-                const batteryState = batteryResponse.data;
+                const batteryResponse = await axios.get(`${robotApiUrl}/battery_state`, { headers });
+                const batteryState = batteryResponse.data as BatteryState;
                 
                 console.log(`[${currentTime}] [CHARGER-DIRECT] Battery state: ${JSON.stringify(batteryState)}`);
                 

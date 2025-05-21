@@ -3,9 +3,25 @@ import express from 'express';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { getRobotApiUrl, getRobotSecret, getAuthHeaders } from './robot-constants';
 import { isRobotCharging, isEmergencyStopPressed } from './robot-api';
 import { missionQueue } from './mission-queue';
+
+// Types for robot API responses
+interface MoveResponse {
+  id: string;
+  state: string;
+  [key: string]: any;
+}
+
+interface ErrorResponse {
+  response?: {
+    data: unknown;
+  };
+}
+
+// Default robot serial number
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
 
 // Configure debug log file - consistent with assign-task.ts
 const debugLogFile = path.join(process.cwd(), 'robot-debug.log');
@@ -25,7 +41,6 @@ export function registerLocalPickupRoute(app: express.Express) {
   const handleLocalPickupRequest = async (req: express.Request, res: express.Response) => {
     const startTime = Date.now();
     const { shelf, pickup, standby } = req.body;
-    const headers = { 'x-api-key': ROBOT_SECRET };
     
     logRobotTask(`New LOCAL PICKUP task received - Shelf: ${shelf?.id}, Pickup: ${pickup?.id}`);
     logRobotTask(`Full task details: ${JSON.stringify({
@@ -37,9 +52,9 @@ export function registerLocalPickupRoute(app: express.Express) {
     // Check if the robot is currently moving
     async function checkMoveStatus(): Promise<boolean> {
       try {
-        const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
-          headers: { 'x-api-key': ROBOT_SECRET }
-        });
+        const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+        const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+        const response = await axios.get<MoveResponse>(`${robotApiUrl}/chassis/moves/current`, { headers });
         
         if (response.data && response.data.state) {
           logRobotTask(`Current move status: ${response.data.state}`);
@@ -58,7 +73,7 @@ export function registerLocalPickupRoute(app: express.Express) {
     }
     
     // Wait for the robot to complete its current movement
-    async function waitForMoveComplete(moveId: number, timeout = 60000): Promise<void> {
+    async function waitForMoveComplete(moveId: string | number, timeout = 60000): Promise<void> {
       const startTime = Date.now();
       let isMoving = true;
       
@@ -82,7 +97,7 @@ export function registerLocalPickupRoute(app: express.Express) {
       }
     }
     
-    async function moveTo(point: any, label: string, headers: any) {
+    async function moveTo(point: any, label: string) {
       logRobotTask(`➡️ Sending move command to: (${point.x}, ${point.y})`);
 
       const payload = {
@@ -105,7 +120,9 @@ export function registerLocalPickupRoute(app: express.Express) {
       await checkMoveStatus();
       
       // Send the move command
-      const moveRes = await axios.post(`${ROBOT_API_URL}/chassis/moves`, payload, { headers });
+      const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+      const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+      const moveRes = await axios.post<MoveResponse>(`${robotApiUrl}/chassis/moves`, payload, { headers });
       logRobotTask(`✅ Move command sent: ${JSON.stringify(moveRes.data)}`);
       
       // Get the move ID for tracking
@@ -349,19 +366,22 @@ export function registerLocalPickupRoute(app: express.Express) {
         charging,
         duration: totalDuration
       });
-    } catch (err: any) {
-      const errorMessage = err.response?.data || err.message;
+    } catch (err: unknown) {
+      const errorResponse = err as ErrorResponse;
+      const errorMessage = err instanceof Error ? err.message : 
+        (errorResponse?.response?.data as string) || 
+        'Unknown error occurred';
       logRobotTask(`❌ LOCAL PICKUP task error: ${errorMessage}`);
-      res.status(500).json({ error: err.message, response: err.response?.data });
+      res.status(500).json({ 
+        error: errorMessage, 
+        response: errorResponse?.response?.data
+      });
     }
   };
-  
-  // Register the handler for both paths:
-  // 1. With /api prefix (our intended API design)
-  app.post('/api/robots/assign-task/local', handleLocalPickupRequest);
-  
-  // 2. Without /api prefix (matches the test script)
-  app.post('/robots/assign-task/local', handleLocalPickupRequest);
-  
+
+  // Register both versions of the endpoint
+  app.post('/robots/local-pickup', express.json(), handleLocalPickupRequest);
+  app.post('/robots/local-pickup-task', express.json(), handleLocalPickupRequest);
+
   logRobotTask('Registered local pickup handler for both path variants');
 }

@@ -6,8 +6,11 @@
  */
 
 import axios from 'axios';
-// Import constants including robot API URL
-import { ROBOT_API_URL } from './robot-constants';
+// Import functions for robot API URL and auth headers
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
+
+// Default robot serial number
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
 
 // Types for robot map points
 interface RobotPoint {
@@ -16,6 +19,23 @@ interface RobotPoint {
   y: number;
   theta: number;
   pointType?: string;
+}
+
+// Add type for map response
+interface MapResponse {
+  overlays: {
+    features: Array<{
+      properties: {
+        type: string;
+        name: string;
+        ori: number;
+        point_type?: string;
+      };
+      geometry: {
+        coordinates: number[];
+      };
+    }>;
+  };
 }
 
 // Cache storage
@@ -63,12 +83,13 @@ export async function fetchRobotPoints(): Promise<RobotPoint[]> {
     
     console.log('[ROBOT-LIVE-POINTS] Fetching fresh points data from robot API');
     
-    // Get the robot API base URL
-    const baseUrl = ROBOT_API_URL;
+    // Get the robot API base URL and auth headers
+    const baseUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+    const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
     
     // Fetch maps from the robot API
     console.log('[ROBOT-LIVE-POINTS] Fetching maps list');
-    const mapsResponse = await axios.get(`${baseUrl}/maps/`);
+    const mapsResponse = await axios.get(`${baseUrl}/maps/`, { headers });
     
     if (!mapsResponse.data || !Array.isArray(mapsResponse.data)) {
       throw new Error('Invalid maps response from robot API');
@@ -88,7 +109,7 @@ export async function fetchRobotPoints(): Promise<RobotPoint[]> {
     
     // Fetch map details to get points
     console.log(`[ROBOT-LIVE-POINTS] Fetching map details for map ID ${mapId}`);
-    const mapResponse = await axios.get(`${baseUrl}/maps/${mapId}`);
+    const mapResponse = await axios.get<MapResponse>(`${baseUrl}/maps/${mapId}`, { headers });
     
     if (!mapResponse.data || !mapResponse.data.overlays) {
       throw new Error('Invalid map details response from robot API');

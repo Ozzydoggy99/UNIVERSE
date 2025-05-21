@@ -1,6 +1,6 @@
 import { Request, Response, Express } from 'express';
 import fetch from 'node-fetch';
-import { ROBOT_API_URL, ROBOT_SECRET, getAuthHeaders } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 import { getRobotCalibrator } from './robot-position-calibration';
 
 // Cache for robot parameters
@@ -21,8 +21,9 @@ async function fetchRobotParams() {
     }
 
     console.log('Fetching robot parameters...');
-    const response = await fetch(`${ROBOT_API_URL}/robot-params`, {
-      headers: getAuthHeaders()
+    const apiUrl = await getRobotApiUrl('L382502104987ir');
+    const response = await fetch(`${apiUrl}/robot-params`, {
+      headers: await getAuthHeaders('L382502104987ir')
     });
     
     if (!response.ok) {
@@ -55,22 +56,20 @@ async function fetchRobotParams() {
  * Register robot movement API routes
  */
 export function registerRobotMoveApiRoutes(app: Express) {
-  // Get base robot API URL from constants
-  const ROBOT_API_BASE_URL = ROBOT_API_URL;
-  
   // Helper function to handle cancel logic in the background
-  async function processCancelRequest(serialNumber: string, apiBaseUrl: string) {
+  async function processCancelRequest(serialNumber: string) {
     // Validate that we have a non-empty serial number
     if (serialNumber.trim() === '') {
       console.error('Cannot process cancel request: Empty serial number provided');
       return;
     }
     try {
+      const apiBaseUrl = await getRobotApiUrl(serialNumber);
       console.log(`Cancelling movement for robot ${serialNumber}`);
 
       // First check if there are any active moves
       const movesResponse = await fetch(`${apiBaseUrl}/chassis/moves`, {
-        headers: getAuthHeaders()
+        headers: await getAuthHeaders(serialNumber)
       });
       const moves = await movesResponse.json();
       
@@ -83,7 +82,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
         // Cancel the specific move by ID
         const robotResponse = await fetch(`${apiBaseUrl}/chassis/moves/${activeMove.id}`, {
           method: 'PATCH',
-          headers: getAuthHeaders(),
+          headers: await getAuthHeaders(serialNumber),
           body: JSON.stringify({ state: "cancelled" }),
         });
 
@@ -100,7 +99,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
         console.log('No active move found, trying to cancel current move');
         const robotResponse = await fetch(`${apiBaseUrl}/chassis/moves/current`, {
           method: 'PATCH',
-          headers: getAuthHeaders(),
+          headers: await getAuthHeaders(serialNumber),
           body: JSON.stringify({ state: "cancelled" }),
         });
 
@@ -252,10 +251,10 @@ export function registerRobotMoveApiRoutes(app: Express) {
       
       // Then actually execute the robot command after response is sent
       try {
-        // Now send the actual command to the robot in the background
-        const robotResponse = await fetch(`${ROBOT_API_BASE_URL}/chassis/moves`, {
+        const apiUrl = await getRobotApiUrl(serialNumber);
+        const robotResponse = await fetch(`${apiUrl}/chassis/moves`, {
           method: 'POST',
-          headers: getAuthHeaders(),
+          headers: await getAuthHeaders(serialNumber),
           body: JSON.stringify(moveData),
         });
   
@@ -312,8 +311,7 @@ export function registerRobotMoveApiRoutes(app: Express) {
       res.status(202).json({ status: 'accepted', message: 'Cancel command sent to robot' });
       
       // Process the cancellation in the background
-      const robSerialNumber = serialNumber.toString();
-      processCancelRequest(robSerialNumber, ROBOT_API_BASE_URL).catch(error => {
+      processCancelRequest(serialNumber).catch(error => {
         console.error('Background cancel error:', error);
       });
     } catch (error) {

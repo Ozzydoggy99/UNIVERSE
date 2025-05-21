@@ -19,7 +19,7 @@ class RobotPositionTracker extends EventEmitter {
   private static instance: RobotPositionTracker;
   private latestPosition: RobotPosition | null = null;
   private positionHistory: RobotPosition[] = [];
-  private readonly maxHistoryLength = 100;
+  private maxHistoryLength = 100;
   
   private constructor() {
     super();

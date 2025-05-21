@@ -155,6 +155,89 @@ export function MapEnhanced({
     orientation: robotPosition.orientation
   });
   
+  // Add WebSocket connection for real-time updates
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${protocol}//${window.location.host}/api/robot-ws`);
+    
+    socket.onopen = () => {
+      console.log('Connected to robot WebSocket');
+    };
+    
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        // Handle points update
+        if (message.type === 'points_update' && message.data && message.data.points) {
+          console.log('Received points update:', message.data.points);
+          
+          // Process floor points
+          const floorPoints = message.data.points;
+          const floorId = message.data.floorId || 1; // Default to 1 if not specified
+          console.log('Processing floor ID:', floorId);
+          
+          const newPickupPoints: MapPoint[] = [];
+          const newDropoffPoints: MapPoint[] = [];
+          
+          // Convert floor points to map points
+          Object.entries(floorPoints).forEach(([id, point]: [string, any]) => {
+            if (id.includes('_load')) {
+              const mapPoint: MapPoint = {
+                x: point.x,
+                y: point.y,
+                z: 0,
+                type: MapPointType.PICKUP,
+                name: id,
+                id: id
+              };
+              newPickupPoints.push(mapPoint);
+            } else if (id.includes('charger')) {
+              const mapPoint: MapPoint = {
+                x: point.x,
+                y: point.y,
+                z: 0,
+                type: MapPointType.DROPOFF,
+                name: id,
+                id: id
+              };
+              newDropoffPoints.push(mapPoint);
+            }
+          });
+          
+          // Update the points
+          setLocalPickupPoints(newPickupPoints);
+          setLocalDropoffPoints(newDropoffPoints);
+          setHasLocalChanges(true);
+          
+          // Set the floor ID and trigger map change
+          if (floorId && selectedMapId !== floorId) {
+            console.log('Setting selected map ID to:', floorId);
+            setSelectedMapId(floorId);
+            if (onMapChange) {
+              console.log('Calling onMapChange with floor ID:', floorId);
+              onMapChange(floorId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    };
+    
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    socket.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+    
+    return () => {
+      socket.close();
+    };
+  }, [onMapChange]);
+  
   // Initialize local data from map data
   useEffect(() => {
     if (mapData) {

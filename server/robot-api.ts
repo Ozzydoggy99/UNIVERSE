@@ -1,9 +1,52 @@
 import axios from "axios";
-import { ROBOT_API_URL, ROBOT_SECRET, ROBOT_SERIAL, getAuthHeaders } from "./robot-constants";
+import { getRobotApiUrl, getAuthHeaders, getRobotSecret } from "./robot-constants";
 import { Express, Request, Response } from 'express';
+import { getSimplifiedPoints, getPointSetsForDisplayName, getPointSetData } from './robot-point-mapping';
+import { robotPositionTracker } from './robot-position-tracker';
 
-// Using the correct AutoXing API header format
-const headers = getAuthHeaders();
+let apiUrl: string;
+let secret: string;
+let headers: any;
+
+async function initialize() {
+  // Update any usage of ROBOT_API_URL to use getRobotApiUrl
+  apiUrl = await getRobotApiUrl('L382502104987ir');
+
+  // Update any usage of ROBOT_SECRET to use getRobotSecret
+  secret = await getRobotSecret('L382502104987ir');
+
+  // Update any usage of getAuthHeaders to include the serial number
+  headers = await getAuthHeaders('L382502104987ir');
+}
+
+// Initialize immediately
+initialize().catch(console.error);
+
+// Add type definitions
+interface DeviceInfo {
+  device?: {
+    serial_number?: string;
+    model?: string;
+    firmware_version?: string;
+    sn?: string;
+    axbot_version?: string;
+  };
+  sn?: string;
+  axbot_version?: string;
+}
+
+interface PositionData {
+  pos?: [number, number];
+  ori?: number;
+  x?: number;
+  y?: number;
+  theta?: number;
+  position?: {
+    x: number;
+    y: number;
+  };
+  orientation?: number;
+}
 
 /**
  * Fetch battery state from the robot
@@ -12,12 +55,12 @@ const headers = getAuthHeaders();
 async function fetchBatteryState() {
   try {
     // Try the main battery endpoint as discovered in the API
-    const batteryUrl = `${ROBOT_API_URL}/battery-state`;
+    const batteryUrl = `${apiUrl}/battery-state`;
     console.log(`Attempting to fetch battery state from: ${batteryUrl}`);
     
     try {
       const response = await axios.get(batteryUrl, {
-        headers: getAuthHeaders(),
+        headers: headers,
         timeout: 2000
       });
       
@@ -38,9 +81,9 @@ async function fetchBatteryState() {
     
     for (const endpoint of alternateEndpoints) {
       try {
-        console.log(`Trying alternate battery endpoint: ${ROBOT_API_URL}${endpoint}`);
-        const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
-          headers: getAuthHeaders(),
+        console.log(`Trying alternate battery endpoint: ${apiUrl}${endpoint}`);
+        const response = await axios.get(`${apiUrl}${endpoint}`, {
+          headers: headers,
           timeout: 2000
         });
         
@@ -79,92 +122,15 @@ export function registerRobotApiRoutes(app: Express) {
   // Robot LiDAR data endpoint
   app.get('/api/robots/lidar/:serialNumber', async (req: Request, res: Response) => {
     try {
-      const serialNumber = req.params.serialNumber;
-      const preferredTopic = req.query._preferTopic as string || '/scan';
+      const { serialNumber } = req.params;
+      const apiUrl = await getRobotApiUrl(serialNumber);
+      const headers = await getAuthHeaders(serialNumber);
       
-      console.log(`Getting LiDAR data for serial: ${serialNumber}`);
-      console.log(`Preferred topic: ${preferredTopic}`);
-      
-      try {
-        // Based on API structure, try different LiDAR endpoints
-        const possibleEndpoints = [
-          '/live',                        // Contains live scan data
-          '/submaps',                     // Contains LiDAR submaps
-          '/rgb_cameras/front/snapshot',  // May have camera data that shows obstacles
-          '/chassis/lidar'                // May contain LiDAR info
-        ];
-        
-        console.log(`Trying multiple LiDAR data endpoints...`);
-        
-        // First try WebSocket data if available
-        const { getLatestLidarData } = require('./robot-websocket');
-        const wsLidarData = getLatestLidarData();
-        
-        if (wsLidarData) {
-          console.log('Using LiDAR data from WebSocket');
-          return res.json(wsLidarData);
-        }
-
-        // Try each potential endpoint
-        for (const endpoint of possibleEndpoints) {
-          try {
-            const lidarUrl = `${ROBOT_API_URL}${endpoint}`;
-            console.log(`Trying LiDAR endpoint: ${lidarUrl}`);
-            
-            const response = await axios.get(lidarUrl, {
-              headers: getAuthHeaders(),
-              timeout: 3000 // Slightly longer timeout for more reliable data
-            });
-            
-            if (response.data) {
-              console.log(`Successfully retrieved data from ${endpoint}`);
-              
-              // Return basic LiDAR-like data structure since we can't rely on getting actual LiDAR data
-              return res.json({
-                topic: preferredTopic,
-                stamp: Date.now(),
-                ranges: [],
-                available: true
-              });
-            }
-          } catch (endpointError) {
-            console.log(`Endpoint ${endpoint} failed`);
-          }
-        }
-        
-        // If all endpoints fail, return empty LiDAR data
-        console.log('All LiDAR endpoints failed, returning empty data');
-        return res.json({
-          topic: preferredTopic,
-          stamp: Date.now(),
-          ranges: [],
-          available: false
-        });
-      } catch (error) {
-        console.error('Error in lidar fetch:', error);
-        
-        // Return empty LiDAR data structure with more details in debug mode
-        const emptyData = {
-          topic: preferredTopic,
-          stamp: Date.now(),
-          ranges: [],
-          angle_min: 0,
-          angle_max: 0,
-          angle_increment: 0.01,
-          range_min: 0,
-          range_max: 10,
-          points: [], // Empty points array for modern format
-          debug_info: {
-            error: error.message,
-            endpoint_tried: `${ROBOT_API_URL}/topics${preferredTopic}`
-          }
-        };
-        
-        return res.json(emptyData);
-      }
+      const response = await axios.get(`${apiUrl}/scan`, { headers });
+      res.json(response.data);
     } catch (error) {
-      console.error('Error handling LiDAR request:', error);
-      res.status(500).json({ error: 'Failed to get LiDAR data' });
+      console.error('Error fetching LiDAR data:', error);
+      res.status(500).json({ error: 'Failed to fetch LiDAR data' });
     }
   });
   
@@ -187,13 +153,13 @@ export function registerRobotApiRoutes(app: Express) {
       
       try {
         // Use the correct service endpoint for LiDAR power control
-        const powerControlUrl = `${ROBOT_API_URL}/services/baseboard/power_on_lidar`;
+        const powerControlUrl = `${apiUrl}/services/baseboard/power_on_lidar`;
         console.log(`Sending LiDAR power control request to: ${powerControlUrl}`);
         
         const response = await axios.post(powerControlUrl, 
           { action }, 
           {
-            headers: getAuthHeaders(),
+            headers: headers,
             timeout: 5000
           }
         );
@@ -221,45 +187,42 @@ export function registerRobotApiRoutes(app: Express) {
   // Robot status endpoint
   app.get('/api/robots/status/:serialNumber', async (req: Request, res: Response) => {
     try {
-      const serialNumber = req.params.serialNumber;
-      console.log(`Fetching status from API: /api/robots/status/${serialNumber}`);
+      const { serialNumber } = req.params;
+      const apiUrl = await getRobotApiUrl(serialNumber);
+      const headers = await getAuthHeaders(serialNumber);
       
+      // Get position from the position tracker
+      const position = robotPositionTracker.getLatestPosition();
+      
+      // Get battery status
+      let batteryStatus = null;
       try {
-        // For this robot model, we need to use the device info API
-        const statusUrl = `${ROBOT_API_URL}/device/info`;
-        console.log(`Fetching device info from: ${statusUrl}`);
-        
-        const response = await axios.get(statusUrl, {
-          headers: getAuthHeaders(),
-          timeout: 3000
-        });
-        
-        // Format the response data to match our expected structure
-        const deviceInfo = response.data;
-        const batteryState = await fetchBatteryState();
-        
-        const formattedStatus = {
-          battery: batteryState ? batteryState.percentage * 100 : 80,
-          status: 'ready',
-          mode: 'autonomous',
-          serialNumber: deviceInfo.device?.sn || serialNumber,
-          model: deviceInfo.device?.model || 'unknown',
-          firmwareVersion: deviceInfo.axbot_version || 'unknown',
-          timestamp: new Date().toISOString()
-        };
-        
-        return res.json(formattedStatus);
+        const batteryResponse = await axios.get(`${apiUrl}/battery_state`, { headers });
+        batteryStatus = batteryResponse.data;
       } catch (error) {
-        console.error('Error in status fetch:', error);
-        
-        // Return fallback status data
-        return res.json({
-          battery: 80,
-          status: 'ready',
-          mode: 'autonomous',
-          timestamp: new Date().toISOString()
-        });
+        console.error('Error fetching battery status:', error);
       }
+      
+      // Get wheel status
+      let wheelStatus = null;
+      try {
+        const wheelResponse = await axios.get(`${apiUrl}/wheel_state`, { headers });
+        wheelStatus = wheelResponse.data;
+      } catch (error) {
+        console.error('Error fetching wheel status:', error);
+      }
+      
+      res.json({
+        position: position ? {
+          x: position.x,
+          y: position.y,
+          theta: position.theta,
+          timestamp: position.timestamp
+        } : null,
+        battery: batteryStatus,
+        wheels: wheelStatus,
+        timestamp: Date.now()
+      });
     } catch (error) {
       console.error('Error handling status request:', error);
       res.status(500).json({ error: 'Failed to get robot status' });
@@ -269,97 +232,53 @@ export function registerRobotApiRoutes(app: Express) {
   // Robot position endpoint
   app.get('/api/robots/position/:serialNumber', async (req: Request, res: Response) => {
     try {
-      const serialNumber = req.params.serialNumber;
-      console.log(`Fetching position from API: /api/robots/position/${serialNumber}`);
+      const { serialNumber } = req.params;
       
-      try {
-        // Import the position tracker to get the latest position from WebSocket
-        const { robotPositionTracker } = require('./robot-position-tracker');
-        
-        // Get the latest position from the WebSocket tracker - this is updated in real-time
-        const latestPosition = robotPositionTracker.getLatestPosition();
-        
-        if (latestPosition && latestPosition.x !== undefined && latestPosition.y !== undefined) {
-          console.log(`Position data retrieved successfully from WebSocket: (${latestPosition.x}, ${latestPosition.y})`);
-          return res.json(latestPosition);
-        }
-        
-        // If we don't have position data from WebSocket yet, try a direct API call as backup
-        console.log("No WebSocket position data available yet, trying direct API calls...");
-        
-        // Try multiple potential position endpoints
-        // Based on API exploration, these are more likely to work
-        const endpoints = [
-          '/live',
-          '/device/info',
-          '/state',
-          '/pose'
-        ];
-        
-        let positionData = null;
-        let lastError = null;
-        
-        for (const endpoint of endpoints) {
-          try {
-            console.log(`Attempting to fetch position from: ${ROBOT_API_URL}${endpoint}`);
-            const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
-              headers: getAuthHeaders(),
-              timeout: 2000
-            });
-            
-            if (response.data) {
-              positionData = response.data;
-              console.log(`Successfully retrieved position data from: ${endpoint}`);
-              break;
-            }
-          } catch (endpointError) {
-            console.log(`Endpoint ${endpoint} failed: ${endpointError.message}`);
-            lastError = endpointError;
-            // Continue to the next endpoint
-          }
-        }
-        
-        if (positionData) {
-          // Try to extract position data from various possible formats
-          let x = 0, y = 0, orientation = 0;
-          
-          if (positionData.pos && Array.isArray(positionData.pos) && positionData.pos.length >= 2) {
-            // Array format: [x, y, ...]
-            x = positionData.pos[0];
-            y = positionData.pos[1];
-            orientation = positionData.ori || 0;
-          } else if (positionData.x !== undefined && positionData.y !== undefined) {
-            // Object format: {x: X, y: Y, ...}
-            x = positionData.x;
-            y = positionData.y;
-            orientation = positionData.orientation || positionData.theta || 0;
-          } else if (positionData.position && positionData.position.x !== undefined) {
-            // Nested object: {position: {x: X, y: Y}, ...}
-            x = positionData.position.x;
-            y = positionData.position.y;
-            orientation = positionData.orientation || 0;
-          }
-          
-          const formattedPosition = {
-            x, y, orientation,
-            timestamp: new Date().toISOString()
-          };
-          
-          console.log(`Position data formatted: (${formattedPosition.x}, ${formattedPosition.y})`);
-          return res.json(formattedPosition);
-        }
-        
-        throw lastError || new Error('No position data available from any endpoint');
-      } catch (error) {
-        console.error('Error in position fetch:', error);
-        
-        // Return fallback position data
-        return res.json({
-          x: 0,
-          y: 0,
-          orientation: 0,
-          timestamp: new Date().toISOString()
+      // Get position from the position tracker
+      const position = robotPositionTracker.getLatestPosition();
+      
+      if (position) {
+        res.json({
+          x: position.x,
+          y: position.y,
+          theta: position.theta,
+          timestamp: position.timestamp
         });
+      } else {
+        // If no position is available, try to get it from the API
+        try {
+          const apiUrl = await getRobotApiUrl(serialNumber);
+          const headers = await getAuthHeaders(serialNumber);
+          
+          const response = await axios.get(`${apiUrl}/chassis/pose`, { headers });
+          
+          if (response.data) {
+            let posData = {
+              x: 0,
+              y: 0,
+              theta: 0,
+              timestamp: Date.now()
+            };
+
+            // Extract position data based on response format
+            if (response.data.pos && Array.isArray(response.data.pos) && response.data.pos.length >= 2) {
+              posData.x = response.data.pos[0];
+              posData.y = response.data.pos[1];
+              posData.theta = response.data.ori || 0;
+            } else if (response.data.x !== undefined && response.data.y !== undefined) {
+              posData.x = response.data.x;
+              posData.y = response.data.y;
+              posData.theta = response.data.theta || response.data.orientation || 0;
+            }
+
+            res.json(posData);
+          } else {
+            res.status(404).json({ error: 'No position data available' });
+          }
+        } catch (apiError) {
+          console.error('Error fetching position from API:', apiError);
+          res.status(500).json({ error: 'Failed to fetch position data' });
+        }
       }
     } catch (error) {
       console.error('Error handling position request:', error);
@@ -386,11 +305,11 @@ export function registerRobotApiRoutes(app: Express) {
         console.log("No WebSocket map data available yet, trying direct API calls...");
         
         // Based on our API exploration, /maps/ is the correct endpoint
-        const mapUrl = `${ROBOT_API_URL}/maps/`;
+        const mapUrl = `${apiUrl}/maps/`;
         console.log(`Fetching map data from: ${mapUrl}`);
         
         const response = await axios.get(mapUrl, {
-          headers: getAuthHeaders(),
+          headers: headers,
           timeout: 5000 // Maps might be large
         });
         
@@ -402,12 +321,12 @@ export function registerRobotApiRoutes(app: Express) {
           console.log(`Using map: ${firstMap.map_name} (${firstMap.id})`);
           
           // Get the specific map data
-          const mapDataUrl = `${ROBOT_API_URL}/maps/${firstMap.id}`;
+          const mapDataUrl = `${apiUrl}/maps/${firstMap.id}`;
           console.log(`Fetching map details from: ${mapDataUrl}`);
           
           try {
             const mapDetailsResponse = await axios.get(mapDataUrl, {
-              headers: getAuthHeaders(),
+              headers: headers,
               timeout: 5000
             });
             
@@ -467,17 +386,17 @@ export function registerRobotApiRoutes(app: Express) {
       try {
         // For this robot model, sensor data is available through various topic endpoints
         // We'll try to get data from multiple relevant topics and combine them
-        const wheelStateUrl = `${ROBOT_API_URL}/topics/wheel_state`;
-        const batteryStateUrl = `${ROBOT_API_URL}/topics/battery_state`;
-        const slamStateUrl = `${ROBOT_API_URL}/topics/slam/state`;
+        const wheelStateUrl = `${apiUrl}/topics/wheel_state`;
+        const batteryStateUrl = `${apiUrl}/topics/battery_state`;
+        const slamStateUrl = `${apiUrl}/topics/slam/state`;
         
         console.log(`Fetching sensor data from wheel state, battery state, and SLAM state`);
         
         // Get data from multiple endpoints in parallel
         const [wheelStateRes, batteryStateRes, slamStateRes] = await Promise.allSettled([
-          axios.get(wheelStateUrl, { headers: getAuthHeaders(), timeout: 2000 }),
-          axios.get(batteryStateUrl, { headers: getAuthHeaders(), timeout: 2000 }),
-          axios.get(slamStateUrl, { headers: getAuthHeaders(), timeout: 2000 })
+          axios.get(wheelStateUrl, { headers: headers, timeout: 2000 }),
+          axios.get(batteryStateUrl, { headers: headers, timeout: 2000 }),
+          axios.get(slamStateUrl, { headers: headers, timeout: 2000 })
         ]);
         
         // Combine all available sensor data
@@ -517,11 +436,11 @@ export function registerRobotApiRoutes(app: Express) {
         // Based on device info, this robot model has RGB cameras
         // First, try the RGB camera endpoint which is specifically mentioned in the device info
         const cameraEndpoint = '/rgb_cameras/front/image';
-        console.log(`Attempting to fetch camera data from: ${ROBOT_API_URL}${cameraEndpoint}`);
+        console.log(`Attempting to fetch camera data from: ${apiUrl}${cameraEndpoint}`);
         
         try {
-          const response = await axios.get(`${ROBOT_API_URL}${cameraEndpoint}`, {
-            headers: getAuthHeaders(),
+          const response = await axios.get(`${apiUrl}${cameraEndpoint}`, {
+            headers: headers,
             timeout: 5000, // Camera images might take longer to download
             responseType: 'arraybuffer' // Important for binary image data
           });
@@ -550,9 +469,9 @@ export function registerRobotApiRoutes(app: Express) {
         
         for (const endpoint of alternativeEndpoints) {
           try {
-            console.log(`Trying alternative camera endpoint: ${ROBOT_API_URL}${endpoint}`);
-            const response = await axios.get(`${ROBOT_API_URL}${endpoint}`, {
-              headers: getAuthHeaders(),
+            console.log(`Trying alternative camera endpoint: ${apiUrl}${endpoint}`);
+            const response = await axios.get(`${apiUrl}${endpoint}`, {
+              headers: headers,
               timeout: 3000,
               responseType: 'arraybuffer'
             });
@@ -661,11 +580,11 @@ export function registerRobotApiRoutes(app: Express) {
   app.get('/api/robot/status', async (req: Request, res: Response) => {
     try {
       // Get serial from query or use default
-      const serial = req.query.serial?.toString() || ROBOT_SERIAL;
+      const serial = req.query.serial?.toString() || 'L382502104987ir';
       
       // Get battery status from robot API
       try {
-        const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers });
+        const batteryResponse = await axios.get(`${apiUrl}/battery_state`, { headers });
         const batteryLevel = batteryResponse.data?.battery_percentage || 85; // If data exists, use it, otherwise use a default
         
         return res.json({
@@ -780,7 +699,7 @@ export function registerRobotApiRoutes(app: Express) {
       // Move 0.1 meters away from current position
       try {
         // Get current position
-        const currentPos = await axios.get(`${ROBOT_API_URL}/tracked_pose`, { headers });
+        const currentPos = await axios.get(`${apiUrl}/tracked_pose`, { headers });
         if (currentPos.data && currentPos.data.position_x !== undefined) {
           const x = currentPos.data.position_x + 0.1;  // Move slightly forward
           const y = currentPos.data.position_y;
@@ -801,8 +720,8 @@ export function registerRobotApiRoutes(app: Express) {
             }
           };
           
-          await axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, {
-            headers: getAuthHeaders()
+          await axios.post(`${apiUrl}/chassis/moves`, moveCommand, {
+            headers: headers
           });
           
           console.log(`[${new Date().toISOString()}] [ROBOT-API] Sent small move command to cancel charging`);
@@ -824,6 +743,43 @@ export function registerRobotApiRoutes(app: Express) {
       });
     }
   });
+
+  // Add these endpoints to the registerRobotApiRoutes function
+  app.get('/api/robot/points/simplified', async (req: Request, res: Response) => {
+    try {
+      const simplifiedPoints = await getSimplifiedPoints();
+      res.json(simplifiedPoints);
+    } catch (error) {
+      console.error('Error getting simplified points:', error);
+      res.status(500).json({ error: 'Failed to get simplified points' });
+    }
+  });
+
+  app.get('/api/robot/points/:displayName/sets', async (req: Request, res: Response) => {
+    try {
+      const { displayName } = req.params;
+      const pointSets = await getPointSetsForDisplayName(displayName);
+      res.json(pointSets);
+    } catch (error) {
+      console.error('Error getting point sets:', error);
+      res.status(500).json({ error: 'Failed to get point sets' });
+    }
+  });
+
+  app.get('/api/robot/points/set/:pointSetName', async (req: Request, res: Response) => {
+    try {
+      const { pointSetName } = req.params;
+      const pointSet = await getPointSetData(pointSetName);
+      if (!pointSet) {
+        res.status(404).json({ error: 'Point set not found' });
+        return;
+      }
+      res.json(pointSet);
+    } catch (error) {
+      console.error('Error getting point set data:', error);
+      res.status(500).json({ error: 'Failed to get point set data' });
+    }
+  });
 }
 
 /**
@@ -834,14 +790,14 @@ export async function fetchMaps(): Promise<any> {
   try {
     // First try the v2 API
     try {
-      const response = await axios.get(`${ROBOT_API_URL}/api/v2/area_map`, {
-        headers: getAuthHeaders()
+      const response = await axios.get(`${apiUrl}/api/v2/area_map`, {
+        headers: headers
       });
       return response;
     } catch (v2Error) {
       console.log('V2 maps API failed, trying v1 API...');
       // Fall back to v1 API
-      return axios.get(`${ROBOT_API_URL}/maps`, { headers });
+      return axios.get(`${apiUrl}/maps`, { headers });
     }
   } catch (error) {
     console.error('Error fetching maps:', error);
@@ -857,15 +813,15 @@ export async function fetchMapPoints(mapId: string): Promise<any> {
   try {
     // First try the v2 API
     try {
-      const response = await axios.get(`${ROBOT_API_URL}/api/v2/area_map/${mapId}/points`, {
-        headers: getAuthHeaders()
+      const response = await axios.get(`${apiUrl}/api/v2/area_map/${mapId}/points`, {
+        headers: headers
       });
       return response;
     } catch (v2Error) {
       console.log('V2 map points API failed, trying v1 API...');
       // Fall back to v1 API
       // The points are actually stored in the overlay data of the map
-      return axios.get(`${ROBOT_API_URL}/maps/${mapId}`, { headers });
+      return axios.get(`${apiUrl}/maps/${mapId}`, { headers });
     }
   } catch (error) {
     console.error(`Error fetching map points for map ${mapId}:`, error);
@@ -893,8 +849,8 @@ export async function moveToPoint(x: number, y: number, orientation?: number): P
       }
     };
     
-    return axios.post(`${ROBOT_API_URL}/chassis/moves`, moveCommand, {
-      headers: getAuthHeaders()
+    return axios.post(`${apiUrl}/chassis/moves`, moveCommand, {
+      headers: headers
     });
   } catch (error) {
     console.error('Error moving to point:', error);
@@ -903,7 +859,7 @@ export async function moveToPoint(x: number, y: number, orientation?: number): P
 }
 
 export async function getLastMoveStatus() {
-  return axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
+  return axios.get(`${apiUrl}/chassis/moves/latest`, { headers });
 }
 
 /**
@@ -947,7 +903,7 @@ export async function getChargingStatusFromAllSources(): Promise<Array<{
   
   // 2. Try the standard battery_state API endpoint
   try {
-    const batteryResponse = await axios.get(`${ROBOT_API_URL}/battery_state`, { headers });
+    const batteryResponse = await axios.get(`${apiUrl}/battery_state`, { headers });
     const batteryData = batteryResponse.data;
     
     let isCharging = false;
@@ -1000,7 +956,7 @@ export async function getChargingStatusFromAllSources(): Promise<Array<{
   
   // 3. Try the /chassis/state endpoint
   try {
-    const stateResponse = await axios.get(`${ROBOT_API_URL}/chassis/state`, { headers });
+    const stateResponse = await axios.get(`${apiUrl}/chassis/state`, { headers });
     const stateData = stateResponse.data;
     
     let isCharging = false;
@@ -1027,7 +983,7 @@ export async function getChargingStatusFromAllSources(): Promise<Array<{
   
   // 4. Check the latest move status
   try {
-    const moveResponse = await axios.get(`${ROBOT_API_URL}/chassis/moves/latest`, { headers });
+    const moveResponse = await axios.get(`${apiUrl}/chassis/moves/latest`, { headers });
     const moveData = moveResponse.data;
     
     let isCharging = false;
@@ -1103,12 +1059,12 @@ export async function isEmergencyStopPressed(): Promise<boolean> {
   try {
     // Try to perform a quick jack-up test to check if emergency stop is pressed
     try {
-      await axios.post(`${ROBOT_API_URL}/services/jack_up`, {}, { headers });
+      await axios.post(`${apiUrl}/services/jack_up`, {}, { headers });
       
       // If we get here, the emergency stop is not pressed
       // Immediately jack down to reset
       try {
-        await axios.post(`${ROBOT_API_URL}/services/jack_down`, {}, { headers });
+        await axios.post(`${apiUrl}/services/jack_down`, {}, { headers });
       } catch (jackDownError) {
         console.log('Error resetting jack after emergency stop test:', jackDownError);
       }
@@ -1146,12 +1102,12 @@ export async function isEmergencyStopPressed(): Promise<boolean> {
 
 export async function returnToCharger(): Promise<any> {
   try {
-    console.log(`Sending robot ${ROBOT_SERIAL} back to charging station...`);
+    console.log(`Sending robot L382502104987ir back to charging station...`);
     
     // First try the dedicated return to charger endpoint if available
     try {
-      const response = await axios.post(`${ROBOT_API_URL}/services/return_to_charger`, {}, { 
-        headers: getAuthHeaders() 
+      const response = await axios.post(`${apiUrl}/services/return_to_charger`, {}, { 
+        headers: headers 
       });
       console.log('Return to charger command sent successfully via services endpoint');
       return {
@@ -1178,13 +1134,13 @@ export async function returnToCharger(): Promise<any> {
       const chargingTask = {
         runType: 25, // Charging task type
         name: `Return to Charger (${new Date().toISOString()})`,
-        robotSn: ROBOT_SERIAL,
+        robotSn: 'L382502104987ir',
         taskPriority: 10, // High priority for charging
         isLoop: false
       };
       
-      const taskResponse = await axios.post(`${ROBOT_API_URL}/api/v2/task`, chargingTask, {
-        headers: getAuthHeaders()
+      const taskResponse = await axios.post(`${apiUrl}/api/v2/task`, chargingTask, {
+        headers: headers
       });
       
       console.log('Return to charger command sent successfully via task API');

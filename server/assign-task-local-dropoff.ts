@@ -3,16 +3,25 @@ import express, { Request, Response } from 'express';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants';
+import { getRobotApiUrl, getAuthHeaders } from './robot-constants';
 import { isRobotCharging, isEmergencyStopPressed } from './robot-api';
 import { missionQueue } from './mission-queue';
+
+// Default robot serial number
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
+
+interface MoveResponse {
+  id: number;
+  state: string;
+  [key: string]: any;
+}
 
 function logRobotTask(message: string) {
   try {
     const logPath = path.resolve(process.cwd(), 'robot-debug.log');
     fs.appendFileSync(logPath, `[${new Date().toISOString()}] [LOCAL-DROPOFF] ${message}\n`);
-  } catch (err: any) {
-    console.error('❌ Failed to write to robot-debug.log:', err.message);
+  } catch (err: unknown) {
+    console.error('❌ Failed to write to robot-debug.log:', err instanceof Error ? err.message : 'Unknown error');
   }
 }
 
@@ -20,7 +29,6 @@ export function registerLocalDropoffRoute(app: express.Express) {
   // Handler function for local dropoff requests
   const handleLocalDropoffRequest = async (req: Request, res: Response) => {
     const { shelf, pickup, standby } = req.body;
-    const headers = { 'x-api-key': ROBOT_SECRET };
     const startTime = Date.now();
 
     logRobotTask(`New LOCAL DROPOFF task received - Shelf: ${shelf.id}, Pickup: ${pickup.id}`);
@@ -29,9 +37,9 @@ export function registerLocalDropoffRoute(app: express.Express) {
     // Check if the robot is currently moving
     async function checkMoveStatus(): Promise<boolean> {
       try {
-        const response = await axios.get(`${ROBOT_API_URL}/chassis/moves/current`, {
-          headers: { 'x-api-key': ROBOT_SECRET }
-        });
+        const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+        const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
+        const response = await axios.get<MoveResponse>(`${robotApiUrl}/chassis/moves/current`, { headers });
         
         if (response.data && response.data.state) {
           logRobotTask(`Current move status: ${response.data.state}`);
@@ -50,7 +58,7 @@ export function registerLocalDropoffRoute(app: express.Express) {
     }
     
     // Wait for the robot to complete its current movement
-    async function waitForMoveComplete(moveId: number, timeout = 60000): Promise<void> {
+    async function waitForMoveComplete(moveId: string | number, timeout = 60000): Promise<void> {
       const startTime = Date.now();
       let isMoving = true;
       
@@ -74,8 +82,11 @@ export function registerLocalDropoffRoute(app: express.Express) {
       }
     }
     
-    async function moveTo(point: any, label: string, headers: any) {
+    async function moveTo(point: any, label: string) {
       logRobotTask(`➡️ Sending move command to: (${point.x}, ${point.y})`);
+
+      const robotApiUrl = await getRobotApiUrl(DEFAULT_ROBOT_SERIAL);
+      const headers = await getAuthHeaders(DEFAULT_ROBOT_SERIAL);
 
       const payload = {
         type: "standard",
@@ -97,7 +108,7 @@ export function registerLocalDropoffRoute(app: express.Express) {
       await checkMoveStatus();
       
       // Send the move command
-      const moveRes = await axios.post(`${ROBOT_API_URL}/chassis/moves`, payload, { headers });
+      const moveRes = await axios.post<MoveResponse>(`${robotApiUrl}/chassis/moves`, payload, { headers });
       logRobotTask(`✅ Move command sent: ${JSON.stringify(moveRes.data)}`);
       
       // Get the move ID for tracking

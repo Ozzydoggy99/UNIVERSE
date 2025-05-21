@@ -4,56 +4,178 @@
  * Contains configuration for connecting to the robot's API
  */
 import dotenv from "dotenv";
+import { db } from "./db";
+import { robotCredentials } from "../shared/schema";
+import { eq } from "drizzle-orm";
+import { z } from 'zod';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 dotenv.config();
 
-// Robot serial number - used for identification
-export const ROBOT_SERIAL = "L382502104987ir";
+// Schema for robot credentials
+const robotCredentialsSchema = z.object({
+  serialNumber: z.string(),
+  ipAddress: z.string().ip(),
+  port: z.number().int().min(1).max(65535).default(8090),
+  secret: z.string().min(1)
+});
 
-// Export the serial number as PHYSICAL_ROBOT_SERIAL for backward compatibility
-export const PHYSICAL_ROBOT_SERIAL = ROBOT_SERIAL;
+type RobotCredentials = z.infer<typeof robotCredentialsSchema>;
 
-// Get robot IP from environment variable - require it to be set
-const robotIpFromEnv = process.env.ROBOT_IP;
-if (!robotIpFromEnv) {
-  throw new Error('ROBOT_IP environment variable is required but not set');
+const CREDENTIALS_FILE = path.join(__dirname, 'robot-credentials.json');
+
+// Default robot configuration
+const DEFAULT_ROBOT = {
+  serialNumber: 'L382502104987ir',
+  ipAddress: '192.168.4.31',
+  port: 8090,
+  secret: '667a51a4d948433081a272c78d10a8a4'
+};
+
+// Default robot serial number
+export const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
+export const ROBOT_API_URL = 'http://192.168.4.31:8090';
+export const ROBOT_SECRET = '667a51a4d948433081a272c78d10a8a4';
+export const ROBOT_SERIAL = 'L382502104987ir';
+
+// In-memory storage for robot credentials
+const robotCredentialCache = new Map<string, {
+  ipAddress: string;
+  port: number;
+  secret: string;
+}>();
+
+// Initialize with default robot
+robotCredentialCache.set(ROBOT_SERIAL, {
+  ipAddress: '192.168.4.31',
+  port: 8090,
+  secret: ROBOT_SECRET
+});
+
+// Initialize credentials file if it doesn't exist
+async function initializeCredentialsFile() {
+  try {
+    await fs.access(CREDENTIALS_FILE);
+  } catch {
+    // Initialize with default robot if file doesn't exist
+    await fs.writeFile(CREDENTIALS_FILE, JSON.stringify({
+      [DEFAULT_ROBOT.serialNumber]: DEFAULT_ROBOT
+    }, null, 2));
+  }
 }
-const ROBOT_IP = robotIpFromEnv;
 
-// Robot API URL - base URL for all API requests
-export let ROBOT_API_URL = `http://${ROBOT_IP}:8090`;
-
-// Robot WebSocket URL - using the v2 WebSocket API that this robot model supports
-export let ROBOT_WS_URL = `ws://${ROBOT_IP}:8090/ws/v2`;
-
-// Robot authentication secret - from environment variables (required)
-const robotSecretFromEnv = process.env.ROBOT_SECRET_KEY || process.env.ROBOT_SECRET;
-if (!robotSecretFromEnv) {
-  throw new Error('Robot secret must be provided in environment variables');
+// Read credentials from file
+async function readCredentials(): Promise<Record<string, RobotCredentials>> {
+  await initializeCredentialsFile();
+  const data = await fs.readFile(CREDENTIALS_FILE, 'utf-8');
+  return JSON.parse(data);
 }
-export const ROBOT_SECRET = robotSecretFromEnv;
 
-// Get the correct header format for AutoXing API (from documentation)
-export function getAuthHeaders() {
+// Write credentials to file
+async function writeCredentials(credentials: Record<string, RobotCredentials>) {
+  await fs.writeFile(CREDENTIALS_FILE, JSON.stringify(credentials, null, 2));
+}
+
+// Function to get robot credentials
+export async function getRobotCredentials(serialNumber: string = DEFAULT_ROBOT_SERIAL) {
+  // Check cache first
+  const cachedCreds = robotCredentialCache.get(serialNumber);
+  if (cachedCreds) {
+    return cachedCreds;
+  }
+
+  // Read from file
+  const credentials = await readCredentials();
+  const robotConfig = credentials[serialNumber];
+  if (!robotConfig) {
+    throw new Error(`No credentials found for robot ${serialNumber}`);
+  }
+
+  // Update cache
+  const creds = {
+    ipAddress: robotConfig.ipAddress,
+    port: robotConfig.port || 8090,
+    secret: robotConfig.secret
+  };
+  robotCredentialCache.set(serialNumber, creds);
+  return creds;
+}
+
+// Get robot API URL
+export async function getRobotApiUrl(serialNumber: string = ROBOT_SERIAL): Promise<string> {
+  const credentials = await getRobotCredentials(serialNumber);
+  return `http://${credentials.ipAddress}:${credentials.port}`;
+}
+
+// Get robot WebSocket URL
+export async function getRobotWsUrl(serialNumber: string = ROBOT_SERIAL): Promise<string> {
+  const credentials = await getRobotCredentials(serialNumber);
+  return `ws://${credentials.ipAddress}:${credentials.port}/ws/v2/topics`;
+}
+
+// Get robot secret
+export async function getRobotSecret(serialNumber: string = ROBOT_SERIAL): Promise<string> {
+  const credentials = await getRobotCredentials(serialNumber);
+  return credentials.secret;
+}
+
+// Get auth headers
+export async function getAuthHeaders(serialNumber: string = ROBOT_SERIAL): Promise<Record<string, string>> {
+  const secret = await getRobotSecret(serialNumber);
   return {
-    'Content-Type': 'application/json',
-    'Secret': ROBOT_SECRET
+    'APPCODE': secret,
+    'Content-Type': 'application/json'
   };
 }
 
-// Function to update robot connection URLs
-export function updateRobotConnectionURLs(apiUrl: string, wsUrl: string) {
-  ROBOT_API_URL = apiUrl;
-  ROBOT_WS_URL = wsUrl;
-  console.log(`Updated robot connection URLs: API=${apiUrl}, WS=${wsUrl}`);
+// Update robot credentials
+export async function updateRobotCredentials(
+  serialNumber: string,
+  ipAddress: string,
+  port: number,
+  secret: string
+): Promise<void> {
+  // Update cache
+  robotCredentialCache.set(serialNumber, { ipAddress, port, secret });
+
+  // Update file
+  const credentials = await readCredentials();
+  credentials[serialNumber] = {
+    serialNumber,
+    ipAddress,
+    port,
+    secret
+  };
+  await writeCredentials(credentials);
 }
 
-// Utility functions to get robot URL and secret key
-export function getRobotUrl(): string {
-  return ROBOT_API_URL;
+// Delete robot credentials
+export async function deleteRobotCredentials(serialNumber: string): Promise<void> {
+  // Remove from cache
+  robotCredentialCache.delete(serialNumber);
+
+  // Remove from file
+  const credentials = await readCredentials();
+  delete credentials[serialNumber];
+  await writeCredentials(credentials);
 }
 
-export function getRobotSecretKey(): string {
-  return ROBOT_SECRET;
+// List all robot credentials
+export async function listRobotCredentials(): Promise<Array<{
+  serialNumber: string;
+  ipAddress: string;
+  port: number;
+}>> {
+  const credentials = await readCredentials();
+  return Object.values(credentials).map(({ serialNumber, ipAddress, port }) => ({
+    serialNumber,
+    ipAddress,
+    port
+  }));
 }
-
-// No need for a warning as we throw an error above if robot secret is not set

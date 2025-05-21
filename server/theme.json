@@ -1,0 +1,9 @@
+{
+  "theme": "default",
+  "colors": {
+    "primary": "#000000",
+    "secondary": "#ffffff",
+    "background": "#ffffff",
+    "foreground": "#000000"
+  }
+} 
