@@ -1,0 +1,303 @@
+{
+  "maps": [
+    {
+      "id": 4,
+      "uid": "6823a65a635e4a0ff05b8104",
+      "map_name": "Floor1",
+      "create_time": 1747688978,
+      "map_version": 2,
+      "overlays_version": 9,
+      "thumbnail_url": "http://192.168.4.31:8090/maps/4/thumbnail",
+      "image_url": "http://192.168.4.31:8090/maps/4.png",
+      "url": "http://192.168.4.31:8090/maps/4"
+    }
+  ],
+  "points": {
+    "4": [
+      {
+        "id": "6823a5d4c74da807da5e8948",
+        "mapId": 4,
+        "coordinates": [
+          0.03443853667262486,
+          0.4981316698765672
+        ],
+        "orientation": 266,
+        "type": "36",
+        "metadata": {
+          "dockingPointId": "6823a5d42143cbd458801570",
+          "mapOverlay": true,
+          "type": "36",
+          "yaw": "266"
+        }
+      },
+      {
+        "id": "6823a5d42143cbd458801570",
+        "mapId": 4,
+        "coordinates": [
+          -0.028294880667081166,
+          -0.39899799464162183
+        ],
+        "orientation": 86,
+        "type": "9",
+        "name": "Charging Station",
+        "metadata": {
+          "deviceIds": [
+            "L382502104987ir"
+          ],
+          "dockingPointId": "6823a5d4c74da807da5e8948",
+          "mapOverlay": true,
+          "name": "Charging Station",
+          "subtype": "24v",
+          "type": "9",
+          "yaw": 86
+        }
+      },
+      {
+        "id": "6823a6cdf0395848c748a309",
+        "mapId": 4,
+        "coordinates": [
+          -2.2367792490740612,
+          4.228840938083067
+        ],
+        "orientation": 0,
+        "type": "34",
+        "name": "050_load",
+        "metadata": {
+          "deviceIds": null,
+          "dockViaDirection": "front",
+          "enforcePullOut": false,
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "050_load",
+          "shelvesState": "0",
+          "subtype": "rack",
+          "type": "34",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "6823a701a3606ffc261ae926",
+        "mapId": 4,
+        "coordinates": [
+          -1.349576688767229,
+          4.204414029373993
+        ],
+        "orientation": 0,
+        "type": "11",
+        "name": "050_load_docking",
+        "metadata": {
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "050_load_docking",
+          "type": "11",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "6823a7344301b62a8fd387d8",
+        "mapId": 4,
+        "coordinates": [
+          -2.250650268820209,
+          5.092714291947686
+        ],
+        "orientation": 0,
+        "type": "34",
+        "name": "001_load",
+        "metadata": {
+          "deviceIds": null,
+          "dockViaDirection": "front",
+          "enforcePullOut": false,
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "001_load",
+          "shelvesState": "0",
+          "subtype": "rack",
+          "type": "34",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "6823a74b3e46ed678cdd8fb6",
+        "mapId": 4,
+        "coordinates": [
+          -1.3617497904760967,
+          5.0514367872267485
+        ],
+        "orientation": 0,
+        "type": "11",
+        "name": "001_load_docking",
+        "metadata": {
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "001_load_docking",
+          "type": "11",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "6823a76e6c84f3a5383fd78b",
+        "mapId": 4,
+        "coordinates": [
+          -15.879840208299356,
+          6.768090424742468
+        ],
+        "orientation": 0,
+        "type": "34",
+        "name": "104_load",
+        "metadata": {
+          "deviceIds": null,
+          "dockViaDirection": "front",
+          "enforcePullOut": false,
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "104_load",
+          "shelvesState": "0",
+          "subtype": "rack",
+          "type": "34",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "6823a782d7780b98ca5029bf",
+        "mapId": 4,
+        "coordinates": [
+          -14.801402825241894,
+          6.768090424742468
+        ],
+        "orientation": 0,
+        "type": "11",
+        "name": "104_load_docking",
+        "metadata": {
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "104_load_docking",
+          "type": "11",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "6823a7a3ff44c7ae43b9f5e9",
+        "mapId": 4,
+        "coordinates": [
+          -8.0294985784235,
+          6.704401791495229
+        ],
+        "orientation": 0,
+        "type": "34",
+        "name": "115_load",
+        "metadata": {
+          "deviceIds": null,
+          "dockViaDirection": "front",
+          "enforcePullOut": false,
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "115_load",
+          "shelvesState": "0",
+          "subtype": "rack",
+          "type": "34",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "6823a7b6bf11456eb798cfe1",
+        "mapId": 4,
+        "coordinates": [
+          -6.9173600260796775,
+          6.721252376138409
+        ],
+        "orientation": 0,
+        "type": "11",
+        "name": "115_load_docking",
+        "metadata": {
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "115_load_docking",
+          "type": "11",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "6823a7df550e899cf7cfde33",
+        "mapId": 4,
+        "coordinates": [
+          1.4056499648518184,
+          4.495540707125656
+        ],
+        "orientation": 180,
+        "type": "34",
+        "name": "112_load",
+        "metadata": {
+          "deviceIds": null,
+          "dockViaDirection": "front",
+          "enforcePullOut": false,
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "112_load",
+          "shelvesState": "0",
+          "subtype": "rack",
+          "type": "34",
+          "yaw": "180"
+        }
+      },
+      {
+        "id": "6823a7fd5b85b7a056cecd03",
+        "mapId": 4,
+        "coordinates": [
+          0.37776433629232997,
+          4.529241876269907
+        ],
+        "orientation": 0,
+        "type": "11",
+        "name": "112_load_docking",
+        "metadata": {
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "112_load_docking",
+          "type": "11",
+          "yaw": "0"
+        }
+      },
+      {
+        "id": "682b9fc8ad0f0ad22ddfa6d2",
+        "mapId": 4,
+        "coordinates": [
+          -5.6598415145003855,
+          14.519625154889582
+        ],
+        "orientation": 267.8,
+        "type": "11",
+        "name": "110_load_docking",
+        "metadata": {
+          "mapOverlay": true,
+          "name": "110_load_docking",
+          "type": "11",
+          "yaw": "267.8"
+        }
+      },
+      {
+        "id": "682b9fe42b0b860b3d0a2b18",
+        "mapId": 4,
+        "coordinates": [
+          -5.68766632312645,
+          15.347413058037773
+        ],
+        "orientation": 271.07,
+        "type": "34",
+        "name": "110_load",
+        "metadata": {
+          "deviceIds": null,
+          "dockViaDirection": "front",
+          "enforcePullOut": false,
+          "hasFixedLegs": false,
+          "mapOverlay": true,
+          "name": "110_load",
+          "shelvesState": "0",
+          "subtype": "rack",
+          "type": "34",
+          "yaw": "271.07"
+        }
+      }
+    ]
+  },
+  "lastUpdate": 1748035063215
+}

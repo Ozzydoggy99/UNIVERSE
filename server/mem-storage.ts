@@ -5,9 +5,6 @@ import {
   sensorReadings, 
   positionHistory,
   uiTemplates,
-  gamePlayers,
-  gameItems,
-  gameZombies,
   robotTemplateAssignments,
   robotTasks,
   floorMaps,
@@ -24,12 +21,6 @@ import {
   type InsertUITemplate,
   type RobotTemplateAssignment,
   type InsertRobotTemplateAssignment,
-  type GamePlayer,
-  type InsertGamePlayer,
-  type GameItem,
-  type InsertGameItem,
-  type GameZombie,
-  type InsertGameZombie,
   type RobotTask,
   type InsertRobotTask,
   type FloorMap,
@@ -39,37 +30,32 @@ import {
   type ElevatorQueue,
   type InsertElevatorQueue,
   type ElevatorMaintenance,
-  type InsertElevatorMaintenance
-} from "@shared/schema";
+  type InsertElevatorMaintenance,
+  Robot,
+  Template
+} from "../shared/schema.js";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
 const MemoryStore = createMemoryStore(session);
 
-// modify the interface with any CRUD methods
-// you might need
 export interface IStorage {
   // User methods
-  getUser(id: number): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
+  getUser(id: number): Promise<User | null>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  getAllUsers(): Promise<Map<number, User>>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, updates: Partial<User>): Promise<User | undefined>;
+  updateUser(id: number, data: Partial<User>): Promise<User | null>;
   
   // UI Template methods
-  createTemplate(template: InsertUITemplate): Promise<UITemplate>;
-  getTemplate(id: number): Promise<UITemplate | undefined>;
-  getAllTemplates(): Promise<UITemplate[]>;
-  updateTemplate(id: number, updates: Partial<UITemplate>): Promise<UITemplate | undefined>;
+  getAllTemplates(): Promise<Template[]>;
+  getTemplate(id: number): Promise<Template | null>;
+  createTemplate(data: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>): Promise<Template>;
+  updateTemplate(id: number, data: Partial<Template>): Promise<Template | null>;
   deleteTemplate(id: number): Promise<boolean>;
   
   // Robot Template Assignment methods
-  createRobotTemplateAssignment(assignment: InsertRobotTemplateAssignment): Promise<RobotTemplateAssignment>;
-  getRobotTemplateAssignment(id: number): Promise<RobotTemplateAssignment | undefined>;
-  getRobotTemplateAssignmentBySerial(serialNumber: string): Promise<RobotTemplateAssignment | undefined>;
-  updateRobotTemplateAssignment(id: number, updates: Partial<RobotTemplateAssignment>): Promise<RobotTemplateAssignment | undefined>;
   getAllRobotTemplateAssignments(): Promise<RobotTemplateAssignment[]>;
-  deleteRobotTemplateAssignment(id: number): Promise<boolean>;
   
   // API Config methods
   getApiConfig(id: number): Promise<ApiConfig | undefined>;
@@ -86,25 +72,6 @@ export interface IStorage {
   // Position methods
   saveRobotPosition(position: any): Promise<void>;
   getPositionHistory(robotId?: string, limit?: number): Promise<PositionHistory[]>;
-  
-  // Game Player methods
-  createGamePlayer(player: InsertGamePlayer): Promise<GamePlayer>;
-  getGamePlayer(id: number): Promise<GamePlayer | undefined>;
-  getGamePlayerByUserId(userId: number): Promise<GamePlayer | undefined>;
-  updateGamePlayer(id: number, updates: Partial<GamePlayer>): Promise<GamePlayer | undefined>;
-  getAllGamePlayers(): Promise<GamePlayer[]>;
-  
-  // Game Item methods
-  createGameItem(item: InsertGameItem): Promise<GameItem>;
-  getGameItem(id: number): Promise<GameItem | undefined>;
-  getAllGameItems(): Promise<GameItem[]>;
-  
-  // Game Zombie methods
-  createGameZombie(zombie: InsertGameZombie): Promise<GameZombie>;
-  getGameZombie(id: number): Promise<GameZombie | undefined>;
-  updateGameZombie(id: number, updates: Partial<GameZombie>): Promise<GameZombie | undefined>;
-  getAllGameZombies(): Promise<GameZombie[]>;
-  removeGameZombie(id: number): Promise<boolean>;
   
   // Robot Task Queue methods
   createRobotTask(task: InsertRobotTask): Promise<RobotTask>;
@@ -156,27 +123,31 @@ export interface IStorage {
   
   // Session store for auth
   sessionStore: session.Store;
+
+  // Robot methods
+  saveRobot(robot: Robot): Promise<void>;
+  getRobotBySerialNumber(serialNumber: string): Promise<Robot | null>;
+  getRobots(): Promise<Robot[]>;
+  deleteRobot(serialNumber: string): Promise<void>;
 }
 
 // In-memory implementation
 export class MemStorage implements IStorage {
   sessionStore: session.Store;
   private users = new Map<number, User>();
-  private templates = new Map<number, UITemplate>();
+  private templates = new Map<number, Template>();
   private robotTemplateAssignments = new Map<number, RobotTemplateAssignment>();
   private apiConfigs = new Map<number, ApiConfig>();
   private robotStatusHistory = new Map<string, RobotStatusHistory[]>();
   private sensorReadings = new Map<string, SensorReading[]>();
   private positionHistory = new Map<string, PositionHistory[]>();
-  private gamePlayers = new Map<number, GamePlayer>();
-  private gameItems = new Map<number, GameItem>();
-  private gameZombies = new Map<number, GameZombie>();
   private robotTasks = new Map<number, RobotTask>();
   private floorMaps = new Map<number, FloorMap>();
   private elevators = new Map<number, Elevator>();
   private elevatorQueue = new Map<number, ElevatorQueue>();
   private elevatorMaintenance = new Map<number, ElevatorMaintenance>();
   private robotCapabilities = new Map<string, any>();
+  private robots: Map<string, Robot> = new Map();
   
   constructor() {
     this.sessionStore = new MemoryStore({
@@ -194,8 +165,12 @@ export class MemStorage implements IStorage {
   }
   
   // User methods
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+  
+  async getUser(id: number): Promise<User | null> {
+    return this.users.get(id) || null;
   }
   
   async getUserByUsername(username: string): Promise<User | undefined> {
@@ -207,57 +182,59 @@ export class MemStorage implements IStorage {
     return undefined;
   }
   
-  async getAllUsers(): Promise<Map<number, User>> {
-    return new Map(this.users);
-  }
-  
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.users.size + 1;
-    const user = { ...insertUser, id };
+    const user: User = {
+      id,
+      username: insertUser.username,
+      password: insertUser.password,
+      role: insertUser.role || 'user',
+      templateId: insertUser.templateId || null
+    };
     this.users.set(id, user);
     return user;
   }
   
-  async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
+  async updateUser(id: number, data: Partial<User>): Promise<User | null> {
     const user = this.users.get(id);
-    if (!user) {
-      return undefined;
-    }
+    if (!user) return null;
     
-    const updatedUser = { ...user, ...updates };
+    const updatedUser = { ...user, ...data };
     this.users.set(id, updatedUser);
     return updatedUser;
   }
   
   // UI Template methods
-  async createTemplate(template: InsertUITemplate): Promise<UITemplate> {
-    const id = this.templates.size + 1;
-    const now = new Date();
-    const newTemplate = { 
-      ...template, 
-      id, 
-      createdAt: now, 
-      updatedAt: now 
-    };
-    this.templates.set(id, newTemplate);
-    return newTemplate;
-  }
-  
-  async getTemplate(id: number): Promise<UITemplate | undefined> {
-    return this.templates.get(id);
-  }
-  
-  async getAllTemplates(): Promise<UITemplate[]> {
+  async getAllTemplates(): Promise<Template[]> {
     return Array.from(this.templates.values());
   }
   
-  async updateTemplate(id: number, updates: Partial<UITemplate>): Promise<UITemplate | undefined> {
+  async getTemplate(id: number): Promise<Template | null> {
+    return this.templates.get(id) || null;
+  }
+  
+  async createTemplate(data: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>): Promise<Template> {
+    const id = this.templates.size + 1;
+    const now = new Date();
+    const template: Template = {
+      id,
+      ...data,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.templates.set(id, template);
+    return template;
+  }
+  
+  async updateTemplate(id: number, data: Partial<Template>): Promise<Template | null> {
     const template = this.templates.get(id);
-    if (!template) {
-      return undefined;
-    }
+    if (!template) return null;
     
-    const updatedTemplate = { ...template, ...updates, updatedAt: new Date() };
+    const updatedTemplate: Template = {
+      ...template,
+      ...data,
+      updatedAt: new Date()
+    };
     this.templates.set(id, updatedTemplate);
     return updatedTemplate;
   }
@@ -267,49 +244,8 @@ export class MemStorage implements IStorage {
   }
   
   // Robot Template Assignment methods
-  async createRobotTemplateAssignment(assignment: InsertRobotTemplateAssignment): Promise<RobotTemplateAssignment> {
-    const id = this.robotTemplateAssignments.size + 1;
-    const now = new Date();
-    const newAssignment = { 
-      ...assignment, 
-      id, 
-      createdAt: now, 
-      updatedAt: now 
-    };
-    this.robotTemplateAssignments.set(id, newAssignment);
-    return newAssignment;
-  }
-  
-  async getRobotTemplateAssignment(id: number): Promise<RobotTemplateAssignment | undefined> {
-    return this.robotTemplateAssignments.get(id);
-  }
-  
-  async getRobotTemplateAssignmentBySerial(serialNumber: string): Promise<RobotTemplateAssignment | undefined> {
-    for (const assignment of Array.from(this.robotTemplateAssignments.values())) {
-      if (assignment.serialNumber === serialNumber) {
-        return assignment;
-      }
-    }
-    return undefined;
-  }
-  
-  async updateRobotTemplateAssignment(id: number, updates: Partial<RobotTemplateAssignment>): Promise<RobotTemplateAssignment | undefined> {
-    const assignment = this.robotTemplateAssignments.get(id);
-    if (!assignment) {
-      return undefined;
-    }
-    
-    const updatedAssignment = { ...assignment, ...updates, updatedAt: new Date() };
-    this.robotTemplateAssignments.set(id, updatedAssignment);
-    return updatedAssignment;
-  }
-  
   async getAllRobotTemplateAssignments(): Promise<RobotTemplateAssignment[]> {
     return Array.from(this.robotTemplateAssignments.values());
-  }
-  
-  async deleteRobotTemplateAssignment(id: number): Promise<boolean> {
-    return this.robotTemplateAssignments.delete(id);
   }
   
   // API Config methods
@@ -329,7 +265,7 @@ export class MemStorage implements IStorage {
     });
   }
   
-  // Robot Status History methods
+  // Robot history methods
   async saveRobotStatus(status: any): Promise<void> {
     const robotId = status.serialNumber || "unknown";
     const statusRecord: RobotStatusHistory = {
@@ -362,14 +298,17 @@ export class MemStorage implements IStorage {
       const history = this.robotStatusHistory.get(robotId) || [];
       return history.slice(0, limit);
     } else {
-      // Combine all robot histories
       const allHistory: RobotStatusHistory[] = [];
       for (const history of Array.from(this.robotStatusHistory.values())) {
         allHistory.push(...history);
       }
       
       // Sort by timestamp (newest first)
-      allHistory.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      allHistory.sort((a, b) => {
+        const timeA = a.timestamp?.getTime() ?? 0;
+        const timeB = b.timestamp?.getTime() ?? 0;
+        return timeB - timeA;
+      });
       
       return allHistory.slice(0, limit);
     }
@@ -407,14 +346,17 @@ export class MemStorage implements IStorage {
       const readings = this.sensorReadings.get(robotId) || [];
       return readings.slice(0, limit);
     } else {
-      // Combine all robot sensor readings
       const allReadings: SensorReading[] = [];
       for (const readings of Array.from(this.sensorReadings.values())) {
         allReadings.push(...readings);
       }
       
       // Sort by timestamp (newest first)
-      allReadings.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      allReadings.sort((a, b) => {
+        const timeA = a.timestamp?.getTime() ?? 0;
+        const timeB = b.timestamp?.getTime() ?? 0;
+        return timeB - timeA;
+      });
       
       return allReadings.slice(0, limit);
     }
@@ -452,123 +394,44 @@ export class MemStorage implements IStorage {
       const history = this.positionHistory.get(robotId) || [];
       return history.slice(0, limit);
     } else {
-      // Combine all robot position histories
       const allHistory: PositionHistory[] = [];
       for (const history of Array.from(this.positionHistory.values())) {
         allHistory.push(...history);
       }
       
       // Sort by timestamp (newest first)
-      allHistory.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      allHistory.sort((a, b) => {
+        const timeA = a.timestamp?.getTime() ?? 0;
+        const timeB = b.timestamp?.getTime() ?? 0;
+        return timeB - timeA;
+      });
       
       return allHistory.slice(0, limit);
     }
-  }
-  
-  // Game Player methods
-  async createGamePlayer(player: InsertGamePlayer): Promise<GamePlayer> {
-    const id = this.gamePlayers.size + 1;
-    const now = new Date();
-    const newPlayer = { 
-      ...player, 
-      id, 
-      createdAt: now, 
-      lastActive: now 
-    };
-    this.gamePlayers.set(id, newPlayer);
-    return newPlayer;
-  }
-  
-  async getGamePlayer(id: number): Promise<GamePlayer | undefined> {
-    return this.gamePlayers.get(id);
-  }
-  
-  async getGamePlayerByUserId(userId: number): Promise<GamePlayer | undefined> {
-    for (const player of Array.from(this.gamePlayers.values())) {
-      if (player.userId === userId) {
-        return player;
-      }
-    }
-    return undefined;
-  }
-  
-  async updateGamePlayer(id: number, updates: Partial<GamePlayer>): Promise<GamePlayer | undefined> {
-    const player = this.gamePlayers.get(id);
-    if (!player) {
-      return undefined;
-    }
-    
-    const updatedPlayer = { ...player, ...updates };
-    this.gamePlayers.set(id, updatedPlayer);
-    return updatedPlayer;
-  }
-  
-  async getAllGamePlayers(): Promise<GamePlayer[]> {
-    return Array.from(this.gamePlayers.values());
-  }
-  
-  // Game Item methods
-  async createGameItem(item: InsertGameItem): Promise<GameItem> {
-    const id = this.gameItems.size + 1;
-    const newItem = { ...item, id };
-    this.gameItems.set(id, newItem);
-    return newItem;
-  }
-  
-  async getGameItem(id: number): Promise<GameItem | undefined> {
-    return this.gameItems.get(id);
-  }
-  
-  async getAllGameItems(): Promise<GameItem[]> {
-    return Array.from(this.gameItems.values());
-  }
-  
-  // Game Zombie methods
-  async createGameZombie(zombie: InsertGameZombie): Promise<GameZombie> {
-    const id = this.gameZombies.size + 1;
-    const now = new Date();
-    const newZombie = { 
-      ...zombie, 
-      id, 
-      spawnTime: now 
-    };
-    this.gameZombies.set(id, newZombie);
-    return newZombie;
-  }
-  
-  async getGameZombie(id: number): Promise<GameZombie | undefined> {
-    return this.gameZombies.get(id);
-  }
-  
-  async updateGameZombie(id: number, updates: Partial<GameZombie>): Promise<GameZombie | undefined> {
-    const zombie = this.gameZombies.get(id);
-    if (!zombie) {
-      return undefined;
-    }
-    
-    const updatedZombie = { ...zombie, ...updates };
-    this.gameZombies.set(id, updatedZombie);
-    return updatedZombie;
-  }
-  
-  async getAllGameZombies(): Promise<GameZombie[]> {
-    return Array.from(this.gameZombies.values());
-  }
-  
-  async removeGameZombie(id: number): Promise<boolean> {
-    return this.gameZombies.delete(id);
   }
   
   // Robot Task methods
   async createRobotTask(task: InsertRobotTask): Promise<RobotTask> {
     const id = this.robotTasks.size + 1;
     const now = new Date();
-    const newTask = { 
-      ...task, 
-      id, 
+    const newTask: RobotTask = {
+      id,
+      serialNumber: task.serialNumber,
+      templateId: task.templateId || null,
+      title: task.title,
+      taskType: task.taskType,
+      status: task.status || 'PENDING',
+      description: task.description || null,
+      location: task.location || null,
+      targetX: task.targetX || null,
+      targetY: task.targetY || null,
+      targetZ: task.targetZ || null,
+      parameters: task.parameters || null,
+      priority: task.priority || null,
       createdAt: now,
       startedAt: null,
-      completedAt: null 
+      completedAt: null,
+      createdBy: task.createdBy || null
     };
     this.robotTasks.set(id, newTask);
     return newTask;
@@ -655,11 +518,16 @@ export class MemStorage implements IStorage {
   async createFloorMap(floorMap: InsertFloorMap): Promise<FloorMap> {
     const id = this.floorMaps.size + 1;
     const now = new Date();
-    const newFloorMap = { 
-      ...floorMap, 
-      id, 
-      createdAt: now, 
-      updatedAt: now 
+    const newFloorMap: FloorMap = {
+      id,
+      name: floorMap.name,
+      buildingId: floorMap.buildingId,
+      floorNumber: floorMap.floorNumber,
+      mapData: floorMap.mapData,
+      navigationGraph: floorMap.navigationGraph || null,
+      isActive: floorMap.isActive || null,
+      createdAt: now,
+      updatedAt: now
     };
     this.floorMaps.set(id, newFloorMap);
     return newFloorMap;
@@ -701,11 +569,18 @@ export class MemStorage implements IStorage {
   async createElevator(elevator: InsertElevator): Promise<Elevator> {
     const id = this.elevators.size + 1;
     const now = new Date();
-    const newElevator = { 
-      ...elevator, 
-      id, 
-      createdAt: now, 
-      updatedAt: now 
+    const newElevator: Elevator = {
+      id,
+      name: elevator.name,
+      buildingId: elevator.buildingId,
+      doorLocation: elevator.doorLocation,
+      status: elevator.status || 'OPERATIONAL',
+      currentFloor: elevator.currentFloor || null,
+      targetFloor: elevator.targetFloor || null,
+      maxCapacity: elevator.maxCapacity || null,
+      lastMaintenance: elevator.lastMaintenance || null,
+      createdAt: now,
+      updatedAt: now
     };
     this.elevators.set(id, newElevator);
     return newElevator;
@@ -750,12 +625,17 @@ export class MemStorage implements IStorage {
   async createElevatorQueueEntry(entry: InsertElevatorQueue): Promise<ElevatorQueue> {
     const id = this.elevatorQueue.size + 1;
     const now = new Date();
-    const newEntry = { 
-      ...entry, 
-      id, 
+    const newEntry: ElevatorQueue = {
+      id,
+      elevatorId: entry.elevatorId,
+      robotId: entry.robotId,
+      startFloor: entry.startFloor,
+      targetFloor: entry.targetFloor,
+      status: entry.status || 'WAITING',
+      priority: entry.priority || null,
       requestedAt: now,
       startedAt: null,
-      completedAt: null 
+      completedAt: null
     };
     this.elevatorQueue.set(id, newEntry);
     return newEntry;
@@ -800,7 +680,17 @@ export class MemStorage implements IStorage {
   // Elevator Maintenance methods
   async createElevatorMaintenance(maintenance: InsertElevatorMaintenance): Promise<ElevatorMaintenance> {
     const id = this.elevatorMaintenance.size + 1;
-    const newMaintenance = { ...maintenance, id };
+    const newMaintenance: ElevatorMaintenance = {
+      id,
+      elevatorId: maintenance.elevatorId,
+      maintenanceType: maintenance.maintenanceType,
+      description: maintenance.description,
+      technician: maintenance.technician || null,
+      startTime: maintenance.startTime,
+      endTime: maintenance.endTime || null,
+      status: maintenance.status || 'SCHEDULED',
+      notes: maintenance.notes || null
+    };
     this.elevatorMaintenance.set(id, newMaintenance);
     return newMaintenance;
   }
@@ -839,6 +729,23 @@ export class MemStorage implements IStorage {
   
   async clearRobotCapabilities(robotId: string): Promise<void> {
     this.robotCapabilities.delete(robotId);
+  }
+
+  // Robot methods
+  async saveRobot(robot: Robot): Promise<void> {
+    this.robots.set(robot.serialNumber, robot);
+  }
+
+  async getRobotBySerialNumber(serialNumber: string): Promise<Robot | null> {
+    return this.robots.get(serialNumber) || null;
+  }
+
+  async getRobots(): Promise<Robot[]> {
+    return Array.from(this.robots.values());
+  }
+
+  async deleteRobot(serialNumber: string): Promise<void> {
+    this.robots.delete(serialNumber);
   }
 }
 

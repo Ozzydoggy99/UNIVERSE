@@ -11,6 +11,15 @@ export function ProtectedRoute({
 }) {
   const { user, isLoading } = useAuth();
 
+  // Skip protection for admin routes
+  if (path.startsWith('/admin')) {
+    return (
+      <Route path={path}>
+        <Component />
+      </Route>
+    );
+  }
+
   if (isLoading) {
     return (
       <Route path={path}>

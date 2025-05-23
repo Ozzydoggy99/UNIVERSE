@@ -7,7 +7,7 @@
  * points are correctly defined and can be accessed.
  */
 
-import robotPointsMap from './server/robot-points-map.js';
+import robotPointsMap from './server/map-adapter.js';
 
 console.log('=== ROBOT POINTS MAP TEST ===');
 

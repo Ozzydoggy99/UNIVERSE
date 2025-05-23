@@ -9,9 +9,15 @@ export type OperationType = 'pickup' | 'dropoff' | 'transfer';
 // Point and map types
 export interface Point {
   id: string;
+  name: string;
   x: number;
   y: number;
   ori: number;
+  properties: {
+    robotId: string;
+    humanName: string;
+    [key: string]: any;
+  };
 }
 
 export interface MapPoints {
@@ -23,6 +29,8 @@ export interface MapPoints {
     pickupPoint?: Point;
     pickupDockingPoint?: Point;
     chargerPoint?: Point;
+    name?: string;
+    displayName?: string;
   }
 }
 
@@ -125,4 +133,13 @@ export interface Task {
   speed: number;
   pts: TaskPoint[];
   backPt?: TaskPoint;
+}
+
+export interface Robot {
+  name: string;
+  localIp: string;
+  publicIp: string;
+  secret: string;
+  serialNumber: string;
+  createdAt: Date;
 }

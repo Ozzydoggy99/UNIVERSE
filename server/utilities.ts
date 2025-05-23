@@ -34,3 +34,8 @@ export function getPointIdVariations(id: string): string[] {
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// Helper to log workflow events with consistent formatting
+export function logWorkflow(id: string, message: string) {
+  console.log(`[${id}] ${message}`);
+}

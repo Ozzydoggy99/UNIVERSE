@@ -1,11 +1,25 @@
+// This is a patched version for local development only
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Fix path resolution
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+globalThis.__basedir = path.resolve(__dirname, '..');
+
+// Add path resolution helper to global object
+globalThis.__resolveServerPath = (p) => {
+  if (!p) return undefined;
+  return path.resolve(globalThis.__basedir, p);
+};
+
+// Original content with path fix
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./api-routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
 import robotPointsMap from "./map-adapter.js";
 import http from "http";
 import { setupRobotWebSocketServer } from './robot-websocket.js';
-import { startMapSync, mapSyncEvents, getCurrentMapData } from './map-sync-service.js';
-import { setupMapWebSocketServer } from './map-websocket.js';
 
 const app = express();
 app.use(express.json());
@@ -66,43 +80,35 @@ async function startServer() {
   try {
     console.log("Starting server setup...");
     
-    // Start the map sync service
+    // Initialize robot points map on startup
     try {
-      console.log('Starting map sync service...');
-      await startMapSync();
-      console.log('Map sync service started successfully');
+      console.log('Initializing robot points map...');
+      await robotPointsMap.refreshPointsFromRobot();
+      console.log('Robot points map initialized successfully');
       
-      // Log current map data
-      const mapData = getCurrentMapData();
-      console.log('\nCurrent Maps:');
-      console.log(JSON.stringify(mapData.maps, null, 2));
-      
-      console.log('\nPoints by Map:');
-      for (const [mapId, points] of Object.entries(mapData.points)) {
-        console.log(`\nMap ${mapId} Points:`);
-        console.log(JSON.stringify(points, null, 2));
-      }
-      
-      // Set up event listeners for map/point changes
-      mapSyncEvents.on('mapsChanged', (changes) => {
-        console.log('[SERVER] Map changes detected:', changes);
-      });
-      
-      mapSyncEvents.on('pointsChanged', (data) => {
-        console.log('[SERVER] Point changes detected:', data);
-      });
+      // Set up periodic refresh (every 5 minutes)
+      const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+      setInterval(async () => {
+        try {
+          console.log('Performing scheduled refresh of robot points...');
+          await robotPointsMap.refreshPointsFromRobot();
+          
+          // Log the currently available point sets
+          const pointSets = robotPointsMap.getPointSets();
+          console.log(`Available point sets after refresh: ${pointSets.map((set: {id: string}) => set.id).join(', ')}`);
+        } catch (refreshError) {
+          console.error('Error during scheduled robot points refresh:', refreshError);
+        }
+      }, REFRESH_INTERVAL);
+      console.log(`Scheduled automatic refresh of robot points every ${REFRESH_INTERVAL/60000} minutes`);
     } catch (error) {
-      console.error('Error starting map sync service:', error);
-      // Continue starting the server even if map sync fails
+      console.error('Error initializing robot points map:', error);
+      // Continue starting the server even if point refresh fails
     }
 
     console.log("Registering routes...");
     const server = await registerRoutes(app);
     console.log("Routes registered.");
-
-    // Set up WebSocket servers
-    setupRobotWebSocketServer(server);
-    setupMapWebSocketServer(server);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;

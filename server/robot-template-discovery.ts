@@ -187,6 +187,32 @@ async function getMaps(): Promise<any[]> {
     logger.info(`Fetching maps from robot API: ${robotApiUrl}/maps with robot ID: ${DEFAULT_ROBOT_SERIAL}`);
     const response = await axios.get(`${robotApiUrl}/maps`, { headers });
     
+    // Log the complete response for debugging
+    logger.info(`Complete map API response: ${JSON.stringify({
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      data: response.data
+    }, null, 2)}`);
+    
+    // Log each map's properties
+    if (response.data) {
+      const maps = Array.isArray(response.data) ? response.data : 
+                  response.data.maps ? response.data.maps :
+                  [response.data];
+      
+      maps.forEach((map, index) => {
+        logger.info(`Map ${index} properties: ${JSON.stringify({
+          id: map.id,
+          map_id: map.map_id,
+          name: map.name,
+          map_name: map.map_name,
+          display_name: map.display_name,
+          all_properties: Object.keys(map)
+        }, null, 2)}`);
+      });
+    }
+    
     // Handle various response formats with improved handling
     let maps = [];
     
@@ -402,8 +428,8 @@ export async function discoverRobotCapabilities(robotId: string): Promise<RobotC
       // Create the map data object with proper display names
       const mapData: MapData = {
         id: mapId,
-        name: `Floor ${floorNumber}`, // Display name like "Floor 1"
-        displayName: `Floor ${floorNumber}`, // Same as name for consistency
+        name: mapName, // Use the actual map name from the API
+        displayName: `Floor ${floorNumber}`, // Keep the floor number for display purposes
         floorNumber: floorNumber,
         shelfPoints: shelfPoints, // Assign the filtered and mapped shelf points
         points: mapPoints // Assign all points from the map

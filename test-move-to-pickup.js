@@ -9,7 +9,7 @@
  * Usage: node test-move-to-pickup.js
  */
 
-import robotPointsMap from './server/robot-points-map.js';
+import robotPointsMap from './server/map-adapter.js';
 import axios from 'axios';
 
 // API base URL

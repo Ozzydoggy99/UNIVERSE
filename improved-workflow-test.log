@@ -1,0 +1,33 @@
+=== IMPROVED WORKFLOW TEST LOG (2025-05-15T18:33:50.240Z) ===
+
+[2025-05-15T18:33:50.242Z] Starting improved workflow tests...
+[2025-05-15T18:33:50.245Z] 
+===== TESTING POINT ID FORMAT HANDLING =====
+[2025-05-15T18:33:50.246Z] 
+--- Test 1: Numeric shelf ID ---
+[2025-05-15T18:33:50.246Z] Starting central-to-shelf workflow with params: {
+  "dropoffShelf": "104"
+}
+[2025-05-15T18:33:50.331Z] Workflow started with ID: 7a49f986-5aea-405f-8547-3458338f5674
+[2025-05-15T18:33:50.332Z] 
+Monitoring workflow execution: 7a49f986-5aea-405f-8547-3458338f5674
+[2025-05-15T18:33:50.338Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:50.339Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:51.344Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:51.344Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:52.351Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:52.352Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:53.358Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:53.358Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:54.364Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:54.364Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:55.367Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:55.368Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:56.372Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:56.372Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:57.377Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:57.378Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:58.383Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:58.383Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2
+[2025-05-15T18:33:59.388Z] Status: in-progress, Step 0/5
+[2025-05-15T18:33:59.389Z] Message: ✅ Created central-to-shelf mission with ID: mission_1747334030295_815hhq2

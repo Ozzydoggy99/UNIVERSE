@@ -403,3 +403,93 @@ export type ElevatorQueue = typeof elevatorQueue.$inferSelect;
 
 export type InsertElevatorMaintenance = z.infer<typeof insertElevatorMaintenanceSchema>;
 export type ElevatorMaintenance = typeof elevatorMaintenance.$inferSelect;
+
+// Robot interface
+export interface Robot {
+  name: string;
+  localIp: string;
+  publicIp: string;
+  secret: string;
+  serialNumber: string;
+  createdAt: Date;
+}
+
+// Robot schema for validation
+export const robotSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  localIp: z.string().min(1, "Local IP is required"),
+  publicIp: z.string().min(1, "Public IP is required"),
+  secret: z.string().min(1, "Secret is required"),
+  serialNumber: z.string().min(1, "Serial number is required"),
+  createdAt: z.date().default(() => new Date())
+});
+
+// User interface
+export interface User {
+  id: number;
+  username: string;
+  password: string;
+  role: string;
+  templateId: number | null;
+}
+
+// User schema for validation
+export const userSchema = z.object({
+  id: z.number(),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+  role: z.string().default("user"),
+  templateId: z.number().nullable().default(null)
+});
+
+// Template interface
+export interface Template {
+  id: number;
+  name: string;
+  description: string | null;
+  layout: string;
+  isActive: boolean | null;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: number | null;
+}
+
+// Template schema for validation
+export const templateSchema = z.object({
+  id: z.number(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().nullable().default(null),
+  layout: z.string(),
+  isActive: z.boolean().nullable().default(true),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  createdBy: z.number().nullable().optional()
+});
+
+// Robot Template Assignment interface
+export interface RobotTemplateAssignment {
+  id: number;
+  serialNumber: string;
+  templateId: number;
+  name?: string | null;
+  location?: string | null;
+  robotName?: string | null;
+  robotModel?: string | null;
+  isActive?: boolean | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Robot Template Assignment schema for validation
+export const robotTemplateAssignmentSchema = z.object({
+  id: z.number(),
+  serialNumber: z.string().min(1, "Serial number is required"),
+  templateId: z.number(),
+  name: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  robotName: z.string().nullable().optional(),
+  robotModel: z.string().nullable().optional(),
+  isActive: z.boolean().nullable().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});

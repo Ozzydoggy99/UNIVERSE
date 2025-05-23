@@ -1,7 +1,6 @@
 import axios from "axios";
 import { getRobotApiUrl, getAuthHeaders, getRobotSecret } from "./robot-constants";
 import { Express, Request, Response } from 'express';
-import { getSimplifiedPoints, getPointSetsForDisplayName, getPointSetData } from './robot-point-mapping';
 import { robotPositionTracker } from './robot-position-tracker';
 
 let apiUrl: string;
@@ -9,13 +8,13 @@ let secret: string;
 let headers: any;
 
 async function initialize() {
-  // Update any usage of ROBOT_API_URL to use getRobotApiUrl
+// Update any usage of ROBOT_API_URL to use getRobotApiUrl
   apiUrl = await getRobotApiUrl('L382502104987ir');
 
-  // Update any usage of ROBOT_SECRET to use getRobotSecret
+// Update any usage of ROBOT_SECRET to use getRobotSecret
   secret = await getRobotSecret('L382502104987ir');
 
-  // Update any usage of getAuthHeaders to include the serial number
+// Update any usage of getAuthHeaders to include the serial number
   headers = await getAuthHeaders('L382502104987ir');
 }
 
@@ -125,10 +124,10 @@ export function registerRobotApiRoutes(app: Express) {
       const { serialNumber } = req.params;
       const apiUrl = await getRobotApiUrl(serialNumber);
       const headers = await getAuthHeaders(serialNumber);
-      
+            
       const response = await axios.get(`${apiUrl}/scan`, { headers });
       res.json(response.data);
-    } catch (error) {
+      } catch (error) {
       console.error('Error fetching LiDAR data:', error);
       res.status(500).json({ error: 'Failed to fetch LiDAR data' });
     }
@@ -190,7 +189,7 @@ export function registerRobotApiRoutes(app: Express) {
       const { serialNumber } = req.params;
       const apiUrl = await getRobotApiUrl(serialNumber);
       const headers = await getAuthHeaders(serialNumber);
-      
+        
       // Get position from the position tracker
       const position = robotPositionTracker.getLatestPosition();
       
@@ -203,29 +202,13 @@ export function registerRobotApiRoutes(app: Express) {
         console.error('Error fetching battery status:', error);
       }
       
-      // Get wheel status
-      let wheelStatus = null;
-      try {
-        const wheelResponse = await axios.get(`${apiUrl}/wheel_state`, { headers });
-        wheelStatus = wheelResponse.data;
-      } catch (error) {
-        console.error('Error fetching wheel status:', error);
-      }
-      
       res.json({
-        position: position ? {
-          x: position.x,
-          y: position.y,
-          theta: position.theta,
-          timestamp: position.timestamp
-        } : null,
-        battery: batteryStatus,
-        wheels: wheelStatus,
-        timestamp: Date.now()
+        position,
+        battery: batteryStatus
       });
     } catch (error) {
-      console.error('Error handling status request:', error);
-      res.status(500).json({ error: 'Failed to get robot status' });
+      console.error('Error fetching robot status:', error);
+      res.status(500).json({ error: 'Failed to fetch robot status' });
     }
   });
   
@@ -236,7 +219,7 @@ export function registerRobotApiRoutes(app: Express) {
       
       // Get position from the position tracker
       const position = robotPositionTracker.getLatestPosition();
-      
+        
       if (position) {
         res.json({
           x: position.x,
@@ -251,8 +234,8 @@ export function registerRobotApiRoutes(app: Express) {
           const headers = await getAuthHeaders(serialNumber);
           
           const response = await axios.get(`${apiUrl}/chassis/pose`, { headers });
-          
-          if (response.data) {
+            
+            if (response.data) {
             let posData = {
               x: 0,
               y: 0,
@@ -341,7 +324,7 @@ export function registerRobotApiRoutes(app: Express) {
                 image_url: firstMap.image_url
               });
             }
-          } catch (mapDetailsError) {
+          } catch (mapDetailsError: any) {
             console.log(`Failed to fetch map details: ${mapDetailsError.message}`);
           }
           
@@ -456,7 +439,7 @@ export function registerRobotApiRoutes(app: Express) {
               status: 'available'
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           console.log(`Primary camera endpoint failed: ${error.message}`);
           // Fall through to try alternative endpoints
         }
@@ -486,7 +469,7 @@ export function registerRobotApiRoutes(app: Express) {
                 status: 'available'
               });
             }
-          } catch (endpointError) {
+          } catch (endpointError: any) {
             console.log(`Alternative endpoint ${endpoint} failed: ${endpointError.message}`);
             // Continue to the next endpoint
           }
@@ -503,7 +486,7 @@ export function registerRobotApiRoutes(app: Express) {
           timestamp: new Date().toISOString(),
           status: 'unavailable',
           message: 'Camera temporarily unavailable',
-          error: error.message
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     } catch (error) {
@@ -741,43 +724,6 @@ export function registerRobotApiRoutes(app: Express) {
         error: 'Failed to cancel charging mode', 
         message: error.message 
       });
-    }
-  });
-
-  // Add these endpoints to the registerRobotApiRoutes function
-  app.get('/api/robot/points/simplified', async (req: Request, res: Response) => {
-    try {
-      const simplifiedPoints = await getSimplifiedPoints();
-      res.json(simplifiedPoints);
-    } catch (error) {
-      console.error('Error getting simplified points:', error);
-      res.status(500).json({ error: 'Failed to get simplified points' });
-    }
-  });
-
-  app.get('/api/robot/points/:displayName/sets', async (req: Request, res: Response) => {
-    try {
-      const { displayName } = req.params;
-      const pointSets = await getPointSetsForDisplayName(displayName);
-      res.json(pointSets);
-    } catch (error) {
-      console.error('Error getting point sets:', error);
-      res.status(500).json({ error: 'Failed to get point sets' });
-    }
-  });
-
-  app.get('/api/robot/points/set/:pointSetName', async (req: Request, res: Response) => {
-    try {
-      const { pointSetName } = req.params;
-      const pointSet = await getPointSetData(pointSetName);
-      if (!pointSet) {
-        res.status(404).json({ error: 'Point set not found' });
-        return;
-      }
-      res.json(pointSet);
-    } catch (error) {
-      console.error('Error getting point set data:', error);
-      res.status(500).json({ error: 'Failed to get point set data' });
     }
   });
 }

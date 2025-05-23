@@ -9,7 +9,7 @@
  * Usage: node check-robot-points.js
  */
 
-import robotPointsMap from './server/robot-points-map.js';
+import robotPointsMap from './server/map-adapter.js';
 import axios from 'axios';
 
 // Use our local API

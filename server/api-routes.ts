@@ -1,7 +1,6 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import { createServer, type Server } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
-import { storage } from './mem-storage';
 import { registerRobotApiRoutes } from './robot-api';
 import { registerRobotVideoRoutes } from './robot-video';
 import { setupVite } from './vite';
@@ -9,40 +8,24 @@ import { registerAdminRoutes } from './admin-routes';
 import { setupAuth } from './auth';
 import { registerRobotMoveApiRoutes } from './robot-move-api';
 // New optimized points API for shelf filtering
-import robotPointsApiRouter, { registerRobotPointRoutes } from './robot-points-api';
-// Import point display mappings
-import { pointDisplayMappings } from './robot-points-map';
-// Task assignment API for AutoXing structured mission execution
-import { registerAssignTaskRoute } from './assign-task';
-// Local pickup handling with jack up/down operations
-import { registerLocalPickupRoute } from './assign-task-local';
-// Local dropoff handling with jack up/down operations (reverse of pickup)
-import { registerLocalDropoffRoute } from './assign-task-local-dropoff';
-import { missionQueue } from './mission-queue';
-import { missionRouter } from './mission-routes';
 import { setupRobotWebSocketServer } from './robot-websocket';
-import { registerReturnToChargerHandler } from './return-to-charger';
-import { registerZone104WorkflowRoute } from './zone-104-workflow';
 // Completely new implementation of Zone 104 workflow with proper documentation
-import { registerZone104WorkflowHandler } from './zone-104-workflow-new-complete';
 // Fixed implementation with proper error handling
-import { registerZone104WorkflowHandler as registerFixedWorkflowHandler } from './zone-104-workflow-fixed';
 // Specific workflow for picking up at pickup point and dropping at 104
-import { registerPickupTo104WorkflowRoute } from './pickup-to-104-workflow';
 // Specific workflow for picking up at 104 and dropping at main dropoff
-import { registerPickupFrom104WorkflowRoute } from './pickup-from-104-workflow';
 // Robot settings API for retrieving rack specifications
 import { registerRobotSettingsRoutes } from './robot-settings-api';
 // Direct charger docking implementation for testing
-import { registerChargerDockingRoutes } from './charger-docking';
 import { registerBinStatusRoutes } from './bin-status-routes';
 // Robot capabilities API for dynamic template configuration
 import { registerRobotCapabilitiesAPI } from './robot-capabilities-api';
 import { registerTaskApiRoutes } from './robot-task-api';
-import { registerDynamicWorkflowRoutes } from './dynamic-workflow';
 import dynamicPointsApiRouter from './dynamic-points-api';
 import { registerRefreshPointsRoutes } from './refresh-points-api';
 import robotCredentialsRouter from './robot-credentials';
+import { getCurrentMapData, getMapPoints, getAllPoints, getPoint } from './map-sync-service.js';
+import { storage } from './mem-storage';
+import { memStorageRouter } from './mem-storage-routes';
 
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -73,9 +56,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register robot credentials routes
   app.use('/api/robots', robotCredentialsRouter);
   
-  // Register the new shelf points API
-  registerRobotPointRoutes(app);
-  
   // Register our dynamic points API for auto-detecting new map points
   app.use('/api/dynamic-points', dynamicPointsApiRouter);
   
@@ -83,26 +63,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerRefreshPointsRoutes(app);
   
   // Register AutoXing task assignment API (new version)
-  registerAssignTaskRoute(app);
-  
   // Register local pickup route with jack up/down operations
-  registerLocalPickupRoute(app);
-  
   // Register local dropoff route with jack up/down operations (reverse flow)
-  registerLocalDropoffRoute(app);
   
   // Register return to charger and jack down operations
-  registerReturnToChargerHandler(app);
-  
   // Register direct charger docking route for testing
-  registerChargerDockingRoutes(app);
   
   // Register the zone-104 workflow implementation - keeping this active since it has the working flow
-  registerZone104WorkflowRoute(app);
   // Register our new pickup-to-104 workflow specifically for testing
-  registerPickupTo104WorkflowRoute(app);
   // Register the new pickup-from-104 to main dropoff workflow
-  registerPickupFrom104WorkflowRoute(app);
   // Comment out other workflow implementations
   // registerZone104WorkflowHandler(app);
   // registerFixedWorkflowHandler(app);
@@ -113,52 +82,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register the new Task API for unified robot task management
   registerTaskApiRoutes(app);
   
-  // Register the dynamic workflow system for multi-floor robot operations
-  registerDynamicWorkflowRoutes(app);
-  
   // Register robot capabilities API for dynamic template configuration
   registerRobotCapabilitiesAPI(app);
-  
-  // Add endpoint for point display mappings (for UI friendly names)
-  app.get('/api/robots/points/display-mappings', (req: Request, res: Response) => {
-    res.json(pointDisplayMappings);
-  });
-  
-  // Test endpoint for the toUnloadPoint action
-  app.post('/api/robot/test-unload-action', async (req: Request, res: Response) => {
-    try {
-      const { pointId } = req.body;
-      
-      if (!pointId) {
-        return res.status(400).json({ success: false, error: 'pointId is required' });
-      }
-      
-      // Test the rack_area_id extraction logic
-      // This doesn't actually call the robot API
-      const loadPointId = pointId.replace('_docking', '');
-      
-      let rackAreaId;
-      
-      // Check if this is a drop-off point
-      if (loadPointId.startsWith('drop-off')) {
-        rackAreaId = 'drop-off';
-      } else {
-        // For all other points, use everything before the first underscore
-        const areaMatch = loadPointId.match(/^([^_]+)/);
-        rackAreaId = areaMatch ? areaMatch[1] : loadPointId;
-      }
-      
-      return res.json({
-        success: true,
-        pointId,
-        loadPointId,
-        rackAreaId
-      });
-    } catch (error) {
-      console.error('[TEST-UNLOAD-ACTION] Error testing unload action:', error);
-      return res.status(500).json({ success: false, error: formatError(error) });
-    }
-  });
   
   // Register the robot settings API for rack specifications
   registerRobotSettingsRoutes(app);
@@ -246,9 +171,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-  
-  // Register mission router for robot task execution
-  app.use('/api', missionRouter);
   
   // User-related endpoints
   app.get('/api/templates', async (req: Request, res: Response) => {
@@ -391,6 +313,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Map data endpoints
+  app.get('/api/maps', (req, res) => {
+    const mapData = getCurrentMapData();
+    res.json(mapData.maps);
+  });
+  
+  app.get('/api/maps/:mapId/points', (req, res) => {
+    const points = getMapPoints(req.params.mapId);
+    res.json(points);
+  });
+  
+  app.get('/api/points', (req, res) => {
+    const points = getAllPoints();
+    res.json(points);
+  });
+  
+  app.get('/api/points/:pointId', (req, res) => {
+    const point = getPoint(req.params.pointId);
+    if (point) {
+      res.json(point);
+    } else {
+      res.status(404).json({ error: 'Point not found' });
+    }
+  });
+  
   // Create the HTTP server
   const httpServer = createServer(app);
   
@@ -412,6 +359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Setup Vite for development frontend
   await setupVite(app, httpServer);
+  
+  app.use('/api', memStorageRouter);
   
   return httpServer;
 }

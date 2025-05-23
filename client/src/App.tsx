@@ -41,6 +41,11 @@ import TopBar from "@/components/layouts/top-bar";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { RobotProvider } from "@/providers/robot-provider";
 import { ProtectedRoute } from "@/lib/protected-route";
+import LoginPage from './admin/1LoginPage';
+import AdminLayout from './admin/1AdminLayout';
+import AdminDashboard from './admin/1AdminDashboard';
+import RobotRegistration from './admin/1RobotRegistration';
+import RobotAssignment from './admin/1RobotAssignment';
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -94,289 +99,58 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
 function Router() {
   const { user } = useAuth();
+  const isAdminAuthenticated = localStorage.getItem('adminAuthenticated') === 'true';
 
-  // If user is not admin, redirect from home to my-template
-  const HomeComponent = () => {
-    if (user && user.role !== 'admin') {
-      return <Redirect to="/my-template" />;
-    }
-    
+  // Admin routes should be handled separately
+  if (window.location.pathname.startsWith('/admin')) {
     return (
-      <AppLayout>
-        <Dashboard />
-      </AppLayout>
+      <Switch>
+        <Route path="/admin/login" component={LoginPage} />
+        <Route 
+          path="/admin/dashboard" 
+          component={() => (
+            isAdminAuthenticated ? (
+              <AdminLayout>
+                <AdminDashboard />
+              </AdminLayout>
+            ) : (
+              <Redirect to="/admin/login" />
+            )
+          )} 
+        />
+        <Route 
+          path="/admin/robot-registration" 
+          component={() => (
+            isAdminAuthenticated ? (
+              <AdminLayout>
+                <RobotRegistration />
+              </AdminLayout>
+            ) : (
+              <Redirect to="/admin/login" />
+            )
+          )} 
+        />
+        <Route 
+          path="/admin/robot-assignment" 
+          component={() => (
+            isAdminAuthenticated ? (
+              <AdminLayout>
+                <RobotAssignment />
+              </AdminLayout>
+            ) : (
+              <Redirect to="/admin/login" />
+            )
+          )} 
+        />
+        <Route path="/admin/*" component={() => <Redirect to="/admin/login" />} />
+      </Switch>
     );
-  };
+  }
 
+  // Regular app routes - redirect all to admin login
   return (
     <Switch>
-      <Route path="/auth" component={AuthPage} />
-      
-      <ProtectedRoute 
-        path="/" 
-        component={HomeComponent} 
-      />
-      
-      <ProtectedRoute 
-        path="/control-panel" 
-        component={() => (
-          <AppLayout>
-            <ControlPanel />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/sensor-data" 
-        component={() => (
-          <AppLayout>
-            <SensorData />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/navigation" 
-        component={() => (
-          <AppLayout>
-            <Navigation />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/history" 
-        component={() => (
-          <AppLayout>
-            <History />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/settings" 
-        component={() => (
-          <AppLayout>
-            <Settings />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Legacy template management routes removed */}
-      
-      <ProtectedRoute 
-        path="/admin-tasks" 
-        component={() => (
-          <AppLayout>
-            <AdminTasks />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/robot-details/:serialNumber" 
-        component={() => (
-          <AppLayout>
-            <RobotDetails />
-          </AppLayout>
-        )} 
-      />
-      
-      <ProtectedRoute 
-        path="/my-template" 
-        component={() => (
-          <div className="h-full min-h-screen">
-            {/* Using our new simplified template UI */}
-            <MyTemplate />
-          </div>
-        )} 
-      />
-      
-      {/* All legacy numbered-boxes, laundry-boxes, trash-boxes routes removed
-       * All service-specific routes for laundry/pickup-dropoff, trash/pickup-dropoff removed
-       * All service-specific numbered box pages removed
-       * All unit boxes pages removed
-       */}
-      
-
-      {/* AI Assistant */}
-      <ProtectedRoute 
-        path="/ai-assistant" 
-        component={() => (
-          <AppLayout>
-            <AIAssistantPage />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Robot Task Queue */}
-      <ProtectedRoute 
-        path="/robot-tasks" 
-        component={() => (
-          <AppLayout>
-            <RobotTasks />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* WebSocket Debug Page */}
-      <ProtectedRoute 
-        path="/ws-debug" 
-        component={() => (
-          <AppLayout>
-            <WsDebugPage />
-          </AppLayout>
-        )} 
-      />
-
-      {/* Map Test Page */}
-      <ProtectedRoute 
-        path="/map-test/:serialNumber?" 
-        component={() => (
-          <AppLayout>
-            <MapTestPage />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Map Data Test Page */}
-      <ProtectedRoute 
-        path="/map-data-test" 
-        component={() => (
-          <AppLayout>
-            <MapDataTestPage />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Layered Map Builder */}
-      <ProtectedRoute 
-        path="/layered-map/:serialNumber" 
-        component={() => (
-          <LayeredMapPage />
-        )} 
-      />
-      
-      {/* Power Cycle Test Page */}
-      <ProtectedRoute 
-        path="/power-cycle-test" 
-        component={() => (
-          <AppLayout>
-            <PowerCycleTestPage />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Robot AI Installer */}
-      <Route 
-        path="/robot-ai-installer" 
-        component={RobotInstaller} 
-      />
-      
-      {/* Installer Debug Page */}
-      <Route 
-        path="/installer-debug" 
-        component={InstallerDebugPage} 
-      />
-      
-      {/* Remote Command Executor */}
-      <Route 
-        path="/remote-executor" 
-        component={() => (
-          <AppLayout>
-            <RemoteExecutor />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Maps For Robots Page */}
-      <ProtectedRoute 
-        path="/robot-maps" 
-        component={() => (
-          <AppLayout>
-            <RobotMapsPage />
-          </AppLayout>
-        )} 
-      />
-
-      {/* Maps shortcut URL */}
-      <ProtectedRoute 
-        path="/maps" 
-        component={() => (
-          <AppLayout>
-            <RobotMapsPage />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Robot Mission Page */}
-      <ProtectedRoute 
-        path="/robot-mission" 
-        component={() => (
-          <AppLayout>
-            <RobotMissionPage />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Robot Real-time Dashboard */}
-      <ProtectedRoute 
-        path="/robot-dashboard" 
-        component={() => (
-          <AppLayout>
-            <RobotDashboardPage />
-          </AppLayout>
-        )} 
-      />
-      
-      {/* Robot Monitoring Hub */}
-      <ProtectedRoute 
-        path="/robot-hub" 
-        component={() => (
-          <AppLayout>
-            <RobotHub />
-          </AppLayout>
-        )} 
-      />
-
-      {/* Legacy Dynamic Workflow UI Routes removed - now using simplified workflow */}
-      
-      {/* Simplified Workflow UI Routes - new user interface with automatic discovery */}
-      {/* Completely removed the service type selection page - with redirect from main URL */}
-      <ProtectedRoute 
-        path="/simplified-workflow" 
-        component={() => (
-          <AppLayout>
-            <OperationSelectionPage />
-          </AppLayout>
-        )} 
-      />
-      <ProtectedRoute 
-        path="/simplified-workflow/operations" 
-        component={() => (
-          <AppLayout>
-            <OperationSelectionPage />
-          </AppLayout>
-        )} 
-      />
-      <ProtectedRoute 
-        path="/simplified-workflow/operations/:operationType" 
-        component={() => (
-          <AppLayout>
-            <SimplifiedFloorPage />
-          </AppLayout>
-        )} 
-      />
-      <ProtectedRoute 
-        path="/simplified-workflow/operations/:operationType/:floorId" 
-        component={() => (
-          <AppLayout>
-            <SimplifiedShelfPage />
-          </AppLayout>
-        )} 
-      />
-      
-      <Route component={NotFound} />
+      <Route path="/*" component={() => <Redirect to="/admin/login" />} />
     </Switch>
   );
 }

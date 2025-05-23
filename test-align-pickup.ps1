@@ -4,6 +4,38 @@
 Write-Host "DEBUG: Script starting..." -ForegroundColor Cyan
 Write-Host "DEBUG: Testing connection to robot..." -ForegroundColor Cyan
 
+# Helper function to get live coordinates from map sync service
+function Get-LiveCoordinates {
+    param (
+        [string]$pointName
+    )
+    try {
+        # Get all points from map sync service
+        $allPoints = Invoke-RestMethod -Uri "http://localhost:5000/api/points" -Method Get
+        $point = $allPoints | Where-Object { $_.name -eq $pointName }
+        
+        if ($point) {
+            Write-Host "Found point in map sync service:" -ForegroundColor Green
+            Write-Host "  Name: $($point.name)" -ForegroundColor Green
+            Write-Host "  ID: $($point.id)" -ForegroundColor Green
+            Write-Host "  Coordinates: [$($point.coordinates[0]), $($point.coordinates[1])]" -ForegroundColor Green
+            Write-Host "  Orientation: $($point.orientation)" -ForegroundColor Green
+            
+            return @{
+                id = $point.id
+                name = $point.name
+                x = $point.coordinates[0]
+                y = $point.coordinates[1]
+                orientation = $point.orientation
+            }
+        }
+        throw "Point '$pointName' not found in map sync service"
+    } catch {
+        Write-Host "Error getting coordinates from map sync service: $_" -ForegroundColor Red
+        throw
+    }
+}
+
 # Test robot connection first
 try {
     $testResponse = Invoke-RestMethod -Uri "http://192.168.4.31:8090/chassis/status" -Method Get
@@ -118,12 +150,14 @@ function Wait-ForJackOperation {
 # Step 0: Move to 050_load_docking
 Write-Host "`nStep 0: Moving to 050_load_docking..." -ForegroundColor Yellow
 try {
+    $coords = Get-LiveCoordinates -pointName "050_load_docking"
+    
     $moveBody = @{
         type = "standard"
-        target_x = -1.887
-        target_y = 2.311
+        target_x = $coords.x
+        target_y = $coords.y
         target_z = 0
-        target_ori = 0
+        target_ori = $coords.orientation
         creator = "test"
         properties = @{
             max_trans_vel = 0.5
@@ -132,6 +166,7 @@ try {
             acc_lim_theta = 0.5
             planning_mode = "directional"
         }
+        point_id = $coords.id  # Use the numeric ID from map sync service
     } | ConvertTo-Json
     $moveResponse = Invoke-RestMethod -Uri "http://192.168.4.31:8090/chassis/moves" -Method Post -ContentType "application/json" -Body $moveBody
     
@@ -154,14 +189,16 @@ try {
     Write-Host "Waiting for robot to stabilize..."
     Start-Sleep -Seconds 2
     
+    $coords = Get-LiveCoordinates -pointName "050_load"
+    
     $alignBody = @{
         type = "align_with_rack"
-        target_x = -2.847
-        target_y = 2.311
+        target_x = $coords.x
+        target_y = $coords.y
         target_z = 0
-        target_ori = 0
+        target_ori = $coords.orientation
         creator = "test"
-        point_id = "050_load"  # Using load point without _docking suffix
+        point_id = $coords.id  # Use the numeric ID from map sync service
     } | ConvertTo-Json
     $alignResponse = Invoke-RestMethod -Uri "http://192.168.4.31:8090/chassis/moves" -Method Post -ContentType "application/json" -Body $alignBody
     
@@ -193,14 +230,17 @@ try {
 # Step 3: Jack up
 Write-Host "`nStep 3: Jacking up..." -ForegroundColor Yellow
 try {
+    $coords = Get-LiveCoordinates -pointName "050_load"
+    
     $jackBody = @{
         type = "standard"
-        target_x = -2.847
-        target_y = 2.311
+        target_x = $coords.x
+        target_y = $coords.y
         target_z = 0.2
-        target_ori = 0
+        target_ori = $coords.orientation
         creator = "test"
         speed = 0.1
+        point_id = $coords.id  # Use the numeric ID from map sync service
     } | ConvertTo-Json
     $jackResponse = Invoke-RestMethod -Uri "http://192.168.4.31:8090/chassis/moves" -Method Post -ContentType "application/json" -Body $jackBody
     
@@ -219,12 +259,14 @@ try {
 # Step 4: Move to 110_load_docking
 Write-Host "`nStep 4: Moving to 110_load_docking..." -ForegroundColor Yellow
 try {
+    $coords = Get-LiveCoordinates -pointName "110_load_docking"
+    
     $moveBody = @{
         type = "standard"
-        target_x = -5.660  # Correct coordinates from terminal output
-        target_y = 14.52
+        target_x = $coords.x
+        target_y = $coords.y
         target_z = 0.2
-        target_ori = 271.07
+        target_ori = $coords.orientation
         creator = "test"
         properties = @{
             max_trans_vel = 0.5
@@ -233,7 +275,7 @@ try {
             acc_lim_theta = 0.5
             planning_mode = "directional"
         }
-        point_id = "110_load_docking"
+        point_id = $coords.id  # Use the numeric ID from map sync service
     } | ConvertTo-Json
     $moveResponse = Invoke-RestMethod -Uri "http://192.168.4.31:8090/chassis/moves" -Method Post -ContentType "application/json" -Body $moveBody
     
@@ -252,14 +294,16 @@ try {
 # Step 5: Unload bin using to_unload_point
 Write-Host "`nStep 5: Unloading bin..." -ForegroundColor Yellow
 try {
+    $coords = Get-LiveCoordinates -pointName "110_load"
+    
     $unloadBody = @{
         type = "to_unload_point"
-        target_x = -5.68766632312645  # Original coordinates for 110_load
-        target_y = 15.347413058037773
+        target_x = $coords.x
+        target_y = $coords.y
         target_z = 0.2
-        target_ori = 271.07
+        target_ori = $coords.orientation
         creator = "test"
-        point_id = "110_load"
+        point_id = $coords.id  # Use the numeric ID from map sync service
     } | ConvertTo-Json
     $unloadResponse = Invoke-RestMethod -Uri "http://192.168.4.31:8090/chassis/moves" -Method Post -ContentType "application/json" -Body $unloadBody
     
@@ -291,23 +335,25 @@ try {
 # Step 7: Return to charger
 Write-Host "`nStep 7: Returning to charger..." -ForegroundColor Yellow
 try {
+    $coords = Get-LiveCoordinates -pointName "Charging Station"
+    
     $chargerBody = @{
-        type = "charge"  # Correct move type for charger docking
-        target_x = 0.03443853667262486  # Known charger coordinates
-        target_y = 0.4981316698765672
+        type = "charge"
+        target_x = $coords.x
+        target_y = $coords.y
         target_z = 0
-        target_ori = 266.11
-        target_accuracy = 0.05  # 5cm accuracy required for docking
-        charge_retry_count = 5  # Allow up to 5 retry attempts
+        target_ori = $coords.orientation
+        target_accuracy = 0.05
+        charge_retry_count = 5
         creator = "test"
         properties = @{
-            max_trans_vel = 0.2  # Slower speed for more accurate docking
+            max_trans_vel = 0.2
             max_rot_vel = 0.2
             acc_lim_x = 0.2
             acc_lim_theta = 0.2
             planning_mode = "directional"
         }
-        point_id = "Charging Station_docking"
+        point_id = $coords.id  # Use the numeric ID from map sync service
     } | ConvertTo-Json
     $chargerResponse = Invoke-RestMethod -Uri "http://192.168.4.31:8090/chassis/moves" -Method Post -ContentType "application/json" -Body $chargerBody
     

@@ -11,7 +11,7 @@
  */
 
 import { Express, Request, Response } from 'express';
-import robotPointsMap, { pointDisplayMappings, PointDisplayMapping } from './robot-points-map';
+import robotPointsMap, { pointDisplayMappings, PointDisplayMapping } from './map-adapter';
 
 /**
  * Register refresh points API routes
