@@ -96,14 +96,31 @@ export async function fetchMapData(mapId: string, serialNumber: string = DEFAULT
     
     if (response.data) {
       const data = response.data as RobotMapDetails;
+      console.log(`Raw map data for ${mapId}:`, JSON.stringify(data, null, 2));
+      
       // Check if the response contains the expected overlays with points
-      if (data.overlays && data.overlays.features) {
-        const pointFeatures = data.overlays.features.filter(
-          (f: any) => f.geometry?.type === 'Point' && f.properties?.id
-        );
-        console.log(`Found ${pointFeatures.length} point features in map ${mapId}`);
+      if (data.overlays) {
+        if (typeof data.overlays === 'string') {
+          try {
+            const parsedOverlays = JSON.parse(data.overlays);
+            console.log(`Parsed overlays for map ${mapId}:`, JSON.stringify(parsedOverlays, null, 2));
+            data.overlays = parsedOverlays;
+          } catch (e) {
+            console.error(`Failed to parse overlays string for map ${mapId}:`, e);
+          }
+        }
+        
+        const overlays = data.overlays;
+        if (overlays && typeof overlays === 'object' && 'features' in overlays) {
+          const pointFeatures = overlays.features.filter(
+            (f: any) => f.geometry?.type === 'Point' && f.properties?.id
+          );
+          console.log(`Found ${pointFeatures.length} point features in map ${mapId}`);
+        } else {
+          console.log(`Map ${mapId} has overlays but no features array`);
+        }
       } else {
-        console.log(`Map ${mapId} found but no overlays or points detected`);
+        console.log(`Map ${mapId} found but no overlays detected`);
       }
       
       return data;

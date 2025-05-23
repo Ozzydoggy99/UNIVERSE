@@ -39,10 +39,10 @@ const DEFAULT_ROBOT = {
 };
 
 // Default robot serial number
-export const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
-export const ROBOT_API_URL = 'http://192.168.4.31:8090';
-export const ROBOT_SECRET = '667a51a4d948433081a272c78d10a8a4';
-export const ROBOT_SERIAL = 'L382502104987ir';
+const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
+const ROBOT_API_URL = 'http://192.168.4.31:8090';
+const ROBOT_SECRET = '667a51a4d948433081a272c78d10a8a4';
+const ROBOT_SERIAL = 'L382502104987ir';
 
 // In-memory storage for robot credentials
 const robotCredentialCache = new Map<string, {
@@ -83,7 +83,7 @@ async function writeCredentials(credentials: Record<string, RobotCredentials>) {
 }
 
 // Function to get robot credentials
-export async function getRobotCredentials(serialNumber: string = DEFAULT_ROBOT_SERIAL) {
+async function getRobotCredentials(serialNumber: string = DEFAULT_ROBOT_SERIAL) {
   // Check cache first
   const cachedCreds = robotCredentialCache.get(serialNumber);
   if (cachedCreds) {
@@ -108,25 +108,25 @@ export async function getRobotCredentials(serialNumber: string = DEFAULT_ROBOT_S
 }
 
 // Get robot API URL
-export async function getRobotApiUrl(serialNumber: string = ROBOT_SERIAL): Promise<string> {
+async function getRobotApiUrl(serialNumber: string = ROBOT_SERIAL): Promise<string> {
   const credentials = await getRobotCredentials(serialNumber);
   return `http://${credentials.ipAddress}:${credentials.port}`;
 }
 
 // Get robot WebSocket URL
-export async function getRobotWsUrl(serialNumber: string = ROBOT_SERIAL): Promise<string> {
+async function getRobotWsUrl(serialNumber: string = ROBOT_SERIAL): Promise<string> {
   const credentials = await getRobotCredentials(serialNumber);
   return `ws://${credentials.ipAddress}:${credentials.port}/ws/v2/topics`;
 }
 
 // Get robot secret
-export async function getRobotSecret(serialNumber: string = ROBOT_SERIAL): Promise<string> {
+async function getRobotSecret(serialNumber: string = ROBOT_SERIAL): Promise<string> {
   const credentials = await getRobotCredentials(serialNumber);
   return credentials.secret;
 }
 
 // Get auth headers
-export async function getAuthHeaders(serialNumber: string = ROBOT_SERIAL): Promise<Record<string, string>> {
+async function getAuthHeaders(serialNumber: string = ROBOT_SERIAL): Promise<Record<string, string>> {
   const secret = await getRobotSecret(serialNumber);
   return {
     'APPCODE': secret,
@@ -135,7 +135,7 @@ export async function getAuthHeaders(serialNumber: string = ROBOT_SERIAL): Promi
 }
 
 // Update robot credentials
-export async function updateRobotCredentials(
+async function updateRobotCredentials(
   serialNumber: string,
   ipAddress: string,
   port: number,
@@ -156,7 +156,7 @@ export async function updateRobotCredentials(
 }
 
 // Delete robot credentials
-export async function deleteRobotCredentials(serialNumber: string): Promise<void> {
+async function deleteRobotCredentials(serialNumber: string): Promise<void> {
   // Remove from cache
   robotCredentialCache.delete(serialNumber);
 
@@ -167,7 +167,7 @@ export async function deleteRobotCredentials(serialNumber: string): Promise<void
 }
 
 // List all robot credentials
-export async function listRobotCredentials(): Promise<Array<{
+async function listRobotCredentials(): Promise<Array<{
   serialNumber: string;
   ipAddress: string;
   port: number;
@@ -179,3 +179,17 @@ export async function listRobotCredentials(): Promise<Array<{
     port
   }));
 }
+
+export {
+  DEFAULT_ROBOT_SERIAL,
+  ROBOT_API_URL,
+  ROBOT_SECRET,
+  ROBOT_SERIAL,
+  getRobotApiUrl,
+  getRobotWsUrl,
+  getRobotSecret,
+  getAuthHeaders,
+  updateRobotCredentials,
+  deleteRobotCredentials,
+  listRobotCredentials
+};

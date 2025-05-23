@@ -6,7 +6,7 @@
  */
 
 import { fetchRobotMapPoints } from './robot-map-data';
-import { default as robotPointsMapDefault } from './robot-points-map';
+import robotPointsMap from './map-adapter';
 
 // Define Point interface to match what we need internally
 interface Point {
@@ -18,7 +18,7 @@ interface Point {
 // Cache to store live points from robot
 let cachedPoints: Point[] = [];
 let lastFetchTime = 0;
-const CACHE_TTL = 60000; // 1 minute cache validity
+const CACHE_TTL = 30000; // 30 seconds
 
 /**
  * Get point coordinates by ID, combining static map with live robot data
@@ -87,7 +87,7 @@ export async function getPointCoordinates(pointId: string): Promise<Point | null
  */
 function getStaticPointCoordinates(pointId: string): Point | null {
   try {
-    // Access the static map from server/robot-points-map.ts
+    // Access the static map from map adapter
     const floorIds = robotPointsMap.getFloorIds();
     
     for (const floorId of floorIds) {
