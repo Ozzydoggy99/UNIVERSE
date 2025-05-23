@@ -1,17 +1,16 @@
-console.log('Script is running!');
-
-// import express from 'express';
-// import axios from 'axios';
-// import * as fs from 'fs';
-// import * as path from 'path';
-// import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants.js';
+import 'dotenv/config';
+import express from 'express';
+import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
+import { ROBOT_API_URL, ROBOT_SECRET } from './robot-constants.js';
 // import { fetchRobotMapPoints } from './robot-map-data.js';
 // import { isRobotCharging, isEmergencyStopPressed, returnToCharger } from './robot-api.js';
 // import { missionQueue } from './mission-queue.js';
 // import { MissionStep } from './mission-queue.js';
 // import { Point } from './types.js';
 
-console.log('Imports succeeded!');
+console.log('Script is running!');
 
 // Default robot serial number
 const DEFAULT_ROBOT_SERIAL = 'L382502104987ir';
@@ -122,7 +121,7 @@ async function moveToPoint(x: number, y: number, ori: number, label: string): Pr
         const posResponse = await axios.get(`${ROBOT_API_URL}/chassis/pose`, { headers });
         const pos = posResponse.data;
         logWorkflow(`Current position: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, orientation: ${pos.ori.toFixed(2)})`);
-      } catch (posError) {
+      } catch (posError: any) {
         logWorkflow(`Unable to get robot position: ${posError.message}`);
       }
       
