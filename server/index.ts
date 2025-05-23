@@ -6,10 +6,37 @@ import http from "http";
 import { setupRobotWebSocketServer } from './robot-websocket.js';
 import { startMapSync, mapSyncEvents, getCurrentMapData } from './map-sync-service.js';
 import { setupMapWebSocketServer } from './map-websocket.js';
+import session from 'express-session';
+import passport from 'passport';
+import SQLiteStore from 'connect-sqlite3';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import authRoutes from './auth/routes.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const SQLiteStoreSession = SQLiteStore(session);
+
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(session({
+  store: new SQLiteStoreSession({
+    db: 'sessions.db',
+    dir: path.join(__dirname, '../data'),
+  }),
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+  },
+}));
+
+// Initialize Passport and restore authentication state from session
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Add test endpoint BEFORE server setup
 app.get('/api/test', (req, res) => {
@@ -119,6 +146,17 @@ async function startServer() {
       await setupVite(app, server);
     } else {
       serveStatic(app);
+    }
+
+    // Routes
+    app.use('/api/auth', authRoutes);
+
+    // Serve static files in production
+    if (process.env.NODE_ENV === 'production') {
+      app.use(express.static(path.join(__dirname, '../dist')));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../dist/index.html'));
+      });
     }
 
     // Try multiple ports starting with 5000

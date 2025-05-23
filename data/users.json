@@ -1,0 +1,16 @@
+{
+  "1": {
+    "id": 1,
+    "username": "admin",
+    "password": "bbe94573b914eb32c691ee9bea3f80b2644d519463a35b1a269adab6dbaee940b44a6708aab62a01a48428bc6d95ba734c5503b3182d49ecb5ed6ace1a328036.991bfaac4be60542482e3bc07ce280f9",
+    "role": "admin",
+    "templateId": null
+  },
+  "2": {
+    "id": 2,
+    "username": "test",
+    "password": "7718b229c0f868ab060464410c9b066ee7ddfd6befdcca1360b0137c8916934d7a782080300932924546043fd9a74ce39ab4c78875ebfbb689b0bbb9c1be7200.7925e2f823b87b3be127020713599c11",
+    "role": "user",
+    "templateId": null
+  }
+}
